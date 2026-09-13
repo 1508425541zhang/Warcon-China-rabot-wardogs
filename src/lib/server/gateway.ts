@@ -36,6 +36,8 @@ export interface Gateway {
 	settingsChanged(env: Env): Promise<void>;
 	/** A trigger on this server was created, changed or deleted: drop the worker's cached rule set. */
 	triggersChanged(serverId: string): void;
+	/** A status-card webhook was added or changed: post or fix the cards now rather than at the next tick. */
+	statusChanged(): void;
 	/** Live events (observations, deliveries). */
 	subscribe(fn: (e: WarconEvent) => void): () => void;
 	/** The worker's scheduler stats (for /api/health and the settings page). */

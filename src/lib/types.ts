@@ -1,4 +1,5 @@
 // Shapes shared by pages, API routes and the action registry.
+import type { StatusStyle } from './status-styles';
 import type { OrgRole } from '$lib/server/access';
 import type { BuiltinRole, Capability } from '$lib/capabilities';
 
@@ -408,6 +409,10 @@ export interface WebhookView {
 	events: string[];
 	serverIds: string[] | null;
 	enabled: boolean;
+	/** keeps a live status card per covered server in the channel, edited in place */
+	statusEnabled: boolean;
+	statusStyle: StatusStyle;
+	statusSentAt: string | null;
 	lastSentAt: string | null;
 	lastStatus: number | null;
 	lastError: string;

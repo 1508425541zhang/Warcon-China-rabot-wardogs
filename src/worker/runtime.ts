@@ -108,6 +108,9 @@ async function relay(env: Env, path: string, url: URL, req: Request): Promise<Re
 		case '/triggers-changed':
 			localGateway.triggersChanged(String(body.serverId));
 			return ok(null);
+		case '/status-changed':
+			localGateway.statusChanged();
+			return ok(null);
 		case '/events': {
 			const encoder = new TextEncoder();
 			let unsubscribe = () => {};

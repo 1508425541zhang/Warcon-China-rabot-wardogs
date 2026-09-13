@@ -33,6 +33,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		roles,
 		keys,
 		webhookEvents: Object.entries(WEBHOOK_EVENT_LABELS).map(([key, label]) => ({ key, label })),
+		https: env.ORIGIN.startsWith('https://'),
 		discord: discordEnabled(env)
 	};
 };

@@ -9,6 +9,7 @@ import { writeAudit } from './audit';
 import type { OrgRow, SessionUser } from './access';
 import { webhooks, type WebhookRow } from './db/schema';
 import {
+	deleteDiscord,
 	invalidateWebhookCache,
 	orgServerIds,
 	postDiscord,
@@ -17,6 +18,10 @@ import {
 	type WebhookEvent
 } from './webhook-delivery';
 import type { WebhookView } from '$lib/types';
+import { isStatusStyle, type StatusStyle } from '$lib/status-styles';
+import { gateway } from './gateway';
+import { servers } from './db/schema';
+import { statusMessage } from './webhook-status-core';
 
 export { WEBHOOK_EVENTS, WEBHOOK_EVENT_LABELS } from './webhook-delivery';
 
@@ -49,11 +54,31 @@ export function validateWebhookUrl(raw: unknown): { url: string; hint: string } 
 	};
 }
 
-function parseEvents(raw: unknown): WebhookEvent[] {
+/** A webhook must do something: mirror at least one event class, or keep the status message. */
+function parseEvents(raw: unknown, statusEnabled: boolean): WebhookEvent[] {
 	const list = Array.isArray(raw) ? raw : [];
 	const events = WEBHOOK_EVENTS.filter((e) => list.includes(e));
-	if (!events.length) throw new ApiError(400, 'Pick at least one kind of event to mirror.');
+	if (!events.length && !statusEnabled)
+		throw new ApiError(
+			400,
+			'Pick at least one kind of event to mirror, or turn on the live status message.'
+		);
 	return events;
+}
+
+function parseStyle(raw: unknown): StatusStyle {
+	if (!isStatusStyle(raw))
+		throw new ApiError(400, 'Pick a card style: banner, compact or scoreboard.');
+	return raw;
+}
+
+/** Takes the status messages out of the channel (best effort; Discord may already have lost them). */
+async function removeStatusMessages(
+	env: Env,
+	row: Pick<WebhookRow, 'urlEnc' | 'statusMessages'>
+): Promise<void> {
+	const ids = Object.values((row.statusMessages as Record<string, string> | null) ?? {});
+	for (const id of ids) await deleteDiscord(env, row, id);
 }
 
 async function parseServers(env: Env, orgId: string, raw: unknown): Promise<string[] | null> {
@@ -71,6 +96,9 @@ const shape = (w: WebhookRow): WebhookView => ({
 	events: (w.events as string[]) || [],
 	serverIds: (w.serverIds as string[] | null) ?? null,
 	enabled: w.enabled,
+	statusEnabled: w.statusEnabled,
+	statusStyle: w.statusStyle,
+	statusSentAt: w.statusSentAt ? w.statusSentAt.toISOString() : null,
 	lastSentAt: w.lastSentAt ? w.lastSentAt.toISOString() : null,
 	lastStatus: w.lastStatus,
 	lastError: w.lastError,
@@ -104,7 +132,9 @@ export async function createWebhook(
 	body: Record<string, unknown>
 ): Promise<WebhookView> {
 	const { url, hint } = validateWebhookUrl(body.url);
-	const events = parseEvents(body.events);
+	const statusEnabled = !!body.statusEnabled;
+	const statusStyle = body.statusStyle === undefined ? 'banner' : parseStyle(body.statusStyle);
+	const events = parseEvents(body.events, statusEnabled);
 	const serverIds = await parseServers(env, org.id, body.serverIds);
 	const label = str(body.label, 60) || 'Discord';
 	const [row] = await env.db
@@ -118,10 +148,13 @@ export async function createWebhook(
 			events,
 			serverIds,
 			enabled: body.enabled === undefined ? true : !!body.enabled,
+			statusEnabled,
+			statusStyle,
 			createdBy: user.id
 		})
 		.returning();
 	invalidateWebhookCache(org.id);
+	if (statusEnabled) gateway().statusChanged();
 	await writeAudit(env, req, {
 		actor: user,
 		orgId: org.id,
@@ -129,7 +162,15 @@ export async function createWebhook(
 		action: 'org.webhook.create',
 		target: label,
 		outcome: 'ok',
-		detail: { orgId: org.id, webhookId: row.id, hint, events, serverIds }
+		detail: {
+			orgId: org.id,
+			webhookId: row.id,
+			hint,
+			events,
+			serverIds,
+			statusEnabled,
+			statusStyle
+		}
 	});
 	return shape(row);
 }
@@ -146,6 +187,9 @@ export async function updateWebhook(
 	const set: Partial<typeof webhooks.$inferInsert> = {};
 	const changes: Record<string, unknown> = {};
 	if (body.label !== undefined) changes.label = set.label = str(body.label, 60) || row.label;
+	// The status messages belong to one channel and one webhook: a new URL, a pause or switching
+	// them off all take the old messages down rather than leave stale ones behind.
+	let dropMessage = false;
 	if (typeof body.url === 'string' && body.url.trim()) {
 		const { url, hint } = validateWebhookUrl(body.url);
 		set.urlEnc = encryptSecret(env, url);
@@ -153,12 +197,34 @@ export async function updateWebhook(
 		set.lastError = '';
 		set.lastStatus = null;
 		changes.hint = hint;
+		dropMessage = true;
 	}
-	if (body.events !== undefined) changes.events = set.events = parseEvents(body.events);
+	if (body.statusEnabled !== undefined) {
+		changes.statusEnabled = set.statusEnabled = !!body.statusEnabled;
+		if (!set.statusEnabled) dropMessage = true;
+	}
+	if (body.statusStyle !== undefined)
+		changes.statusStyle = set.statusStyle = parseStyle(body.statusStyle);
+	const statusEnabled = set.statusEnabled ?? row.statusEnabled;
+	if (body.events !== undefined)
+		changes.events = set.events = parseEvents(body.events, statusEnabled);
+	else if (!statusEnabled && !((row.events as string[]) || []).length)
+		throw new ApiError(
+			400,
+			'Pick at least one kind of event to mirror, or keep the live status message on.'
+		);
 	if (body.serverIds !== undefined)
 		changes.serverIds = set.serverIds = await parseServers(env, org.id, body.serverIds);
-	if (body.enabled !== undefined) changes.enabled = set.enabled = !!body.enabled;
+	if (body.enabled !== undefined) {
+		changes.enabled = set.enabled = !!body.enabled;
+		if (!set.enabled) dropMessage = true;
+	}
 	if (!Object.keys(changes).length) throw new ApiError(400, 'Nothing to update.');
+	if (dropMessage && row.statusMessages) {
+		await removeStatusMessages(env, row);
+		set.statusMessages = null;
+		set.statusSentAt = null;
+	}
 	set.updatedAt = new Date();
 	const [updated] = await env.db
 		.update(webhooks)
@@ -166,6 +232,7 @@ export async function updateWebhook(
 		.where(eq(webhooks.id, row.id))
 		.returning();
 	invalidateWebhookCache(org.id);
+	if (updated.statusEnabled && updated.enabled) gateway().statusChanged();
 	await writeAudit(env, req, {
 		actor: user,
 		orgId: org.id,
@@ -186,6 +253,7 @@ export async function deleteWebhook(
 	id: string
 ): Promise<void> {
 	const row = await webhookOf(env, org.id, id);
+	await removeStatusMessages(env, row);
 	await env.db.delete(webhooks).where(eq(webhooks.id, row.id));
 	invalidateWebhookCache(org.id);
 	await writeAudit(env, req, {
@@ -237,6 +305,75 @@ export async function testWebhook(
 		status: result.status || undefined,
 		message: result.ok ? 'Test message delivered.' : result.error,
 		detail: { orgId: org.id, webhookId: row.id }
+	});
+	return result;
+}
+
+/** How long a test card stays in the channel. */
+const TEST_CARD_MS = 60_000;
+
+/**
+ * Posts one status card for a server this webhook covers, from the worker's latest look, and
+ * takes it down again a minute later: a way to see a style before living with it.
+ */
+export async function sendTestCard(
+	env: Env,
+	req: Request,
+	user: SessionUser,
+	org: OrgRow,
+	id: string,
+	serverId: string
+): Promise<PostResult> {
+	const row = await webhookOf(env, org.id, id);
+	if (!row.statusEnabled) throw new ApiError(400, 'This webhook does not keep status cards.');
+	const only = row.serverIds as string[] | null;
+	if (only && only.length && !only.includes(serverId))
+		throw new ApiError(400, 'This webhook does not cover that server.');
+	const [server] = await env.db
+		.select({ id: servers.id, name: servers.name })
+		.from(servers)
+		.where(and(eq(servers.id, serverId), eq(servers.orgId, org.id)))
+		.limit(1);
+	if (!server) throw new ApiError(404, 'Server not found.');
+	const live = (await gateway().live(env, [server.id])).get(server.id) ?? null;
+	const { payload } = statusMessage(
+		{
+			appName: env.APP_NAME || 'Warcon',
+			orgName: org.name,
+			origin: env.ORIGIN,
+			now: Date.now(),
+			style: row.statusStyle
+		},
+		server,
+		live
+	);
+	const result = await postDiscord(env, row, {
+		...payload,
+		content: `Test card from **${user.username}** · gone in a minute`
+	});
+	if (result.ok && result.messageId) {
+		const messageId = result.messageId;
+		setTimeout(() => void deleteDiscord(env, row, messageId), TEST_CARD_MS);
+	}
+	await env.db
+		.update(webhooks)
+		.set({
+			lastSentAt: result.ok ? new Date() : undefined,
+			lastStatus: result.status,
+			lastError: result.ok ? '' : result.error.slice(0, 300)
+		})
+		.where(eq(webhooks.id, row.id));
+	await writeAudit(env, req, {
+		actor: user,
+		orgId: org.id,
+		server,
+		category: 'org',
+		action: 'org.webhook.testcard',
+		target: row.label,
+		outcome: result.ok ? 'ok' : 'error',
+		status: result.status || undefined,
+		message: result.ok ? 'Test card delivered.' : result.error,
+		detail: { orgId: org.id, webhookId: row.id, serverId: server.id, style: row.statusStyle }
 	});
 	return result;
 }

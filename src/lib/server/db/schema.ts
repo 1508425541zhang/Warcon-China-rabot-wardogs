@@ -516,6 +516,15 @@ export const webhooks = pgTable(
 		/** null = every server in the org */
 		serverIds: jsonb('server_ids'),
 		enabled: boolean('enabled').notNull().default(true),
+		/** keep a live status message per covered server, edited in place; see webhook-status.ts */
+		statusEnabled: boolean('status_enabled').notNull().default(false),
+		/** how the cards look; see $lib/status-styles */
+		statusStyle: text('status_style', { enum: ['banner', 'compact', 'scoreboard'] })
+			.notNull()
+			.default('banner'),
+		/** server id -> the Discord id of its message, once posted */
+		statusMessages: jsonb('status_messages'),
+		statusSentAt: ts('status_sent_at'),
 		lastSentAt: ts('last_sent_at'),
 		lastStatus: integer('last_status'),
 		lastError: text('last_error').notNull().default(''),

@@ -85,12 +85,27 @@ async function orgOfServer(env: Env, serverId: string): Promise<string | null> {
 
 // ---- embeds -------------------------------------------------------------------------------------
 
+export interface EmbedField {
+	name: string;
+	value: string;
+	inline?: boolean;
+}
 export interface Embed {
 	title: string;
 	description: string;
 	color: number;
 	timestamp: string;
-	footer?: { text: string };
+	url?: string;
+	author?: { name: string; icon_url?: string; url?: string };
+	thumbnail?: { url: string };
+	image?: { url: string };
+	fields?: EmbedField[];
+	footer?: { text: string; icon_url?: string };
+}
+
+export interface DiscordPayload {
+	content?: string;
+	embeds?: Embed[];
 }
 
 const COLORS = { ok: 0x7bc462, error: 0xd86060, denied: 0x8a8a90 } as const;
@@ -219,13 +234,26 @@ export interface PostResult {
 	status: number;
 	error: string;
 	retryAfterMs?: number;
+	/** the id of the message Discord created or edited */
+	messageId?: string;
+	/** Discord no longer has the message we tried to edit or delete (someone removed it) */
+	unknownMessage?: boolean;
 }
 
-/** One POST to the webhook. Never throws. */
-export async function postDiscord(
+/** Discord's error code for "Unknown Message". */
+const UNKNOWN_MESSAGE = 10008;
+
+/**
+ * One request to the webhook: `path` is appended to the webhook URL (the message subresource
+ * for edits and deletes). The URL is the credential, so it is decrypted here and nowhere else.
+ * Never throws.
+ */
+async function discordCall(
 	env: Env,
 	hook: Pick<WebhookRow, 'urlEnc'>,
-	payload: { content?: string; embeds?: Embed[] }
+	method: 'POST' | 'PATCH' | 'DELETE',
+	path: string,
+	body?: Record<string, unknown>
 ): Promise<PostResult> {
 	let url: string;
 	try {
@@ -234,19 +262,15 @@ export async function postDiscord(
 		return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
 	}
 	try {
-		const res = await fetch(url + '?wait=true', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({
-				username: env.APP_NAME || 'Warcon',
-				allowed_mentions: { parse: [] },
-				...payload
-			}),
+		const res = await fetch(url + path, {
+			method,
+			headers: body ? { 'content-type': 'application/json' } : undefined,
+			body: body ? JSON.stringify(body) : undefined,
 			signal: AbortSignal.timeout(10_000)
 		});
 		if (res.status === 429) {
-			const body = (await res.json().catch(() => ({}))) as { retry_after?: number };
-			const retry = Number(res.headers.get('retry-after')) || Number(body.retry_after) || 5;
+			const data = (await res.json().catch(() => ({}))) as { retry_after?: number };
+			const retry = Number(res.headers.get('retry-after')) || Number(data.retry_after) || 5;
 			return {
 				ok: false,
 				status: 429,
@@ -256,13 +280,25 @@ export async function postDiscord(
 		}
 		if (!res.ok) {
 			const text = (await res.text().catch(() => '')).slice(0, 200);
+			let code = 0;
+			try {
+				code = Number((JSON.parse(text) as { code?: number }).code) || 0;
+			} catch {
+				// not JSON; the text is the whole message
+			}
 			return {
 				ok: false,
 				status: res.status,
-				error: `Discord answered ${res.status}. ${text}`.trim()
+				error: `Discord answered ${res.status}. ${text}`.trim(),
+				unknownMessage: code === UNKNOWN_MESSAGE
 			};
 		}
-		return { ok: true, status: res.status, error: '' };
+		let messageId: string | undefined;
+		if (res.status !== 204) {
+			const data = (await res.json().catch(() => ({}))) as { id?: unknown };
+			if (typeof data.id === 'string') messageId = data.id;
+		}
+		return { ok: true, status: res.status, error: '', messageId };
 	} catch (err) {
 		return {
 			ok: false,
@@ -273,6 +309,41 @@ export async function postDiscord(
 					: 'Could not reach Discord.'
 		};
 	}
+}
+
+/** Posts a new message; the result carries its id. Never throws. */
+export function postDiscord(
+	env: Env,
+	hook: Pick<WebhookRow, 'urlEnc'>,
+	payload: DiscordPayload
+): Promise<PostResult> {
+	return discordCall(env, hook, 'POST', '?wait=true', {
+		username: env.APP_NAME || 'Warcon',
+		allowed_mentions: { parse: [] },
+		...payload
+	});
+}
+
+/** Replaces the content of a message this webhook posted earlier. Never throws. */
+export function editDiscord(
+	env: Env,
+	hook: Pick<WebhookRow, 'urlEnc'>,
+	messageId: string,
+	payload: DiscordPayload
+): Promise<PostResult> {
+	return discordCall(env, hook, 'PATCH', `/messages/${encodeURIComponent(messageId)}`, {
+		allowed_mentions: { parse: [] },
+		...payload
+	});
+}
+
+/** Removes a message this webhook posted earlier. Never throws. */
+export function deleteDiscord(
+	env: Env,
+	hook: Pick<WebhookRow, 'urlEnc'>,
+	messageId: string
+): Promise<PostResult> {
+	return discordCall(env, hook, 'DELETE', `/messages/${encodeURIComponent(messageId)}`);
 }
 
 export async function recordResult(env: Env, id: string, result: PostResult): Promise<void> {
