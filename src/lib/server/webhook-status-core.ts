@@ -4,6 +4,8 @@
 // This module is pure so the layout is testable; it also derives the key that says whether the
 // substance changed since the last edit (Discord renders the relative clock itself, so the
 // clocks are not part of it) and keeps every part inside Discord's length limits.
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { FactionScore, LiveView, Player } from '$lib/types';
 import { factionColor, fmtDuration, isMod, mapName, prettify, zoneLabel } from '$lib/format';
 import { mapArtCandidates } from '$lib/map-art';
@@ -86,6 +88,30 @@ export function squareFor(colorHex: string | null | undefined, name: string, ind
 	if (h < 170) return SQUARES.green;
 	if (h < 260) return SQUARES.blue;
 	return SQUARES.purple;
+}
+
+/** Where the static files are: next to the built app in a container, the source tree in dev. */
+const STATIC_ROOTS = ['build/client', 'static'].map((d) => resolve(process.cwd(), d));
+const artSeen = new Map<string, boolean>();
+
+/**
+ * The first candidate art URL whose file is actually there. Discord fetches one URL and shows
+ * nothing on a miss, so unlike the page this cannot fall through on error. Without a static
+ * folder to check (an unusual working directory) the best guess goes out.
+ */
+export function firstArt(candidates: string[]): string | null {
+	if (!candidates.length) return null;
+	const roots = STATIC_ROOTS.filter((r) => existsSync(r));
+	if (!roots.length) return candidates[0];
+	for (const c of candidates) {
+		let hit = artSeen.get(c);
+		if (hit === undefined) {
+			hit = roots.some((r) => existsSync(resolve(r, '.' + decodeURIComponent(c))));
+			artSeen.set(c, hit);
+		}
+		if (hit) return c;
+	}
+	return null;
 }
 
 const bar = (filled: number, total: number, on: string, off: string) =>
@@ -175,8 +201,11 @@ export function buildStatusEmbed(
 	};
 	if (!live || !live.observedAt) return { ...base, description: '⚪ Waiting for the first look.' };
 	const s = live.status;
-	const art = (variant: 'wide' | 'square') =>
-		https && s ? opts.origin + mapArtCandidates(s.map, s.lighting, variant)[0] : null;
+	const art = (variant: 'wide' | 'square') => {
+		if (!https || !s) return null;
+		const path = firstArt(mapArtCandidates(s.map, s.lighting, variant));
+		return path ? opts.origin + path : null;
+	};
 	if (!live.ok || !s) {
 		const lines = ['🔴 **Unreachable**'];
 		if (live.error) lines.push(clip(live.error, 200));
