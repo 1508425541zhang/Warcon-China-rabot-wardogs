@@ -13,7 +13,8 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
-	let orgPath = $derived(`/orgs/${encodeURIComponent(data.server.orgId)}`);
+	let orgPage = $derived(`/orgs/${encodeURIComponent(data.server.orgId)}`);
+	let orgPath = $derived(`/api${orgPage}`);
 	let label = $state('');
 	let url = $state('');
 	let style = $state<StatusStyle>('banner');
@@ -148,7 +149,7 @@
 							>Disconnect</button
 						>
 					{:else}
-						<a class="btn btn-sm" href={orgPath}>Edit on the org page</a>
+						<a class="btn btn-sm" href={orgPage}>Edit on the org page</a>
 					{/if}
 				</span>
 			</div>
