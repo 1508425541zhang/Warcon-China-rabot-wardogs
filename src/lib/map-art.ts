@@ -2,17 +2,17 @@
 // static/maps). One image per map, lighting preset and crop; the console's own lookup order is
 // kept: the exact lighting, then DayClear, under the server's map id and then its display name.
 
+import { MAP_DISPLAY } from './format';
+
 export type MapArtVariant = '720' | 'square' | 'wide';
 
-/** Server map id <-> display name, both ways, so either spelling finds the folder. */
-const ALIAS: Record<string, string> = {
-	Kavkazi: 'Bakurani',
-	Bakurani: 'Kavkazi',
-	Europe: 'Ozeti',
-	Ozeti: 'Europe',
-	NorthAmerica: 'Zestafona',
-	Zestafona: 'NorthAmerica'
-};
+/**
+ * The folders under static/maps are named by map id (Kavkazi); a live server reports the
+ * display name (Bakurani), and a rotation entry the id. Both spellings resolve, id first.
+ */
+const ID_OF: Record<string, string> = Object.fromEntries(
+	Object.entries(MAP_DISPLAY).map(([id, name]) => [name, id])
+);
 
 const FALLBACK_LIGHTING = 'DayClear';
 
@@ -23,7 +23,12 @@ export function mapArtCandidates(
 	variant: MapArtVariant
 ): string[] {
 	if (!map) return [];
-	const dirs = [map, ALIAS[map]].filter(Boolean) as string[];
+	// The id's folder first: that is the one on disk, and a consumer that can try only one URL
+	// (a Discord embed) takes the head of this list.
+	const id = ID_OF[map] ?? map;
+	const dirs = [id, MAP_DISPLAY[id]].filter(
+		(d, i, all): d is string => !!d && all.indexOf(d) === i
+	);
 	const lights = [lighting, FALLBACK_LIGHTING].filter(
 		(l, i, all): l is string => !!l && all.indexOf(l) === i
 	);

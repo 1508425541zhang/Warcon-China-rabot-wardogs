@@ -170,6 +170,31 @@ describe('buildStatusEmbed', () => {
 	});
 });
 
+describe('map art', () => {
+	test('a live server names the map for display; the art lives under the id', () => {
+		const e = buildStatusEmbed(
+			opts,
+			server,
+			live({ status: { ...status, map: 'Bakurani', lighting: 'DayLateGrayFog' } })
+		);
+		expect(e.image?.url).toBe('https://rcon.example.com/maps/Kavkazi/DayLateGrayFog-wide.webp');
+	});
+	test('a lighting with no art falls back to day clear; an unknown map has no picture', () => {
+		const night = buildStatusEmbed(
+			opts,
+			server,
+			live({ status: { ...status, lighting: 'Night' } })
+		);
+		expect(night.image?.url).toBe('https://rcon.example.com/maps/Kavkazi/DayClear-wide.webp');
+		const nowhere = buildStatusEmbed(
+			opts,
+			server,
+			live({ status: { ...status, map: 'Atlantis' } })
+		);
+		expect(nowhere.image).toBeUndefined();
+	});
+});
+
 describe('styles', () => {
 	test('compact: thumbnail, one score line, counts per faction, the top three and the clock', () => {
 		const e = buildStatusEmbed({ ...opts, style: 'compact' }, server, live());
