@@ -46,8 +46,10 @@ on a container host, with the database wherever you like.
   at once, with a reason and an optional expiry; hand out reserved slots the same way. The worker
   keeps every server in line and shows where each entry stands; bans added outside the panel are
   left alone.
-- **Discord mirror**: an org owner points a channel webhook at the audit trail and picks what to
-  mirror (bans, commands, trigger actions, sign-ins…), per server if wanted.
+- **Discord mirror and status channels**: an org owner points a channel webhook at the audit trail
+  and picks what to mirror (bans, commands, trigger actions, sign-ins…), per server if wanted. A
+  webhook can also keep a live status card per server in its channel, edited in place by the
+  worker: players online, map art, mode, a score bar per faction and who is on each side.
 - **Everything the official console does**: status, scoreboard, kick/ban/kill/whisper/change-team,
   broadcasts, map override, next map, end/restart match, map rotation editing and saving, reserved
   slots, bans, score tick, sponsor image, a live cash-in-play chart for the current match, and the
@@ -326,6 +328,22 @@ actions, player notes and watchlist changes, management changes, sign-ins; for e
 subset. Events are batched into one message per burst, IP addresses are never sent, and the URL
 (which lets anyone post to the channel) is stored encrypted with `ENCRYPTION_KEY` and never shown
 again. **Test** posts a message right away; delivery failures show on the org page.
+
+A webhook can also keep a **live status card** for each server it covers (tick _Keep status
+cards in the channel_ on the org page, or open the server's **Discord** tab and paste a webhook
+there; pin what it posts). Three card styles: **banner** (the default) with the wide map art and a
+column of players per faction, **compact** with a map thumbnail, faction counts and the top
+three, and **scoreboard** with one ranked table across the factions. The worker edits each card
+in place; the banner shows: players online out of the slots
+with a bar, map, lighting, mode and zone, a ten-square score bar per faction in the faction's
+colour racing to the cap (the card's own colour bar follows the leader), match time, three columns of who is on each side with kills and deaths,
+the wide map art, and a relative "updated" stamp Discord keeps current on its own. An unreachable
+server shows red with the error and when it was last seen. Edits go out when something changed,
+at least 30 seconds apart (longer when many servers share one webhook), plus a refresh every five
+minutes, inside Discord's webhook limit. A card someone deleted from the channel is posted again;
+pausing the webhook, switching the option off or changing the URL removes the cards, and a server
+the webhook stops covering loses its card. Server links, map art and the icon point back at the
+panel and need `ORIGIN` to be https for the pictures to show.
 
 ### Accounts and personal data
 

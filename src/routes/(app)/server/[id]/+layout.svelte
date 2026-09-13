@@ -19,6 +19,10 @@
 		['/analytics', 'Analytics'],
 		['/log', 'Server log']
 	] as const;
+	// Discord webhooks are an org owner's to manage, so the tab shows for them alone.
+	let visibleTabs = $derived(
+		data.server.manager ? [...TABS, ['/discord', 'Discord'] as const] : [...TABS]
+	);
 	let base = $derived(`/server/${encodeURIComponent(data.server.id)}`);
 	let current = $derived(page.url.pathname.slice(base.length) || '');
 	// A dossier (/players/<steamId>) keeps the Players tab lit.
@@ -70,7 +74,7 @@
 	class="strip mb-5 gap-1 border-b border-white/8 pb-3"
 	aria-label="Server sections"
 >
-	{#each TABS as [path, label] (path)}
+	{#each visibleTabs as [path, label] (path)}
 		<a href="{base}{path}" class="tab-link {isCurrent(path) ? 'tab-link-active' : ''}">{label}</a>
 	{/each}
 </nav>

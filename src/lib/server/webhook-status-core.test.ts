@@ -1,0 +1,274 @@
+import { describe, expect, test } from 'bun:test';
+import type { LiveView, Player, Status } from '$lib/types';
+import {
+	buildStatusEmbed,
+	embedLength,
+	escapeMarkdown,
+	factionFields,
+	fitLines,
+	LIMITS,
+	modeLabel,
+	squareFor,
+	statusMessage
+} from './webhook-status-core';
+
+const opts = {
+	appName: 'Warcon',
+	orgName: 'Bakurani Boys',
+	origin: 'https://rcon.example.com',
+	now: Date.parse('2026-09-13T12:00:00Z')
+};
+const server = { id: 's1', name: 'EU #1' };
+const p = (name: string, faction: string | null, kills: number, deaths: number): Player => ({
+	name,
+	steamId: name,
+	faction,
+	kills,
+	deaths,
+	cash: 0,
+	ping: 30
+});
+const status: Status = {
+	serverName: 'EU #1',
+	map: 'Kavkazi',
+	experiences: ['Bakurani_KOTH_01'],
+	lighting: 'DayLateClear',
+	alternator: 'ZoneAlternator.Factory.Circle',
+	scoreTick: 24,
+	scoreTickMin: null,
+	scoreTickMax: null,
+	scoreCap: 100,
+	matchSeconds: 1523,
+	playerCount: 6,
+	maxPlayers: 100,
+	scores: [
+		{ name: 'Valkyra', colorHex: '#D86060', score: 34 },
+		{ name: 'Lonestar', colorHex: '#5B95D8', score: 27 },
+		{ name: 'Manticore', colorHex: '#7BC462', score: 30 }
+	],
+	rotationNow: 0,
+	rotationNext: 1
+};
+const players = [
+	p('Ghostpepper', 'Valkyra', 14, 6),
+	p('Mad Marmalade', 'Valkyra', 9, 11),
+	p('Nomad', 'Lonestar', 17, 8),
+	p('Willowisp', 'Lonestar', 11, 10),
+	p('QuietStorm', 'Manticore', 13, 7),
+	p('Rooikat', 'Manticore', 7, 3)
+];
+const live = (over: Partial<LiveView> = {}): LiveView => ({
+	serverId: 's1',
+	ok: true,
+	error: '',
+	tier: 'hot',
+	status,
+	players,
+	statusAt: '2026-09-13T11:59:50Z',
+	playersAt: '2026-09-13T11:59:50Z',
+	observedAt: '2026-09-13T11:59:50Z',
+	...over
+});
+
+describe('buildStatusEmbed', () => {
+	test('the card: bars, map line, faction rows, columns, art and author', () => {
+		const e = buildStatusEmbed(opts, server, live());
+		expect(e.title).toBe('EU #1');
+		expect(e.url).toBe('https://rcon.example.com/server/s1');
+		expect(e.color).toBe(0xd86060); // Valkyra leads
+		expect(e.author).toEqual({
+			name: 'Bakurani Boys',
+			icon_url: 'https://rcon.example.com/icon-192.png'
+		});
+		const lines = e.description.split('\n');
+		expect(lines[0]).toBe('🟢 **6 / 100** online  ▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱');
+		expect(lines[1]).toBe('**Bakurani** · Day Late Clear · King of the Hill · Factory Circle');
+		expect(lines[2]).toBe('🟥🟥🟥⬛⬛⬛⬛⬛⬛⬛ **34** Valkyra');
+		expect(lines[3]).toBe('🟩🟩🟩⬛⬛⬛⬛⬛⬛⬛ **30** Manticore');
+		expect(lines[4]).toBe('🟦🟦🟦⬛⬛⬛⬛⬛⬛⬛ **27** Lonestar');
+		expect(lines[5]).toBe('First to 100 · 0:25:23 played');
+		expect(lines).toHaveLength(6);
+		expect(e.fields?.map((f) => f.name)).toEqual([
+			'🟥 Valkyra · 2',
+			'🟩 Manticore · 2',
+			'🟦 Lonestar · 2',
+			'\u200b'
+		]);
+		expect(e.fields?.at(-1)?.value).toBe(
+			`Updated <t:${Date.parse('2026-09-13T11:59:50Z') / 1000}:R>`
+		);
+		expect(e.fields?.[2]).toEqual({
+			name: '🟦 Lonestar · 2',
+			value: '**Nomad** 17/8\n**Willowisp** 11/10',
+			inline: true
+		});
+		expect(e.image?.url).toBe('https://rcon.example.com/maps/Kavkazi/DayLateClear-wide.webp');
+		expect(e.timestamp).toBe('2026-09-13T11:59:50Z');
+		expect(e.footer?.text).toBe('Warcon');
+	});
+	test('the bar is green when people play with no scores yet, and falls back by faction name', () => {
+		const noScores = buildStatusEmbed(opts, server, live({ status: { ...status, scores: [] } }));
+		expect(noScores.color).toBe(0x7bc462);
+		const byName = buildStatusEmbed(
+			opts,
+			server,
+			live({ status: { ...status, scores: [{ name: 'BLU', colorHex: '', score: 9 }] } })
+		);
+		expect(byName.color).toBe(0x5b95d8);
+	});
+	test('an empty server is grey, has no columns, keeps the map; no images over http', () => {
+		const e = buildStatusEmbed(
+			{ ...opts, origin: 'http://localhost:5173' },
+			server,
+			live({ players: [], status: { ...status, playerCount: 0, scores: [], matchSeconds: null } })
+		);
+		expect(e.color).toBe(0x8a8a90);
+		expect(e.description).toContain('⚪ **0 / 100** online  ▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱');
+		expect(e.description).not.toContain('First to');
+		expect(e.fields?.map((f) => f.name)).toEqual(['\u200b']);
+		expect(e.image).toBeUndefined();
+		expect(e.author?.icon_url).toBeUndefined();
+	});
+	test('an unreachable server is red with the error, the clocks and the last map as thumbnail', () => {
+		const e = buildStatusEmbed(opts, server, live({ ok: false, error: 'Poll failed.' }));
+		expect(e.color).toBe(0xd86060);
+		expect(e.description).toContain('🔴 **Unreachable**\nPoll failed.\nLast seen <t:');
+		expect(e.thumbnail?.url).toBe('https://rcon.example.com/maps/Kavkazi/DayLateClear-square.webp');
+		expect(e.fields).toBeUndefined();
+	});
+	test('a server never looked at says so', () => {
+		const e = buildStatusEmbed(opts, server, null);
+		expect(e.description).toBe('⚪ Waiting for the first look.');
+	});
+	test('names are escaped and the unplaced get their own row', () => {
+		const e = buildStatusEmbed(
+			opts,
+			server,
+			live({ players: [...players, p('b*b_<t:1:R>', null, 1, 1), p('Ghost', 'Nobody', 0, 0)] })
+		);
+		const loose = e.fields?.find((f) => f.name.startsWith('Unassigned'));
+		expect(loose).toEqual({
+			name: 'Unassigned · 2',
+			value: '**b\\*b\\_\\<t:1:R\\>** 1/1\n**Ghost** 0/0',
+			inline: false
+		});
+	});
+	test('a full 100-slot server stays inside every limit', () => {
+		const many = Array.from({ length: 100 }, (_, i) =>
+			p(`Player_with_a_long_name_${i}`, ['Valkyra', 'Lonestar', 'Manticore'][i % 3], 100 - i, i)
+		);
+		const e = buildStatusEmbed(
+			opts,
+			server,
+			live({ players: many, status: { ...status, playerCount: 100 } })
+		);
+		for (const f of (e.fields ?? []).slice(0, 3)) {
+			expect(f.value.length).toBeLessThanOrEqual(LIMITS.field);
+			expect(f.value).toMatch(/and \d+ more$/);
+		}
+		expect(embedLength(e)).toBeLessThanOrEqual(LIMITS.message);
+	});
+});
+
+describe('styles', () => {
+	test('compact: thumbnail, one score line, counts per faction, the top three and the clock', () => {
+		const e = buildStatusEmbed({ ...opts, style: 'compact' }, server, live());
+		expect(e.thumbnail?.url).toBe('https://rcon.example.com/maps/Kavkazi/DayLateClear-square.webp');
+		expect(e.image).toBeUndefined();
+		expect(e.color).toBe(0xd86060);
+		const lines = e.description.split('\n');
+		expect(lines[2]).toBe('🟥 Valkyra **34** · 🟩 Manticore **30** · 🟦 Lonestar **27**');
+		expect(lines[3]).toBe('First to 100 · 0:25:23 played');
+		expect(e.fields?.slice(0, 3)).toEqual([
+			{ name: '🟥 Valkyra', value: '2 players', inline: true },
+			{ name: '🟩 Manticore', value: '2 players', inline: true },
+			{ name: '🟦 Lonestar', value: '2 players', inline: true }
+		]);
+		expect(e.fields?.at(-1)?.value).toMatch(
+			/^Top: \*\*Nomad\*\* 17\/8 · \*\*Ghostpepper\*\* 14\/6 · \*\*QuietStorm\*\* 13\/7\nUpdated <t:\d+:R>$/
+		);
+	});
+	test('scoreboard: bars first, one ranked table across factions, top 20 noted', () => {
+		const e = buildStatusEmbed({ ...opts, style: 'scoreboard' }, server, live());
+		const lines = e.description.split('\n');
+		expect(lines[0]).toBe('🟥🟥🟥⬛⬛⬛⬛⬛⬛⬛ **34** Valkyra');
+		expect(lines[3]).toBe('First to 100 · 0:25:23 played');
+		expect(lines[4]).toContain('**6 / 100** online');
+		const table = e.fields?.[0];
+		expect(table?.name).toBe('Scoreboard');
+		expect(table?.value.split('\n').slice(0, 3)).toEqual([
+			'```',
+			' K   D   Player            Faction',
+			'17   8   Nomad             Lonestar'
+		]);
+		expect(table?.value.endsWith('```')).toBe(true);
+		expect(e.fields?.at(-1)?.value).toMatch(/^Updated <t:\d+:R>$/);
+		const many = Array.from({ length: 87 }, (_, i) => p(`P${i}`, 'Valkyra', 87 - i, i));
+		const big = buildStatusEmbed({ ...opts, style: 'scoreboard' }, server, live({ players: many }));
+		expect(big.fields?.[0].value.split('\n')).toHaveLength(TABLE_ROWS_EXPECTED);
+		expect(big.fields?.at(-1)?.value).toMatch(/^Top 20 of 87 · Updated/);
+		expect(big.fields?.[0].value.length).toBeLessThanOrEqual(LIMITS.field);
+	});
+	test('the style is part of the change key', () => {
+		expect(statusMessage({ ...opts, style: 'compact' }, server, live()).key).not.toBe(
+			statusMessage(opts, server, live()).key
+		);
+	});
+});
+
+const TABLE_ROWS_EXPECTED = 2 + 1 + 20; // fences, header, rows
+
+describe('helpers', () => {
+	test('fitLines keeps whole lines and says how many are left', () => {
+		expect(fitLines([])).toBe('—');
+		expect(fitLines(['a', 'b'])).toBe('a\nb');
+		const lines = Array.from({ length: 50 }, (_, i) => `name_${i} 10/2`);
+		const v = fitLines(lines, 200);
+		expect(v.length).toBeLessThanOrEqual(200);
+		expect(v.split('\n').at(-1)).toMatch(/^and \d+ more$/);
+	});
+	test('squareFor picks by colour, then by name, then by index', () => {
+		expect(squareFor('#D86060', 'x')).toBe('🟥');
+		expect(squareFor('5B95D8', 'x')).toBe('🟦');
+		expect(squareFor('#7BC462', 'x')).toBe('🟩');
+		expect(squareFor('#f0c020', 'x')).toBe('🟨');
+		expect(squareFor('#9040c0', 'x')).toBe('🟪');
+		expect(squareFor('#808080', 'x')).toBe('⬜');
+		expect(squareFor('', 'GRN')).toBe('🟩');
+		expect(squareFor(null, 'Other', 1)).toBe('🟦');
+	});
+	test('factionFields orders by score and players by kills', () => {
+		const f = factionFields(status.scores, players);
+		expect(f.map((x) => x.name.split(' ')[1])).toEqual(['Valkyra', 'Manticore', 'Lonestar']);
+		expect(f[0].value.split('\n')[0]).toBe('**Ghostpepper** 14/6');
+	});
+	test('modeLabel and escapeMarkdown', () => {
+		expect(modeLabel(['KOTH', 'KOTH_Infantry'])).toBe('King of the Hill + Infantry');
+		expect(modeLabel(['Conquest', 'Hardcore'])).toBe('Conquest + Hardcore');
+		expect(modeLabel([])).toBe('');
+		expect(escapeMarkdown('a_b|c`d')).toBe('a\\_b\\|c\\`d');
+	});
+});
+
+describe('statusMessage', () => {
+	test('one embed, empty content, and a key that ignores the clocks', () => {
+		const a = statusMessage(opts, server, live());
+		expect(a.payload.content).toBe('');
+		expect(a.payload.embeds).toHaveLength(1);
+		const later = live({
+			observedAt: '2026-09-13T12:05:00Z',
+			statusAt: '2026-09-13T12:05:00Z',
+			status: { ...status, matchSeconds: 1600 }
+		});
+		expect(statusMessage({ ...opts, now: opts.now + 60_000 }, server, later).key).toBe(a.key);
+		expect(statusMessage(opts, server, live({ players: [] })).key).not.toBe(a.key);
+		expect(
+			statusMessage(
+				opts,
+				server,
+				live({ players: [p('Ghostpepper', 'Valkyra', 15, 6), ...players.slice(1)] })
+			).key
+		).not.toBe(a.key);
+		expect(statusMessage(opts, server, live({ ok: false })).key).not.toBe(a.key);
+	});
+});

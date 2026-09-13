@@ -10,6 +10,7 @@
 	import CapabilityPicker from '$lib/components/CapabilityPicker.svelte';
 	import { capabilitySummary, type Capability } from '$lib/capabilities';
 	import type { ApiKeyView, InviteView, OrgMemberView, WebhookView } from '$lib/types';
+	import { STATUS_STYLE_LABELS, STATUS_STYLES, type StatusStyle } from '$lib/status-styles';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -30,6 +31,8 @@
 				label: string;
 				url: string;
 				events: Record<string, boolean>;
+				status: boolean;
+				style: StatusStyle;
 				allServers: boolean;
 				servers: Record<string, boolean>;
 		  }
@@ -210,6 +213,8 @@
 			label: w?.label ?? '',
 			url: '',
 			events,
+			status: w?.statusEnabled ?? false,
+			style: w?.statusStyle ?? 'banner',
 			allServers: !w?.serverIds,
 			servers
 		};
@@ -222,6 +227,8 @@
 			events: Object.entries(d.events)
 				.filter(([, on]) => on)
 				.map(([k]) => k),
+			statusEnabled: d.status,
+			statusStyle: d.style,
 			serverIds: d.allServers
 				? null
 				: Object.entries(d.servers)
@@ -246,6 +253,16 @@
 	}
 	function testWebhook(w: WebhookView) {
 		void run(() => api('POST', `${orgPath}/webhooks/${w.id}/test`), 'Test message sent.', false);
+	}
+	/** A throwaway card for the first server the webhook covers, gone in a minute. */
+	function testCard(w: WebhookView) {
+		const serverId = w.serverIds?.[0] ?? data.orgServers[0]?.id;
+		if (!serverId) return;
+		void run(
+			() => api('POST', `${orgPath}/webhooks/${w.id}/card`, { serverId }),
+			'Test card sent. It disappears in a minute.',
+			false
+		);
 	}
 	async function deleteWebhook(w: WebhookView) {
 		if (
@@ -498,8 +515,9 @@
 				>
 			</div>
 			<p class="mb-3 text-[13px] text-mist-400">
-				Mirror the audit trail into a channel: bans, kicks, trigger actions, sign-ins. In Discord,
-				open the channel's settings → Integrations → Webhooks, copy the URL and paste it here.
+				Mirror the audit trail into a channel (bans, kicks, trigger actions, sign-ins), or keep live
+				status cards there, one per server, showing the map and who is on. In Discord, open the
+				channel's settings → Integrations → Webhooks, copy the URL and paste it here.
 			</p>
 			{#each data.webhooks as w (w.id)}
 				<div class="kv items-start">
@@ -512,7 +530,10 @@
 						</div>
 						<div class="truncate font-mono text-[11px] text-mist-600">{w.urlHint}</div>
 						<div class="text-[12px] text-mist-400">
-							{w.events.map(eventLabel).join(' · ')}
+							{[
+								...(w.statusEnabled ? [`Status cards (${w.statusStyle})`] : []),
+								...w.events.map(eventLabel)
+							].join(' · ')}
 							{#if w.serverIds}· {w.serverIds.length} server{w.serverIds.length === 1
 									? ''
 									: 's'}{/if}
@@ -522,6 +543,11 @@
 					</div>
 					<span class="inline-flex shrink-0 flex-wrap justify-end gap-1.5">
 						<button class="btn btn-sm" onclick={() => testWebhook(w)} disabled={busy}>Test</button>
+						{#if w.statusEnabled}
+							<button class="btn btn-sm" onclick={() => testCard(w)} disabled={busy || !w.enabled}
+								>Test card</button
+							>
+						{/if}
 						<button class="btn btn-sm" onclick={() => openWebhook(w)}>Edit</button>
 						<button class="btn btn-sm" onclick={() => toggleWebhook(w)} disabled={busy}
 							>{w.enabled ? 'Pause' : 'Enable'}</button
@@ -740,6 +766,26 @@
 					autocomplete="off"
 				/></label
 			>
+			<div>
+				<span class="field-label">Live status</span>
+				<label class="flex items-center gap-2 text-[13px]"
+					><input type="checkbox" bind:checked={d.status} /> Keep status cards in the channel</label
+				>
+				{#if d.status}
+					<label class="mt-2 block"
+						><span class="field-label">Card style</span><select class="input" bind:value={d.style}>
+							{#each STATUS_STYLES as st (st)}<option value={st}>{STATUS_STYLE_LABELS[st]}</option
+								>{/each}
+						</select></label
+					>
+				{/if}
+				<p class="note mt-1">
+					One card per server below, edited in place by the worker: players online, map, a score bar
+					per faction and who is on. Pin them in Discord. Pausing the webhook or switching this off
+					removes the cards.{#if d.status && !data.https}
+						<b> This panel is not on https, so cards go out without map art or the icon.</b>{/if}
+				</p>
+			</div>
 			<div>
 				<span class="field-label">Mirror</span>
 				<div class="space-y-1">
