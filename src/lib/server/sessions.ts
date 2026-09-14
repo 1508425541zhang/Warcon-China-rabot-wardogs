@@ -22,6 +22,9 @@ export interface OpenSession {
 	/** this is the player's first session on this server (false when unknown: sessions reloaded
 	 *  after a restart, or opened quietly when joins were not trusted) */
 	firstVisit: boolean;
+	/** the last faction seen this session; unlike `faction` it survives the game clearing everyone's
+	 *  side at a match start, so a re-pick of the same side is not a new pick */
+	lastFaction: string | null;
 }
 
 export interface Presence {
@@ -55,7 +58,8 @@ export async function loadPresence(
 			joinedAt: r.joinedAt.getTime(),
 			lastSeen: r.lastSeen.getTime(),
 			writtenAt: r.lastSeen.getTime(),
-			firstVisit: false
+			firstVisit: false,
+			lastFaction: r.faction
 		});
 	presence.loaded = true;
 }
@@ -65,7 +69,8 @@ export interface PresenceDiff {
 	left: OpenSession[];
 	/** the players still on, with their open session */
 	stayed: { player: Player; session: OpenSession }[];
-	/** the players still on whose faction is new since the last look; `from` is what they had (null: none) */
+	/** the players still on who are in a faction other than the last one seen this session;
+	 *  `from` is that last one (null: their first pick of the session) */
 	factioned: { player: Player; from: string | null }[];
 }
 
@@ -81,8 +86,8 @@ export function diffPresence(presence: Presence, players: Player[]): PresenceDif
 		const s = presence.open.get(p.steamId);
 		if (s) {
 			stayed.push({ player: p, session: s });
-			if (p.faction && p.faction !== s.faction)
-				factioned.push({ player: p, from: s.faction || null });
+			if (p.faction && p.faction !== s.lastFaction)
+				factioned.push({ player: p, from: s.lastFaction });
 		} else joined.push(p);
 	}
 	const left = [...presence.open.values()].filter((s) => !seen.has(s.steamId));
@@ -173,13 +178,15 @@ export async function persistPresence(
 				joinedAt: now,
 				lastSeen: now,
 				writtenAt: now,
-				firstVisit: firstVisit.has(p.steamId)
+				firstVisit: firstVisit.has(p.steamId),
+				lastFaction: p.faction || null
 			});
 	}
 
 	for (const { player: p, session: s } of diff.stayed) {
 		s.name = p.name;
 		s.faction = p.faction;
+		if (p.faction) s.lastFaction = p.faction;
 		s.kills = p.kills;
 		s.deaths = p.deaths;
 		s.cash = p.cash;
