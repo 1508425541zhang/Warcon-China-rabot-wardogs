@@ -53,10 +53,18 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 	}
 	// What the worker last learned about the build: never a game request from a page load, and
 	// never a reason for the page to fail (the worker may be down or the relay slow).
-	let identity = { build: '', gameServerId: '' };
+	let identity: { build: string; gameServerId: string; startedAt: string | null } = {
+		build: '',
+		gameServerId: '',
+		startedAt: null
+	};
 	try {
 		const live = (await gateway().live(env, [row.id])).get(row.id);
-		identity = { build: live?.build ?? '', gameServerId: live?.gameServerId ?? '' };
+		identity = {
+			build: live?.build ?? '',
+			gameServerId: live?.gameServerId ?? '',
+			startedAt: live?.startedAt ?? null
+		};
 	} catch {
 		/* shown without an id until the worker answers */
 	}
