@@ -133,6 +133,7 @@ const ACTION_TITLES: Record<string, string> = {
 	'trigger.broadcast': 'Trigger · scheduled broadcast',
 	'trigger.empty_reset': 'Trigger · empty-server map reset',
 	'trigger.risk_kick': 'Trigger · risk kick',
+	'trigger.restart_notice': 'Trigger · restart notice',
 	'player.note': 'Player note',
 	'player.watch': 'Watchlist',
 	'list.add': 'Org list · added',

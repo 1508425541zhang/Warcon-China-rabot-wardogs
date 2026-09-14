@@ -3,6 +3,7 @@ import {
 	factionChangeTargets,
 	onTarget,
 	renderTemplate,
+	restartNoticeStage,
 	riskKickVerdict,
 	validateConfig,
 	welcomeTargets
@@ -49,6 +50,23 @@ describe('validateConfig', () => {
 			cooldownMinutes: 30,
 			lighting: ''
 		});
+	});
+	test('restart_notice needs the main message, and a heads-up message when the heads-up is on', () => {
+		expect(() => validateConfig('restart_notice', {})).toThrow('empty');
+		expect(() =>
+			validateConfig('restart_notice', { message: 'bye', leadMinutes: 30, leadMessage: '' })
+		).toThrow('heads-up');
+		expect(validateConfig('restart_notice', { message: ' bye ', leadMinutes: 0 })).toEqual({
+			message: 'bye',
+			leadMinutes: 0,
+			leadMessage: '',
+			repeatMinutes: 0,
+			minPlayers: 1
+		});
+		// the heads-up cannot be earlier than the game start
+		expect(
+			validateConfig('restart_notice', { message: 'bye', leadMinutes: 5000, leadMessage: 'soon' })
+		).toMatchObject({ leadMinutes: 719 });
 	});
 	test('risk_kick refuses an empty rule set and defaults the reason', () => {
 		expect(() => validateConfig('risk_kick', {})).toThrow('at least one rule');
@@ -187,5 +205,55 @@ describe('onTarget', () => {
 		expect(onTarget({ map: 'Europe', experiences: [] }, { map: 'Kavkazi', experiences: [] })).toBe(
 			false
 		);
+	});
+});
+
+describe('restartNoticeStage', () => {
+	const H = 3600_000;
+	const start = Date.parse('2026-09-14T00:00:00Z');
+	const cfg = { leadMinutes: 30, repeatMinutes: 0, minPlayers: 1 };
+	const at = (hours: number, players = 10) => ({
+		startedAt: start,
+		playerCount: players,
+		now: start + hours * H
+	});
+
+	test('nothing before the heads-up, nothing without a start time or players', () => {
+		expect(restartNoticeStage(cfg, null, at(9))).toBeNull();
+		expect(restartNoticeStage(cfg, null, { ...at(11.9), startedAt: 0 })).toBeNull();
+		expect(restartNoticeStage(cfg, null, at(11.9, 0))).toBeNull();
+	});
+	test('the heads-up goes once inside the lead window, then the main message once due', () => {
+		const lead = restartNoticeStage(cfg, null, at(11.6))!;
+		expect(lead.stage).toBe('lead');
+		expect(lead.minutes).toBe(24);
+		expect(lead.state).toEqual({ startedAt: start, leadAt: start + 11.6 * H });
+		expect(restartNoticeStage(cfg, lead.state, at(11.8))).toBeNull();
+		const due = restartNoticeStage(cfg, lead.state, at(12.1))!;
+		expect(due.stage).toBe('due');
+		expect(due.minutes).toBe(0);
+		expect(due.state.dueAt).toBe(start + 12.1 * H);
+		expect(restartNoticeStage(cfg, due.state, at(13))).toBeNull();
+	});
+	test('a missed heads-up is skipped, not sent late, once the window is open', () => {
+		const hit = restartNoticeStage(cfg, null, at(12.5))!;
+		expect(hit.stage).toBe('due');
+		expect(hit.state.leadAt).toBeUndefined();
+	});
+	test('repeat resends the main message on its cadence while the window stays open', () => {
+		const c = { ...cfg, repeatMinutes: 15 };
+		const first = restartNoticeStage(c, null, at(12))!;
+		expect(restartNoticeStage(c, first.state, at(12.2))).toBeNull();
+		const again = restartNoticeStage(c, first.state, at(12.3))!;
+		expect(again.stage).toBe('due');
+		expect(again.state.dueAt).toBe(start + 12.3 * H);
+	});
+	test('a new game start resets the cycle', () => {
+		const old = { startedAt: start - 20 * H, leadAt: 1, dueAt: 2 };
+		expect(restartNoticeStage(cfg, old, at(11.7))!.stage).toBe('lead');
+	});
+	test('no heads-up when leadMinutes is 0', () => {
+		expect(restartNoticeStage({ ...cfg, leadMinutes: 0 }, null, at(11.9))).toBeNull();
+		expect(restartNoticeStage({ ...cfg, leadMinutes: 0 }, null, at(12))!.stage).toBe('due');
 	});
 });

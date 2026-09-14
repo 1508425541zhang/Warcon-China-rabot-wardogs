@@ -3,6 +3,7 @@
 // triggers.ts holds the engine that runs these against live ticks.
 import { ApiError, int, str } from './http';
 import { accountAgeDays } from './risk';
+import { RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 import type { SteamProfileRow } from './db/schema';
 import type { TriggerKind } from '$lib/types';
 
@@ -11,14 +12,16 @@ export const TRIGGER_KINDS: TriggerKind[] = [
 	'faction_change',
 	'broadcast',
 	'empty_reset',
-	'risk_kick'
+	'risk_kick',
+	'restart_notice'
 ];
 export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	welcome: 'Welcome whisper',
 	faction_change: 'Faction change whisper',
 	broadcast: 'Scheduled broadcast',
 	empty_reset: 'Empty-server map reset',
-	risk_kick: 'Kick on connect risk'
+	risk_kick: 'Kick on connect risk',
+	restart_notice: 'Restart notice'
 };
 
 export interface WelcomeConfig {
@@ -55,8 +58,26 @@ export interface RiskKickConfig {
 	spareReserved: boolean;
 	reason: string;
 }
+/**
+ * Tells players about the game's own restart: WARDOGS restarts a server once it has been up for
+ * twelve hours, at the end of the round then in progress. Two broadcasts per uptime cycle: a
+ * heads-up `leadMinutes` before the window opens (0 = none) and `message` once it has, repeated
+ * every `repeatMinutes` while the round drags on (0 = once).
+ */
+export interface RestartNoticeConfig {
+	message: string;
+	leadMinutes: number;
+	leadMessage: string;
+	repeatMinutes: number;
+	minPlayers: number;
+}
 export type TriggerConfig =
-	WelcomeConfig | FactionChangeConfig | BroadcastConfig | EmptyResetConfig | RiskKickConfig;
+	| WelcomeConfig
+	| FactionChangeConfig
+	| BroadcastConfig
+	| EmptyResetConfig
+	| RiskKickConfig
+	| RestartNoticeConfig;
 
 const MAX_MESSAGE = 200;
 
@@ -130,7 +151,65 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 				throw new ApiError(400, 'Turn on at least one rule.');
 			return cfg;
 		}
+		case 'restart_notice': {
+			const message = str(c.message, MAX_MESSAGE);
+			if (!message) throw new ApiError(400, 'The restart message is empty.');
+			const leadMinutes = int(c.leadMinutes, 0, 0, RESTART_AFTER_HOURS * 60 - 1);
+			const leadMessage = str(c.leadMessage, MAX_MESSAGE);
+			if (leadMinutes && !leadMessage)
+				throw new ApiError(400, 'Add the heads-up message, or set the heads-up to 0 minutes.');
+			return {
+				message,
+				leadMinutes,
+				leadMessage,
+				repeatMinutes: int(c.repeatMinutes, 0, 0, 24 * 60),
+				minPlayers: int(c.minPlayers, 1, 0, 1000)
+			};
+		}
 	}
+}
+
+/** Per-server memory of a restart notice: which stages went out for the current game start. */
+export interface RestartNoticeState {
+	/** the game start (ms) these stamps belong to; a different start is a new cycle */
+	startedAt: number;
+	leadAt?: number;
+	dueAt?: number;
+}
+
+export interface RestartNoticeStage {
+	stage: 'lead' | 'due';
+	/** minutes until the window opens (lead), or 0 once it has */
+	minutes: number;
+	state: RestartNoticeState;
+}
+
+/**
+ * Which broadcast a restart notice sends now, if any. The heads-up goes once per game start when
+ * the window is `leadMinutes` away or less; the main message once the window is open, and again
+ * every `repeatMinutes` when set. A start time the rule has not seen resets both.
+ */
+export function restartNoticeStage(
+	cfg: Pick<RestartNoticeConfig, 'leadMinutes' | 'repeatMinutes' | 'minPlayers'>,
+	prev: RestartNoticeState | null | undefined,
+	input: { startedAt: number; playerCount: number; now: number }
+): RestartNoticeStage | null {
+	if (!input.startedAt || input.playerCount < cfg.minPlayers) return null;
+	const w = restartWindow(new Date(input.startedAt).toISOString(), RESTART_AFTER_HOURS, input.now);
+	if (!w) return null;
+	const state: RestartNoticeState =
+		prev && prev.startedAt === input.startedAt ? { ...prev } : { startedAt: input.startedAt };
+	if (w.due) {
+		const again =
+			cfg.repeatMinutes > 0 && input.now - (state.dueAt ?? 0) >= cfg.repeatMinutes * 60_000;
+		if (state.dueAt && !again) return null;
+		state.dueAt = input.now;
+		return { stage: 'due', minutes: 0, state };
+	}
+	if (!cfg.leadMinutes || state.leadAt || w.untilDueMs === null) return null;
+	if (w.untilDueMs > cfg.leadMinutes * 60_000) return null;
+	state.leadAt = input.now;
+	return { stage: 'lead', minutes: Math.max(1, Math.round(w.untilDueMs / 60_000)), state };
 }
 
 /** A player who has a faction now and did not have this one at the last look. */

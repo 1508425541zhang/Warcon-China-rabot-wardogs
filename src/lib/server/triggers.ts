@@ -16,6 +16,7 @@ import { writeAudit } from './audit';
 import {
 	playerSessions,
 	samples,
+	serverLive,
 	triggers,
 	type ServerRow,
 	type SteamProfileRow,
@@ -31,6 +32,7 @@ import {
 	isTriggerKind,
 	onTarget,
 	renderTemplate,
+	restartNoticeStage,
 	riskKickVerdict,
 	TRIGGER_LABELS,
 	validateConfig,
@@ -39,9 +41,12 @@ import {
 	type EmptyResetConfig,
 	type FactionChangeConfig,
 	type FactionPick,
+	type RestartNoticeConfig,
+	type RestartNoticeState,
 	type RiskKickConfig,
 	type WelcomeConfig
 } from './trigger-rules';
+import { fmtUptime, RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 
 export * from './trigger-rules';
 
@@ -195,6 +200,8 @@ export interface TickContext {
 	/** pre-fetched for risk rules: the panel's own signals and Steam profiles of the joiners */
 	signals: Map<string, LocalSignals>;
 	profiles: Map<string, SteamProfileRow>;
+	/** when the game process started (ms), from GET /v1/health; 0 while unknown */
+	startedAt: number;
 	ts: Date;
 }
 
@@ -285,6 +292,9 @@ export async function evaluateTriggers(
 					break;
 				case 'risk_kick':
 					evalRiskKick(env, ctx, row, row.config as RiskKickConfig, out);
+					break;
+				case 'restart_notice':
+					evalRestartNotice(ctx, row, row.config as RestartNoticeConfig, out);
 					break;
 			}
 		} catch (err) {
@@ -481,6 +491,44 @@ function evalRiskKick(
 		});
 }
 
+function evalRestartNotice(
+	ctx: TickContext,
+	row: TriggerRow,
+	cfg: RestartNoticeConfig,
+	out: Evaluation
+) {
+	const hit = restartNoticeStage(cfg, row.state as RestartNoticeState | null, {
+		startedAt: ctx.startedAt,
+		playerCount: ctx.status.playerCount,
+		now: ctx.ts.getTime()
+	});
+	if (!hit) return;
+	const message = renderTemplate(hit.stage === 'lead' ? cfg.leadMessage : cfg.message, {
+		...vars(ctx),
+		minutes: hit.minutes,
+		uptime: fmtUptime(ctx.ts.getTime() - ctx.startedAt)
+	});
+	out.intents.push({
+		trigger: row,
+		action: 'broadcast',
+		params: { message },
+		target: message,
+		okMessage: 'Broadcast sent.',
+		detail: { stage: hit.stage, startedAt: new Date(ctx.startedAt).toISOString() },
+		steamId: null,
+		dedupeKey: key(row, hit.stage, ctx.startedAt, hit.stage === 'due' ? ctx.ts.getTime() : 0)
+	});
+	// The stage is marked now so a slow delivery cannot send it twice.
+	row.lastFiredAt = ctx.ts;
+	row.state = hit.state;
+	out.updates.push({
+		id: row.id,
+		lastFiredAt: ctx.ts,
+		lastResult: `Sending: ${message}`,
+		state: hit.state
+	});
+}
+
 /** The risk inputs a risk_kick rule needs for these joiners (DB and Steam; call before the transaction). */
 export async function riskInputs(
 	env: Env,
@@ -654,6 +702,46 @@ export async function dryRun(
 			);
 		result.notes.push(
 			`${players.length} distinct player${players.length === 1 ? '' : 's'} joined in the window.`
+		);
+		return result;
+	}
+	if (kind === 'restart_notice') {
+		const c = cfg as RestartNoticeConfig;
+		const [live] = await env.db
+			.select({ startedAt: serverLive.startedAt, players: serverLive.playerCount })
+			.from(serverLive)
+			.where(eq(serverLive.serverId, server.id))
+			.limit(1);
+		const w = live?.startedAt
+			? restartWindow(live.startedAt.toISOString(), RESTART_AFTER_HOURS, to.getTime())
+			: null;
+		if (!w || !live?.startedAt) {
+			result.notes.push(
+				'The worker has not read this server’s uptime yet (GET /v1/health), so there is nothing to project.'
+			);
+			return result;
+		}
+		const dueAt = new Date(live.startedAt.getTime() + RESTART_AFTER_HOURS * 3600_000);
+		const v = {
+			server: server.name,
+			map: '…',
+			players: live.players,
+			max: '…',
+			uptime: fmtUptime(w.upMs)
+		};
+		if (c.leadMinutes) {
+			const leadAt = new Date(dueAt.getTime() - c.leadMinutes * 60_000);
+			push(
+				leadAt,
+				`${leadAt < to ? 'already ' : ''}broadcast: ${renderTemplate(c.leadMessage, { ...v, minutes: c.leadMinutes })}`
+			);
+		}
+		push(
+			dueAt,
+			`${w.due ? 'already ' : ''}broadcast: ${renderTemplate(c.message, { ...v, minutes: 0 })}`
+		);
+		result.notes.push(
+			`Up ${fmtUptime(w.upMs)}; the restart window ${w.due ? 'is open: the game restarts when this round ends' : `opens in ${fmtUptime(w.untilDueMs ?? 0)}`}. Times shown are the coming cycle, not a replay; each stage goes once per game start${c.repeatMinutes ? `, the main message again every ${c.repeatMinutes} min while the window stays open` : ''}, and only with at least ${c.minPlayers} on.`
 		);
 		return result;
 	}
