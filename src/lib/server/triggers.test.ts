@@ -1,12 +1,26 @@
 import { describe, expect, test } from 'bun:test';
-import { onTarget, renderTemplate, riskKickVerdict, validateConfig } from './trigger-rules';
+import {
+	factionChangeTargets,
+	onTarget,
+	renderTemplate,
+	riskKickVerdict,
+	validateConfig,
+	welcomeTargets
+} from './trigger-rules';
 import type { RiskKickConfig } from './trigger-rules';
 
 describe('validateConfig', () => {
 	test('welcome needs a message and trims it to 200 characters', () => {
 		expect(() => validateConfig('welcome', { message: '  ' })).toThrow('empty');
 		const c = validateConfig('welcome', { message: 'x'.repeat(300), onlyFirstVisit: 'yes' });
-		expect(c).toEqual({ message: 'x'.repeat(200), onlyFirstVisit: true });
+		expect(c).toEqual({ message: 'x'.repeat(200), onlyFirstVisit: true, afterFaction: false });
+		expect(validateConfig('welcome', { message: 'hi', afterFaction: 1 })).toMatchObject({
+			afterFaction: true
+		});
+	});
+	test('faction_change needs a message', () => {
+		expect(() => validateConfig('faction_change', {})).toThrow('empty');
+		expect(validateConfig('faction_change', { message: ' hi ' })).toEqual({ message: 'hi' });
 	});
 	test('broadcast accepts a newline-separated string and drops blanks', () => {
 		const c = validateConfig('broadcast', {
@@ -41,6 +55,31 @@ describe('validateConfig', () => {
 		const c = validateConfig('risk_kick', { vacBans: true }) as RiskKickConfig;
 		expect(c.spareReserved).toBe(true);
 		expect(c.reason).toContain('requirements');
+	});
+});
+
+describe('welcomeTargets', () => {
+	const a = { steamId: 'a' };
+	const b = { steamId: 'b' };
+	const c = { steamId: 'c' };
+	const tick = {
+		joined: [a],
+		factioned: [
+			{ player: b, from: null },
+			{ player: c, from: 'Valkyra' }
+		],
+		firstVisit: new Set(['a', 'c'])
+	};
+	test('whispers joiners by default, and only first faction picks when waiting for one', () => {
+		expect(welcomeTargets({ onlyFirstVisit: false, afterFaction: false }, tick)).toEqual([a]);
+		expect(welcomeTargets({ onlyFirstVisit: false, afterFaction: true }, tick)).toEqual([b]);
+	});
+	test('first-visit applies to whichever list is in use', () => {
+		expect(welcomeTargets({ onlyFirstVisit: true, afterFaction: false }, tick)).toEqual([a]);
+		expect(welcomeTargets({ onlyFirstVisit: true, afterFaction: true }, tick)).toEqual([]);
+	});
+	test('faction changes are switches only, never the first pick', () => {
+		expect(factionChangeTargets(tick).map((f) => f.player)).toEqual([c]);
 	});
 });
 

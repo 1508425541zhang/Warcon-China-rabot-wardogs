@@ -129,6 +129,7 @@ const ACTION_TITLES: Record<string, string> = {
 	'rcon.reservedRemove': 'Remove reserved slot',
 	'rcon.raw': 'Raw request',
 	'trigger.welcome': 'Trigger · welcome whisper',
+	'trigger.faction_change': 'Trigger · faction change whisper',
 	'trigger.broadcast': 'Trigger · scheduled broadcast',
 	'trigger.empty_reset': 'Trigger · empty-server map reset',
 	'trigger.risk_kick': 'Trigger · risk kick',

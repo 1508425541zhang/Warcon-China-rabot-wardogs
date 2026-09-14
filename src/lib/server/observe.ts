@@ -394,8 +394,16 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 		gapMs <= 2 * Math.max(m.playersIntervalMs, 1000) + 1000;
 	const diff: PresenceDiff = players
 		? diffPresence(m.presence, players)
-		: { joined: [], left: [], stayed: [] };
+		: { joined: [], left: [], stayed: [], factioned: [] };
 	const joined = joinsTrusted ? diff.joined : [];
+	// Players pick a faction after joining; rules that wait for it see the change here. A joiner
+	// who arrives with one (a reconnect) counts as a first pick on the spot.
+	const factioned = joinsTrusted
+		? [
+				...joined.filter((p) => p.faction).map((player) => ({ player, from: null })),
+				...diff.factioned
+			]
+		: [];
 	const rows = m.status ? await enabledTriggers(env, server.id) : [];
 	const risk =
 		joined.length && needsRiskInputs(rows)
@@ -419,6 +427,10 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 				joined.map((p) => p.steamId)
 			)
 		: new Set<string>();
+	// Someone picking a faction already has a session row, so their first-visit answer is the one
+	// remembered from when they joined.
+	for (const { player: p } of diff.factioned)
+		if (m.presence.open.get(p.steamId)?.firstVisit) firstVisit.add(p.steamId);
 	const ev =
 		m.status && rows.length
 			? await evaluateTriggers(
@@ -428,6 +440,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 						status: m.status,
 						players: m.players,
 						joined,
+						factioned,
 						firstVisit,
 						reserved: m.reserved,
 						signals: risk.signals,
@@ -455,7 +468,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 		if (needWrite)
 			await withOwnedTransaction(env, async (tx) => {
 				if (players && presenceDue)
-					await persistPresence(tx, server.id, m.presence, diff, ts, heartbeatDue);
+					await persistPresence(tx, server.id, m.presence, diff, ts, heartbeatDue, firstVisit);
 				if (ev.intents.length) intents = await enqueueIntents(tx, server.id, ev.intents);
 				if (ev.updates.length) await applyTriggerUpdates(tx, ev.updates);
 				if (liveDue) await writeLive(tx, m, ts);

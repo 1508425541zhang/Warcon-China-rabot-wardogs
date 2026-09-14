@@ -6,9 +6,16 @@ import { accountAgeDays } from './risk';
 import type { SteamProfileRow } from './db/schema';
 import type { TriggerKind } from '$lib/types';
 
-export const TRIGGER_KINDS: TriggerKind[] = ['welcome', 'broadcast', 'empty_reset', 'risk_kick'];
+export const TRIGGER_KINDS: TriggerKind[] = [
+	'welcome',
+	'faction_change',
+	'broadcast',
+	'empty_reset',
+	'risk_kick'
+];
 export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	welcome: 'Welcome whisper',
+	faction_change: 'Faction change whisper',
 	broadcast: 'Scheduled broadcast',
 	empty_reset: 'Empty-server map reset',
 	risk_kick: 'Kick on connect risk'
@@ -17,6 +24,13 @@ export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 export interface WelcomeConfig {
 	message: string;
 	onlyFirstVisit: boolean;
+	/** wait for the player's first faction pick of the session: they choose one after joining, so a
+	 *  whisper on join can land while they are still in the menu */
+	afterFaction: boolean;
+}
+/** Whispers a player when they switch from one faction to another (not their first pick). */
+export interface FactionChangeConfig {
+	message: string;
 }
 export interface BroadcastConfig {
 	messages: string[];
@@ -41,7 +55,8 @@ export interface RiskKickConfig {
 	spareReserved: boolean;
 	reason: string;
 }
-export type TriggerConfig = WelcomeConfig | BroadcastConfig | EmptyResetConfig | RiskKickConfig;
+export type TriggerConfig =
+	WelcomeConfig | FactionChangeConfig | BroadcastConfig | EmptyResetConfig | RiskKickConfig;
 
 const MAX_MESSAGE = 200;
 
@@ -55,7 +70,12 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 		case 'welcome': {
 			const message = str(c.message, MAX_MESSAGE);
 			if (!message) throw new ApiError(400, 'The welcome message is empty.');
-			return { message, onlyFirstVisit: !!c.onlyFirstVisit };
+			return { message, onlyFirstVisit: !!c.onlyFirstVisit, afterFaction: !!c.afterFaction };
+		}
+		case 'faction_change': {
+			const message = str(c.message, MAX_MESSAGE);
+			if (!message) throw new ApiError(400, 'The message is empty.');
+			return { message };
 		}
 		case 'broadcast': {
 			const list = Array.isArray(c.messages) ? c.messages : String(c.messages ?? '').split('\n');
@@ -113,7 +133,29 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 	}
 }
 
-/** Fills {name}, {server}, {map}, {players} and {max} placeholders; unknown ones stay. */
+/** A player who has a faction now and did not have this one at the last look. */
+export interface FactionPick<P> {
+	player: P;
+	/** the faction they had before; null for their first pick of the session (or they arrived with one) */
+	from: string | null;
+}
+
+/** Who a welcome rule whispers on this tick: joiners, or first faction picks when it waits for them. */
+export function welcomeTargets<P extends { steamId: string }>(
+	cfg: Pick<WelcomeConfig, 'onlyFirstVisit' | 'afterFaction'>,
+	tick: { joined: P[]; factioned: FactionPick<P>[]; firstVisit: Set<string> }
+): P[] {
+	const pool = cfg.afterFaction
+		? tick.factioned.filter((f) => !f.from).map((f) => f.player)
+		: tick.joined;
+	return cfg.onlyFirstVisit ? pool.filter((p) => tick.firstVisit.has(p.steamId)) : pool;
+}
+
+/** Who a faction-change rule whispers: players who switched from one faction to another. */
+export const factionChangeTargets = <P>(tick: { factioned: FactionPick<P>[] }): FactionPick<P>[] =>
+	tick.factioned.filter((f) => !!f.from);
+
+/** Fills {name}, {faction}, {previous}, {server}, {map}, {players} and {max}; unknown ones stay. */
 export function renderTemplate(text: string, vars: Record<string, string | number>): string {
 	const lower: Record<string, string> = {};
 	for (const [k, v] of Object.entries(vars)) lower[k.toLowerCase()] = String(v);

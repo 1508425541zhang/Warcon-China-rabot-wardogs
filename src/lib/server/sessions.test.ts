@@ -21,7 +21,8 @@ const open = (steamId: string): OpenSession => ({
 	cash: 0,
 	joinedAt: 1000,
 	lastSeen: 2000,
-	writtenAt: 2000
+	writtenAt: 2000,
+	firstVisit: false
 });
 
 describe('diffPresence', () => {
@@ -43,6 +44,22 @@ describe('diffPresence', () => {
 		]);
 		expect(d.joined).toHaveLength(1);
 		expect(d.stayed).toHaveLength(0);
+	});
+
+	test('reports players who have just picked or changed faction', () => {
+		const p = newPresence();
+		p.open.set('76561198100000001', open('76561198100000001'));
+		p.open.set('76561198100000002', { ...open('76561198100000002'), faction: 'Valkyra' });
+		const d = diffPresence(p, [
+			{ ...player('76561198100000001'), faction: 'Valkyra' },
+			{ ...player('76561198100000002'), faction: 'Kessler' },
+			{ ...player('76561198100000003'), faction: 'Valkyra' }
+		]);
+		expect(d.factioned.map((x) => [x.player.steamId, x.from])).toEqual([
+			['76561198100000001', null],
+			['76561198100000002', 'Valkyra']
+		]);
+		expect(d.joined.map((x) => x.steamId)).toEqual(['76561198100000003']);
 	});
 
 	test('an empty list means everyone left', () => {

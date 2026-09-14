@@ -19,6 +19,9 @@ export interface OpenSession {
 	lastSeen: number;
 	/** what the database currently holds for last_seen */
 	writtenAt: number;
+	/** this is the player's first session on this server (false when unknown: sessions reloaded
+	 *  after a restart, or opened quietly when joins were not trusted) */
+	firstVisit: boolean;
 }
 
 export interface Presence {
@@ -51,7 +54,8 @@ export async function loadPresence(
 			cash: r.cash,
 			joinedAt: r.joinedAt.getTime(),
 			lastSeen: r.lastSeen.getTime(),
-			writtenAt: r.lastSeen.getTime()
+			writtenAt: r.lastSeen.getTime(),
+			firstVisit: false
 		});
 	presence.loaded = true;
 }
@@ -61,6 +65,8 @@ export interface PresenceDiff {
 	left: OpenSession[];
 	/** the players still on, with their open session */
 	stayed: { player: Player; session: OpenSession }[];
+	/** the players still on whose faction is new since the last look; `from` is what they had (null: none) */
+	factioned: { player: Player; from: string | null }[];
 }
 
 /** Compares the observed player list with the open sessions. Pure; touches nothing. */
@@ -68,15 +74,19 @@ export function diffPresence(presence: Presence, players: Player[]): PresenceDif
 	const seen = new Set<string>();
 	const joined: Player[] = [];
 	const stayed: PresenceDiff['stayed'] = [];
+	const factioned: PresenceDiff['factioned'] = [];
 	for (const p of players) {
 		if (!p.steamId || seen.has(p.steamId)) continue;
 		seen.add(p.steamId);
 		const s = presence.open.get(p.steamId);
-		if (s) stayed.push({ player: p, session: s });
-		else joined.push(p);
+		if (s) {
+			stayed.push({ player: p, session: s });
+			if (p.faction && p.faction !== s.faction)
+				factioned.push({ player: p, from: s.faction || null });
+		} else joined.push(p);
 	}
 	const left = [...presence.open.values()].filter((s) => !seen.has(s.steamId));
-	return { joined, left, stayed };
+	return { joined, left, stayed, factioned };
 }
 
 const json = (v: unknown) => sql`(${JSON.stringify(v)}::text)::jsonb`;
@@ -100,7 +110,8 @@ export async function firstVisits(
 
 /**
  * Applies a diff to the database and to the in-memory presence: inserts joins, closes leaves,
- * and (when the heartbeat is due) refreshes everyone else.
+ * and (when the heartbeat is due) refreshes everyone else. `firstVisit` (from firstVisits, read
+ * before the transaction) is remembered on the new sessions for rules that fire later on.
  */
 export async function persistPresence(
 	db: DbOrTx,
@@ -108,7 +119,8 @@ export async function persistPresence(
 	presence: Presence,
 	diff: PresenceDiff,
 	ts: Date,
-	heartbeatDue: boolean
+	heartbeatDue: boolean,
+	firstVisit: Set<string> = new Set()
 ): Promise<void> {
 	const now = ts.getTime();
 
@@ -160,7 +172,8 @@ export async function persistPresence(
 				cash: p.cash,
 				joinedAt: now,
 				lastSeen: now,
-				writtenAt: now
+				writtenAt: now,
+				firstVisit: firstVisit.has(p.steamId)
 			});
 	}
 
@@ -201,7 +214,7 @@ export async function closeAllSessions(db: DbOrTx, presence: Presence): Promise<
 			db,
 			'',
 			presence,
-			{ joined: [], left: open, stayed: [] },
+			{ joined: [], left: open, stayed: [], factioned: [] },
 			new Date(),
 			false
 		);
