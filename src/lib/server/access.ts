@@ -56,8 +56,10 @@ const keyForbidden = () =>
 export const ORG_ROLES: OrgRole[] = ['owner', 'member'];
 
 /** jsonb containment: does this role's capability list include `cap`? */
+// Bound as text and cast in SQL (the idiom sessions.ts uses): a string bound straight to a jsonb
+// parameter is JSON-encoded a second time by the driver and the containment is never true.
 const hasCap = (cap: Capability) =>
-	sql`${orgRoles.capabilities} @> ${JSON.stringify([cap])}::jsonb`;
+	sql`${orgRoles.capabilities} @> (${JSON.stringify([cap])}::text)::jsonb`;
 
 /** Shape a Better Auth user (with username + admin plugin fields) into what pages need. */
 export function toSessionUser(u: Record<string, unknown>): SessionUser {
