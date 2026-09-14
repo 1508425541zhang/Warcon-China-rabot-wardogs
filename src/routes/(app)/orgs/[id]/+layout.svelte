@@ -18,6 +18,7 @@
 		['', 'Overview', true],
 		['/access', 'Access', true],
 		['/roles', 'Roles', true],
+		['/players', 'Players', false],
 		['/bans', 'Ban list', false],
 		['/reserved', 'Reserved slots', false]
 	] as const;

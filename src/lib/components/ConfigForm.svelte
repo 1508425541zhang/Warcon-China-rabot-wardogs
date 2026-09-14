@@ -15,6 +15,7 @@
 		type FieldValue
 	} from '$lib/config-fields';
 	import type { ConfigResult, ConfigSection } from '$lib/types';
+	import TickReward from './TickReward.svelte';
 
 	let {
 		text = $bindable(),
@@ -162,6 +163,7 @@
 							/>
 							<span class="text-mist-400">{sliderMax(f)}{f.unit ?? ''}</span>
 							<output class="w-12 font-mono tabular">{Number(v)}{f.unit ?? ''}</output>
+							{#if f.key === 'scorePeriod'}<TickReward seconds={Number(v)} class="w-full" />{/if}
 						{:else if f.type === 'number'}
 							{#if f.pair}<span class="caps text-[10px] text-mist-600"
 									>{f.key.startsWith('min') ? 'min' : 'max'}</span
