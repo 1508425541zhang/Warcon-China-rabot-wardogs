@@ -46,6 +46,11 @@
 		minutes(Math.round((Date.parse(to ?? new Date().toISOString()) - Date.parse(from)) / 60000));
 	let maxMapMinutes = $derived(Math.max(1, ...(a?.maps.map((m) => m.minutes) ?? [])));
 	let maxHourly = $derived(Math.max(1, ...(a?.hourly.map((h) => h.avg) ?? [])));
+	// Derived rather than inlined in the each: state read only inside a callback of the each
+	// expression compiles to non-reactive items, so the bars would freeze on their first values.
+	let hourlyBars = $derived(
+		Array.from({ length: 24 }, (_, h) => a?.hourly.find((x) => x.hour === h)?.avg ?? 0)
+	);
 </script>
 
 <div class="mb-4 flex flex-wrap items-center gap-2">
@@ -173,7 +178,7 @@
 					role="img"
 					aria-label="Average players by hour of day"
 				>
-					{#each Array.from({ length: 24 }, (_, h) => a!.hourly.find((x) => x.hour === h)?.avg ?? 0) as v, h (h)}
+					{#each hourlyBars as v, h (h)}
 						<div class="group relative flex-1">
 							<div
 								class="w-full bg-accent/80 transition-[height]"
