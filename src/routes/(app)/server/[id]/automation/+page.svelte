@@ -388,13 +388,20 @@
 
 {#snippet dryResult(r: DryRunResult)}
 	<div class="mb-2 flex flex-wrap items-center gap-2 text-[13px]">
-		<b>Dry run, last 24 h:</b>
-		<span
-			>would have fired <b class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b> time{r.fires ===
-			1
-				? ''
-				: 's'}</span
-		>
+		{#if r.kind === 'restart_notice'}
+			<b>Next cycle:</b>
+			<span
+				><b class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b> broadcast{r.fires === 1
+					? ''
+					: 's'}</span
+			>
+		{:else}
+			<b>Dry run, last 24 h:</b>
+			<span
+				>would have fired <b class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b>
+				time{r.fires === 1 ? '' : 's'}</span
+			>
+		{/if}
 		<button type="button" class="ml-auto btn btn-sm btn-ghost" onclick={() => (dry = null)}
 			>✕</button
 		>
@@ -544,7 +551,7 @@
 				</p>
 			{:else if f.kind === 'restart_notice'}
 				<label class="block"
-					><span class="field-label">Message once the restart window is open</span><input
+					><span class="field-label">Message once the window is open</span><input
 						class="input"
 						type="text"
 						bind:value={f.message}
@@ -552,9 +559,18 @@
 						required
 					/></label
 				>
-				<div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_3fr]">
+				<label class="block"
+					><span class="field-label">Heads-up message</span><input
+						class="input"
+						type="text"
+						bind:value={f.leadMessage}
+						maxlength="200"
+						disabled={!Number(f.leadMinutes)}
+					/></label
+				>
+				<div class="grid grid-cols-3 gap-3">
 					<label class="block"
-						><span class="field-label">Heads-up (minutes before)</span><input
+						><span class="field-label">Heads-up, min before</span><input
 							class="input"
 							type="number"
 							min="0"
@@ -563,18 +579,7 @@
 						/></label
 					>
 					<label class="block"
-						><span class="field-label">Heads-up message</span><input
-							class="input"
-							type="text"
-							bind:value={f.leadMessage}
-							maxlength="200"
-							disabled={!Number(f.leadMinutes)}
-						/></label
-					>
-				</div>
-				<div class="grid grid-cols-2 gap-3">
-					<label class="block"
-						><span class="field-label">Repeat while open (minutes, 0 = once)</span><input
+						><span class="field-label">Repeat every, min</span><input
 							class="input"
 							type="number"
 							min="0"
@@ -583,7 +588,7 @@
 						/></label
 					>
 					<label class="block"
-						><span class="field-label">Only with at least (players)</span><input
+						><span class="field-label">At least, players</span><input
 							class="input"
 							type="number"
 							min="0"
@@ -593,9 +598,10 @@
 					>
 				</div>
 				<p class="note">
-					WARDOGS restarts a server twelve hours after it started, when the round then in progress
-					ends; the header shows where this server is in that cycle. Each message goes once per game
-					start. Placeholders: <span class="chip">{'{minutes}'}</span>
+					The game restarts twelve hours after it started, once the round then in progress ends. The
+					heads-up goes that many minutes before the window opens (0 turns it off); the main message
+					goes once it has, and again on the repeat cadence while the round runs on (0 sends it
+					once). Placeholders: <span class="chip">{'{minutes}'}</span>
 					<span class="chip">{'{uptime}'}</span> <span class="chip">{'{server}'}</span>
 					<span class="chip">{'{map}'}</span> <span class="chip">{'{players}'}</span>
 					<span class="chip">{'{max}'}</span>.
@@ -612,7 +618,11 @@
 					class="mr-auto btn"
 					disabled={dryBusy}
 					onclick={() => dryRun(f.kind, config(f), 'form')}
-					>{dryBusy ? 'Replaying…' : 'Dry run (last 24 h)'}</button
+					>{dryBusy
+						? 'Working…'
+						: f.kind === 'restart_notice'
+							? 'Preview next cycle'
+							: 'Dry run (last 24 h)'}</button
 				>
 				<button type="button" class="btn" data-close onclick={() => (form = null)}>Cancel</button>
 				<button type="submit" class="btn btn-primary" disabled={busy}
