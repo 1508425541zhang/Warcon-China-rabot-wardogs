@@ -2,6 +2,7 @@
 	// Who holds a reserved slot on this server: the roster as the game server holds it, with what
 	// the organisation's list contributes marked out, who is playing right now, and the controls
 	// to hand out or withdraw a slot here.
+	import { untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { api, rconGet, rconPost, errorMessage } from '$lib/api';
 	import { watchLive } from '$lib/live';
@@ -10,6 +11,8 @@
 	import { toast } from '$lib/toast.svelte';
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import SteamName from '$lib/components/SteamName.svelte';
+	import { isSteamId, steamProfiles, type SteamProfile } from '$lib/steam-profiles';
 	import { describeSync, STATE_TONE } from '$lib/lists';
 	import type { ListSyncServer, ServerListsState } from '$lib/types';
 	import type { PageProps } from './$types';
@@ -34,6 +37,11 @@
 	let busy = $state(false);
 	/** who is on the server right now, by SteamID, with the name they are playing under */
 	let online = $state<Record<string, string>>({});
+	/** Steam personas for slot holders the panel has not seen play, where a key is configured */
+	let steam = $state<Record<string, SteamProfile | null>>({});
+	/** the persona for the id being typed into the reserve form: undefined while unknown */
+	let preview = $state<SteamProfile | null | undefined>(undefined);
+	let previewId = $derived(isSteamId(reservedId.trim()) ? reservedId.trim() : '');
 
 	let orgReserveCount = $derived(
 		data.orgLists?.lists.find((l) => l.kind === 'reserve')?.entryCount ?? null
@@ -65,7 +73,7 @@
 				steamId,
 				src,
 				here: reserved.includes(steamId),
-				name: online[steamId] ?? src?.name ?? null,
+				name: online[steamId] ?? src?.name ?? steam[steamId]?.name ?? null,
 				online: steamId in online,
 				rank: src?.member ? 3 : src?.managed ? 1 : 2
 			};
@@ -131,6 +139,26 @@
 	$effect(() => {
 		void id;
 		refreshReserved().catch((err) => toast(errorMessage(err), 'err'));
+	});
+	// Personas are looked up for the roster's ids alone, so a lookup never re-runs on its own result.
+	let slotIds = $derived(
+		[...new Set([...reserved, ...Object.keys(listState?.reserved ?? {})])].sort().join(',')
+	);
+	$effect(() => {
+		const ids = slotIds.split(',').filter(Boolean);
+		untrack(() => void lookupSteam(ids));
+	});
+	async function lookupSteam(ids: string[]) {
+		const found = await steamProfiles(ids.filter((s) => !(s in steam)));
+		if (Object.keys(found).length) steam = { ...steam, ...found };
+	}
+	$effect(() => {
+		const want = previewId;
+		preview = undefined;
+		if (!want) return;
+		void steamProfiles([want]).then((r) => {
+			if (previewId === want && want in r) preview = r[want];
+		});
 	});
 	$effect(() => {
 		void id;
@@ -270,6 +298,11 @@
 				>Reserve</button
 			>
 		</form>
+		{#if previewId && preview}
+			<div class="mt-1.5 text-[12.5px]"><SteamName profile={preview} /></div>
+		{:else if previewId && preview === null}
+			<div class="mt-1.5 text-[12.5px] text-mist-600">No Steam profile for that id.</div>
+		{/if}
 		<p class="note">
 			{#if viaConfig}
 				This server build has no live reserved-slot routes, so slots are written to
@@ -326,6 +359,13 @@
 											: 'bg-ink-700'}"
 										title={s.online ? 'Playing now' : 'Not on the server right now'}
 									></span>
+									{#if steam[s.steamId]?.avatar}<img
+											src={steam[s.steamId]?.avatar}
+											alt=""
+											class="size-5 shrink-0 rounded-sm"
+											loading="lazy"
+											referrerpolicy="no-referrer"
+										/>{/if}
 									<a
 										href="/server/{encodeURIComponent(id)}/players/{s.steamId}"
 										class="truncate font-medium hover:text-accent hover:underline {s.name

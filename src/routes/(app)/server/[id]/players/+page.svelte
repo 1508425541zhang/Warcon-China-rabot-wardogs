@@ -286,7 +286,12 @@
 	</div>
 	{#if !anyAction}<p class="note">You have view-only access; player actions are disabled.</p>{/if}
 	<p class="note">
-		This server's ban list is under
+		{#if listState?.canEditOrg}Everyone who has ever joined is under
+			<a
+				href="/orgs/{encodeURIComponent(data.server.orgId)}/players?server={encodeURIComponent(id)}"
+				class="text-accent hover:underline">Players seen</a
+			>, with the names they used.
+		{/if}This server's ban list is under
 		<a href="/server/{encodeURIComponent(id)}/bans" class="text-accent hover:underline">Bans</a>
 		and its reserved slots under
 		<a href="/server/{encodeURIComponent(id)}/slots" class="text-accent hover:underline"

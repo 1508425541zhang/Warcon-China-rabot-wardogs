@@ -5,6 +5,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import RoleBadge from '$lib/components/RoleBadge.svelte';
 	import { toast } from '$lib/toast.svelte';
+	import { sponsor, loadSponsor } from '$lib/sponsor.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -45,6 +46,11 @@
 		}
 	}
 	let live = $derived(health[data.server.id]);
+	// The banner the server advertises to the game's browser, beside the card as the official console has it.
+	let banner = $derived(sponsor[data.server.id] ?? '');
+	$effect(() => {
+		if (data.reachable) void loadSponsor(data.server.id);
+	});
 	let slowed = $derived(!!throttled[data.server.id]);
 
 	// On phones the tab row scrolls sideways; keep the active tab in view after navigating.
@@ -92,6 +98,18 @@
 				<p class="mt-1.5 line-clamp-2 text-[12.5px] text-mist-400">{data.server.notes}</p>
 			{/if}
 		</div>
+		{#if banner}
+			{#key banner}
+				<img
+					src={banner}
+					alt="Server banner"
+					class="h-12 w-auto max-w-[192px] rounded border border-black object-cover"
+					loading="lazy"
+					referrerpolicy="no-referrer"
+					onerror={(e) => ((e.currentTarget as HTMLImageElement).hidden = true)}
+				/>
+			{/key}
+		{/if}
 		<span
 			class="mt-1 inline-flex items-center gap-2 text-[12.5px] {live === false
 				? 'text-danger'

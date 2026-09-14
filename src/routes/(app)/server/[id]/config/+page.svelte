@@ -4,6 +4,8 @@
 	import { toast } from '$lib/toast.svelte';
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import ConfigForm from '$lib/components/ConfigForm.svelte';
+	import TickReward from '$lib/components/TickReward.svelte';
+	import { sponsor as banners, loadSponsor } from '$lib/sponsor.svelte';
 	import { setScalarInText } from '$lib/config-doc';
 	import { lockedKeys, S_SESSION } from '$lib/config-fields';
 	import type { ConfigDoc, ConfigResult, Status } from '$lib/types';
@@ -18,7 +20,7 @@
 	let tickMax = $state(30);
 	let tickKnown = $state(false);
 	let sponsor = $state('');
-	let sponsorShown = $state('');
+	let sponsorShown = $derived(banners[id] ?? '');
 	let doc = $state<ConfigDoc | null>(null);
 	let text = $state('');
 	let force = $state(false);
@@ -78,14 +80,10 @@
 		a.click();
 		setTimeout(() => URL.revokeObjectURL(url), 1000);
 	}
-	async function loadSponsor() {
-		try {
-			const s = await rconGet<{ imageUrl: string }>(id, 'sponsor');
-			sponsor = s.imageUrl || '';
-			sponsorShown = sponsor;
-		} catch {
-			/* ignore */
-		}
+	// The banner is shared with the server header; a forced read follows an apply.
+	async function loadBanner(force = false) {
+		await loadSponsor(id, force);
+		sponsor = banners[id] ?? '';
 	}
 	async function loadTick() {
 		try {
@@ -101,7 +99,7 @@
 		}
 	}
 	$effect(() => {
-		void Promise.all([loadTick(), loadSponsor(), loadDoc()]);
+		void Promise.all([loadTick(), loadBanner(), loadDoc()]);
 	});
 
 	async function saveTick() {
@@ -130,7 +128,7 @@
 		// On a refusal (for example a host that is not on the server's image allow-list) runConfig
 		// has already shown the reason; keep what was typed so it can be corrected.
 		if (failure) return;
-		await loadSponsor();
+		await loadBanner(true);
 	}
 	async function runConfig(action: 'configValidate' | 'configApply') {
 		busy = true;
@@ -201,6 +199,7 @@
 			<span class="text-mist-400">{tickMax}s</span>
 			<output class="w-10 font-mono">{tickKnown ? `${tick}s` : '—'}</output>
 		</div>
+		<TickReward seconds={tickKnown ? tick : null} class="mt-2" />
 		<p class="note">
 			{#if data.features.liveSettings}Live route (PATCH /v1/settings).{:else}This server build has
 				no live settings route; set ScorePeriod in the document below instead.{/if}

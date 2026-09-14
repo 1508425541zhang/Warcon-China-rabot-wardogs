@@ -5,8 +5,10 @@
 	import { api, rconPost, errorMessage } from '$lib/api';
 	import { toast } from '$lib/toast.svelte';
 	import { describeSync, EXPIRY_OPTIONS, expiryIso, REASON_PRESETS } from '$lib/lists';
+	import { isSteamId, steamProfiles, type SteamProfile } from '$lib/steam-profiles';
 	import type { ListSyncSummary } from '$lib/types';
 	import Modal from './Modal.svelte';
+	import SteamName from './SteamName.svelte';
 
 	let {
 		orgId,
@@ -40,6 +42,17 @@
 	let busy = $state(false);
 
 	let who = $derived(name ? `${name} (${steamId})` : steamId || 'a player');
+	// A typed id is looked up so the admin sees who they are about to ban.
+	let previewId = $derived(steamId ? '' : isSteamId(id.trim()) ? id.trim() : '');
+	let preview = $state<SteamProfile | null | undefined>(undefined);
+	$effect(() => {
+		const want = previewId;
+		preview = undefined;
+		if (!want) return;
+		void steamProfiles([want]).then((r) => {
+			if (previewId === want && want in r) preview = r[want];
+		});
+	});
 	let orgOnly = $derived(!server);
 
 	async function submit() {
@@ -94,6 +107,11 @@
 					required
 				/></label
 			>
+			{#if previewId && preview}
+				<div class="mt-1.5 text-[12.5px]"><SteamName profile={preview} /></div>
+			{:else if previewId && preview === null}
+				<div class="mt-1.5 text-[12.5px] text-mist-600">No Steam profile for that id.</div>
+			{/if}
 		{/if}
 
 		{#if server && canOrg}

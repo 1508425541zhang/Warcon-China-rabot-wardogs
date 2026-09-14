@@ -9,6 +9,8 @@
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
+	import SteamName from '$lib/components/SteamName.svelte';
+	import { steamProfiles, type SteamProfile } from '$lib/steam-profiles';
 	import { describeSync, STATE_TONE } from '$lib/lists';
 	import type { Ban, ListSyncServer, ListSyncSummary, ServerListsState } from '$lib/types';
 	import type { PageProps } from './$types';
@@ -24,6 +26,8 @@
 		listState = data.listState;
 	});
 	let bans = $state<Ban[]>([]);
+	/** Steam personas for the ids on the list, where a key is configured */
+	let steam = $state<Record<string, SteamProfile | null>>({});
 	let banSearch = $state('');
 	let selectedBan = $state<string | null>(null);
 	let busy = $state(false);
@@ -35,6 +39,7 @@
 			(b) =>
 				!q ||
 				b.steamId.includes(q) ||
+				(steam[b.steamId]?.name || '').toLowerCase().includes(q) ||
 				(b.bannedBy || '').toLowerCase().includes(q) ||
 				(b.reason || '').toLowerCase().includes(q)
 		);
@@ -82,6 +87,11 @@
 	async function refreshBans() {
 		bans = (await rconGet<{ bans: Ban[] }>(id, 'bans')).bans;
 		void refreshListState();
+		void lookupSteam(bans.map((b) => b.steamId));
+	}
+	async function lookupSteam(ids: string[]) {
+		const found = await steamProfiles(ids.filter((s) => !(s in steam)));
+		if (Object.keys(found).length) steam = { ...steam, ...found };
 	}
 	const refreshAll = () => Promise.all([refreshBans(), invalidateAll()]);
 
@@ -223,7 +233,7 @@
 	<div class="table-wrap">
 		<table>
 			<thead
-				><tr><th>SteamID64</th><th>Source</th><th>Banned at (UTC)</th><th>By</th><th>Reason</th></tr
+				><tr><th>Player</th><th>Source</th><th>Banned at (UTC)</th><th>By</th><th>Reason</th></tr
 				></thead
 			>
 			<tbody>
@@ -233,10 +243,11 @@
 						class="clickable {selectedBan === b.steamId ? 'selected' : ''}"
 						onclick={() => (selectedBan = selectedBan === b.steamId ? null : b.steamId)}
 					>
-						<td class="font-mono">
+						<td>
+							<SteamName profile={steam[b.steamId]} class="max-w-[240px] font-medium" />
 							<a
 								href="/server/{encodeURIComponent(id)}/players/{b.steamId}"
-								class="hover:text-accent hover:underline"
+								class="block font-mono text-[12.5px] hover:text-accent hover:underline"
 								title="Open dossier"
 								onclick={(e) => e.stopPropagation()}>{b.steamId}</a
 							>
