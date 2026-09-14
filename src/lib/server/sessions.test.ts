@@ -22,7 +22,8 @@ const open = (steamId: string): OpenSession => ({
 	joinedAt: 1000,
 	lastSeen: 2000,
 	writtenAt: 2000,
-	firstVisit: false
+	firstVisit: false,
+	lastFaction: null
 });
 
 describe('diffPresence', () => {
@@ -49,7 +50,11 @@ describe('diffPresence', () => {
 	test('reports players who have just picked or changed faction', () => {
 		const p = newPresence();
 		p.open.set('76561198100000001', open('76561198100000001'));
-		p.open.set('76561198100000002', { ...open('76561198100000002'), faction: 'Valkyra' });
+		p.open.set('76561198100000002', {
+			...open('76561198100000002'),
+			faction: 'Valkyra',
+			lastFaction: 'Valkyra'
+		});
 		const d = diffPresence(p, [
 			{ ...player('76561198100000001'), faction: 'Valkyra' },
 			{ ...player('76561198100000002'), faction: 'Kessler' },
@@ -60,6 +65,27 @@ describe('diffPresence', () => {
 			['76561198100000002', 'Valkyra']
 		]);
 		expect(d.joined.map((x) => x.steamId)).toEqual(['76561198100000003']);
+	});
+
+	test('a side cleared at match start and picked again is not a new pick', () => {
+		const p = newPresence();
+		p.open.set('76561198100000001', {
+			...open('76561198100000001'),
+			faction: null,
+			lastFaction: 'Valkyra'
+		});
+		p.open.set('76561198100000002', {
+			...open('76561198100000002'),
+			faction: null,
+			lastFaction: 'Valkyra'
+		});
+		const d = diffPresence(p, [
+			{ ...player('76561198100000001'), faction: 'Valkyra' },
+			{ ...player('76561198100000002'), faction: 'Kessler' }
+		]);
+		expect(d.factioned.map((x) => [x.player.steamId, x.from])).toEqual([
+			['76561198100000002', 'Valkyra']
+		]);
 	});
 
 	test('an empty list means everyone left', () => {

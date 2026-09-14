@@ -454,6 +454,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	for (const { player: p, session: s } of diff.stayed) {
 		s.name = p.name;
 		s.faction = p.faction;
+		if (p.faction) s.lastFaction = p.faction;
 		s.kills = p.kills;
 		s.deaths = p.deaths;
 		s.cash = p.cash;
