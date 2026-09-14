@@ -4,7 +4,9 @@ import { createHash } from 'node:crypto';
 import type { Capability } from '../capabilities';
 import { ApiError, int, str } from './http';
 import { gamePath } from './hostpolicy';
-import { GameError, WardogsClient } from './rcon';
+import { classifyGameError, etagOf, GameError, parseJson, WardogsClient } from './rcon';
+import { parseMaxReservedSlots } from './lists-plan';
+import { reservedFromText, reservedIntoText } from '../reserved-doc';
 
 export interface ActionDef {
 	cap: Capability;
@@ -110,11 +112,12 @@ async function getStatus(client: WardogsClient, raw = false) {
 	};
 }
 
-const configResult = (status: number, body: any) => ({
+// `etag`: live builds send the revision as a header too (CL-501228+), a fallback for the body's.
+const configResult = (status: number, body: any, etag = '') => ({
 	ok: status >= 200 && status < 300 && body.ok !== false,
 	status,
 	conflict: status === 412,
-	revision: body.revision || '',
+	revision: body.revision || etag,
 	errorCode: body.error?.code || '',
 	errorMessage:
 		body.error?.message || (status >= 200 && status < 300 ? '' : `Request failed (${status}).`),
@@ -127,6 +130,101 @@ const configResult = (status: number, body: any) => ({
 	warnings: body.warnings || [],
 	timingsMs: body.timingsMs || null
 });
+
+/** A route this build does not serve: 404 "No such endpoint." (renamed `no_route`) or a 405. */
+const isNoRoute = (err: unknown): boolean =>
+	err instanceof GameError && (err.code === 'no_route' || err.status === 405);
+
+/**
+ * Reserved slots on a build without the live routes (CL-499480 and CL-501228 alike), the way the
+ * official console does it: the DefaultReservedPlayerIds array of the config document, edited with
+ * the smallest possible change and applied against the revision that was read. Bounded to that one
+ * key, which is why `slots.manage` may do it without `config.apply`. Error codes match what the
+ * live routes and the org list sync expect: 409 `already_reserved` / `reserved_full`,
+ * 404 `reserved_not_found`; a second revision conflict is 412 `revision_conflict`, never a 409.
+ */
+async function reservedViaConfig(
+	c: WardogsClient,
+	id: string,
+	op: 'add' | 'remove'
+): Promise<{ message: string; via: 'config'; revision: string }> {
+	for (let attempt = 0; ; attempt++) {
+		const doc = (await ACTIONS.config.run(c, {})) as {
+			revision: string;
+			writable: boolean;
+			text: string;
+		};
+		if (!doc.writable) {
+			throw new GameError(
+				400,
+				'This server build has no live reserved-slot routes and reports its config document as read-only, so nothing can be reserved from the panel.',
+				'config_readonly'
+			);
+		}
+		const ids = reservedFromText(doc.text);
+		const present = ids.includes(id);
+		if (op === 'add') {
+			if (present) {
+				throw new GameError(409, `SteamId ${id} is already reserved.`, 'already_reserved');
+			}
+			const cap = parseMaxReservedSlots(doc.text);
+			if (cap !== null && ids.length >= cap) {
+				throw new GameError(
+					409,
+					`Reserved slots are full (${ids.length}/${cap}).`,
+					'reserved_full'
+				);
+			}
+		} else if (!present) {
+			throw new GameError(404, `SteamId ${id} has no reserved slot.`, 'reserved_not_found');
+		}
+		const next = op === 'add' ? [...ids, id] : ids.filter((x) => x !== id);
+		const { status, body, etag } = await c.configCall(
+			'PUT',
+			'/v1/config',
+			reservedIntoText(doc.text, next),
+			doc.revision
+		);
+		const r = configResult(status, body, etag);
+		if (r.ok) {
+			return {
+				message:
+					op === 'add' ? `Reserved a slot for ${id}.` : `Removed the reserved slot for ${id}.`,
+				via: 'config',
+				revision: r.revision
+			};
+		}
+		if (r.conflict) {
+			if (attempt === 0) continue;
+			throw new GameError(
+				412,
+				'The config document changed underneath this edit twice; try again.',
+				'revision_conflict'
+			);
+		}
+		// Classified like any other refusal (a missing PUT route stays no_route, so the sync never
+		// reads it as "already gone") and without the body: a rejected document's error lines can
+		// quote the file, which slots.manage alone may not see.
+		const e = classifyGameError('PUT', '/v1/config', status, '', body);
+		e.body = null;
+		throw e;
+	}
+}
+
+/** The live route first (unless the caller knows there is none), the document otherwise. */
+async function editReserved(c: WardogsClient, p: any, op: 'add' | 'remove'): Promise<unknown> {
+	const id = steamId(p.steamId);
+	if (!p.viaConfig) {
+		try {
+			return op === 'add'
+				? await c.json('POST', '/v1/reserved-slots', { steamId: id })
+				: await c.json('DELETE', `/v1/reserved-slots/${id}`);
+		} catch (err) {
+			if (!isNoRoute(err)) throw err;
+		}
+	}
+	return reservedViaConfig(c, id, op);
+}
 
 export const ACTIONS: Record<string, ActionDef> = {
 	// ---- reads (viewer) ----
@@ -151,7 +249,8 @@ export const ACTIONS: Record<string, ActionDef> = {
 						routes.includes('POST /v1/rotation/entries') &&
 						routes.includes('POST /v1/rotation/entries/*/move'),
 					rotationSave: routes.includes('POST /v1/rotation/save'),
-					liveSettings: routes.includes('PATCH /v1/settings')
+					liveSettings: routes.includes('PATCH /v1/settings'),
+					serverId: routes.includes('GET /v1/server-id')
 				},
 				raw: data
 			};
@@ -160,6 +259,12 @@ export const ACTIONS: Record<string, ActionDef> = {
 	status: { cap: 'server.view', mutating: false, run: (c, p) => getStatus(c, !!p.raw) },
 	// Live build CL-499480: { status, uptimeSeconds, connections:{active}, gameThreadQueue:{inFlight,depth,rejectedTotal} }.
 	health: { cap: 'server.view', mutating: false, run: (c) => c.json('GET', '/v1/health') },
+	// Live build CL-501228 (2026-09-14): { serverId } is the join code the WARDOGS backend issued; read-only.
+	serverId: {
+		cap: 'server.view',
+		mutating: false,
+		run: async (c) => ({ serverId: String((await c.json('GET', '/v1/server-id')).serverId ?? '') })
+	},
 	players: {
 		cap: 'server.view',
 		mutating: false,
@@ -289,12 +394,22 @@ export const ACTIONS: Record<string, ActionDef> = {
 		cap: 'server.view',
 		mutating: false,
 		run: async (c) => {
-			const d = await c.json('GET', '/v1/config');
+			// Read raw for the headers: CL-501228 sends the revision as an ETag as well, which
+			// covers a build that stops putting it in the body.
+			const res = await c.raw('GET', '/v1/config');
+			const d = parseJson(res.text) ?? {};
+			if (res.status < 200 || res.status >= 300)
+				throw classifyGameError('GET', '/v1/config', res.status, res.statusText, d, res.headers);
+			const revision = d.revision || etagOf(res.headers);
+			// Anything but a document (a proxy page, an empty answer) must never become a writable
+			// empty file that the reserved-slot path would then PUT back over the real one.
+			if (typeof d.text !== 'string' || !revision || !Array.isArray(d.sections))
+				throw new GameError(502, 'The server did not return a config document.', 'bad_response');
 			return {
-				revision: d.revision || '',
+				revision,
 				writable: d.writable !== false,
-				text: d.text || '',
-				sections: d.sections || [],
+				text: d.text,
+				sections: d.sections,
 				warnings: d.warnings || []
 			};
 		}
@@ -483,17 +598,19 @@ export const ACTIONS: Record<string, ActionDef> = {
 		target: (p) => str(p.steamId, 32),
 		run: (c, p) => c.json('DELETE', `/v1/bans/${steamId(p.steamId)}`)
 	},
+	// Both fall back to the config document on builds without the routes; `viaConfig: true` skips
+	// the attempt when the caller already knows (the org list sync, the slots page).
 	reservedAdd: {
 		cap: 'slots.manage',
 		mutating: true,
 		target: (p) => str(p.steamId, 32),
-		run: (c, p) => c.json('POST', '/v1/reserved-slots', { steamId: steamId(p.steamId) })
+		run: (c, p) => editReserved(c, p, 'add')
 	},
 	reservedRemove: {
 		cap: 'slots.manage',
 		mutating: true,
 		target: (p) => str(p.steamId, 32),
-		run: (c, p) => c.json('DELETE', `/v1/reserved-slots/${steamId(p.steamId)}`)
+		run: (c, p) => editReserved(c, p, 'remove')
 	},
 	rotationSave: {
 		cap: 'rotation.save',
@@ -531,12 +648,12 @@ export const ACTIONS: Record<string, ActionDef> = {
 		mutating: false,
 		audit: (p) => ({ text: fingerprint(p.text) }),
 		run: async (c, p) => {
-			const { status, body } = await c.configCall(
+			const { status, body, etag } = await c.configCall(
 				'POST',
 				'/v1/config/validate',
 				String(p.text ?? '')
 			);
-			return configResult(status, body);
+			return configResult(status, body, etag);
 		}
 	},
 	configApply: {
@@ -559,13 +676,13 @@ export const ACTIONS: Record<string, ActionDef> = {
 				query.push('fullApply=true');
 			}
 			const path = '/v1/config' + (query.length ? `?${query.join('&')}` : '');
-			const { status, body } = await c.configCall(
+			const { status, body, etag } = await c.configCall(
 				'PUT',
 				path,
 				String(p.text ?? ''),
 				str(p.revision, 100) || undefined
 			);
-			const result = configResult(status, body);
+			const result = configResult(status, body, etag);
 			if (!result.ok && !result.conflict) {
 				throw new GameError(
 					status,

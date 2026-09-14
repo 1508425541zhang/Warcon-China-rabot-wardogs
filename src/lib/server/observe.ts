@@ -11,8 +11,8 @@ import type { Env } from './env';
 import { publicMessage } from './http';
 import type { OrgRow, ServerRow } from './access';
 import { ACTIONS } from './actions';
-import { WardogsClient } from './rcon';
-import { matches, samples } from './db/schema';
+import { GameError, WardogsClient } from './rcon';
+import { matches, samples, serverLive } from './db/schema';
 import type { DbOrTx } from './db';
 import { getProfiles, steamEnabled } from './steam';
 import {
@@ -40,9 +40,9 @@ import { settings } from './settings';
 import { isWatched } from './interest';
 import { emit } from './events';
 import { liveView, writeLive } from './live';
-import { nextDue } from './poller-schedule';
+import { nextDue, withHold } from './poller-schedule';
 import { cashByFaction } from '$lib/cash';
-import type { LiveView, Player, Status } from '$lib/types';
+import type { Features, LiveView, Player, Status } from '$lib/types';
 
 export type Tier = LiveView['tier'];
 
@@ -66,6 +66,8 @@ export interface ServerMemory {
 	/** the players cadence in force when the last players observation was launched */
 	playersIntervalMs: number;
 	failures: number;
+	/** no look before this time: the listener answered 429 with Retry-After (not a failure) */
+	holdUntil: number;
 	ok: boolean;
 	error: string;
 	/** last attempt, successful or not */
@@ -84,9 +86,24 @@ export interface ServerMemory {
 	liveWrittenAt: number;
 	sampleKey: string;
 	sampleWrittenAt: number;
+	/** what the build says about itself: refreshed hourly and after an outage */
+	identity: Identity;
 	/** observations completed */
 	count: number;
 }
+
+/** Build string, feature flags and join code, from GET /v1/capabilities and /v1/server-id. */
+export interface Identity {
+	build: string;
+	gameServerId: string;
+	features: Features | null;
+	/** when it was last (re)read; 0 asks the next observation to read it */
+	checkedAt: number;
+	/** seeded from server_live once per process, so a failed first re-read cannot blank the row */
+	hydrated: boolean;
+}
+/** Builds change with patches, not matches: one read per server per hour, and again after an outage. */
+const IDENTITY_TTL_MS = 3600_000;
 
 const registry = new Map<string, ServerMemory>();
 
@@ -105,6 +122,7 @@ export function memoryFor(server: ServerRow, org: OrgRow): ServerMemory {
 			statusDueAt: 0,
 			playersIntervalMs: 0,
 			failures: 0,
+			holdUntil: 0,
 			ok: false,
 			error: '',
 			observedAt: 0,
@@ -122,6 +140,7 @@ export function memoryFor(server: ServerRow, org: OrgRow): ServerMemory {
 			liveWrittenAt: 0,
 			sampleKey: '',
 			sampleWrittenAt: 0,
+			identity: { build: '', gameServerId: '', features: null, checkedAt: 0, hydrated: false },
 			count: 0
 		};
 		registry.set(server.id, m);
@@ -133,6 +152,80 @@ export function memoryFor(server: ServerRow, org: OrgRow): ServerMemory {
 }
 
 export const memoryOf = (id: string): ServerMemory | undefined => registry.get(id);
+
+/** Makes the next observation re-read the build (a connection test asked for a fresh look). */
+export function requestIdentityRefresh(id: string): void {
+	const m = registry.get(id);
+	if (m) m.identity.checkedAt = 0;
+}
+
+/** After a failed re-read, try again this soon rather than waiting out the TTL. */
+const IDENTITY_RETRY_MS = 5 * 60_000;
+
+/** First sight of a server in this process: start from what the last worker wrote. */
+async function hydrateIdentity(env: Env, m: ServerMemory): Promise<void> {
+	if (m.identity.hydrated) return;
+	m.identity.hydrated = true;
+	try {
+		const [row] = await env.db
+			.select({ build: serverLive.build, gameServerId: serverLive.gameServerId })
+			.from(serverLive)
+			.where(eq(serverLive.serverId, m.server.id))
+			.limit(1);
+		if (row) {
+			if (!m.identity.build) m.identity.build = row.build;
+			if (!m.identity.gameServerId) m.identity.gameServerId = row.gameServerId;
+		}
+	} catch (e) {
+		console.warn(`[warcon] identity of ${m.server.name} not read:`, publicMessage(e));
+	}
+}
+
+/** The listener asked us to slow down: hold the next look from now, never shortening a longer hold. */
+function holdFor(m: ServerMemory, err: unknown): boolean {
+	if (!(err instanceof GameError) || err.code !== 'rate_limited') return false;
+	m.holdUntil = Math.max(m.holdUntil, Date.now() + (err.retryAfterMs || 5000));
+	return true;
+}
+
+/**
+ * Re-reads what the build says about itself. A failure keeps the previous answer (a transient
+ * error must not blank the id on the status cards), retries in a few minutes rather than an hour,
+ * and a 429 becomes a hold like any other; only a build that reports capabilities without the
+ * server-id route clears the id.
+ */
+async function refreshIdentity(client: WardogsClient, m: ServerMemory, now: number): Promise<void> {
+	const next: Identity = { ...m.identity, checkedAt: now };
+	const retrySoon = () => {
+		next.checkedAt = now - IDENTITY_TTL_MS + IDENTITY_RETRY_MS;
+	};
+	try {
+		const caps = (await ACTIONS.capabilities.run(client, {})) as {
+			features: Features;
+			raw?: { build?: unknown };
+		};
+		next.features = caps.features;
+		next.build = String(caps.raw?.build ?? '');
+		if (!caps.features.serverId) next.gameServerId = '';
+	} catch (err) {
+		// Older builds have no capabilities route; anything else is retried soon.
+		retrySoon();
+		if (holdFor(m, err)) {
+			m.identity = next;
+			return;
+		}
+	}
+	if (next.features?.serverId) {
+		try {
+			const r = (await ACTIONS.serverId.run(client, {})) as { serverId: string };
+			next.gameServerId = r.serverId || '';
+		} catch (err) {
+			retrySoon();
+			holdFor(m, err);
+		}
+	}
+	m.identity = next;
+}
 
 /** Another process may have written since we last owned the worker: forget what we remember. */
 export function forgetRemembered(): void {
@@ -192,6 +285,8 @@ export function planNext(m: ServerMemory, now: number, kinds: ObserveKinds): voi
 		m.playersDueAt = nextDue(m.playersDueAt || now, c.players, now);
 	}
 	if (kinds.status) m.statusDueAt = nextDue(m.statusDueAt || now, c.status, now);
+	m.playersDueAt = withHold(m.playersDueAt, m.holdUntil, now);
+	m.statusDueAt = withHold(m.statusDueAt, m.holdUntil, now);
 }
 
 /** After an observation the tier may have changed: pull the due times in if it got faster. */
@@ -205,6 +300,8 @@ export function replan(m: ServerMemory, now: number): void {
 		m.playersDueAt = now;
 		m.statusDueAt = now;
 	}
+	m.playersDueAt = withHold(m.playersDueAt, m.holdUntil, now);
+	m.statusDueAt = withHold(m.statusDueAt, m.holdUntil, now);
 }
 
 // ---- keys that decide what gets written -----------------------------------------------------------
@@ -226,6 +323,9 @@ const liveKeyOf = (m: ServerMemory) =>
 		m.status?.lighting,
 		m.status?.playerCount,
 		m.status?.maxPlayers,
+		m.holdUntil,
+		m.identity.build,
+		m.identity.gameServerId,
 		idsOf(m.players)
 	]);
 
@@ -249,6 +349,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	let client: WardogsClient;
 	let status: Status | null = null;
 	let players: Player[] | null = null;
+	await hydrateIdentity(env, m);
 	try {
 		client = await WardogsClient.forServer(env, server);
 		if (kinds.status || !m.status) status = (await ACTIONS.status.run(client, {})) as Status;
@@ -260,8 +361,11 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	}
 	const latencyMs = Date.now() - started;
 	const wasOffline = m.failures >= OFFLINE_AFTER_FAILURES;
+	// Any failure may have been a restart onto a new build: re-read the identity on recovery.
+	const hadFailed = m.failures > 0;
 	const prevPlayersAt = m.playersAt;
 	m.failures = 0;
+	m.holdUntil = 0;
 	m.ok = true;
 	m.error = '';
 	m.observedAt = started;
@@ -275,6 +379,8 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 		m.playersAt = started;
 	}
 	m.tier = tierOf(m, started);
+	if (hadFailed || started - m.identity.checkedAt >= IDENTITY_TTL_MS)
+		await refreshIdentity(client, m, started);
 	if (!m.presence.loaded) await loadPresence(env.db, server.id, m.presence);
 
 	// Joins are trusted only when the previous look at the player list is recent enough that
@@ -393,6 +499,24 @@ async function observationFailed(
 	started: number,
 	err: unknown
 ): Promise<void> {
+	if (err instanceof GameError && err.code === 'rate_limited') {
+		// Not an outage: the listener asked the panel to slow down. Hold the next look for as long
+		// as it said, keep the tier and the failure count, show the message, and write only the
+		// live row (no sample, no session closing).
+		holdFor(m, err);
+		m.error = publicMessage(err, 'Rate limited.').slice(0, 300);
+		m.observedAt = started;
+		try {
+			await withOwnedTransaction(env, (tx) => writeLive(tx, m, ts));
+			m.liveKey = liveKeyOf(m);
+			m.liveWrittenAt = started;
+		} catch (e) {
+			if (e instanceof LostOwnership) throw e;
+			console.warn(`[warcon] hold on ${m.server.name} not saved:`, publicMessage(e));
+		}
+		emit({ type: 'live', live: liveView(m) });
+		return;
+	}
 	m.failures++;
 	m.ok = false;
 	m.error = publicMessage(err, 'Poll failed.').slice(0, 300);
@@ -487,6 +611,7 @@ async function keepLists(
 	if (started - m.syncAt >= s.listSyncMs) {
 		m.syncAt = started;
 		const synced = await reconcileServer(env, m.server, m.org, {
+			features: m.identity.features,
 			reason: 'poll',
 			waitMs: 0,
 			client,

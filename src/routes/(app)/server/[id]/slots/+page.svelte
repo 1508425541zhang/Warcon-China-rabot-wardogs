@@ -19,7 +19,9 @@
 	let admin = $derived(can(data.server.caps, 'slots.manage'));
 	let listsEdit = $derived(can(data.server.caps, 'lists.edit'));
 	let orgPath = $derived(`/orgs/${encodeURIComponent(data.server.orgId)}`);
-	let canReserve = $derived(admin && data.features.reservedSlots);
+	// Builds without the live routes take reserved slots through the config document instead.
+	let viaConfig = $derived(!data.features.reservedSlots && data.features.configDocument);
+	let canReserve = $derived(admin && (data.features.reservedSlots || viaConfig));
 
 	let listState = $state<ServerListsState | null>(null);
 	$effect(() => {
@@ -157,7 +159,7 @@
 	const addSlot = () =>
 		act(
 			'reservedAdd',
-			{ steamId: reservedId.trim() },
+			{ steamId: reservedId.trim(), viaConfig },
 			{
 				after: async () => {
 					reservedId = '';
@@ -170,7 +172,7 @@
 		const who = name ? `${name} (${steamId})` : steamId;
 		await act(
 			'reservedRemove',
-			{ steamId },
+			{ steamId, viaConfig },
 			{
 				confirm: src?.managed
 					? `${who} holds this slot through the organisation's list, so the panel will hand it back at the next sync. Withdraw it here anyway? To withdraw it everywhere, remove it from the organisation's reserved slots instead.`
@@ -269,9 +271,13 @@
 			>
 		</form>
 		<p class="note">
-			{#if !data.features.reservedSlots}
-				This server build has no live reserved-slot routes; add +DefaultReservedPlayerIds lines to
-				the config document instead.
+			{#if viaConfig}
+				This server build has no live reserved-slot routes, so slots are written to
+				+DefaultReservedPlayerIds in its config document (permanent only).
+				{#if listState?.canEditOrg}To reserve a slot on every server, use the organisation list.{/if}
+			{:else if !data.features.reservedSlots}
+				This server build has no live reserved-slot routes and no writable config document, so
+				nothing can be reserved from here.
 			{:else if listState?.canEditOrg}
 				Written to this server's ServerSettings.ini only. To reserve a slot on every server, use the
 				organisation list.

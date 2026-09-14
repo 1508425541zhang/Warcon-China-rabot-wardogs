@@ -161,6 +161,9 @@ export function connectRemoteGateway(env: Env): Gateway {
 		triggersChanged(serverId) {
 			void call(env, '/triggers-changed', { serverId }).catch(() => {});
 		},
+		identityChanged(serverId) {
+			void call(env, '/identity-changed', { serverId }).catch(() => {});
+		},
 		statusChanged() {
 			void call(env, '/status-changed', {}).catch(() => {});
 		},

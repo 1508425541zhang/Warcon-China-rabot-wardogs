@@ -2,6 +2,9 @@
 # End-to-end smoke test against a running Warcon on a FRESH database (WARCON_URL, default http://127.0.0.1:5199).
 set -u
 B=${WARCON_URL:-http://127.0.0.1:5199}
+# SMOKE_LIVE_BUILD=1 when the instance runs with MOCK_LIVE_BUILD=true: the demo then lacks the live
+# rotation, settings and reserved-slot routes (like real builds) and reserved slots go via the config document.
+LIVE=${SMOKE_LIVE_BUILD:-0}
 J1=$(mktemp); J2=$(mktemp); J3=$(mktemp)
 pass=0; fail=0
 check() { if [[ "$3" == *"$2"* ]]; then pass=$((pass+1)); echo "PASS $1"; else fail=$((fail+1)); echo "FAIL $1 :: expected '$2' in: ${3:0:400}"; fi; }
@@ -33,6 +36,10 @@ R=$(req $J1 POST /api/orgs '{"name":"Smoke Clan"}'); check org-create '"id"' "$R
 ORG=$(echo "$R" | sed -E 's/.*"id":"([^"]+)".*/\1/')
 check org-list-created '"slug":"smoke-clan"' "$(req $J1 GET /api/orgs)"
 check org-members-owner '"username":"james"' "$(req $J1 GET /api/orgs/$ORG/members)"
+# grants point at the org's roles (built-ins viewer/operator/admin start every org); look their ids up once
+ROLES=$(req $J1 GET /api/orgs/$ORG/roles); check org-roles '"name":"operator"' "$ROLES"
+roleid() { echo "$ROLES" | grep -o "{\"id\":\"[^\"]*\",\"name\":\"$1\"" | sed -E 's/.*"id":"([^"]+)".*/\1/'; }
+RID_VIEWER=$(roleid viewer); RID_OPERATOR=$(roleid operator); RID_ADMIN=$(roleid admin)
 
 echo "== servers"
 check server-create-no-org 'orgId' "$(req $J1 POST /api/servers '{"name":"No Org","host":"demo","port":9,"scheme":"http","password":"demo"}')"
@@ -42,7 +49,10 @@ R=$(req $J1 POST /api/servers "{\"orgId\":\"$ORG\",\"name\":\"Bad PW\",\"host\":
 check org-server-count '"serverCount":2' "$(req $J1 GET /api/orgs)"
 check server-list-no-password '0' "$(req $J1 GET /api/servers | grep -c password_enc)"
 check server-list-demo-flag '"demo":true' "$(req $J1 GET /api/servers)"
-check server-test '"serverName":"Warcon Demo Server' "$(req $J1 POST /api/servers/$SID/test)"
+R=$(req $J1 POST /api/servers/$SID/test)
+check server-test '"serverName":"Warcon Demo Server' "$R"
+check server-test-build '"build":"++Wardogs+' "$R"
+check server-test-id '"serverId":"' "$(echo "$R" | grep -Eo '"serverId":"[0-9a-f]{8}')"
 check server-test-badpw 'rejected the stored RCON password' "$(req $J1 POST /api/servers/$SID2/test)"
 check server-update '"ok":true' "$(req $J1 PATCH /api/servers/$SID2 '{"name":"Bad PW renamed","password":"demo"}')"
 check server-summary '"scores"' "$(req $J1 GET /api/servers/$SID/summary)"
@@ -54,11 +64,13 @@ check catalog '"lightings"' "$(req $J1 GET /api/servers/$SID/rcon/catalog)"
 check experiences-map 'Bakurani_KOTH_01' "$(req $J1 GET "/api/servers/$SID/rcon/experiences?map=Kavkazi")"
 check rotation '"nowIndex":0' "$(req $J1 GET /api/servers/$SID/rcon/rotation)"
 check capabilities '"changeTeam":true' "$(req $J1 GET /api/servers/$SID/rcon/capabilities)"
+check server-id '"serverId":"' "$(req $J1 GET /api/servers/$SID/rcon/serverId | grep -Eo '"serverId":"[0-9a-f]{8}')"
+check health '"uptimeSeconds"' "$(req $J1 GET /api/servers/$SID/rcon/health)"
 check config-read 'ServerName=' "$(req $J1 GET /api/servers/$SID/rcon/config)"
 check serverlog '"entries"' "$(req $J1 GET "/api/servers/$SID/rcon/serverLog?limit=5")"
 check unknown-action 'Unknown action' "$(req $J1 GET /api/servers/$SID/rcon/nope)"
 check get-mutating-405 'must be POSTed' "$(req $J1 GET /api/servers/$SID/rcon/kick)"
-check actions-list '"kick":{"level":"operator"' "$(req $J1 GET /api/actions)"
+check actions-list '"kick":{"cap":"players.moderate"' "$(req $J1 GET /api/actions)"
 
 echo "== rcon mutations"
 check broadcast 'Announcement sent' "$(req $J1 POST /api/servers/$SID/rcon/broadcast '{"message":"hello"}')"
@@ -67,12 +79,26 @@ check kick-badid '17-digit' "$(req $J1 POST /api/servers/$SID/rcon/kick '{"steam
 check ban 'Banned' "$(req $J1 POST /api/servers/$SID/rcon/ban '{"steamId":"76561198100000102","reason":"aimbot"}')"
 check unban 'Unbanned' "$(req $J1 POST /api/servers/$SID/rcon/unban '{"steamId":"76561198100000102"}')"
 check changeteam 'Moved' "$(req $J1 POST /api/servers/$SID/rcon/changeTeam '{"steamId":"76561198100000105","faction":"Valkyra"}')"
-check setnext 'Next map set to Europe' "$(req $J1 POST /api/servers/$SID/rcon/setNextMap '{"map":"Europe","experiences":["KOTH_InfantryOnly"],"lighting":"DayEarlyFog"}')"
-check rotationadd 'Added rotation entry' "$(req $J1 POST /api/servers/$SID/rcon/rotationAdd '{"map":"NorthAmerica","experiences":["Detroit_KOTH_01","KOTH_Hardcore"],"lighting":"DayClear"}')"
-check rotationmove 'Moved rotation entry' "$(req $J1 POST /api/servers/$SID/rcon/rotationMove '{"index":3,"direction":"up"}')"
-check settings 'ScoreTick set to 20' "$(req $J1 POST /api/servers/$SID/rcon/settings '{"scoreTick":20}')"
-check reserved-add 'Reserved slot added' "$(req $J1 POST /api/servers/$SID/rcon/reservedAdd '{"steamId":"76561198100000999"}')"
-check sponsor 'submitted' "$(req $J1 POST /api/servers/$SID/rcon/setSponsor '{"imageUrl":"https://example.com/x.png"}')"
+if [ "$LIVE" = 1 ]; then
+  check rotationadd-no-route 'does not serve' "$(req $J1 POST /api/servers/$SID/rcon/rotationAdd '{"map":"NorthAmerica","experiences":["Detroit_KOTH_01","KOTH_Hardcore"],"lighting":"DayClear"}')"
+  check settings-no-route 'does not serve' "$(req $J1 POST /api/servers/$SID/rcon/settings '{"scoreTick":20}')"
+else
+  check setnext 'Next map set to Europe' "$(req $J1 POST /api/servers/$SID/rcon/setNextMap '{"map":"Europe","experiences":["KOTH_InfantryOnly"],"lighting":"DayEarlyFog"}')"
+  check rotationadd 'Added rotation entry' "$(req $J1 POST /api/servers/$SID/rcon/rotationAdd '{"map":"NorthAmerica","experiences":["Detroit_KOTH_01","KOTH_Hardcore"],"lighting":"DayClear"}')"
+  check rotationmove 'Moved rotation entry' "$(req $J1 POST /api/servers/$SID/rcon/rotationMove '{"index":3,"direction":"up"}')"
+  check settings 'ScoreTick set to 20' "$(req $J1 POST /api/servers/$SID/rcon/settings '{"scoreTick":20}')"
+fi
+# reserved slots: the live route on the plain demo, the config document under MOCK_LIVE_BUILD
+R=$(req $J1 POST /api/servers/$SID/rcon/reservedAdd '{"steamId":"76561198100000999"}')
+check reserved-add 'Reserved' "$R"
+[ "$LIVE" = 1 ] && check reserved-add-via-config '"via":"config"' "$R"
+check reserved-list '76561198100000999' "$(req $J1 GET /api/servers/$SID/rcon/reserved)"
+check reserved-in-doc '.DefaultReservedPlayerIds=76561198100000999' "$(req $J1 GET /api/servers/$SID/rcon/config)"
+check reserved-dup 'already' "$(req $J1 POST /api/servers/$SID/rcon/reservedAdd '{"steamId":"76561198100000999"}')"
+check reserved-remove 'emoved' "$(req $J1 POST /api/servers/$SID/rcon/reservedRemove '{"steamId":"76561198100000999"}')"
+check reserved-gone '0' "$(req $J1 GET /api/servers/$SID/rcon/reserved | grep -c 76561198100000999)"
+req $J1 POST /api/servers/$SID/rcon/reservedAdd '{"steamId":"76561198100000999"}' >/dev/null
+check sponsor-read '"imageUrl"' "$(req $J1 GET /api/servers/$SID/rcon/sponsor)"
 check config-validate '"ok":true' "$(req $J1 POST /api/servers/$SID/rcon/configValidate '{"text":"[/Script/WDGame.WDGameSession]\r\nServerName=Renamed\r\n"}')"
 check config-validate-bad 'could not be parsed' "$(req $J1 POST /api/servers/$SID/rcon/configValidate '{"text":"garbage line\r\n"}')"
 check config-apply-conflict '"conflict":true' "$(req $J1 POST /api/servers/$SID/rcon/configApply '{"text":"[/Script/WDGame.WDGameSession]\r\nServerName=Renamed\r\n","revision":"stale"}')"
@@ -93,17 +119,17 @@ check bob-no-servers '"servers":[]' "$(req $J3 GET /api/servers)"
 check bob-not-owner 'Owner access required' "$(req $J3 GET /api/users)"
 check bob-users-page-403 '403' "$(pagecode $J3 /users)"
 check bob-server-404 'Server not found' "$(req $J3 GET /api/servers/$SID/rcon/status)"
-GB="{\"grants\":[{\"serverId\":\"$SID\",\"role\":\"viewer\"}]}"
-check grant-viewer '"role":"viewer"' "$(req $J1 PUT /api/users/$UID_BOB/grants "$GB")"
-check bob-sees-server '"role":"viewer"' "$(req $J3 GET /api/servers)"
+GB="{\"grants\":[{\"serverId\":\"$SID\",\"roleId\":\"$RID_VIEWER\"}]}"
+check grant-viewer '"roleName":"viewer"' "$(req $J1 PUT /api/users/$UID_BOB/grants "$GB")"
+check bob-sees-server '"roleName":"viewer"' "$(req $J3 GET /api/servers)"
 check bob-org-member '"username":"bob"' "$(req $J1 GET /api/orgs/$ORG/members)"
 check bob-status-ok '"scores"' "$(req $J3 GET /api/servers/$SID/rcon/status)"
-check bob-kick-denied "needs the 'operator' role" "$(req $J3 POST /api/servers/$SID/rcon/kick '{"steamId":"76561198100000103"}')"
-GB="{\"grants\":[{\"userId\":\"$UID_BOB\",\"role\":\"operator\"}]}"
-check server-grants-put '"role":"operator"' "$(req $J1 PUT /api/servers/$SID/grants "$GB")"
+check bob-kick-denied "your role 'viewer' does not include it" "$(req $J3 POST /api/servers/$SID/rcon/kick '{"steamId":"76561198100000103"}')"
+GB="{\"grants\":[{\"userId\":\"$UID_BOB\",\"roleId\":\"$RID_OPERATOR\"}]}"
+check server-grants-put '"roleName":"operator"' "$(req $J1 PUT /api/servers/$SID/grants "$GB")"
 check server-grants-get '"username":"bob"' "$(req $J1 GET /api/servers/$SID/grants)"
 check bob-kick-ok 'Kicked' "$(req $J3 POST /api/servers/$SID/rcon/kick '{"steamId":"76561198100000103"}')"
-check bob-ban-denied "needs the 'admin' role" "$(req $J3 POST /api/servers/$SID/rcon/ban '{"steamId":"76561198100000106"}')"
+check bob-ban-denied "your role 'operator' does not include it" "$(req $J3 POST /api/servers/$SID/rcon/ban '{"steamId":"76561198100000106"}')"
 check bob-server-page '200' "$(pagecode $J3 /server/$SID)"
 check bob-audit-own-only '0' "$(req $J3 GET '/api/audit' | grep -o '"actorName":"james"' | wc -l | tr -d ' ')"
 check bob-audit-has-own '"actorName":"bob"' "$(req $J3 GET '/api/audit')"
@@ -200,9 +226,11 @@ check audit-list-add '"action":"list.add"' "$(req $J1 GET '/api/audit?action=lis
 R=$(req $J1 POST /api/users '{"username":"carol","password":"carols-long-password","displayName":"Carol","role":"member","mustChangePassword":false}'); UID_CAROL=$(echo "$R" | sed -E 's/.*"id":"([^"]+)".*/\1/')
 J5=$(mktemp); form $J5 '/sign-in?/password' 'username=carol&password=carols-long-password' >/dev/null
 check lists-outsider 'not found' "$(req $J5 GET /api/orgs/$ORG/lists)"
-req $J1 PUT /api/users/$UID_CAROL/grants "{\"grants\":[{\"serverId\":\"$SID\",\"role\":\"viewer\"}]}" >/dev/null
+# (bodies go through a variable: inside $(...) the braces would otherwise brace-expand)
+GC="{\"grants\":[{\"serverId\":\"$SID\",\"roleId\":\"$RID_VIEWER\"}]}"; req $J1 PUT /api/users/$UID_CAROL/grants "$GC" >/dev/null
 check lists-viewer-denied 'not found' "$(req $J5 GET /api/orgs/$ORG/lists)"
-req $J1 PUT /api/users/$UID_CAROL/grants "{\"grants\":[{\"serverId\":\"$SID\",\"role\":\"admin\"}]}" >/dev/null
+GC="{\"grants\":[{\"serverId\":\"$SID\",\"roleId\":\"$RID_ADMIN\"}]}"
+check carol-admin '"roleName":"admin"' "$(req $J1 PUT /api/users/$UID_CAROL/grants "$GC")"
 check lists-editor '"role":"editor"' "$(req $J5 GET /api/orgs/$ORG/lists)"
 check lists-editor-add '"steamId":"76561198100000503"' "$(req $J5 POST /api/orgs/$ORG/lists/ban/entries '{"steamId":"76561198100000503"}')"
 check lists-editor-orgs-link "/orgs/$ORG/bans" "$(curl -s -b $J5 $B/orgs)"
@@ -221,7 +249,7 @@ check sync-server-now '"ok":true' "$(req $J1 POST /api/servers/$SID/lists/sync)"
 check sync-view-servers '"reservedCap"' "$(req $J1 GET /api/orgs/$ORG/lists)"
 # cap: the demo server holds 2 seeded slots + 1 added above + the org's 601; capping it at 3 makes the next org slot overflow
 CFG=$(req $J1 GET /api/servers/$SID/rcon/config); REV=$(echo "$CFG" | sed -E 's/.*"revision":"([^"]+)".*/\1/')
-BODY="{\"text\":\"[/Script/WDGame.WDGameSession]\\r\\nServerName=Renamed\\r\\nMaxReservedSlots=3\\r\\n\",\"revision\":\"$REV\"}"
+BODY="{\"text\":\"[/Script/WDGame.WDGameSession]\\r\\nServerName=Renamed\\r\\nMaxReservedSlots=3\\r\\n\",\"revision\":\"$REV\",\"force\":true}"
 req $J1 POST /api/servers/$SID/rcon/configApply "$BODY" >/dev/null
 check reserve-full 'Reserved slots are full' "$(req $J1 POST /api/orgs/$ORG/lists/reserve/entries '{"steamId":"76561198100000602"}')"
 check reserve-full-state '"state":"failed"' "$(req $J1 GET /api/orgs/$ORG/lists/reserve/entries)"
@@ -245,7 +273,7 @@ check steam-dup-carol '409' "$(form $J5 '/account?/steam' 'steamId=7656119810000
 check steam-shown '76561198100000801' "$(curl -s -b $J1 $B/account)"
 # raise the cap again so the member slot fits (2 seeded + 999 + 601 + 602 now + james = 6)
 CFG=$(req $J1 GET /api/servers/$SID/rcon/config); REV=$(echo "$CFG" | sed -E 's/.*"revision":"([^"]+)".*/\1/')
-BODY="{\"text\":\"[/Script/WDGame.WDGameSession]\\r\\nServerName=Renamed\\r\\nMaxReservedSlots=20\\r\\n\",\"revision\":\"$REV\"}"
+BODY="{\"text\":\"[/Script/WDGame.WDGameSession]\\r\\nServerName=Renamed\\r\\nMaxReservedSlots=20\\r\\n\",\"revision\":\"$REV\",\"force\":true}"
 req $J1 POST /api/servers/$SID/rcon/configApply "$BODY" >/dev/null
 check members-reserved '"sync"' "$(req $J1 PATCH /api/orgs/$ORG '{"membersReserved":true}')"
 check member-slot '76561198100000801' "$(req $J1 GET /api/servers/$SID/rcon/reserved)"
@@ -270,7 +298,7 @@ check trigger-firecount '"fireCount":' "$(req $J1 GET /api/servers/$SID/triggers
 req $J1 DELETE /api/servers/$SID/triggers/$TID2 >/dev/null; req $J1 DELETE /api/servers/$SID/triggers/$TID3 >/dev/null
 
 echo "== pages (owner)"
-for p in / /audit /users /servers /orgs "/orgs/$ORG" "/orgs/$ORG/bans" "/orgs/$ORG/reserved" /account "/server/$SID" "/server/$SID/players" "/server/$SID/players/$P1" "/server/$SID/bans" "/server/$SID/automation" "/server/$SID/rotation" "/server/$SID/config" "/server/$SID/log" "/audit?outcome=denied&q=kick"; do check "page $p" '200' "$(pagecode $J1 "$p")"; done
+for p in / /audit /users /servers /orgs "/orgs/$ORG" "/orgs/$ORG/bans" "/orgs/$ORG/reserved" /account "/server/$SID" "/server/$SID/players" "/server/$SID/players/$P1" "/server/$SID/bans" "/server/$SID/automation" "/server/$SID/rotation" "/server/$SID/slots" "/server/$SID/config" "/server/$SID/log" "/audit?outcome=denied&q=kick"; do check "page $p" '200' "$(pagecode $J1 "$p")"; done
 check page-unknown-server '404' "$(pagecode $J1 /server/nope)"
 check server-delete '"ok":true' "$(req $J1 DELETE /api/servers/$SID2)"
 check page-sessions 'this session' "$(curl -s -b $J1 $B/account)"

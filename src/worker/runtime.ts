@@ -108,6 +108,9 @@ async function relay(env: Env, path: string, url: URL, req: Request): Promise<Re
 		case '/triggers-changed':
 			localGateway.triggersChanged(String(body.serverId));
 			return ok(null);
+		case '/identity-changed':
+			localGateway.identityChanged(String(body.serverId));
+			return ok(null);
 		case '/status-changed':
 			localGateway.statusChanged();
 			return ok(null);

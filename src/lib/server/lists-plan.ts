@@ -31,9 +31,14 @@ export interface GameFailure {
 	message: string;
 }
 
-/** A POST the server refused because the entry is already there counts as applied. */
+/**
+ * A POST the server refused because the entry is already there counts as applied. A full reserved
+ * list and a config revision conflict are 409/412 too but mean the entry is *not* there.
+ */
 export const isAlreadyApplied = (err: GameFailure): boolean =>
-	err.status === 409 || err.code === 'already' || /\balready\b/i.test(err.message);
+	err.code !== 'reserved_full' &&
+	err.code !== 'revision_conflict' &&
+	(err.status === 409 || err.code === 'already' || /\balready\b/i.test(err.message));
 
 /**
  * A DELETE the server refused because the entry is not there counts as removed. A 404 for a route
@@ -44,7 +49,11 @@ export const isGone = (err: GameFailure): boolean =>
 
 /** The server could not be reached or answered with a server-side error: stop the run, keep what succeeded. */
 export const isUnreachable = (err: GameFailure): boolean =>
-	err.status === 502 || err.status >= 500 || err.code === 'unreachable';
+	err.status === 502 ||
+	err.status >= 500 ||
+	err.status === 429 ||
+	err.code === 'unreachable' ||
+	err.code === 'rate_limited';
 
 export interface EntryLike {
 	removedAt: Date | null;

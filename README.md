@@ -297,7 +297,9 @@ change landed, and which are unreachable and will be retried), and on every poll
 poller re-applies anything missing, so an org ban that someone lifts on the server directly comes
 back at the next poll; use the org list to lift it everywhere. Reserved slots respect each
 server's `MaxReservedSlots`: when a server is full, the org's entries are applied in priority
-order and the rest show as failed until room is made. Every run that changes something, or fails,
+order and the rest show as failed until room is made. Live builds have no reserved-slot routes,
+so on those the panel writes `DefaultReservedPlayerIds` in the config document instead (one
+revision-checked apply per change), as the official console does. Every run that changes something, or fails,
 is in the audit trail under `system` as `lists.sync`, and reaches Discord webhooks that mirror
 bans. **Sync now** on a list page pushes everything on demand.
 
@@ -555,7 +557,7 @@ GET  /api/audit/export?format=csv|json GET /api/audit/meta
 GET  /api/steam/profiles?ids=a,b      GET /api/health
 ```
 
-Actions, by the capability each needs: `capabilities status health players maps lightings
+Actions, by the capability each needs: `capabilities status health serverId players maps lightings
 experiences alternators catalog rotation bans reserved sponsor serverLog config` (View) ·
 `broadcast whisper` (Chat) · `kick kill changeTeam` (Kick, kill, move) · `endMatch restartMatch
 changeMap setWeather setNextMap` (Match control) · `rotationAdd rotationRemove rotationMove

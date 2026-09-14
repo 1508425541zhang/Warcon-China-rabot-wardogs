@@ -199,6 +199,11 @@ export function buildStatusEmbed(
 		},
 		footer: { text: opts.appName }
 	};
+	// The join code (GET /v1/server-id, CL-501228+) as a code block: Discord gives those a copy
+	// button on hover (desktop) and copy on long-press (mobile), the nearest thing to click-to-copy.
+	const joinCode: EmbedField[] = live?.gameServerId
+		? [{ name: 'Join code', value: '```\n' + live.gameServerId + '\n```' }]
+		: [];
 	if (!live || !live.observedAt) return { ...base, description: '⚪ Waiting for the first look.' };
 	const s = live.status;
 	const art = (variant: 'wide' | 'square') => {
@@ -217,6 +222,7 @@ export function buildStatusEmbed(
 			description: lines.join('\n'),
 			color: COLORS.down,
 			timestamp: live.observedAt,
+			...(joinCode.length ? { fields: joinCode } : {}),
 			...(thumb ? { thumbnail: { url: thumb } } : {})
 		};
 	}
@@ -289,7 +295,7 @@ export function buildStatusEmbed(
 					.join('\n'),
 				LIMITS.description
 			),
-			fields: [...counts, stamp(topLine)],
+			fields: [...counts, ...joinCode, stamp(topLine)],
 			...withThumb
 		});
 	}
@@ -315,7 +321,7 @@ export function buildStatusEmbed(
 				[...scoreRows, match || null, online, where].filter(Boolean).join('\n'),
 				LIMITS.description
 			),
-			fields: [...fields, stamp(shownNote)],
+			fields: [...fields, ...joinCode, stamp(shownNote)],
 			...withThumb
 		});
 	}
@@ -328,7 +334,7 @@ export function buildStatusEmbed(
 			[online, where, ...scoreRows, match || null].filter(Boolean).join('\n'),
 			LIMITS.description
 		),
-		fields: [...(players.length ? factionFields(s.scores, players) : []), stamp()],
+		fields: [...(players.length ? factionFields(s.scores, players) : []), ...joinCode, stamp()],
 		...(image ? { image: { url: image } } : {})
 	});
 }
@@ -336,11 +342,13 @@ export function buildStatusEmbed(
 /** What an edit is for: everything shown except the clocks. */
 function substance(server: StatusServer, live: LiveView | null): unknown {
 	if (!live || !live.observedAt) return [server.id, server.name, 'waiting'];
-	if (!live.ok || !live.status) return [server.id, server.name, 'down', live.error];
+	if (!live.ok || !live.status)
+		return [server.id, server.name, 'down', live.error, live.gameServerId];
 	const s = live.status;
 	return [
 		server.id,
 		server.name,
+		live.gameServerId,
 		s.playerCount,
 		s.maxPlayers,
 		s.map,

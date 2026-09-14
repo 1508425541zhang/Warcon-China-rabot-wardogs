@@ -1,8 +1,9 @@
 # WARDOGS dedicated-server RCON API (WDRCON)
 
 Reverse-engineered on 2026-09-08 from the official web console at `http://rcon.wardogs.com`, re-checked
-against the 2026-09-10 redeploy of the site
-(`js/api.js`, `js/mock-server.js`, `js/config-editor.js`, `ServerSettings.ini`). The console is a
+against the 2026-09-10 and 2026-09-14 redeploys of the site
+(`js/api.js`, `js/mock-server.js`, `js/config-editor.js`, `ServerSettings.ini`) and against live build
+CL-501228 on 2026-09-14. The console is a
 static, plain-HTTP-only site that talks to the game server **directly from the browser**, which is
 why it cannot be served over HTTPS. Warcon moves that traffic server-side: browsers talk HTTPS to
 Warcon, and Warcon's own process talks plain HTTP to the listener.
@@ -21,6 +22,11 @@ Warcon, and Warcon's own process talks plain HTTP to the listener.
   not supported on this endpoint." }`; missing items use their own codes (`ban_not_found`). Warcon's
   client renames the first to `no_route` so "not served" is never mistaken for "not there".
 * Config routes use `text/plain` bodies and `If-Match: "<revision>"`; `412` means revision mismatch.
+  Since CL-501228 `GET /v1/config` also sends the revision as `ETag: "<revision>"`, and every
+  response carries `Access-Control-Expose-Headers: ETag, Retry-After`: the per-IP limit below is
+  answered with `429` and a `Retry-After`. Warcon reads both (`etagOf`, `parseRetryAfterMs` in
+  `src/lib/server/rcon.ts`); a 429 holds the worker's next look for the stated time (1–60 s, 5 s
+  when absent) without counting as an outage, and aborts a list sync run so it retries later.
 * Limits reported by a live build on 2026-09-11 (`capabilities` via a third-party CLI, build
   `++Wardogs+Live-CL-499480`, "API version 1"): **600 requests/min per client IP** and a
   **65,536-byte body cap**; that build served 28 routes, so real servers lack some of the routes
@@ -33,7 +39,8 @@ Warcon, and Warcon's own process talks plain HTTP to the listener.
 
 | Method | Path | Body / query | Response | Notes |
 |---|---|---|---|---|
-| GET | `/v1/capabilities` | | `{ routes: ["GET /v1/status", ...], config: { writable } }` | Console feature-detects `PATCH /v1/players/{id}` (change team) and `PUT /v1/config`. |
+| GET | `/v1/capabilities` | | `{ apiVersion, build, auth:{scheme,header}, limits:{maxBodyBytes,maxRequestsPerMinutePerIp}, config:{writable,document}, routes:["GET /v1/status", ...] }` | Console feature-detects `PATCH /v1/players/{id}` (change team), `GET /v1/server-id` and `PUT /v1/config`. Warcon shows `build` and the routes under Servers → Test, and the worker re-reads it hourly. |
+| GET | `/v1/server-id` | | `{ serverId: "<uuid>" }` | **New in CL-501228.** The server's join code, issued by the WARDOGS backend; read-only. Warcon action `serverId`; shown as "Join code" in the server header (click to copy), the connection test and, as a copyable code block, on the Discord status card. |
 | GET | `/v1/status` | | `{ serverName, map, experiences[], lighting, alternator, scoreTick:{current,min,max}, scoreCap, matchSeconds, players:{current,max}, factionScores:[{name,colorHex,score}], rotation:{nowIndex,nextIndex} }` | Live build CL-499480 (2026-09-11) sends **no `scoreCap` and no `matchSeconds`**; the mock has them, Warcon treats both as optional. `players.max` is the engine's clamped value (98 for `MaxPlayers=100`). |
 | GET | `/v1/players` | | `{ players:[{name, steamId, faction, kills, deaths, cash, pingMs}], count }` | Confirmed on CL-499480. List responses all carry `count`. |
 | POST | `/v1/players/{steamId}/kick` | `{ reason }` | `{ message }` | |
@@ -44,14 +51,14 @@ Warcon, and Warcon's own process talks plain HTTP to the listener.
 | GET | `/v1/bans` | | `{ bans:[{steamId, bannedAtUtc, bannedBy, reason}], count }` | Entries from `+DefaultBannedPlayerIds` come back with `bannedBy:"config"`, `reason:null`, `bannedAtUtc:"0001-01-01T00:00:00.000Z"`; Warcon blanks that date. |
 | POST | `/v1/bans` | `{ steamId, reason? }` | `{ message }` | Persists to `+DefaultBannedPlayerIds`. |
 | DELETE | `/v1/bans/{steamId}` | | `{ message }` | Unknown id: `404 { code:"ban_not_found", message:"Error: SteamId … is not currently banned." }`. |
-| GET | `/v1/reserved-slots` | | `{ reservedSlots:[steamId] }` | Permanent only on real servers. |
-| POST | `/v1/reserved-slots` | `{ steamId }` | `{ message }` | Limited by `MaxReservedSlots`. **Not served by live build CL-499480**; Warcon disables the control and the org list sync reports it instead of misreading the 404. |
-| DELETE | `/v1/reserved-slots/{steamId}` | | `{ message }` | **Not served by live build CL-499480.** |
+| GET | `/v1/reserved-slots` | | `{ reservedSlots:[steamId], count }` | Permanent only on real servers (the console carries a `reservedExpiry` flag and `expiresAtUtc`, but only its mock sets them). |
+| POST | `/v1/reserved-slots` | `{ steamId }` | `{ message }` | Limited by `MaxReservedSlots`. **Not served by live builds CL-499480 / CL-501228.** Both the console (since 2026-09-14) and Warcon then edit `DefaultReservedPlayerIds` in the config document instead: `GET /v1/config`, add the id, `PUT /v1/config` with `If-Match` (`src/lib/reserved-doc.ts`, `reservedViaConfig` in `actions.ts`); Warcon keeps the live-route error codes (`already_reserved`, `reserved_full`, `reserved_not_found`) so the org list sync behaves the same either way. |
+| DELETE | `/v1/reserved-slots/{steamId}` | | `{ message }` | **Not served by live builds**; same document fallback. |
 | GET | `/v1/catalog/maps` | | `{ maps:[{id, displayName}] }` | Map ids: `Kavkazi` (Bakurani), `Europe` (Ozeti), `NorthAmerica` (Zestafona). |
 | GET | `/v1/catalog/lightings` | | `{ lightings:[{id, displayName}] }` | `DayStartClear`, `DayEarlyClear`, `DayEarlyFog`, `DayClear`, `DayLateClear`, `DayLateGray`, `DayLateGrayFog`, `DayEndClear`. |
 | GET | `/v1/catalog/experiences` | | `{ experiences:[{id, displayName}] }` | Game modes (`*_KOTH_01`) and modifiers (`KOTH_InfantryOnly`, `KOTH_Hardcore`). |
-| GET | `/v1/catalog/maps/{map}/experiences` | | `{ experiences:[id] }` | |
-| GET | `/v1/catalog/maps/{map}/alternators` | | `{ alternators:[{tag, displayName}] }` | Control-zone alternators, e.g. `ZoneAlternator.Factory.Circle`. |
+| GET | `/v1/catalog/maps/{map}/experiences` | | `{ map, experiences:[id], count }` | |
+| GET | `/v1/catalog/maps/{map}/alternators` | | `{ map, alternators:[{index, tag, displayName}], count }` | Control-zone alternators, e.g. `ZoneAlternator.Bakurani.Default.Circle`; `index`/`map`/`count` appeared in CL-501228. |
 | POST | `/v1/match/map` | `{ map, experiences?, lighting?, zoneAlternator? }` | `{ message }` | Travels when the match-end screen finishes. |
 | POST | `/v1/match/end` | | `{ message }` | Advances rotation (or reloads current map when rotation off). |
 | POST | `/v1/match/restart` | | `{ message }` | Reloads current map, rotation pointer untouched, config not re-read. |
@@ -66,26 +73,36 @@ Warcon, and Warcon's own process talks plain HTTP to the listener.
 | ~~PUT~~ | ~~`/v1/sponsor`~~ | | `405 PUT is not supported on this endpoint` | **Removed.** `api.js` still defines `setSponsor` but nothing calls it; the console's "Server Image" card is the `ServerImageURL` config field applied through `PUT /v1/config` (reported `pending` while the server fetches and checks the image). No live route exists without a config document. |
 | GET | `/v1/health` | | `{ status:"ok", uptimeSeconds, connections:{active}, gameThreadQueue:{inFlight, depth, rejectedTotal} }` | Served by CL-499480; the web console never calls it. Warcon action `health`. |
 | GET | `/v1/audit?limit=N` | | `{ limit, entries:[{timestampUtc, peer, sessionId, event, detail}], count }` | Listener log. The mock's events are `ACCEPT`, `AUTH_OK`, `AUTH_FAIL`, `REJECT`, `COMMAND`, `CLOSE`; CL-499480 writes two lines per request, `AUTH_OK` (detail null) then `HTTP` with detail `GET /v1/players -> 200`. On the TLR host every peer is `127.0.0.1:<port>` because a local proxy fronts the listener (`BindAddress=127.0.0.1`), so the per-IP rate limit there is shared by every client. N ≤ 500. |
-| GET | `/v1/config` | | `{ revision, writable, text, sections:[{section, appliesWhen, description, allowedKeys[], keyOverrides:[{key, appliesWhen, description}]}], warnings[] }` | Whole `ServerSettings.ini`. CL-499480's schema (mirrored in `mockgame.ts`): `WDGameSession` applied (`ServerImageURL` pending, password and join limits applied on the next session update), `Engine.GameSession` next-restart, `WDGameStateSession` / `KOTH` / `PreMatch` next-match, rotation applied ("rebuilt immediately; used from the next map change"), `WDRCONSettings` and `WDServerFeed` next-restart. |
+| GET | `/v1/config` | | `{ revision, writable, text, sections:[{section, appliesWhen, description, allowedKeys[], keyOverrides:[{key, appliesWhen, description, writable, lockedBy}]}], warnings[] }` (+ `ETag`) | Whole `ServerSettings.ini`. **CL-501228** adds `writable` and `lockedBy` per key override: a key pinned by a launch argument (`ServerName` by `-RCON_FixedServerName`, `Port` by `-RCONPort` on the TLR host) comes back `writable:false` with the switch in `lockedBy` and "Pinned by -RCONPort on this server's command line. The value is shown but cannot be changed here." The console shows a "Fixed" badge and disables the input; Warcon does the same (`lockedFor` / `lockedKeys` in `src/lib/config-fields.ts`) and lists pinned keys under the document. CL-499480's schema (mirrored in `mockgame.ts`): `WDGameSession` applied (`ServerImageURL` pending, password and join limits applied on the next session update), `Engine.GameSession` next-restart, `WDGameStateSession` / `KOTH` / `PreMatch` next-match, rotation applied ("rebuilt immediately; used from the next map change"), `WDRCONSettings` and `WDServerFeed` next-restart. |
 | POST | `/v1/config/validate` | text/plain ini | apply result | Dry run. |
 | PUT | `/v1/config?force=true&fullApply=true` | text/plain ini, `If-Match: "rev"` | `{ ok, revision, outcomes:[{section,state,detail}], shadowed[], stripped[], errors[], changed[], conflict[], warnings[], timingsMs }` | `state` ∈ `applied`, `next-match`, `next-restart`, `pending`. 412 on revision mismatch unless `force`. |
 
 "Set as next map" is not a route: the console finds (or adds) the selection in the rotation and
 moves it into the slot after the `now` entry with repeated `/move` calls. Warcon does the same server-side.
 
-### What live build CL-499480 actually serves (captured 2026-09-11)
+### What live build CL-501228 actually serves (captured 2026-09-14)
 
-`GET /v1/capabilities` on the TLR server returned 28 routes: everything above **except**
-`POST`/`DELETE /v1/reserved-slots`, the four `/v1/rotation/...` write routes, `PATCH /v1/settings`
-and `PUT /v1/sponsor`, plus one the console does not know, `GET /v1/health`. Its player routes are
-spelled `{id}` rather than `{steamId}`. The document also carries `apiVersion`, `build`,
+`GET /v1/capabilities` on the TLR server (`++Wardogs+Live-CL-501228`, the patch of 2026-09-14)
+returned 29 routes: everything above **except** `POST`/`DELETE /v1/reserved-slots`, the four
+`/v1/rotation/...` write routes, `PATCH /v1/settings` and `PUT /v1/sponsor`, plus two the console
+did not originally know, `GET /v1/health` and (new in this build) `GET /v1/server-id`. CL-499480
+(2026-09-11) served the same 28 minus `server-id`. Player routes are spelled `{id}` rather than
+`{steamId}`. The document also carries `apiVersion`, `build`,
 `auth:{scheme:"bearer",header:"Authorization"}`, `limits:{maxBodyBytes,maxRequestsPerMinutePerIp}`
 and `config:{writable,document:"/v1/config"}`. Warcon reads the flags it needs into `Features`
-(`reservedSlots`, `rotationEdit`, `rotationSave`, `liveSettings`). Without `rotationEdit` the Map
-rotation tab keeps its table and buttons but stages edits and writes the rotation section of the
-config document in one apply (`src/lib/rotation-doc.ts`); the other controls disable and point at
-the document. Set `MOCK_LIVE_BUILD=true` to make the demo servers behave like this build. The authoritative list for any server is its own
-`routes` array; Warcon shows it under Servers, Test, "Routes this build serves".
+(`reservedSlots`, `rotationEdit`, `rotationSave`, `liveSettings`, `serverId`). Without
+`rotationEdit` the Map rotation tab keeps its table and buttons but stages edits and writes the
+rotation section of the config document in one apply (`src/lib/rotation-doc.ts`); without
+`reservedSlots` the Reserved slots tab and the org list sync write `DefaultReservedPlayerIds` the
+same way (`src/lib/reserved-doc.ts`); the remaining controls disable and point at the document.
+The worker re-reads capabilities and the server id once an hour per server (and after an outage)
+into `server_live`, so the header, the Discord status cards and the list sync share one answer;
+Servers → Test reads them fresh and drops the caches. Set `MOCK_LIVE_BUILD=true` to make the demo
+servers behave like this build (routes, pinned `ServerName`/`Port`, the live build string), and
+`MOCK_RATE_LIMIT_EVERY=N` to have the demo answer every Nth request with a 429 and `Retry-After: 2`
+so the worker's hold can be watched. The
+authoritative list for any server is its own `routes` array; Warcon shows it under Servers, Test,
+"Routes this build serves".
 
 ## ServerSettings.ini keys the server honours
 
@@ -97,13 +114,15 @@ the document. Set `MOCK_LIVE_BUILD=true` to make the demo servers behave like th
 [MatchState.Playing.KOTH]                 ScorePeriod (18-30)
 [/Script/WDGame.WDGameStateSession]       bLockOverpopulatedTeamsConfig, OverpopulatedTeamThresholdConfig
 [/Script/WDGame.WDServerMapRotationSettings]  bEnabled, RotationMode, +RotationEntries=(Map="",Experience(s)="",Lighting="",ZoneAlternator="")
-[/Script/WDRCON.WDRCONSettings]           bEnabled, BindAddress, Port, Password, PasswordHash, AllowedOrigins
+[/Script/WDRCON.WDRCONSettings]           bEnabled, BindAddress, Port, Password, PasswordHash, AllowedOrigins, bWriteAuditLogFile
 [WDServerFeed]                            Url, Token          (CL-499480: "kill-event feed endpoint and its ingest token")
 ```
 
 `allowedKeys` on CL-499480 also lists `PlayerIdentityEntries` under `WDGameSession` and
-`AllowedOrigins` under the RCON block; neither is documented in the reference ini, and nothing on
-rcon.wardogs.com mentions any of the three. `WDServerFeed` (`Url` + `Token`, "kill-event feed
+`AllowedOrigins` under the RCON block, and CL-501228 adds `bWriteAuditLogFile` there (presumably
+whether the listener log `GET /v1/audit` shows is also written to disk); none is documented in the
+reference ini, and nothing on rcon.wardogs.com mentions any of the four. Warcon leaves the RCON
+block to the raw editor, as before. `WDServerFeed` (`Url` + `Token`, "kill-event feed
 endpoint and its ingest token") is most likely the game's own telemetry: the server pushing kill
 events to Bulkhead's ingest service for stats. It is not documented for hosts, its default is not
 visible in the document (the TLR file has no such section, so it runs on built-in defaults), and

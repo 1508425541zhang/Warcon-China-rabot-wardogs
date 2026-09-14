@@ -82,6 +82,8 @@ export interface Features {
 	rotationSave: boolean;
 	/** PATCH /v1/settings: score tick, rotation enabled and mode */
 	liveSettings: boolean;
+	/** GET /v1/server-id: the join code the WARDOGS backend issued the server (CL-501228+) */
+	serverId: boolean;
 }
 
 export interface FactionScore {
@@ -123,6 +125,12 @@ export interface LiveView {
 	ok: boolean;
 	error: string;
 	tier: 'watched' | 'hot' | 'idle' | 'offline';
+	/** the build string from GET /v1/capabilities; '' until the worker has read it */
+	build: string;
+	/** the join code from GET /v1/server-id (CL-501228+); '' when unknown or unserved */
+	gameServerId: string;
+	/** set while the listener has asked the panel to slow down (429 with Retry-After) */
+	throttledUntil: string | null;
 	status: Status | null;
 	players: Player[];
 	statusAt: string | null;
@@ -177,7 +185,15 @@ export interface ConfigSection {
 	description?: string;
 	/** the keys the server's allow-list keeps for this section; anything else is stripped on apply */
 	allowedKeys?: string[];
-	keyOverrides?: { key: string; appliesWhen: string; description?: string }[];
+	keyOverrides?: {
+		key: string;
+		appliesWhen: string;
+		description?: string;
+		/** false when a launch argument pins the key (live build CL-501228+): shown, not editable */
+		writable?: boolean;
+		/** the launch argument that pins it, e.g. RCON_FixedServerName or RCONPort */
+		lockedBy?: string;
+	}[];
 }
 export interface ConfigDoc {
 	revision: string;

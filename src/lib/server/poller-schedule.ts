@@ -75,3 +75,11 @@ export function pickDue<T extends Slot>(slots: readonly T[], now: number, budget
 	}
 	return picked;
 }
+
+/**
+ * A rate-limit hold (a 429 with Retry-After) pushes a due time out to the end of the hold; an
+ * expired hold changes nothing. Applied after every (re)plan, so neither the cadence nor a
+ * "look again now" request can pull a look inside the window the listener asked for.
+ */
+export const withHold = (dueAt: number, holdUntil: number, now: number): number =>
+	holdUntil > now ? Math.max(dueAt, holdUntil) : dueAt;

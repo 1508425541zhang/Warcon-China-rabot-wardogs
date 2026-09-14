@@ -9,7 +9,7 @@ import { subscribe } from './events';
 import { touchInterest } from './interest';
 import { fanOut, reconcileServer } from './lists-sync';
 import { liveView, readLiveRows } from './live';
-import { memoryOf } from './observe';
+import { memoryOf, requestIdentityRefresh } from './observe';
 import { observeNow, observeSoon, pollerStats } from './poller';
 import { loadSettings, settings } from './settings';
 import { invalidateTriggers } from './triggers';
@@ -74,6 +74,9 @@ export const localGateway: Gateway = {
 	},
 	triggersChanged(serverId: string) {
 		invalidateTriggers(serverId);
+	},
+	identityChanged(serverId: string) {
+		requestIdentityRefresh(serverId);
 	},
 	statusChanged() {
 		nudgeStatusMirror();

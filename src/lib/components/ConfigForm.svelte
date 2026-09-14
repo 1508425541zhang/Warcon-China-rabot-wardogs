@@ -8,6 +8,7 @@
 		FIELDS,
 		GROUPS,
 		appliesFor,
+		lockedFor,
 		fromIniValue,
 		toIniValue,
 		type ConfigField,
@@ -55,7 +56,19 @@
 	let shadowMap = $derived(
 		new Map(shadowed.map((s) => [`${s.section}|${String(s.key).toLowerCase()}`, s]))
 	);
+	// A key the command line pins is shown but never editable (live build CL-501228+).
+	const locked = (f: ConfigField) => !!lockedFor(f, sections);
 	function badge(f: ConfigField): { label: string; cls: string; title: string } | null {
+		const pin = lockedFor(f, sections);
+		if (pin)
+			return {
+				label: 'fixed',
+				cls: 'bg-white/10 text-mist-300',
+				title:
+					pin.lockedBy && !pin.description.includes(pin.lockedBy)
+						? `${pin.description} (-${pin.lockedBy})`
+						: pin.description
+			};
 		const shadow = shadowMap.get(`${f.section}|${f.ini.toLowerCase()}`);
 		if (shadow)
 			return {
@@ -119,7 +132,7 @@
 								<input
 									type="checkbox"
 									checked={!!v}
-									{disabled}
+									disabled={disabled || locked(f)}
 									onchange={(e) => set(f, e.currentTarget.checked)}
 								/>
 								{v ? 'On' : 'Off'}
@@ -128,7 +141,7 @@
 							<select
 								class="input max-w-[220px]"
 								value={String(v)}
-								{disabled}
+								disabled={disabled || locked(f)}
 								onchange={(e) => set(f, e.currentTarget.value)}
 							>
 								{#each f.options ?? [] as [val, label] (val)}
@@ -144,7 +157,7 @@
 								max={sliderMax(f)}
 								step="1"
 								value={Number(v)}
-								{disabled}
+								disabled={disabled || locked(f)}
 								oninput={(e) => num(e, f)}
 							/>
 							<span class="text-mist-400">{sliderMax(f)}{f.unit ?? ''}</span>
@@ -159,7 +172,7 @@
 								min={f.min}
 								step="1"
 								value={Number(v)}
-								{disabled}
+								disabled={disabled || locked(f)}
 								onchange={(e) => num(e, f)}
 							/>
 						{:else}
@@ -167,7 +180,7 @@
 								type="text"
 								class="input"
 								value={String(v)}
-								{disabled}
+								disabled={disabled || locked(f)}
 								placeholder={f.key === 'serverPassword' ? 'none (open server)' : ''}
 								spellcheck="false"
 								onchange={(e) => set(f, e.currentTarget.value)}
