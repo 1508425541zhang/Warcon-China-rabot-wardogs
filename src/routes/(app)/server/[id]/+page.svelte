@@ -145,6 +145,9 @@
 		};
 	});
 
+	// Live builds send no scoreCap and there is no setting for it; the engine's cap is 100.
+	const DEFAULT_SCORE_CAP = 100;
+	let scoreScale = $derived(status?.scoreCap || DEFAULT_SCORE_CAP);
 	let next = $derived(
 		rotation && rotation.enabled && rotation.nextIndex >= 0
 			? rotation.entries[rotation.nextIndex]
@@ -181,9 +184,7 @@
 			/>
 			<div class="mb-3 space-y-2.5">
 				{#each status.scores as f (f.name)}
-					{@const pct = status.scoreCap
-						? Math.min(100, Math.round((f.score / status.scoreCap) * 100))
-						: 0}
+					{@const pct = Math.min(100, Math.max(0, Math.round((f.score / scoreScale) * 100)))}
 					<div>
 						<div class="mb-1 flex items-center justify-between text-[13px]">
 							<span class="inline-flex items-center gap-1.5 font-medium"
