@@ -2,14 +2,7 @@
 	import { rconGet, rconPost, errorMessage } from '$lib/api';
 	import { poll } from '$lib/poll';
 	import { watchLive } from '$lib/live';
-	import {
-		expSetLabel,
-		fmtDuration,
-		fmtNum,
-		lightingLabel,
-		mapLabel,
-		zoneLabel
-	} from '$lib/format';
+	import { expSetLabel, fmtNum, lightingLabel, mapLabel, zoneLabel } from '$lib/format';
 	import { can } from '$lib/capabilities';
 	import { toast } from '$lib/toast.svelte';
 	import { confirmDialog } from '$lib/confirm.svelte';
@@ -31,7 +24,6 @@
 	let match = $derived(can(data.server.caps, 'match.control'));
 
 	let status = $state<Status | null>(null);
-	let statusAt = $state(0);
 	let rotation = $state<Rotation | null>(null);
 	let players = $state<Player[]>([]);
 	let live = $state<LiveView | null>(null);
@@ -117,7 +109,6 @@
 		setHealth(id, v.ok);
 		if (v.status) {
 			status = v.status;
-			statusAt = v.statusAt ? Date.parse(v.statusAt) : Date.now();
 			noteCashStatus(v.status);
 			if (!seeded && picker) {
 				seeded = true;
@@ -154,11 +145,6 @@
 		};
 	});
 
-	let clock = $derived(
-		status && status.matchSeconds !== null
-			? fmtDuration(status.matchSeconds + (now - statusAt) / 1000)
-			: '—'
-	);
 	let next = $derived(
 		rotation && rotation.enabled && rotation.nextIndex >= 0
 			? rotation.entries[rotation.nextIndex]
@@ -265,11 +251,6 @@
 
 	<div class="panel">
 		<span class="label-sm">Match control</span>
-		<div class="stat-big">
-			<span class="text-mist-400">Match length</span><span
-				class="font-mono text-2xl font-semibold tabular">{clock}</span
-			>
-		</div>
 		<div class="stat-big">
 			<span class="text-mist-400">Next map</span>
 			<span class="inline-flex items-center gap-3 text-right text-lg font-semibold"
