@@ -5,6 +5,7 @@
 	import { can } from '$lib/capabilities';
 	import { toast } from '$lib/toast.svelte';
 	import { confirmDialog } from '$lib/confirm.svelte';
+	import { STATE_TONE } from '$lib/lists';
 	import FactionChip from '$lib/components/FactionChip.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
@@ -76,7 +77,7 @@
 	/** After a command the worker looks again by itself; this only refreshes the panel's own marks. */
 	async function refreshPlayers() {
 		marksKey = '';
-		await refreshMarks(all);
+		await Promise.all([refreshMarks(all), refreshListState()]);
 	}
 	async function refreshMarks(players: Player[]) {
 		const ids = players.map((p) => p.steamId).filter((s) => /^\d{17}$/.test(s));
@@ -187,15 +188,16 @@
 			<thead
 				><tr
 					><th class="max-md:sticky max-md:left-0 max-md:z-10">Player</th><th>Flags</th><th
-						>Faction</th
-					><th class="num">K</th><th class="num">D</th><th class="num">Cash</th><th class="num"
-						>Ping</th
+						>Reserved</th
+					><th>Faction</th><th class="num">K</th><th class="num">D</th><th class="num">Cash</th><th
+						class="num">Ping</th
 					>{#if anyAction}<th class="text-right">Actions</th>{/if}</tr
 				></thead
 			>
 			<tbody>
 				{#each rows as p (p.steamId)}
 					{@const m = marks[p.steamId]}
+					{@const r = listState?.reserved[p.steamId]}
 					<tr>
 						<td class="max-md:sticky max-md:left-0 max-md:z-10 max-md:bg-ink-950"
 							><a
@@ -214,6 +216,19 @@
 										>risk {m.risk.score}</Badge
 									>{/if}
 								{#if m.firstVisit}<Badge tone="info">new</Badge>{/if}
+							{/if}
+						</td>
+						<td class="whitespace-nowrap">
+							{#if r}
+								{#if r.member}
+									<Badge tone="accent">member</Badge>
+								{:else if r.managed}
+									<Badge tone={STATE_TONE[r.state]}
+										>org{r.state === 'applied' ? '' : ` · ${r.state}`}</Badge
+									>
+								{:else}
+									<Badge>local</Badge>
+								{/if}
 							{/if}
 						</td>
 						<td><FactionChip faction={p.faction} scores={status?.scores} /></td>
@@ -276,7 +291,7 @@
 					</tr>
 				{:else}
 					<tr
-						><td colspan={anyAction ? 8 : 7} class="py-6 text-center text-mist-600"
+						><td colspan={anyAction ? 9 : 8} class="py-6 text-center text-mist-600"
 							>{all.length ? 'No matches.' : 'No players connected.'}</td
 						></tr
 					>
