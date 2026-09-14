@@ -1,6 +1,7 @@
 // Automation: per-server triggers the worker evaluates on every observation. Four kinds, all
 // built on what the worker already sees (joins, player counts, empty stretches) plus the Steam cache:
-//   welcome      whisper a message to players as they join
+//   welcome      whisper a message to players as they join (or once they have picked a faction)
+//   faction_change  whisper a message to players who switch from one faction to another
 //   broadcast    rotate through messages every N minutes while enough people are on
 //   empty_reset  send an empty server back to a chosen map after N minutes
 //   risk_kick    kick joiners who match Steam / ban-list rules (see risk.ts)
@@ -26,14 +27,18 @@ import { gateway } from './gateway';
 import type { SessionUser } from './access';
 import type { DryRunResult, Player, Status, TriggerKind, TriggerView } from '$lib/types';
 import {
+	factionChangeTargets,
 	isTriggerKind,
 	onTarget,
 	renderTemplate,
 	riskKickVerdict,
 	TRIGGER_LABELS,
 	validateConfig,
+	welcomeTargets,
 	type BroadcastConfig,
 	type EmptyResetConfig,
+	type FactionChangeConfig,
+	type FactionPick,
 	type RiskKickConfig,
 	type WelcomeConfig
 } from './trigger-rules';
@@ -180,7 +185,10 @@ export interface TickContext {
 	players: Player[];
 	/** players with no open session before this observation (empty when joins are not trusted) */
 	joined: Player[];
-	/** joiners never seen on this server before */
+	/** players whose faction is new since the last look (joiners arriving with one included;
+	 *  empty when joins are not trusted) */
+	factioned: FactionPick<Player>[];
+	/** joiners and factioned players never seen on this server before */
 	firstVisit: Set<string>;
 	/** SteamIDs with a reserved slot */
 	reserved: Set<string>;
@@ -216,8 +224,10 @@ export interface Evaluation {
 	updates: TriggerUpdate[];
 }
 
-const vars = (ctx: TickContext, p?: Player) => ({
+const vars = (ctx: TickContext, p?: Player, previous = '') => ({
 	name: p?.name ?? '',
+	faction: p?.faction ?? '',
+	previous,
 	server: ctx.status.serverName || ctx.server.name,
 	map: ctx.status.map,
 	players: ctx.status.playerCount,
@@ -264,6 +274,9 @@ export async function evaluateTriggers(
 				case 'welcome':
 					evalWelcome(ctx, row, row.config as WelcomeConfig, out);
 					break;
+				case 'faction_change':
+					evalFactionChange(ctx, row, row.config as FactionChangeConfig, out);
+					break;
 				case 'broadcast':
 					evalBroadcast(ctx, row, row.config as BroadcastConfig, out);
 					break;
@@ -286,11 +299,9 @@ export async function evaluateTriggers(
 const key = (row: TriggerRow, ...parts: (string | number)[]) => [row.id, ...parts].join(':');
 
 function evalWelcome(ctx: TickContext, row: TriggerRow, cfg: WelcomeConfig, out: Evaluation) {
-	if (!ctx.joined.length) return;
 	let n = 0;
 	let last = '';
-	for (const p of ctx.joined) {
-		if (cfg.onlyFirstVisit && !ctx.firstVisit.has(p.steamId)) continue;
+	for (const p of welcomeTargets(cfg, ctx)) {
 		const message = renderTemplate(cfg.message, vars(ctx, p));
 		out.intents.push({
 			trigger: row,
@@ -299,6 +310,37 @@ function evalWelcome(ctx: TickContext, row: TriggerRow, cfg: WelcomeConfig, out:
 			target: p.steamId,
 			okMessage: `Whispered ${p.name}.`,
 			detail: { name: p.name },
+			steamId: p.steamId,
+			dedupeKey: key(row, p.steamId, ctx.ts.getTime())
+		});
+		n++;
+		last = p.name;
+	}
+	if (n)
+		out.updates.push({
+			id: row.id,
+			lastFiredAt: ctx.ts,
+			lastResult: `Whispering ${n === 1 ? last : `${n} players`}`
+		});
+}
+
+function evalFactionChange(
+	ctx: TickContext,
+	row: TriggerRow,
+	cfg: FactionChangeConfig,
+	out: Evaluation
+) {
+	let n = 0;
+	let last = '';
+	for (const { player: p, from } of factionChangeTargets(ctx)) {
+		const message = renderTemplate(cfg.message, vars(ctx, p, from ?? ''));
+		out.intents.push({
+			trigger: row,
+			action: 'whisper',
+			params: { steamId: p.steamId, message },
+			target: p.steamId,
+			okMessage: `Whispered ${p.name} (${from} → ${p.faction}).`,
+			detail: { name: p.name, from, to: p.faction },
 			steamId: p.steamId,
 			dedupeKey: key(row, p.steamId, ctx.ts.getTime())
 		});
@@ -522,7 +564,7 @@ export async function dryRun(
 		result.fires++;
 		if (result.items.length < 50) result.items.push({ at: at.toISOString(), text });
 	};
-	const joins = () =>
+	const joins = (withFaction = false) =>
 		env.db.execute<{
 			steamId: string;
 			name: string;
@@ -533,11 +575,12 @@ export async function dryRun(
 			       NOT EXISTS (SELECT 1 FROM player_sessions e WHERE e.server_id = s.server_id AND e.steam_id = s.steam_id AND e.joined_at < s.joined_at) AS first
 			  FROM player_sessions s
 			 WHERE s.server_id = ${server.id} AND s.joined_at >= ${from}
+			   ${withFaction ? sql`AND s.faction IS NOT NULL AND s.faction <> ''` : sql``}
 			 ORDER BY s.joined_at ASC LIMIT 500`);
 
 	if (kind === 'welcome') {
 		const c = cfg as WelcomeConfig;
-		for (const j of await joins()) {
+		for (const j of await joins(c.afterFaction)) {
 			if (c.onlyFirstVisit && !j.first) continue;
 			push(
 				new Date(j.joinedAt),
@@ -548,6 +591,16 @@ export async function dryRun(
 			c.onlyFirstVisit
 				? 'Only joiners never seen on this server before count.'
 				: 'Every join counts, including people who reconnect.'
+		);
+		if (c.afterFaction)
+			result.notes.push(
+				'Only sessions that ended up in a faction count; times shown are the join, the whisper would go out when they picked a side.'
+			);
+		return result;
+	}
+	if (kind === 'faction_change') {
+		result.notes.push(
+			'Faction switches are not kept in the session history, so there is nothing to replay; the rule fires live when a player moves from one faction to another.'
 		);
 		return result;
 	}

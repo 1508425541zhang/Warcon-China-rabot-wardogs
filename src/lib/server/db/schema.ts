@@ -480,7 +480,9 @@ export const triggers = pgTable(
 			.notNull()
 			.references(() => servers.id, { onDelete: 'cascade' }),
 		orgId: text('org_id').notNull(),
-		kind: text('kind', { enum: ['welcome', 'broadcast', 'empty_reset', 'risk_kick'] }).notNull(),
+		kind: text('kind', {
+			enum: ['welcome', 'faction_change', 'broadcast', 'empty_reset', 'risk_kick']
+		}).notNull(),
 		name: text('name').notNull(),
 		enabled: boolean('enabled').notNull().default(false),
 		/** kind-specific settings, validated in triggers.ts */

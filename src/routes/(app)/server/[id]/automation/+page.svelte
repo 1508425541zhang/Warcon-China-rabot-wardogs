@@ -60,7 +60,12 @@
 		{
 			kind: 'welcome',
 			label: 'Welcome whisper',
-			blurb: 'Send a private message to players as they join.'
+			blurb: 'Send a private message to players as they join or once they pick a faction.'
+		},
+		{
+			kind: 'faction_change',
+			label: 'Faction change whisper',
+			blurb: 'Send a private message to players who switch from one faction to another.'
 		},
 		{
 			kind: 'broadcast',
@@ -87,6 +92,7 @@
 		enabled: boolean;
 		message: string;
 		onlyFirstVisit: boolean;
+		afterFaction: boolean;
 		messages: string;
 		everyMinutes: number;
 		minPlayers: number;
@@ -127,8 +133,14 @@
 			kind,
 			name: t?.name ?? label(kind),
 			enabled: t?.enabled ?? true,
-			message: s('message', 'Welcome to {server}, {name}! Read the rules with /rules.'),
+			message: s(
+				'message',
+				kind === 'faction_change'
+					? 'You are now fighting for {faction}, {name}.'
+					: 'Welcome to {server}, {name}! Read the rules with /rules.'
+			),
 			onlyFirstVisit: b('onlyFirstVisit', false),
+			afterFaction: b('afterFaction', false),
 			messages: Array.isArray(c.messages)
 				? (c.messages as string[]).join('\n')
 				: 'Join our Discord for events and support.\nNo team-killing. Admins are watching.',
@@ -160,7 +172,13 @@
 	function config(f: Form): Record<string, unknown> {
 		switch (f.kind) {
 			case 'welcome':
-				return { message: f.message, onlyFirstVisit: f.onlyFirstVisit };
+				return {
+					message: f.message,
+					onlyFirstVisit: f.onlyFirstVisit,
+					afterFaction: f.afterFaction
+				};
+			case 'faction_change':
+				return { message: f.message };
 			case 'broadcast':
 				return {
 					messages: f.messages.split('\n'),
@@ -241,7 +259,9 @@
 		const c = t.config as Record<string, unknown>;
 		switch (t.kind) {
 			case 'welcome':
-				return `"${c.message}"${c.onlyFirstVisit ? ' · first visit only' : ''}`;
+				return `"${c.message}"${c.afterFaction ? ' · after faction pick' : ' · on join'}${c.onlyFirstVisit ? ' · first visit only' : ''}`;
+			case 'faction_change':
+				return `"${c.message}"`;
 			case 'broadcast':
 				return `${(c.messages as string[]).length} message${(c.messages as string[]).length === 1 ? '' : 's'} every ${c.everyMinutes} min · at least ${c.minPlayers} on`;
 			case 'empty_reset':
@@ -272,7 +292,7 @@
 </div>
 
 {#if admin}
-	<div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+	<div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
 		{#each KINDS as k (k.kind)}
 			<button
 				type="button"
@@ -405,13 +425,35 @@
 					/></label
 				>
 				<label class="flex items-center gap-2 text-[13px]"
+					><input type="checkbox" bind:checked={f.afterFaction} /> Wait until the player has picked a
+					faction</label
+				>
+				<label class="flex items-center gap-2 text-[13px]"
 					><input type="checkbox" bind:checked={f.onlyFirstVisit} /> Only on a player's first visit to
 					this server</label
 				>
 				<p class="note">
-					Placeholders: <span class="chip">{'{name}'}</span> <span class="chip">{'{server}'}</span>
-					<span class="chip">{'{map}'}</span> <span class="chip">{'{players}'}</span>
-					<span class="chip">{'{max}'}</span>. Sent as a whisper, so only that player sees it.
+					Placeholders: <span class="chip">{'{name}'}</span> <span class="chip">{'{faction}'}</span>
+					<span class="chip">{'{server}'}</span> <span class="chip">{'{map}'}</span>
+					<span class="chip">{'{players}'}</span> <span class="chip">{'{max}'}</span>. Sent as a
+					whisper, so only that player sees it.
+				</p>
+			{:else if f.kind === 'faction_change'}
+				<label class="block"
+					><span class="field-label">Message</span><input
+						class="input"
+						type="text"
+						bind:value={f.message}
+						maxlength="200"
+						required
+					/></label
+				>
+				<p class="note">
+					Fires when a player moves from one faction to another, not on their first pick after
+					joining. Placeholders: <span class="chip">{'{name}'}</span>
+					<span class="chip">{'{faction}'}</span> <span class="chip">{'{previous}'}</span>
+					<span class="chip">{'{server}'}</span> <span class="chip">{'{map}'}</span>
+					<span class="chip">{'{players}'}</span> <span class="chip">{'{max}'}</span>.
 				</p>
 			{:else if f.kind === 'broadcast'}
 				<label class="block"

@@ -40,8 +40,9 @@ on a container host, with the database wherever you like.
   whisper or a risk kick lands within a couple of seconds of the join. Every action goes through
   an outbox and is recorded as delivered, failed, skipped or unknown, and survives a restart in
   between. Each rule is dry-runnable against the last 24 hours before it is switched on: welcome
-  whisper on join, scheduled broadcasts, empty-server map reset, and kick-on-connect for VAC bans,
-  brand-new accounts or bans elsewhere in the org.
+  whisper on join or once the player has picked a faction, a whisper on faction change, scheduled
+  broadcasts, empty-server map reset, and kick-on-connect for VAC bans, brand-new accounts or bans
+  elsewhere in the org.
 - **Organisation ban and reserved lists**: ban a player across every server in the organisation
   at once, with a reason and an optional expiry; hand out reserved slots the same way. The worker
   keeps every server in line and shows where each entry stands; bans added outside the panel are
@@ -319,8 +320,10 @@ rule that fired, and can be mirrored to Discord.
 **Dry run** replays the last 24 hours of the server's own history (joins, player counts, empty
 stretches, cached Steam data) against a rule and lists what it would have done, so you can tune a
 rule before enabling it. Joins are detected one poll apart, so a welcome arrives `POLL_SECONDS`
-after someone connects; the first poll after a restart or an outage never fires join rules, since
-everyone present looks like a joiner then.
+after someone connects, or after they pick a faction when the rule is set to wait for that (players
+choose a side after joining, so a whisper on join can land while they are still in the menu); the
+first poll after a restart or an outage never fires join rules, since everyone present looks like a
+joiner then.
 
 ### Discord webhooks
 
