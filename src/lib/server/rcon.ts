@@ -20,11 +20,25 @@ export function classifyGameError(
 	path: string,
 	status: number,
 	statusText: string,
-	parsed: any
+	parsed: any,
+	headers: Record<string, string> = {}
 ): GameError {
 	const code = parsed?.error?.code || '';
 	const message = parsed?.error?.message || '';
 	const route = `${method.toUpperCase()} ${path.split('?')[0]}`;
+	if (status === 429) {
+		// The listener's per-IP limit (600/min on live builds, Retry-After exposed since CL-501228):
+		// not an outage, so callers back off for the stated time instead of counting a failure.
+		const retryAfterMs = parseRetryAfterMs(headers['retry-after']);
+		const e = new GameError(
+			429,
+			`The game server is rate limiting this panel (${message || 'too many requests from this address'}); retry in ${Math.ceil(retryAfterMs / 1000)} s.`,
+			'rate_limited',
+			parsed
+		);
+		e.retryAfterMs = retryAfterMs;
+		return e;
+	}
 	if (status === 404 && code === 'not_found' && /no such endpoint/i.test(message)) {
 		return new GameError(404, `This server build does not serve ${route}.`, 'no_route', parsed);
 	}
@@ -45,6 +59,8 @@ export function classifyGameError(
 }
 
 export class GameError extends ApiError {
+	/** for `rate_limited`: how long the listener asked us to wait (1–60 s, 5 s when it did not say) */
+	retryAfterMs = 0;
 	constructor(
 		status: number,
 		message: string,
@@ -53,6 +69,23 @@ export class GameError extends ApiError {
 	) {
 		super(status, message, code);
 	}
+}
+
+const RETRY_AFTER_DEFAULT_MS = 5000;
+const RETRY_AFTER_MIN_MS = 1000;
+const RETRY_AFTER_MAX_MS = 60_000;
+
+/** A Retry-After header (delta seconds or an HTTP date) as milliseconds, clamped to 1–60 s; 5 s when missing or unreadable. */
+export function parseRetryAfterMs(value: string | undefined | null, now = Date.now()): number {
+	const v = (value || '').trim();
+	let ms = NaN;
+	if (/^\d+$/.test(v)) ms = Number(v) * 1000;
+	else if (v) {
+		const at = Date.parse(v);
+		if (!Number.isNaN(at)) ms = at - now;
+	}
+	if (!Number.isFinite(ms)) return RETRY_AFTER_DEFAULT_MS;
+	return Math.min(RETRY_AFTER_MAX_MS, Math.max(RETRY_AFTER_MIN_MS, ms));
 }
 
 export { DEMO_HOST, isDemoServer } from './env';
@@ -117,7 +150,7 @@ export class WardogsClient {
 		);
 		const parsed = parseJson(res.text);
 		if (res.status < 200 || res.status >= 300) {
-			throw classifyGameError(method, path, res.status, res.statusText, parsed);
+			throw classifyGameError(method, path, res.status, res.statusText, parsed, res.headers);
 		}
 		return (parsed ?? {}) as T;
 	}
@@ -128,15 +161,19 @@ export class WardogsClient {
 		path: string,
 		text: string,
 		revision?: string
-	): Promise<{ status: number; body: any }> {
+	): Promise<{ status: number; body: any; etag: string }> {
 		const headers: Record<string, string> = { 'Content-Type': 'text/plain' };
 		if (revision) {
 			headers['If-Match'] = `"${revision}"`;
 		}
 		const res = await this.raw(method, path, text, headers);
-		return { status: res.status, body: parseJson(res.text) ?? {} };
+		return { status: res.status, body: parseJson(res.text) ?? {}, etag: etagOf(res.headers) };
 	}
 }
+
+/** The ETag live builds send with the config document (CL-501228+): the revision, unquoted. */
+export const etagOf = (headers: Record<string, string>): string =>
+	(headers['etag'] || '').replace(/^W\//, '').replace(/"/g, '').trim();
 
 /** How long one verdict on a host is reused before it is resolved again. */
 const TARGET_CHECK_TTL_MS = 60_000;

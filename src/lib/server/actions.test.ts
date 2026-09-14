@@ -98,8 +98,41 @@ test('capabilities reads the live build CL-499480 route list into feature flags'
 		reservedSlots: false,
 		rotationEdit: false,
 		rotationSave: false,
-		liveSettings: false
+		liveSettings: false,
+		serverId: false
 	});
+});
+
+// Live build CL-501228 (2026-09-14) added exactly one route to that list.
+test('capabilities reads live build CL-501228: the same flags plus the server id', async () => {
+	const client: any = {
+		json: async () => ({
+			apiVersion: '1',
+			build: '++Wardogs+Live-CL-501228',
+			routes: [...LIVE_ROUTES, 'GET /v1/server-id'],
+			config: { writable: true, document: '/v1/config' }
+		})
+	};
+	const r: any = await ACTIONS.capabilities.run(client, {});
+	expect(r.features.serverId).toBe(true);
+	expect(r.features.reservedSlots).toBe(false);
+	expect(r.raw.build).toBe('++Wardogs+Live-CL-501228');
+});
+
+test('serverId reads GET /v1/server-id and always answers a string', async () => {
+	const calls: string[] = [];
+	const client: any = {
+		json: async (method: string, path: string) => {
+			calls.push(`${method} ${path}`);
+			return { serverId: 'fd6926f9-57b6-48ce-9608-ad5f7de8c92a' };
+		}
+	};
+	expect(await ACTIONS.serverId.run(client, {})).toEqual({
+		serverId: 'fd6926f9-57b6-48ce-9608-ad5f7de8c92a'
+	});
+	expect(calls).toEqual(['GET /v1/server-id']);
+	client.json = async () => ({});
+	expect(await ACTIONS.serverId.run(client, {})).toEqual({ serverId: '' });
 });
 
 test('capabilities keeps every flag on for a build that serves the full console route set', async () => {
@@ -111,9 +144,262 @@ test('capabilities keeps every flag on for a build that serves the full console 
 		'DELETE /v1/rotation/entries/{index}',
 		'POST /v1/rotation/entries/{index}/move',
 		'POST /v1/rotation/save',
-		'PATCH /v1/settings'
+		'PATCH /v1/settings',
+		'GET /v1/server-id'
 	];
 	const client: any = { json: async () => ({ routes: full, config: { writable: true } }) };
 	const r: any = await ACTIONS.capabilities.run(client, {});
 	expect(Object.values(r.features).every(Boolean)).toBe(true);
+});
+
+// Reserved slots: the live route when the build serves it, the DefaultReservedPlayerIds array of
+// the config document when it does not (live builds CL-499480 and CL-501228). The fake records
+// every call as "METHOD path" (json) or "METHOD path revision" (configCall).
+const SESSION = '[/Script/WDGame.WDGameSession]';
+function reservedClient(opts: {
+	route: boolean;
+	text: string;
+	writable?: boolean;
+	conflicts?: number;
+	routeError?: InstanceType<typeof GameError>;
+}) {
+	const calls: string[] = [];
+	let text = opts.text;
+	let rev = 1;
+	let conflicts = opts.conflicts ?? 0;
+	const client: any = {
+		json: async (method: string, path: string) => {
+			calls.push(`${method} ${path}`);
+			if (path.startsWith('/v1/reserved-slots')) {
+				if (opts.routeError) throw opts.routeError;
+				if (!opts.route)
+					throw new GameError(404, 'This server build does not serve it.', 'no_route');
+				return { message: 'Reserved slot added.' };
+			}
+			throw new Error(`unexpected ${method} ${path}`);
+		},
+		// The config action reads raw for the ETag; the body carries the revision as CL-501228 does.
+		raw: async (method: string, path: string) => {
+			calls.push(`${method} ${path}`);
+			if (path !== '/v1/config') throw new Error(`unexpected ${method} ${path}`);
+			return {
+				status: 200,
+				statusText: 'OK',
+				headers: { etag: `"r${rev}"` },
+				text: JSON.stringify({
+					revision: `r${rev}`,
+					writable: opts.writable ?? true,
+					text,
+					sections: []
+				})
+			};
+		},
+		configCall: async (method: string, path: string, body: string, revision: string) => {
+			calls.push(`${method} ${path} ${revision}`);
+			rev++;
+			if (conflicts > 0) {
+				conflicts--;
+				return {
+					status: 412,
+					body: { ok: false, error: { code: 'revision_mismatch', message: 'changed' } }
+				};
+			}
+			text = body;
+			return { status: 200, body: { ok: true, revision: `r${rev}` } };
+		}
+	};
+	return { client, calls, text: () => text };
+}
+const ID = '76561198000000123';
+
+test('reservedAdd uses the live route when the build serves it', async () => {
+	const f = reservedClient({ route: true, text: `${SESSION}\n` });
+	const r: any = await ACTIONS.reservedAdd.run(f.client, { steamId: ID });
+	expect(f.calls).toEqual(['POST /v1/reserved-slots']);
+	expect(r.via).toBeUndefined();
+});
+
+test('reservedAdd falls back to the document on no_route and writes only that key', async () => {
+	const f = reservedClient({
+		route: false,
+		text: `${SESSION}\r\nServerName=x\r\nMaxReservedSlots=5\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n`
+	});
+	const r: any = await ACTIONS.reservedAdd.run(f.client, { steamId: ID });
+	expect(f.calls).toEqual(['POST /v1/reserved-slots', 'GET /v1/config', 'PUT /v1/config r1']);
+	expect(r.via).toBe('config');
+	expect(r.revision).toBe('r2');
+	expect(r.message).toContain(ID);
+	expect(f.text()).toBe(
+		`${SESSION}\r\nServerName=x\r\nMaxReservedSlots=5\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n.DefaultReservedPlayerIds=${ID}\r\n`
+	);
+});
+
+test('viaConfig skips the live route; reservedRemove drops the id', async () => {
+	const f = reservedClient({
+		route: true,
+		text: `${SESSION}\n!DefaultReservedPlayerIds=ClearArray\n.DefaultReservedPlayerIds=${ID}\n`
+	});
+	const r: any = await ACTIONS.reservedRemove.run(f.client, { steamId: ID, viaConfig: true });
+	expect(f.calls).toEqual(['GET /v1/config', 'PUT /v1/config r1']);
+	expect(r.via).toBe('config');
+	expect(f.text()).toBe(`${SESSION}\n!DefaultReservedPlayerIds=ClearArray\n`);
+});
+
+test('the document path reports present, absent and full with the codes the sync expects', async () => {
+	const two = `${SESSION}\nMaxReservedSlots=2\n.DefaultReservedPlayerIds=${ID}\n.DefaultReservedPlayerIds=76561198000000002\n`;
+	let f = reservedClient({ route: false, text: two });
+	await expect(ACTIONS.reservedAdd.run(f.client, { steamId: ID })).rejects.toMatchObject({
+		status: 409,
+		code: 'already_reserved'
+	});
+	expect(f.calls.filter((c) => c.startsWith('PUT'))).toEqual([]);
+
+	f = reservedClient({ route: false, text: two });
+	await expect(
+		ACTIONS.reservedAdd.run(f.client, { steamId: '76561198000000003' })
+	).rejects.toMatchObject({ status: 409, code: 'reserved_full' });
+	expect(f.calls.filter((c) => c.startsWith('PUT'))).toEqual([]);
+
+	f = reservedClient({ route: false, text: `${SESSION}\n` });
+	await expect(
+		ACTIONS.reservedRemove.run(f.client, { steamId: ID, viaConfig: true })
+	).rejects.toMatchObject({ status: 404, code: 'reserved_not_found' });
+
+	// No MaxReservedSlots key: no cap is applied.
+	f = reservedClient({ route: false, text: `${SESSION}\n.DefaultReservedPlayerIds=1\n` });
+	const r: any = await ACTIONS.reservedAdd.run(f.client, { steamId: ID, viaConfig: true });
+	expect(r.via).toBe('config');
+});
+
+test('a revision conflict is retried once with the fresh revision, then reported as 412', async () => {
+	let f = reservedClient({ route: false, text: `${SESSION}\n`, conflicts: 1 });
+	const r: any = await ACTIONS.reservedAdd.run(f.client, { steamId: ID, viaConfig: true });
+	expect(f.calls).toEqual([
+		'GET /v1/config',
+		'PUT /v1/config r1',
+		'GET /v1/config',
+		'PUT /v1/config r2'
+	]);
+	expect(r.revision).toBe('r3');
+
+	f = reservedClient({ route: false, text: `${SESSION}\n`, conflicts: 2 });
+	await expect(
+		ACTIONS.reservedAdd.run(f.client, { steamId: ID, viaConfig: true })
+	).rejects.toMatchObject({ status: 412, code: 'revision_conflict' });
+});
+
+test('a read-only document and a real route error are reported, not worked around', async () => {
+	let f = reservedClient({ route: false, text: `${SESSION}\n`, writable: false });
+	await expect(ACTIONS.reservedAdd.run(f.client, { steamId: ID })).rejects.toMatchObject({
+		status: 400,
+		code: 'config_readonly'
+	});
+
+	f = reservedClient({
+		route: true,
+		text: `${SESSION}\n`,
+		routeError: new GameError(401, 'Unauthorized.', 'unauthorized')
+	});
+	await expect(ACTIONS.reservedAdd.run(f.client, { steamId: ID })).rejects.toMatchObject({
+		status: 401
+	});
+	expect(f.calls).toEqual(['POST /v1/reserved-slots']);
+});
+
+test('config takes the revision from the body, or from the ETag when the body lacks it', async () => {
+	const doc = {
+		writable: true,
+		text: '[/Script/WDGame.WDGameSession]\n',
+		sections: [],
+		warnings: []
+	};
+	const client: any = {
+		raw: async () => ({
+			status: 200,
+			statusText: 'OK',
+			headers: { etag: '"d31a26d94a9c"' },
+			text: JSON.stringify(doc)
+		})
+	};
+	expect(((await ACTIONS.config.run(client, {})) as any).revision).toBe('d31a26d94a9c');
+	client.raw = async () => ({
+		status: 200,
+		statusText: 'OK',
+		headers: { etag: '"other"' },
+		text: JSON.stringify({ ...doc, revision: 'body1' })
+	});
+	expect(((await ACTIONS.config.run(client, {})) as any).revision).toBe('body1');
+	client.raw = async () => ({
+		status: 429,
+		statusText: '',
+		headers: { 'retry-after': '3' },
+		text: JSON.stringify({ error: { code: 'rate_limited', message: 'slow down' } })
+	});
+	await expect(ACTIONS.config.run(client, {})).rejects.toMatchObject({
+		status: 429,
+		code: 'rate_limited',
+		retryAfterMs: 3000
+	});
+});
+
+test('config refuses anything that is not a document, so nothing is ever PUT over a real file', async () => {
+	const answer =
+		(text: string, headers: Record<string, string> = {}) =>
+		async () => ({
+			status: 200,
+			statusText: 'OK',
+			headers,
+			text
+		});
+	const client: any = { raw: answer('{}') };
+	await expect(ACTIONS.config.run(client, {})).rejects.toMatchObject({
+		status: 502,
+		code: 'bad_response'
+	});
+	client.raw = answer('<html>proxy login</html>');
+	await expect(ACTIONS.config.run(client, {})).rejects.toMatchObject({ code: 'bad_response' });
+	// A body without a revision is fine when the ETag carries it.
+	client.raw = answer(JSON.stringify({ text: '', sections: [] }), { etag: '"abc"' });
+	expect(((await ACTIONS.config.run(client, {})) as any).revision).toBe('abc');
+	client.raw = answer(JSON.stringify({ text: '', sections: [] }));
+	await expect(ACTIONS.config.run(client, {})).rejects.toMatchObject({ code: 'bad_response' });
+	// And the reserved-slot path stops before any PUT.
+	const calls: string[] = [];
+	const bad: any = {
+		json: async () => {
+			throw new GameError(404, 'no', 'no_route');
+		},
+		raw: async (m: string, p: string) => {
+			calls.push(`${m} ${p}`);
+			return { status: 200, statusText: 'OK', headers: {}, text: '{}' };
+		},
+		configCall: async (m: string, p: string) => {
+			calls.push(`${m} ${p}`);
+			return { status: 200, body: { ok: true }, etag: '' };
+		}
+	};
+	await expect(ACTIONS.reservedAdd.run(bad, { steamId: ID })).rejects.toMatchObject({
+		code: 'bad_response'
+	});
+	expect(calls).toEqual(['GET /v1/config']);
+});
+
+test('a refused PUT is classified (a missing route stays no_route) and carries no body', async () => {
+	const f = reservedClient({ route: false, text: `${SESSION}\n` });
+	f.client.configCall = async () => ({
+		status: 404,
+		body: { error: { code: 'not_found', message: 'No such endpoint.' } },
+		etag: ''
+	});
+	const err: any = await ACTIONS.reservedAdd
+		.run(f.client, { steamId: ID, viaConfig: true })
+		.catch((e) => e);
+	expect(err.code).toBe('no_route');
+	expect(err.body).toBeNull();
+	const g = reservedClient({ route: false, text: `${SESSION}\n`, conflicts: 2 });
+	const conflict: any = await ACTIONS.reservedAdd
+		.run(g.client, { steamId: ID, viaConfig: true })
+		.catch((e) => e);
+	expect(conflict.code).toBe('revision_conflict');
+	expect(conflict.body).toBeNull();
 });

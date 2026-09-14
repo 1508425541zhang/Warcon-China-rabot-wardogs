@@ -1,5 +1,7 @@
 // Server records: validation, CRUD helpers and the reachability test.
 import { asc, eq } from 'drizzle-orm';
+import { forgetCatalog } from './catalog-cache';
+import type { Features } from '$lib/types';
 import type { Env } from './env';
 import { isDemoServer } from './env';
 import { ApiError, int, newId, publicMessage, str } from './http';
@@ -217,6 +219,8 @@ export interface TestResult {
 	ok: boolean;
 	status?: unknown;
 	capabilities?: unknown;
+	/** GET /v1/server-id when the build serves it (CL-501228+) */
+	serverId?: string;
 	durationMs: number;
 	error?: { message: string; status: number };
 }
@@ -237,6 +241,19 @@ export async function testServer(
 		} catch {
 			/* older plugin builds lack it */
 		}
+		let serverId = '';
+		if ((capabilities as { features?: Features } | null)?.features?.serverId) {
+			try {
+				serverId = ((await gateway().run(env, server, 'serverId', {})) as { serverId: string })
+					.serverId;
+			} catch {
+				/* shown as not reported */
+			}
+		}
+		// A test is how an operator asks for a fresh look at a build: drop this process's catalog
+		// cache and have the worker (local or over the relay) re-read the identity at its next look.
+		forgetCatalog(server.id);
+		gateway().identityChanged(server.id);
 		const durationMs = Date.now() - started;
 		await writeAudit(env, req, {
 			actor,
@@ -246,7 +263,7 @@ export async function testServer(
 			outcome: 'ok',
 			durationMs
 		});
-		return { ok: true, status, capabilities, durationMs };
+		return { ok: true, status, capabilities, serverId, durationMs };
 	} catch (err) {
 		const durationMs = Date.now() - started;
 		const status = err instanceof GameError ? err.status : 500;

@@ -4,12 +4,10 @@ import { getEnv } from '$lib/server/env';
 import { getOrg, getServer, requireUser, serverAccessFor, shapeServer } from '$lib/server/access';
 import { publicMessage } from '$lib/server/http';
 import { gateway } from '$lib/server/gateway';
+import { cachedCatalog, rememberCatalog } from '$lib/server/catalog-cache';
 import type { Catalog, Features, ServerInfo } from '$lib/types';
 
 const EMPTY: Catalog = { maps: [], lightings: [], experiences: [] };
-/** Catalog and capabilities change with plugin builds, not with matches: one read per server per hour. */
-const CATALOG_TTL_MS = 3600_000;
-const catalogs = new Map<string, { until: number; catalog: Catalog; features: Features }>();
 
 export const load: LayoutServerLoad = async ({ params, locals }) => {
 	const env = getEnv();
@@ -29,12 +27,13 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 		reservedSlots: true,
 		rotationEdit: true,
 		rotationSave: true,
-		liveSettings: true
+		liveSettings: true,
+		serverId: false
 	};
 	let reachable = true;
 	let problem = '';
-	const hit = catalogs.get(row.id);
-	if (hit && hit.until > Date.now()) {
+	const hit = cachedCatalog(row.id);
+	if (hit) {
 		catalog = hit.catalog;
 		features = hit.features;
 	} else {
@@ -46,11 +45,20 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 			} catch {
 				/* older plugin builds have no capabilities route */
 			}
-			catalogs.set(row.id, { until: Date.now() + CATALOG_TTL_MS, catalog, features });
+			rememberCatalog(row.id, { catalog, features });
 		} catch (err) {
 			reachable = false;
 			problem = publicMessage(err);
 		}
 	}
-	return { server, catalog, features, reachable, problem };
+	// What the worker last learned about the build: never a game request from a page load, and
+	// never a reason for the page to fail (the worker may be down or the relay slow).
+	let identity = { build: '', gameServerId: '' };
+	try {
+		const live = (await gateway().live(env, [row.id])).get(row.id);
+		identity = { build: live?.build ?? '', gameServerId: live?.gameServerId ?? '' };
+	} catch {
+		/* shown without an id until the worker answers */
+	}
+	return { server, catalog, features, reachable, problem, identity };
 };

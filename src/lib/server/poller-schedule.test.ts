@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { nextDue, offlineLimit, phaseOffset, pickDue, type Slot } from './poller-schedule';
+import {
+	nextDue,
+	offlineLimit,
+	phaseOffset,
+	pickDue,
+	type Slot,
+	withHold
+} from './poller-schedule';
 
 const slot = (id: string, dueAt: number | null, extra: Partial<Slot> = {}): Slot => ({
 	id,
@@ -81,4 +88,13 @@ describe('pickDue', () => {
 		expect(offlineLimit({ total: 1, offlineShare: 0.5 })).toBe(1);
 		expect(offlineLimit({ total: 128, offlineShare: 0.5 })).toBe(64);
 	});
+});
+
+test('withHold: a live hold pushes a due time out to its end; an expired hold changes nothing', () => {
+	const now = 1_000_000;
+	expect(withHold(now + 2000, now + 7000, now)).toBe(now + 7000);
+	expect(withHold(now + 9000, now + 7000, now)).toBe(now + 9000);
+	expect(withHold(now, now + 7000, now)).toBe(now + 7000);
+	expect(withHold(now + 2000, now - 1, now)).toBe(now + 2000);
+	expect(withHold(now + 2000, 0, now)).toBe(now + 2000);
 });

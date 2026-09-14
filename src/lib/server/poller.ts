@@ -34,7 +34,7 @@ import {
 	replan,
 	type ServerMemory
 } from './observe';
-import { phaseOffset, pickDue } from './poller-schedule';
+import { phaseOffset, pickDue, withHold } from './poller-schedule';
 import { applyRetentionPolicy, rollupSamples } from './rollups';
 import { liveView } from './live';
 import type { LiveView } from '$lib/types';
@@ -130,8 +130,10 @@ export function observeSoon(serverId: string): void {
 	if (!m) return;
 	if (m.inFlight !== null) m.again = true;
 	else {
-		m.playersDueAt = Date.now();
-		m.statusDueAt = Date.now();
+		// ...but never inside a rate-limit hold the listener asked for.
+		const now = Date.now();
+		m.playersDueAt = withHold(now, m.holdUntil, now);
+		m.statusDueAt = withHold(now, m.holdUntil, now);
 	}
 }
 
@@ -154,6 +156,8 @@ export async function observeNow(env: Env, serverId: string): Promise<LiveView |
 		if (scheduler) scheduler.rosterAt = 0;
 	}
 	if (!isOwner()) return m.observedAt ? liveView(m) : null;
+	// A rate-limit hold covers explicit looks too: answer from memory until it lifts.
+	if (m.holdUntil > Date.now()) return m.observedAt ? liveView(m) : null;
 	const mem = m;
 	await withServer(serverId, PRIORITY.command, () =>
 		observeServer(env, mem, { status: true, players: true })

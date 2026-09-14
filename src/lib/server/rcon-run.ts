@@ -98,12 +98,25 @@ export async function runAction(
 		// The panel shows what the worker last saw; after a change, have it look again now.
 		if (def.mutating) gateway().observeSoon(server.id);
 		if (def.mutating || auditReads) {
+			// An action that took another path than the caller asked for (reserved slots written to
+			// the config document) says so in the trail, with the revision it produced.
+			const meta =
+				result && typeof result === 'object' && 'via' in result
+					? {
+							via: (result as { via: unknown }).via,
+							revision: (result as { revision?: unknown }).revision
+						}
+					: null;
 			await writeAudit(env, req, {
 				...base,
 				outcome: 'ok',
 				status: 200,
 				message: messageOf(result),
-				detail: def.mutating ? detail : undefined,
+				detail: def.mutating
+					? meta && detail && typeof detail === 'object'
+						? { ...(detail as object), ...meta }
+						: detail
+					: undefined,
 				durationMs
 			});
 		}
@@ -134,7 +147,12 @@ export async function runAction(
 								: err.message,
 						code: err.code || undefined,
 						upstreamStatus: err.status,
-						body: err.body ?? undefined
+						// A rejected config document's error lines can quote the file, so the game's body
+						// reaches only callers entitled to the document or to raw access.
+						body:
+							def.cap === 'rcon.raw' || def.cap === 'config.apply'
+								? (err.body ?? undefined)
+								: undefined
 					}
 				},
 				status

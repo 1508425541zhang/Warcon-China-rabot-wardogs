@@ -76,7 +76,7 @@ export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
 	'bans.manage': { label: 'Bans', hint: 'Ban and unban on this server.', group: 'moderate' },
 	'slots.manage': {
 		label: 'Reserved slots',
-		hint: 'Reserve and unreserve slots on this server.',
+		hint: 'Reserve and unreserve slots on this server (through its config document on builds without the live routes).',
 		group: 'moderate'
 	},
 	'lists.edit': {

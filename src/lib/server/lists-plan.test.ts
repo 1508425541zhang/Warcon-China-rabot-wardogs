@@ -3,6 +3,7 @@ import {
 	activeEntries,
 	isAlreadyApplied,
 	isGone,
+	isUnreachable,
 	parseMaxReservedSlots,
 	planSync,
 	RESERVED_FULL,
@@ -43,8 +44,28 @@ describe('game error interpretation', () => {
 			isAlreadyApplied({ status: 400, message: 'steamId must be a 17-digit SteamID64.' })
 		).toBe(false);
 	});
+	test('a full reserved list and a revision conflict are not "already applied"', () => {
+		expect(
+			isAlreadyApplied({
+				status: 409,
+				code: 'reserved_full',
+				message: 'Reserved slots are full (3/3).'
+			})
+		).toBe(false);
+		expect(isAlreadyApplied({ status: 412, code: 'revision_conflict', message: 'changed' })).toBe(
+			false
+		);
+		expect(
+			isAlreadyApplied({
+				status: 409,
+				code: 'already_reserved',
+				message: 'SteamId 1 is already reserved.'
+			})
+		).toBe(true);
+	});
 	test('gone', () => {
 		expect(isGone({ status: 404, message: 'x' })).toBe(true);
+		expect(isGone({ status: 404, code: 'reserved_not_found', message: 'x' })).toBe(true);
 		expect(isGone({ status: 400, code: 'not_found', message: 'x' })).toBe(true);
 		expect(isGone({ status: 400, message: 'nope' })).toBe(false);
 	});
@@ -225,4 +246,11 @@ test('isGone: a missing entry is gone, a missing route is not', () => {
 	expect(isGone({ status: 404, code: 'ban_not_found', message: 'not banned' })).toBe(true);
 	expect(isGone({ status: 404, code: 'not_found', message: 'gone' })).toBe(true);
 	expect(isGone({ status: 404, code: 'no_route', message: 'not served' })).toBe(false);
+});
+
+test('isUnreachable: outages and rate limiting both stop the run; ordinary refusals do not', () => {
+	expect(isUnreachable({ status: 502, code: 'unreachable', message: 'x' })).toBe(true);
+	expect(isUnreachable({ status: 429, code: 'rate_limited', message: 'slow down' })).toBe(true);
+	expect(isUnreachable({ status: 409, code: 'reserved_full', message: 'full' })).toBe(false);
+	expect(isUnreachable({ status: 400, message: 'bad id' })).toBe(false);
 });

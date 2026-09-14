@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { health, setHealth } from '$lib/health.svelte';
+	import { health, identity, setHealth, throttled } from '$lib/health.svelte';
 	import Pulse from '$lib/components/Pulse.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import RoleBadge from '$lib/components/RoleBadge.svelte';
+	import { toast } from '$lib/toast.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -32,7 +33,19 @@
 	$effect(() => {
 		setHealth(data.server.id, data.reachable);
 	});
+
+	// The stream may learn the id after the page loaded; the load's answer is the fallback.
+	let ident = $derived(identity[data.server.id] ?? data.identity);
+	async function copyId(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			toast('Join code copied.', 'ok');
+		} catch {
+			window.prompt('Copy the join code:', text);
+		}
+	}
 	let live = $derived(health[data.server.id]);
+	let slowed = $derived(!!throttled[data.server.id]);
 
 	// On phones the tab row scrolls sideways; keep the active tab in view after navigating.
 	let tabs = $state<HTMLElement>();
@@ -48,23 +61,55 @@
 <svelte:head><title>{data.server.name} · {data.appName}</title></svelte:head>
 
 <div class="mb-4 rise rounded-card border border-l-[3px] border-black border-l-accent bg-ink-900">
-	<div class="flex flex-wrap items-center gap-3 px-5 py-4">
+	<div class="flex flex-wrap items-start gap-3 px-5 py-4">
 		<div class="min-w-0 grow">
-			<h1 class="truncate text-xl font-semibold tracking-tight">{data.server.name}</h1>
-			<div class="mt-1 flex flex-wrap items-center gap-2 text-[12.5px] text-mist-400">
-				<span class="font-mono">{data.server.host}:{data.server.port}</span>
+			<h1 class="flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight">
+				<span class="truncate">{data.server.name}</span>
 				<RoleBadge role={data.server.roleName} />
 				{#if data.server.demo}<Badge tone="info">demo</Badge>{/if}
-				{#if data.server.notes}<span class="truncate">· {data.server.notes}</span>{/if}
+			</h1>
+			<div class="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-[12.5px] text-mist-400">
+				<span class="inline-flex items-baseline gap-1.5">
+					<span class="caps">Address</span>
+					<span class="font-mono text-mist-200">{data.server.host}:{data.server.port}</span>
+				</span>
+				{#if ident.gameServerId}
+					<button
+						type="button"
+						class="group inline-flex cursor-pointer items-baseline gap-1.5 text-left"
+						title="Click to copy"
+						onclick={() => copyId(ident.gameServerId)}
+					>
+						<span class="caps whitespace-nowrap">Join code</span>
+						<span class="text-left font-mono break-all text-mist-200 group-hover:text-white"
+							>{ident.gameServerId}</span
+						>
+						<span class="caps text-mist-600 group-hover:text-mist-300">copy</span>
+					</button>
+				{/if}
 			</div>
+			{#if data.server.notes}
+				<p class="mt-1.5 line-clamp-2 text-[12.5px] text-mist-400">{data.server.notes}</p>
+			{/if}
 		</div>
 		<span
-			class="inline-flex items-center gap-2 text-[12.5px] {live === false
+			class="mt-1 inline-flex items-center gap-2 text-[12.5px] {live === false
 				? 'text-danger'
-				: 'text-mist-400'}"
+				: slowed
+					? 'text-warn'
+					: 'text-mist-400'}"
+			title={slowed
+				? 'The game server asked the panel to slow down (its per-address request limit); the next look waits for the time it gave.'
+				: undefined}
 		>
 			<Pulse ok={live} />
-			{live === true ? 'live' : live === false ? 'unreachable' : 'connecting…'}
+			{live === true
+				? slowed
+					? 'rate limited, retrying'
+					: 'live'
+				: live === false
+					? 'unreachable'
+					: 'connecting…'}
 		</span>
 	</div>
 </div>

@@ -5,7 +5,7 @@
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import ConfigForm from '$lib/components/ConfigForm.svelte';
 	import { setScalarInText } from '$lib/config-doc';
-	import { S_SESSION } from '$lib/config-fields';
+	import { lockedKeys, S_SESSION } from '$lib/config-fields';
 	import type { ConfigDoc, ConfigResult, Status } from '$lib/types';
 	import type { PageProps } from './$types';
 
@@ -32,6 +32,7 @@
 	let mode = $state<'form' | 'raw'>('form');
 
 	let readOnly = $derived(!admin || !doc || !doc.writable);
+	let pinned = $derived(doc ? lockedKeys(doc.sections) : []);
 	let dirty = $derived(!!doc && text !== doc.text);
 
 	async function loadDoc(opts: { keepResult?: boolean } = {}) {
@@ -329,6 +330,19 @@
 		<div class="mt-3 callout mb-0">
 			This server reports its config document as read-only (no -StandaloneConfig). Edits here cannot
 			be applied.
+		</div>
+	{/if}
+	{#if pinned.length}
+		<div class="mt-3 callout mb-0">
+			Pinned by this server's launch arguments and shown read-only:
+			<ul class="mt-1 list-disc pl-5">
+				{#each pinned as k (k.section + '|' + k.key)}
+					<li>
+						<span class="font-mono">{k.key}</span>{#if k.lockedBy}&nbsp;(-{k.lockedBy}){/if}:
+						{k.description}
+					</li>
+				{/each}
+			</ul>
 		</div>
 	{/if}
 	{#each doc?.warnings ?? [] as w, i (i)}

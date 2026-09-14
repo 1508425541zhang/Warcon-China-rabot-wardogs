@@ -62,6 +62,9 @@ const live = (over: Partial<LiveView> = {}): LiveView => ({
 	ok: true,
 	error: '',
 	tier: 'hot',
+	build: '',
+	gameServerId: '',
+	throttledUntil: null,
 	status,
 	players,
 	statusAt: '2026-09-13T11:59:50Z',
@@ -295,5 +298,32 @@ describe('statusMessage', () => {
 			).key
 		).not.toBe(a.key);
 		expect(statusMessage(opts, server, live({ ok: false })).key).not.toBe(a.key);
+	});
+});
+
+describe('join code', () => {
+	const id = 'fd6926f9-57b6-48ce-9608-ad5f7de8c92a';
+	const codeField = { name: 'Join code', value: '```\n' + id + '\n```' };
+	test('a code-block field (copyable in Discord) just above the clock, in every style', () => {
+		expect(buildStatusEmbed(opts, server, live()).fields).not.toContainEqual(codeField);
+		for (const style of ['banner', 'compact', 'scoreboard'] as const) {
+			const e = buildStatusEmbed({ ...opts, style }, server, live({ gameServerId: id }));
+			const fields = e.fields ?? [];
+			expect(fields).toContainEqual(codeField);
+			expect(fields[fields.length - 2]).toEqual(codeField);
+			expect(fields[fields.length - 1].value).toContain('Updated');
+			expect(e.footer?.text).toBe('Warcon');
+		}
+	});
+	test('the unreachable card keeps it', () => {
+		const e = buildStatusEmbed(opts, server, live({ ok: false, error: 'x', gameServerId: id }));
+		expect(e.fields).toEqual([codeField]);
+	});
+	test('the code is part of the change key, so the message is edited once when it appears', () => {
+		const before = statusMessage(opts, server, live()).key;
+		expect(statusMessage(opts, server, live({ gameServerId: id })).key).not.toBe(before);
+		expect(statusMessage(opts, server, live({ ok: false, gameServerId: id })).key).not.toBe(
+			statusMessage(opts, server, live({ ok: false })).key
+		);
 	});
 });

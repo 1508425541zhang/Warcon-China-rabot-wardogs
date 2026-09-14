@@ -5,9 +5,11 @@
 //
 // Route shapes mirror what rcon.wardogs.com's js/api.js expects from a real server.
 
+import { createHash } from 'node:crypto';
 import type { GameResponse } from './transport';
 import { parseMaxReservedSlots } from './lists-plan';
 import { rotationFromText } from '../rotation-doc';
+import { hasReservedKey, reservedFromText, reservedIntoText } from '../reserved-doc';
 
 export const MOCK_PASSWORD = 'demo';
 
@@ -113,8 +115,9 @@ const JOINERS = [
 	'Junkrat Jane'
 ];
 
-// Routes live build CL-499480 (2026-09-11) does not serve. With MOCK_LIVE_BUILD=true the demo
-// servers drop them too, so that build's behaviour can be exercised without a real server.
+// Routes live builds CL-499480 (2026-09-11) and CL-501228 (2026-09-14) do not serve. With
+// MOCK_LIVE_BUILD=true the demo servers drop them too, pin ServerName and Port like the TLR host,
+// and report the live build string, so that build's behaviour can be exercised without a real server.
 const LIVE_BUILD_MISSING = new Set([
 	'POST /v1/reserved-slots',
 	'DELETE /v1/reserved-slots/{steamId}',
@@ -130,6 +133,8 @@ const servedRoutes = () =>
 
 const CAPABILITY_ROUTES = [
 	'GET /v1/capabilities',
+	'GET /v1/health',
+	'GET /v1/server-id',
 	'GET /v1/status',
 	'GET /v1/players',
 	'POST /v1/players/{steamId}/kick',
@@ -165,7 +170,8 @@ const CAPABILITY_ROUTES = [
 	'PUT /v1/config'
 ];
 
-// The schema live build CL-499480 reports from GET /v1/config (captured 2026-09-11).
+// The schema live build CL-501228 reports from GET /v1/config (captured 2026-09-14; CL-499480's
+// was the same minus bWriteAuditLogFile and the per-key writable/lockedBy flags).
 const CONFIG_SECTIONS = [
 	{
 		section: '/Script/WDGame.WDGameSession',
@@ -251,7 +257,15 @@ const CONFIG_SECTIONS = [
 		section: '/Script/WDRCON.WDRCONSettings',
 		appliesWhen: 'next-restart',
 		description: 'RCON listener. Written now, read at startup.',
-		allowedKeys: ['AllowedOrigins', 'bEnabled', 'BindAddress', 'Password', 'PasswordHash', 'Port'],
+		allowedKeys: [
+			'AllowedOrigins',
+			'bEnabled',
+			'BindAddress',
+			'bWriteAuditLogFile',
+			'Password',
+			'PasswordHash',
+			'Port'
+		],
 		keyOverrides: []
 	},
 	{
@@ -407,7 +421,9 @@ function seedConfig(s: State): string {
 		'ServerPassword=',
 		`ServerImageURL=${s.sponsorUrl}`,
 		'MaxReservedSlots=20',
-		...s.reserved.map((id) => `+DefaultReservedPlayerIds="${id}"`),
+		// The live build serialises arrays as a clear followed by one line per value.
+		'!DefaultReservedPlayerIds=ClearArray',
+		...s.reserved.map((id) => `.DefaultReservedPlayerIds=${id}`),
 		...s.bans.map((b) => `+DefaultBannedPlayerIds="${b.steamId}"`),
 		'',
 		'[/Script/Engine.GameSession]',
@@ -435,11 +451,45 @@ function seedConfig(s: State): string {
 		'bEnabled=true',
 		'BindAddress=0.0.0.0',
 		'Port=7776',
+		'bWriteAuditLogFile=false',
 		''
 	].join('\r\n');
 }
 
+/**
+ * The schema with the two launch-argument locks the TLR host runs with on live build CL-501228
+ * (ServerName by -RCON_FixedServerName, Port by -RCONPort): `writable: false` plus `lockedBy`.
+ * Only under MOCK_LIVE_BUILD, so the plain demo stays fully editable.
+ */
+function configSections(): typeof CONFIG_SECTIONS {
+	if (!liveBuild()) return CONFIG_SECTIONS;
+	const pin = (key: string, lockedBy: string, appliesWhen: string) => ({
+		key,
+		appliesWhen,
+		description: `Pinned by -${lockedBy} on this server's command line. The value is shown but cannot be changed here.`,
+		writable: false,
+		lockedBy
+	});
+	return CONFIG_SECTIONS.map((c) =>
+		c.section === '/Script/WDGame.WDGameSession'
+			? {
+					...c,
+					keyOverrides: [...c.keyOverrides, pin('ServerName', 'RCON_FixedServerName', 'applied')]
+				}
+			: c.section === '/Script/WDRCON.WDRCONSettings'
+				? { ...c, keyOverrides: [...c.keyOverrides, pin('Port', 'RCONPort', 'next-restart')] }
+				: c
+	);
+}
+
 const states = new Map<string, State>();
+const STARTED = Date.now();
+
+/** A uuid-shaped id derived from the demo key, so it survives a state reset but differs per server. */
+function demoServerId(key: string): string {
+	const h = createHash('sha1').update(`warcon-demo:${key}`).digest('hex');
+	return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
 
 function stateFor(key: string): State {
 	let s = states.get(key);
@@ -548,12 +598,21 @@ function log(s: State, event: string, detail: string): void {
 	}
 }
 
-const ok = (body: unknown, status = 200): GameResponse => ({
+const ok = (body: unknown, status = 200, extra: Record<string, string> = {}): GameResponse => ({
 	status,
 	statusText: status === 200 ? 'OK' : '',
-	headers: { 'content-type': 'application/json' },
+	// Live build CL-501228 exposes these two to browsers; the ETag rides on the config document.
+	headers: {
+		'content-type': 'application/json',
+		'access-control-expose-headers': 'ETag, Retry-After',
+		...extra
+	},
 	text: JSON.stringify(body)
 });
+
+/** MOCK_RATE_LIMIT_EVERY=N answers every Nth request 429 with Retry-After: 2, to exercise the hold. */
+const rateLimitEvery = () => Number(process.env.MOCK_RATE_LIMIT_EVERY) || 0;
+let requests = 0;
 const fail = (status: number, message: string, code = 'error'): GameResponse =>
 	ok({ ok: false, error: { code, message } }, status);
 
@@ -590,6 +649,17 @@ export function mockHandle(
 	if (auth !== `Bearer ${MOCK_PASSWORD}`) {
 		return fail(401, "Bad RCON password (the demo server's password is 'demo').", 'unauthorized');
 	}
+	const every = rateLimitEvery();
+	if (every > 0 && ++requests % every === 0) {
+		return ok(
+			{
+				ok: false,
+				error: { code: 'rate_limited', message: 'Too many requests from this address.' }
+			},
+			429,
+			{ 'retry-after': '2' }
+		);
+	}
 	const s = stateFor(key);
 	const [path, query = ''] = rawPath.split('?');
 	const qs = new URLSearchParams(query);
@@ -609,7 +679,27 @@ export function mockHandle(
 		if (LIVE_BUILD_MISSING.has(pattern)) return fail(404, 'No such endpoint.', 'not_found');
 	}
 	if (route === 'GET capabilities') {
-		return ok({ routes: servedRoutes(), config: { writable: true } });
+		// The document live build CL-501228 sends (2026-09-14), with the demo's own build string.
+		return ok({
+			apiVersion: '1',
+			build: liveBuild() ? '++Wardogs+Live-CL-501228' : '++Wardogs+Demo-CL-501228',
+			auth: { scheme: 'bearer', header: 'Authorization' },
+			limits: { maxBodyBytes: 65536, maxRequestsPerMinutePerIp: 600 },
+			config: { writable: true, document: '/v1/config' },
+			routes: servedRoutes()
+		});
+	}
+	if (route === 'GET health') {
+		return ok({
+			status: 'ok',
+			uptimeSeconds: Math.floor((Date.now() - STARTED) / 1000),
+			connections: { active: 1 },
+			gameThreadQueue: { inFlight: 0, depth: 32, rejectedTotal: 0 }
+		});
+	}
+	if (route === 'GET server-id') {
+		// Stable per demo server, standing in for the join code the WARDOGS backend issues.
+		return ok({ serverId: demoServerId(key) });
 	}
 	if (route === 'GET status') {
 		return ok({
@@ -842,14 +932,18 @@ export function mockHandle(
 		if (!/^\d{17}$/.test(String(b.steamId || ''))) {
 			return fail(400, 'steamId must be a 17-digit SteamID64.');
 		}
-		if (!s.reserved.includes(b.steamId)) {
-			// MaxReservedSlots from the config document is honoured, like the real server.
-			const cap = parseMaxReservedSlots(s.configText) ?? 20;
-			if (s.reserved.length >= cap) {
-				return fail(409, `Reserved slots are full (${cap}/${cap}).`, 'reserved_full');
-			}
-			s.reserved.push(b.steamId);
+		if (s.reserved.includes(b.steamId)) {
+			return fail(409, `SteamId ${b.steamId} is already reserved.`, 'already_reserved');
 		}
+		// MaxReservedSlots from the config document is honoured, like the real server.
+		const cap = parseMaxReservedSlots(s.configText) ?? 20;
+		if (s.reserved.length >= cap) {
+			return fail(409, `Reserved slots are full (${cap}/${cap}).`, 'reserved_full');
+		}
+		s.reserved.push(b.steamId);
+		// Persisted to the document like the real server, whose revision moves with the file.
+		s.configText = reservedIntoText(s.configText, s.reserved);
+		s.configRevision++;
 		log(s, 'COMMAND', `reserved add ${b.steamId}`);
 		return ok({ message: `Reserved slot added for ${b.steamId}.` });
 	}
@@ -858,6 +952,8 @@ export function mockHandle(
 			return fail(404, `${p[1]} has no reserved slot.`, 'reserved_slot_not_found');
 		}
 		s.reserved = s.reserved.filter((x) => x !== p[1]);
+		s.configText = reservedIntoText(s.configText, s.reserved);
+		s.configRevision++;
 		log(s, 'COMMAND', `reserved remove ${p[1]}`);
 		return ok({ message: `Reserved slot removed for ${p[1]}.` });
 	}
@@ -873,13 +969,12 @@ export function mockHandle(
 		return ok({ entries: s.audit.slice(-limit) });
 	}
 	if (route === 'GET config') {
-		return ok({
-			revision: `demo${String(s.configRevision).padStart(8, '0')}`,
-			writable: true,
-			text: s.configText,
-			sections: CONFIG_SECTIONS,
-			warnings: []
-		});
+		const revision = `demo${String(s.configRevision).padStart(8, '0')}`;
+		return ok(
+			{ revision, writable: true, text: s.configText, sections: configSections(), warnings: [] },
+			200,
+			{ etag: `"${revision}"` }
+		);
 	}
 	if (route === 'POST config/validate' || route === 'PUT config') {
 		const text = body || '';
@@ -916,16 +1011,25 @@ export function mockHandle(
 				412
 			);
 		}
-		const outcomes = CONFIG_SECTIONS.filter((c) => text.includes(`[${c.section}]`)).map((c) => ({
-			section: c.section,
-			state: c.appliesWhen,
-			detail: ''
-		}));
+		const outcomes = configSections()
+			.filter((c) => text.includes(`[${c.section}]`))
+			.map((c) => ({
+				section: c.section,
+				state: c.appliesWhen,
+				detail: ''
+			}));
 		if (route === 'PUT config') {
-			s.configText = text;
+			// The reserved list lives in the document. A document that carries the key replaces the
+			// list (how the console and Warcon reserve slots on builds without the live routes); one
+			// without it gets the current list written back, so the two never disagree.
+			if (hasReservedKey(text)) {
+				s.reserved = reservedFromText(text).filter((id) => /^\d{17}$/.test(id));
+				s.configText = text;
+			} else s.configText = reservedIntoText(text, s.reserved);
 			s.configRevision++;
+			// The TLR host pins ServerName with -RCON_FixedServerName; under MOCK_LIVE_BUILD so does the demo.
 			const name = /^ServerName=(.*)$/m.exec(text);
-			if (name) {
+			if (name && !liveBuild()) {
 				s.serverName = name[1].trim();
 			}
 			const img = /^ServerImageURL=(.*)$/m.exec(text);

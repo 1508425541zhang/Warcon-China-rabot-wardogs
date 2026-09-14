@@ -296,3 +296,50 @@ export function appliesFor(
 	const src = override || section;
 	return { state: src.appliesWhen as ApplyState, description: src.description || '' };
 }
+
+export interface LockedKey {
+	section: string;
+	key: string;
+	/** the launch argument that pins it, e.g. RCON_FixedServerName; '' when the server did not say */
+	lockedBy: string;
+	description: string;
+}
+
+const PINNED =
+	"Pinned on this server's command line. The value is shown but cannot be changed here.";
+
+const overrideFor = (section: ConfigSection, ini: string) =>
+	Array.isArray(section.keyOverrides)
+		? section.keyOverrides.find((k) => String(k.key).toLowerCase() === ini.toLowerCase())
+		: undefined;
+
+/**
+ * The override that pins this field from the command line (`writable: false`, live build
+ * CL-501228+: ServerName under -RCON_FixedServerName), or null when it can be edited.
+ */
+export function lockedFor(f: ConfigField, sections: ConfigSection[]): LockedKey | null {
+	const section = sections.find((s) => s.section === f.section);
+	const o = section ? overrideFor(section, f.ini) : undefined;
+	if (!o || o.writable !== false) return null;
+	return {
+		section: f.section,
+		key: o.key,
+		lockedBy: o.lockedBy || '',
+		description: o.description || PINNED
+	};
+}
+
+/** Every key the server reports as pinned, whether or not the form has a field for it (Port has none). */
+export function lockedKeys(sections: ConfigSection[]): LockedKey[] {
+	const out: LockedKey[] = [];
+	for (const s of sections)
+		for (const o of s.keyOverrides ?? [])
+			if (o.writable === false)
+				out.push({
+					section: s.section,
+					key: o.key,
+					lockedBy: o.lockedBy || '',
+					description: o.description || PINNED
+				});
+	return out;
+}

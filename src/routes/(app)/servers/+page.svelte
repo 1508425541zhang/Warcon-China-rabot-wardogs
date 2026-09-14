@@ -7,7 +7,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import GrantList from '$lib/components/GrantList.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import type { OrgMemberView, RoleView, ServerInfo, Status } from '$lib/types';
+	import type { OrgMemberView, RoleView, ServerInfo, Status, Features } from '$lib/types';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -17,11 +17,13 @@
 		status: Status;
 		capabilities: {
 			routes: string[];
-			features: { changeTeam: boolean; configDocument: boolean };
+			features: Features;
 			/** the capabilities document as the server sent it (version, build, limits…) */
 			raw?: Record<string, unknown>;
 		} | null;
 		durationMs: number;
+		/** the join code, on builds that serve GET /v1/server-id */
+		serverId?: string;
 	};
 	type Dialog =
 		| {
@@ -390,6 +392,18 @@
 						2
 					)}</pre>
 			</details>
+		{/if}
+		{#if d.result.capabilities?.raw?.build}
+			<div class="kv">
+				<span class="text-mist-400">Build</span>
+				<span class="text-right font-mono">{String(d.result.capabilities.raw.build)}</span>
+			</div>
+		{/if}
+		{#if d.result.serverId}
+			<div class="kv">
+				<span class="text-mist-400">Join code</span>
+				<span class="text-right font-mono">{d.result.serverId}</span>
+			</div>
 		{/if}
 		<div class="kv">
 			<span class="text-mist-400">Capabilities</span>

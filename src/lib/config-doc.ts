@@ -148,11 +148,22 @@ export function setArrayInText(
 		return out.join(eol);
 	}
 
+	// Every line that sets this key: the array commands and a bare `Key=value` (which the parser
+	// reads as one element), so no leftover line can restore a value that was removed.
 	const isOurs = (raw: string) => {
 		const line = raw.trim();
-		if (!/^[+.!-]/.test(line)) return false;
+		if (!line || line.startsWith(';') || line.startsWith('#') || isHeader(line)) return false;
 		const eq = line.indexOf('=');
-		return eq > 0 && sameName(line.slice(1, eq).trim(), key);
+		return (
+			eq > 0 &&
+			sameName(
+				line
+					.slice(0, eq)
+					.trim()
+					.replace(/^[+.!-]/, ''),
+				key
+			)
+		);
 	};
 	let at = -1;
 	const kept: string[] = [];

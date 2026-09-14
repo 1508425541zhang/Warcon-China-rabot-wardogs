@@ -2,6 +2,7 @@
 // with a slow safety poll behind it. The stream is closed while the tab is hidden (which also
 // lets the server drop out of the watched tier) and reopened when it comes back.
 import { api } from './api';
+import { noteLive } from './health.svelte';
 import type { LiveView } from './types';
 
 export interface OutboxNotice {
@@ -14,10 +15,14 @@ const SAFETY_POLL_MS = 20_000;
 
 export function watchLive(
 	ids: string[],
-	onLive: (v: LiveView) => void,
+	onEach: (v: LiveView) => void,
 	onOutbox?: (n: OutboxNotice) => void
 ): () => void {
 	if (!ids.length) return () => {};
+	const onLive = (v: LiveView) => {
+		noteLive(v);
+		onEach(v);
+	};
 	const query = `ids=${encodeURIComponent(ids.join(','))}`;
 	let source: EventSource | null = null;
 	let stopped = false;
