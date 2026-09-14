@@ -9,6 +9,7 @@
 	import { setHealth } from '$lib/health.svelte';
 	import MapPicker from '$lib/components/MapPicker.svelte';
 	import MapArt from '$lib/components/MapArt.svelte';
+	import { sponsor, loadSponsor } from '$lib/sponsor.svelte';
 	import FactionChip from '$lib/components/FactionChip.svelte';
 	import CashChart from '$lib/components/CashChart.svelte';
 	import { cashByFaction } from '$lib/cash';
@@ -21,6 +22,11 @@
 	let { data }: PageProps = $props();
 	let id = $derived(data.server.id);
 	let chat = $derived(can(data.server.caps, 'chat.send'));
+	// The banner the server advertises to the game's browser; the config page edits it.
+	let banner = $derived(sponsor[data.server.id] ?? '');
+	$effect(() => {
+		void loadSponsor(data.server.id);
+	});
 	let match = $derived(can(data.server.caps, 'match.control'));
 
 	let status = $state<Status | null>(null);
@@ -334,6 +340,21 @@
 				<button class="btn btn-primary" type="submit" disabled={!chat}>Send</button>
 			</div>
 		</form>
+		{#if banner}
+			<div class="mt-4">
+				<span class="field-label">Server image</span>
+				{#key banner}
+					<img
+						src={banner}
+						alt="Server banner"
+						class="h-16 w-auto max-w-full rounded border border-black object-cover"
+						loading="lazy"
+						referrerpolicy="no-referrer"
+						onerror={(e) => ((e.currentTarget as HTMLImageElement).hidden = true)}
+					/>
+				{/key}
+			</div>
+		{/if}
 	</div>
 </div>
 

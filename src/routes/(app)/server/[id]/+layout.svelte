@@ -5,7 +5,6 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import RoleBadge from '$lib/components/RoleBadge.svelte';
 	import { toast } from '$lib/toast.svelte';
-	import { sponsor, loadSponsor } from '$lib/sponsor.svelte';
 	import { fmtUptime, restartWindow, RESTART_AFTER_HOURS, RESTART_SOON_MS } from '$lib/uptime';
 	import type { LayoutProps } from './$types';
 
@@ -56,11 +55,6 @@
 	let restart = $derived(
 		live === false ? null : restartWindow(ident.startedAt, RESTART_AFTER_HOURS, now)
 	);
-	// The banner the server advertises to the game's browser, beside the card as the official console has it.
-	let banner = $derived(sponsor[data.server.id] ?? '');
-	$effect(() => {
-		if (data.reachable) void loadSponsor(data.server.id);
-	});
 	let slowed = $derived(!!throttled[data.server.id]);
 
 	// On phones the tab row scrolls sideways; keep the active tab in view after navigating.
@@ -77,79 +71,91 @@
 <svelte:head><title>{data.server.name} · {data.appName}</title></svelte:head>
 
 <div class="mb-4 rise rounded-card border border-l-[3px] border-black border-l-accent bg-ink-900">
-	<div class="flex flex-wrap items-start gap-3 px-5 py-4">
+	<div class="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4">
 		<div class="min-w-0 grow">
 			<h1 class="flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight">
 				<span class="truncate">{data.server.name}</span>
 				<RoleBadge role={data.server.roleName} />
 				{#if data.server.demo}<Badge tone="info">demo</Badge>{/if}
 			</h1>
-			<div class="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-[12.5px] text-mist-400">
-				<span class="inline-flex items-baseline gap-1.5">
-					<span class="caps">Address</span>
-					<span class="font-mono text-mist-200">{data.server.host}:{data.server.port}</span>
-				</span>
+			<div class="mt-1.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[12.5px] text-mist-400">
+				<span class="font-mono text-mist-200">{data.server.host}:{data.server.port}</span>
 				{#if ident.gameServerId}
+					<span class="text-mist-600">·</span>
 					<button
 						type="button"
-						class="group inline-flex cursor-pointer items-baseline gap-1.5 text-left"
+						class="group inline-flex cursor-pointer items-center gap-1.5 text-left"
 						title="Click to copy"
 						onclick={() => copyId(ident.gameServerId)}
 					>
-						<span class="caps whitespace-nowrap">Join code</span>
-						<span class="text-left font-mono break-all text-mist-200 group-hover:text-white"
+						<span class="font-mono break-all text-mist-200 group-hover:text-white"
 							>{ident.gameServerId}</span
 						>
-						<span class="caps text-mist-600 group-hover:text-mist-300">copy</span>
+						<svg
+							class="h-3 w-3 shrink-0 text-mist-600 group-hover:text-mist-300"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<rect x="9" y="9" width="13" height="13" rx="2" />
+							<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+						</svg>
 					</button>
-				{/if}
-				{#if restart}
-					<span class="inline-flex flex-wrap items-baseline gap-1.5">
-						<span class="caps">Up</span>
-						<span class="text-mist-200">{fmtUptime(restart.upMs)}</span>
-						{#if restart.due}
-							<Badge tone="warn">restarts after this round</Badge>
-						{:else if restart.untilDueMs !== null && restart.untilDueMs <= RESTART_SOON_MS}
-							<span class="text-warn">restart window in {fmtUptime(restart.untilDueMs)}</span>
-						{/if}
-					</span>
 				{/if}
 			</div>
 			{#if data.server.notes}
 				<p class="mt-1.5 line-clamp-2 text-[12.5px] text-mist-400">{data.server.notes}</p>
 			{/if}
 		</div>
-		{#if banner}
-			{#key banner}
-				<img
-					src={banner}
-					alt="Server banner"
-					class="h-12 w-auto max-w-[192px] rounded border border-black object-cover"
-					loading="lazy"
-					referrerpolicy="no-referrer"
-					onerror={(e) => ((e.currentTarget as HTMLImageElement).hidden = true)}
-				/>
-			{/key}
-		{/if}
-		<span
-			class="mt-1 inline-flex items-center gap-2 text-[12.5px] {live === false
-				? 'text-danger'
-				: slowed
-					? 'text-warn'
-					: 'text-mist-400'}"
-			title={slowed
-				? 'The game server asked the panel to slow down (its per-address request limit); the next look waits for the time it gave.'
-				: undefined}
+		<dl
+			class="flex divide-x divide-white/8 rounded-ctl border border-white/8 bg-ink-950/70 text-[13px]"
 		>
-			<Pulse ok={live} />
-			{live === true
-				? slowed
-					? 'rate limited, retrying'
-					: 'live'
-				: live === false
-					? 'unreachable'
-					: 'connecting…'}
-		</span>
+			<div class="flex flex-col gap-0.5 px-3.5 py-2">
+				<dt class="caps text-mist-400">Status</dt>
+				<dd
+					class="inline-flex items-center gap-2 whitespace-nowrap {live === false
+						? 'text-danger'
+						: slowed
+							? 'text-warn'
+							: 'text-mist-100'}"
+					title={slowed
+						? 'The game server asked the panel to slow down (its per-address request limit); the next look waits for the time it gave.'
+						: undefined}
+				>
+					<Pulse ok={live} />
+					{live === true
+						? slowed
+							? 'rate limited'
+							: 'live'
+						: live === false
+							? 'unreachable'
+							: 'connecting…'}
+				</dd>
+			</div>
+			{#if restart}
+				<div class="flex flex-col gap-0.5 px-3.5 py-2">
+					<dt class="caps text-mist-400">Uptime</dt>
+					<dd class="whitespace-nowrap text-mist-100">{fmtUptime(restart.upMs)}</dd>
+				</div>
+				{#if restart.untilDueMs !== null || restart.due}
+					<div class="flex flex-col gap-0.5 px-3.5 py-2">
+						<dt class="caps text-mist-400">Restart</dt>
+						<dd
+							class="whitespace-nowrap {restart.due ||
+							(restart.untilDueMs !== null && restart.untilDueMs <= RESTART_SOON_MS)
+								? 'text-warn'
+								: 'text-mist-100'}"
+						>
+							{restart.due ? 'after this round' : `in ${fmtUptime(restart.untilDueMs ?? 0)}`}
+						</dd>
+					</div>
+				{/if}
+			{/if}
+		</dl>
 	</div>
 </div>
 
