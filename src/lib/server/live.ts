@@ -17,6 +17,7 @@ export function liveView(m: ServerMemory): LiveView {
 		tier: m.tier,
 		build: m.identity.build,
 		gameServerId: m.identity.gameServerId,
+		startedAt: iso(m.startedAt),
 		throttledUntil: m.holdUntil > Date.now() ? iso(m.holdUntil) : null,
 		status: m.status,
 		players: m.players,
@@ -34,6 +35,7 @@ export function liveViewFromRow(r: ServerLiveRow): LiveView {
 		tier: r.tier as LiveView['tier'],
 		build: r.build ?? '',
 		gameServerId: r.gameServerId ?? '',
+		startedAt: r.startedAt ? r.startedAt.toISOString() : null,
 		// A hold lasts seconds; a row read cold from the database is not inside one.
 		throttledUntil: null,
 		status: (r.status as Status | null) ?? null,
@@ -53,6 +55,7 @@ export async function writeLive(db: DbOrTx, m: ServerMemory, ts: Date): Promise<
 		tier: m.tier,
 		build: m.identity.build,
 		gameServerId: m.identity.gameServerId,
+		startedAt: m.startedAt ? new Date(m.startedAt) : null,
 		status: m.status,
 		players: m.players,
 		playerCount: m.status?.playerCount ?? m.players.length,

@@ -129,6 +129,8 @@ export interface LiveView {
 	build: string;
 	/** the join code from GET /v1/server-id (CL-501228+); '' when unknown or unserved */
 	gameServerId: string;
+	/** when the game process started (from GET /v1/health); null until read, or unserved by the build */
+	startedAt: string | null;
 	/** set while the listener has asked the panel to slow down (429 with Retry-After) */
 	throttledUntil: string | null;
 	status: Status | null;

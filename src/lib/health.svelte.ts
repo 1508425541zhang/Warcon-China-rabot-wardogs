@@ -6,7 +6,9 @@ export const health = $state<Record<string, boolean>>({});
 /** Servers whose listener asked the panel to slow down (429 with Retry-After), and until when. */
 export const throttled = $state<Record<string, string | null>>({});
 /** What the worker knows about each server's build, as the live stream reports it. */
-export const identity = $state<Record<string, { build: string; gameServerId: string }>>({});
+export const identity = $state<
+	Record<string, { build: string; gameServerId: string; startedAt: string | null }>
+>({});
 
 export function setHealth(id: string, ok: boolean) {
 	// untrack: an $effect that calls this must not depend on the value it is about to overwrite,
@@ -34,9 +36,18 @@ export function noteLive(v: LiveView) {
 				Math.max(0, Date.parse(until) - Date.now())
 			)
 		);
-	if (v.build || v.gameServerId) {
+	if (v.build || v.gameServerId || v.startedAt) {
 		const cur = untrack(() => identity[v.serverId]);
-		if (!cur || cur.build !== v.build || cur.gameServerId !== v.gameServerId)
-			identity[v.serverId] = { build: v.build, gameServerId: v.gameServerId };
+		if (
+			!cur ||
+			cur.build !== v.build ||
+			cur.gameServerId !== v.gameServerId ||
+			cur.startedAt !== v.startedAt
+		)
+			identity[v.serverId] = {
+				build: v.build,
+				gameServerId: v.gameServerId,
+				startedAt: v.startedAt
+			};
 	}
 }

@@ -64,6 +64,7 @@ const live = (over: Partial<LiveView> = {}): LiveView => ({
 	tier: 'hot',
 	build: '',
 	gameServerId: '',
+	startedAt: null,
 	throttledUntil: null,
 	status,
 	players,
@@ -325,5 +326,40 @@ describe('join code', () => {
 		expect(statusMessage(opts, server, live({ ok: false, gameServerId: id })).key).not.toBe(
 			statusMessage(opts, server, live({ ok: false })).key
 		);
+	});
+});
+
+describe('uptime', () => {
+	const startedAt = '2026-09-13T03:00:00Z'; // nine hours before opts.now
+	const ts = (iso: string) => Date.parse(iso) / 1000;
+	test('the start time renders as a relative clock above the update clock, in every style', () => {
+		for (const style of ['banner', 'compact', 'scoreboard'] as const) {
+			const e = buildStatusEmbed({ ...opts, style }, server, live({ startedAt }));
+			expect(e.fields?.at(-1)?.value.split('\n')[0]).toBe(`Up since <t:${ts(startedAt)}:R>`);
+			expect(e.fields?.at(-1)?.value.split('\n').at(-1)).toMatch(/^Updated <t:\d+:R>$/);
+		}
+	});
+	test('no start time, no line', () => {
+		const e = buildStatusEmbed(opts, server, live());
+		expect(e.fields?.at(-1)?.value.startsWith('Updated')).toBe(true);
+	});
+	test('past twelve hours the card says the server restarts after this round', () => {
+		const early = buildStatusEmbed(opts, server, live({ startedAt }));
+		expect(early.fields?.at(-1)?.value).not.toContain('Restarts');
+		const late = buildStatusEmbed(opts, server, live({ startedAt: '2026-09-12T23:30:00Z' }));
+		expect(late.fields?.at(-1)?.value.split('\n')[0]).toBe(
+			`Up since <t:${ts('2026-09-12T23:30:00Z')}:R> · 🔁 Restarts after this round`
+		);
+	});
+	test('the start time and the restart note are in the change key; the ticking uptime is not', () => {
+		const k = (now: number, at: string | null) =>
+			statusMessage({ ...opts, now }, server, live({ startedAt: at })).key;
+		expect(k(opts.now, null)).not.toBe(k(opts.now, startedAt));
+		// nine hours up, then ten: same card
+		expect(k(opts.now, startedAt)).toBe(k(opts.now + 3600_000, startedAt));
+		// crossing twelve hours: one edit
+		expect(k(opts.now + 2 * 3600_000, startedAt)).not.toBe(k(opts.now + 4 * 3600_000, startedAt));
+		// a restart is a new start time
+		expect(k(opts.now, startedAt)).not.toBe(k(opts.now, '2026-09-13T11:00:00Z'));
 	});
 });

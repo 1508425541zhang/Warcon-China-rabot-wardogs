@@ -674,6 +674,8 @@ export const serverLive = pgTable('server_live', {
 	build: text('build').notNull().default(''),
 	/** GET /v1/server-id on builds that serve it (CL-501228+): the join code; '' otherwise */
 	gameServerId: text('game_server_id').notNull().default(''),
+	/** when the game process started, from uptimeSeconds on GET /v1/health; null until read or unserved */
+	startedAt: ts('started_at'),
 	/** Status as the action registry shapes it */
 	status: jsonb('status'),
 	/** Player[] as the action registry shapes it */

@@ -88,6 +88,14 @@ export interface ServerMemory {
 	sampleWrittenAt: number;
 	/** what the build says about itself: refreshed hourly and after an outage */
 	identity: Identity;
+	/**
+	 * When the game process started, from uptimeSeconds on GET /v1/health, read with every status
+	 * observation; 0 until read. Stored as a start time so the uptime counts up without polling
+	 * and a backwards jump says "restarted" even when the outage was too short to be seen.
+	 */
+	startedAt: number;
+	/** the build answered "no such endpoint" to /v1/health; asked again when the identity is re-read */
+	healthUnserved: boolean;
 	/** observations completed */
 	count: number;
 }
@@ -141,6 +149,8 @@ export function memoryFor(server: ServerRow, org: OrgRow): ServerMemory {
 			sampleKey: '',
 			sampleWrittenAt: 0,
 			identity: { build: '', gameServerId: '', features: null, checkedAt: 0, hydrated: false },
+			startedAt: 0,
+			healthUnserved: false,
 			count: 0
 		};
 		registry.set(server.id, m);
@@ -168,13 +178,18 @@ async function hydrateIdentity(env: Env, m: ServerMemory): Promise<void> {
 	m.identity.hydrated = true;
 	try {
 		const [row] = await env.db
-			.select({ build: serverLive.build, gameServerId: serverLive.gameServerId })
+			.select({
+				build: serverLive.build,
+				gameServerId: serverLive.gameServerId,
+				startedAt: serverLive.startedAt
+			})
 			.from(serverLive)
 			.where(eq(serverLive.serverId, m.server.id))
 			.limit(1);
 		if (row) {
 			if (!m.identity.build) m.identity.build = row.build;
 			if (!m.identity.gameServerId) m.identity.gameServerId = row.gameServerId;
+			if (!m.startedAt && row.startedAt) m.startedAt = row.startedAt.getTime();
 		}
 	} catch (e) {
 		console.warn(`[warcon] identity of ${m.server.name} not read:`, publicMessage(e));
@@ -225,6 +240,30 @@ async function refreshIdentity(client: WardogsClient, m: ServerMemory, now: numb
 		}
 	}
 	m.identity = next;
+	// A new build may serve what the old one did not.
+	m.healthUnserved = false;
+}
+
+/** uptimeSeconds is whole seconds and the read has latency: a start time this close is the same start. */
+const START_DRIFT_MS = 5_000;
+
+/**
+ * Reads the process uptime and keeps it as a start time. A failure keeps the previous answer
+ * (a transient error must not blank the uptime on the header); a build without the route is not
+ * asked again until its identity is re-read; a 429 becomes a hold like any other.
+ */
+async function refreshUptime(client: WardogsClient, m: ServerMemory, now: number): Promise<void> {
+	if (m.healthUnserved) return;
+	try {
+		const h = (await ACTIONS.health.run(client, {})) as { uptimeSeconds?: unknown };
+		const up = Number(h?.uptimeSeconds);
+		if (!Number.isFinite(up) || up < 0) return;
+		const startedAt = now - Math.floor(up) * 1000;
+		if (Math.abs(startedAt - m.startedAt) > START_DRIFT_MS) m.startedAt = startedAt;
+	} catch (err) {
+		if (err instanceof GameError && err.code === 'no_route') m.healthUnserved = true;
+		else holdFor(m, err);
+	}
 }
 
 /** Another process may have written since we last owned the worker: forget what we remember. */
@@ -326,6 +365,7 @@ const liveKeyOf = (m: ServerMemory) =>
 		m.holdUntil,
 		m.identity.build,
 		m.identity.gameServerId,
+		m.startedAt,
 		idsOf(m.players)
 	]);
 
@@ -381,6 +421,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	m.tier = tierOf(m, started);
 	if (hadFailed || started - m.identity.checkedAt >= IDENTITY_TTL_MS)
 		await refreshIdentity(client, m, started);
+	if (status) await refreshUptime(client, m, started);
 	if (!m.presence.loaded) await loadPresence(env.db, server.id, m.presence);
 
 	// Joins are trusted only when the previous look at the player list is recent enough that

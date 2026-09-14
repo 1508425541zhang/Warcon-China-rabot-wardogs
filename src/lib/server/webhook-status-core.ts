@@ -9,6 +9,7 @@ import { resolve } from 'node:path';
 import type { FactionScore, LiveView, Player } from '$lib/types';
 import { factionColor, fmtDuration, isMod, mapName, prettify, zoneLabel } from '$lib/format';
 import { mapArtCandidates } from '$lib/map-art';
+import { RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 import type { StatusStyle } from '$lib/status-styles';
 import type { DiscordPayload, Embed, EmbedField } from './webhook-delivery';
 
@@ -268,9 +269,15 @@ export function buildStatusEmbed(
 				.join(' · ')
 		: '';
 	const observedAt = live.observedAt;
+	// Discord renders "9 hours ago" itself, so the uptime line needs no edit to stay right; the
+	// restart note flips once, when the threshold passes.
+	const restart = restartWindow(live.startedAt, RESTART_AFTER_HOURS, opts.now);
+	const upLine = restart
+		? `Up since ${relative(live.startedAt!)}${restart.due ? ' · 🔁 Restarts after this round' : ''}\n`
+		: '';
 	const stamp = (prefix = '') => ({
 		name: '\u200b',
-		value: `${prefix}Updated ${relative(observedAt)}`
+		value: `${upLine}${prefix}Updated ${relative(observedAt)}`
 	});
 	const players = live.players;
 	const thumb = art('square');
@@ -340,15 +347,18 @@ export function buildStatusEmbed(
 }
 
 /** What an edit is for: everything shown except the clocks. */
-function substance(server: StatusServer, live: LiveView | null): unknown {
+function substance(server: StatusServer, live: LiveView | null, now: number): unknown {
 	if (!live || !live.observedAt) return [server.id, server.name, 'waiting'];
 	if (!live.ok || !live.status)
 		return [server.id, server.name, 'down', live.error, live.gameServerId];
 	const s = live.status;
+	const restart = restartWindow(live.startedAt, RESTART_AFTER_HOURS, now);
 	return [
 		server.id,
 		server.name,
 		live.gameServerId,
+		// the start time itself (a restart is a new card), and whether the restart note shows
+		restart ? [live.startedAt, restart.due] : null,
 		s.playerCount,
 		s.maxPlayers,
 		s.map,
@@ -374,6 +384,6 @@ export function statusMessage(
 ): StatusMessage {
 	return {
 		payload: { content: '', embeds: [buildStatusEmbed(opts, server, live)] },
-		key: JSON.stringify([opts.style ?? 'banner', substance(server, live)])
+		key: JSON.stringify([opts.style ?? 'banner', substance(server, live, opts.now)])
 	};
 }

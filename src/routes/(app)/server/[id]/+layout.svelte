@@ -6,6 +6,7 @@
 	import RoleBadge from '$lib/components/RoleBadge.svelte';
 	import { toast } from '$lib/toast.svelte';
 	import { sponsor, loadSponsor } from '$lib/sponsor.svelte';
+	import { fmtUptime, restartWindow, RESTART_AFTER_HOURS, RESTART_SOON_MS } from '$lib/uptime';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -46,6 +47,15 @@
 		}
 	}
 	let live = $derived(health[data.server.id]);
+	// The uptime counts up on its own between looks: a minute clock, only while the page is open.
+	let now = $state(Date.now());
+	$effect(() => {
+		const t = setInterval(() => (now = Date.now()), 30_000);
+		return () => clearInterval(t);
+	});
+	let restart = $derived(
+		live === false ? null : restartWindow(ident.startedAt, RESTART_AFTER_HOURS, now)
+	);
 	// The banner the server advertises to the game's browser, beside the card as the official console has it.
 	let banner = $derived(sponsor[data.server.id] ?? '');
 	$effect(() => {
@@ -92,6 +102,17 @@
 						>
 						<span class="caps text-mist-600 group-hover:text-mist-300">copy</span>
 					</button>
+				{/if}
+				{#if restart}
+					<span class="inline-flex flex-wrap items-baseline gap-1.5">
+						<span class="caps">Up</span>
+						<span class="text-mist-200">{fmtUptime(restart.upMs)}</span>
+						{#if restart.due}
+							<Badge tone="warn">restarts after this round</Badge>
+						{:else if restart.untilDueMs !== null && restart.untilDueMs <= RESTART_SOON_MS}
+							<span class="text-warn">restart window in {fmtUptime(restart.untilDueMs)}</span>
+						{/if}
+					</span>
 				{/if}
 			</div>
 			{#if data.server.notes}
