@@ -8,6 +8,7 @@
 	import FactionChip from '$lib/components/FactionChip.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import type { LiveView, Player, PlayerMark, ServerListsState, Status } from '$lib/types';
 	import type { PageProps } from './$types';
 
@@ -23,7 +24,8 @@
 	let all = $state<Player[]>([]);
 	let status = $state<Status | null>(null);
 	let search = $state('');
-	let selected = $state<string | null>(null);
+	/** the player whose action dialog is open; a snapshot so the dialog survives a roster refresh */
+	let acting = $state<Player | null>(null);
 	let reason = $state('');
 	let whisper = $state('');
 	let team = $state('');
@@ -37,7 +39,11 @@
 		const q = search.trim().toLowerCase();
 		return all.filter((p) => !q || p.name.toLowerCase().includes(q) || p.steamId.includes(q));
 	});
-	let player = $derived(all.find((p) => p.steamId === selected) ?? null);
+	/** live row for the open dialog, falling back to the snapshot once the player has left */
+	let player = $derived.by(() => {
+		const a = acting;
+		return a ? (all.find((p) => p.steamId === a.steamId) ?? a) : null;
+	});
 
 	async function act(
 		action: string,
@@ -111,13 +117,11 @@
 		return watchLive([id], onLive);
 	});
 
-	const withPlayer = (fn: (p: Player) => unknown) => () => {
-		if (!player) {
-			toast('Select a player first.', 'err');
-			return;
-		}
-		return fn(player);
-	};
+	function openActions(p: Player) {
+		reason = '';
+		whisper = '';
+		acting = p;
+	}
 </script>
 
 <div class="panel">
@@ -137,26 +141,33 @@
 		<table>
 			<thead
 				><tr
-					><th>Player</th><th>Flags</th><th>Faction</th><th class="num">K</th><th class="num">D</th
-					><th class="num">Cash</th><th class="num">Ping</th></tr
+					><th>Player</th><th><span class="sr-only">Actions</span></th><th>Flags</th><th>Faction</th
+					><th class="num">K</th><th class="num">D</th><th class="num">Cash</th><th class="num"
+						>Ping</th
+					></tr
 				></thead
 			>
 			<tbody>
 				{#each rows as p (p.steamId)}
 					{@const m = marks[p.steamId]}
-					<tr
-						class="clickable {selected === p.steamId ? 'selected' : ''}"
-						onclick={() => (selected = selected === p.steamId ? null : p.steamId)}
-					>
+					<tr>
 						<td
 							><a
 								href="{base}/{p.steamId}"
-								class="hover:text-accent hover:underline"
-								title="Open dossier"
-								onclick={(e) => e.stopPropagation()}>{p.name}</a
+								class="font-medium text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+								title="Open dossier">{p.name}</a
 							>
 							<span class="font-mono text-[12px] text-mist-600">{p.steamId}</span></td
 						>
+						<td class="whitespace-nowrap">
+							<button
+								type="button"
+								class="btn btn-sm"
+								disabled={!moderate && !chat && !bans}
+								onclick={() => openActions(p)}
+								aria-label="Actions for {p.name}">Actions</button
+							>
+						</td>
 						<td class="whitespace-nowrap">
 							{#if m}
 								{#if m.watched}<Badge tone="warn" class="mr-1">watch</Badge>{/if}
@@ -173,112 +184,11 @@
 						<td class="num">{fmtNum(p.cash)}</td><td class="num">{p.ping ?? '—'}</td>
 					</tr>
 				{:else}
-					<tr><td colspan="7" class="py-6 text-center text-mist-600">No players connected.</td></tr>
+					<tr><td colspan="8" class="py-6 text-center text-mist-600">No players connected.</td></tr>
 				{/each}
 			</tbody>
 		</table>
 	</div>
-	{#if player}
-		<div
-			class="mt-3 rise rounded-ctl border border-l-2 border-black border-l-accent bg-ink-950 p-3"
-		>
-			<div class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-				<FactionChip faction={player.faction} scores={status?.scores} />
-				<span class="min-w-0 truncate font-semibold">{player.name}</span>
-				<span
-					class="order-last basis-full font-mono text-[12px] text-mist-400 sm:order-none sm:basis-auto"
-					>{player.steamId}</span
-				>
-				<a href="{base}/{player.steamId}" class="ml-auto btn btn-sm">Dossier</a>
-				<button
-					type="button"
-					class="btn btn-sm btn-ghost"
-					onclick={() => (selected = null)}
-					aria-label="Deselect player">✕</button
-				>
-			</div>
-			<div class="flex flex-wrap gap-x-5 gap-y-3">
-				<div class="field-group sm:min-w-[340px] sm:flex-1">
-					<span class="field-label">Discipline</span>
-					<div class="join join-wrap w-full">
-						<input
-							class="input"
-							type="text"
-							placeholder="Reason (optional)…"
-							maxlength="200"
-							bind:value={reason}
-						/>
-						<button
-							class="btn"
-							disabled={!moderate}
-							onclick={withPlayer((p) =>
-								act('kill', { steamId: p.steamId }, { after: refreshPlayers })
-							)}>Kill</button
-						>
-						<button
-							class="btn btn-danger"
-							disabled={!moderate}
-							onclick={withPlayer((p) =>
-								act(
-									'kick',
-									{ steamId: p.steamId, reason: reason.trim() },
-									{ confirm: `Kick ${p.name}?`, danger: true, after: refreshPlayers }
-								)
-							)}>Kick</button
-						>
-						<button
-							class="btn btn-danger"
-							disabled={!bans}
-							onclick={withPlayer((p) => (banning = p))}>Ban</button
-						>
-					</div>
-				</div>
-				{#if data.features.changeTeam}
-					<div class="field-group">
-						<span class="field-label">Team</span>
-						<div class="join w-full">
-							<select class="input sm:w-40 sm:flex-none" bind:value={team}>
-								{#each status?.scores ?? [] as f (f.name)}<option value={f.name}>{f.name}</option
-									>{/each}
-							</select>
-							<button
-								class="btn"
-								disabled={!moderate}
-								onclick={withPlayer((p) =>
-									act(
-										'changeTeam',
-										{ steamId: p.steamId, faction: team },
-										{ after: refreshPlayers }
-									)
-								)}>Move</button
-							>
-						</div>
-					</div>
-				{/if}
-				<div class="field-group sm:min-w-[300px] sm:flex-1">
-					<span class="field-label">Whisper</span>
-					<div class="join w-full">
-						<input
-							class="input"
-							type="text"
-							placeholder="Private message to {player.name}…"
-							maxlength="200"
-							bind:value={whisper}
-						/>
-						<button
-							class="btn btn-primary"
-							disabled={!chat}
-							onclick={withPlayer(async (p) => {
-								const message = whisper.trim();
-								if (!message) return;
-								if (await act('whisper', { steamId: p.steamId, message })) whisper = '';
-							})}>Send</button
-						>
-					</div>
-				</div>
-			</div>
-		</div>
-	{/if}
 	{#if !moderate && !chat}<p class="note">
 			You have view-only access; player actions are disabled.
 		</p>{/if}
@@ -291,6 +201,106 @@
 		>.
 	</p>
 </div>
+
+{#if player}
+	{@const p = player}
+	<Modal title={p.name} onclose={() => (acting = null)}>
+		<div class="-mt-2 mb-4 flex flex-wrap items-center gap-2">
+			<FactionChip faction={p.faction} scores={status?.scores} />
+			<span class="font-mono text-[12px] text-mist-400">{p.steamId}</span>
+		</div>
+		<div class="space-y-4">
+			<div class="field-group">
+				<span class="field-label">Discipline</span>
+				<div class="join join-wrap w-full">
+					<input
+						class="input"
+						type="text"
+						placeholder="Reason (optional)…"
+						maxlength="200"
+						bind:value={reason}
+					/>
+					<button
+						class="btn"
+						disabled={!moderate}
+						onclick={() => act('kill', { steamId: p.steamId }, { after: refreshPlayers })}
+						>Kill</button
+					>
+					<button
+						class="btn btn-danger"
+						disabled={!moderate}
+						onclick={() =>
+							act(
+								'kick',
+								{ steamId: p.steamId, reason: reason.trim() },
+								{
+									confirm: `Kick ${p.name}?`,
+									danger: true,
+									after: async () => {
+										acting = null;
+										await refreshPlayers();
+									}
+								}
+							)}>Kick</button
+					>
+					<button
+						class="btn btn-danger"
+						disabled={!bans}
+						onclick={() => {
+							acting = null;
+							banning = p;
+						}}>Ban</button
+					>
+				</div>
+			</div>
+			{#if data.features.changeTeam}
+				<div class="field-group">
+					<span class="field-label">Team</span>
+					<div class="join w-full">
+						<select class="input" bind:value={team}>
+							{#each status?.scores ?? [] as f (f.name)}<option value={f.name}>{f.name}</option
+								>{/each}
+						</select>
+						<button
+							class="btn"
+							disabled={!moderate}
+							onclick={() =>
+								act('changeTeam', { steamId: p.steamId, faction: team }, { after: refreshPlayers })}
+							>Move</button
+						>
+					</div>
+				</div>
+			{/if}
+			<div class="field-group">
+				<span class="field-label">Whisper</span>
+				<div class="join w-full">
+					<input
+						class="input"
+						type="text"
+						placeholder="Private message to {p.name}…"
+						maxlength="200"
+						bind:value={whisper}
+					/>
+					<button
+						class="btn btn-primary"
+						disabled={!chat}
+						onclick={async () => {
+							const message = whisper.trim();
+							if (!message) return;
+							if (await act('whisper', { steamId: p.steamId, message })) whisper = '';
+						}}>Send</button
+					>
+				</div>
+			</div>
+		</div>
+		{#snippet actions()}
+			<a href="{base}/{p.steamId}" class="mr-auto btn">Open dossier</a>
+			<button type="button" class="btn btn-ghost" data-close onclick={() => (acting = null)}
+				>Close</button
+			>
+		{/snippet}
+	</Modal>
+{/if}
 
 {#if banning}
 	{@const p = banning}
