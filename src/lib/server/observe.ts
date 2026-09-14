@@ -486,6 +486,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 						reserved: m.reserved,
 						signals: risk.signals,
 						profiles: risk.profiles,
+						startedAt: m.startedAt,
 						ts
 					},
 					rows

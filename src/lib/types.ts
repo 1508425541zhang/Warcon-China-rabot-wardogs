@@ -395,7 +395,8 @@ export interface DossierView {
 
 // ---- automation ---------------------------------------------------------------------------------
 
-export type TriggerKind = 'welcome' | 'faction_change' | 'broadcast' | 'empty_reset' | 'risk_kick';
+export type TriggerKind =
+	'welcome' | 'faction_change' | 'broadcast' | 'empty_reset' | 'risk_kick' | 'restart_notice';
 
 export interface TriggerView {
 	id: string;

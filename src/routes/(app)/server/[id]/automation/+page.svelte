@@ -81,6 +81,12 @@
 			kind: 'risk_kick',
 			label: 'Kick on connect risk',
 			blurb: 'Kick joiners with VAC bans, brand-new accounts, or bans elsewhere in the org.'
+		},
+		{
+			kind: 'restart_notice',
+			label: 'Restart notice',
+			blurb:
+				'Warn players before the game’s twelve-hour restart, and tell them once it will happen at the end of the round.'
 		}
 	];
 	const label = (kind: TriggerKind) => KINDS.find((k) => k.kind === kind)?.label ?? kind;
@@ -106,6 +112,9 @@
 		watchlist: boolean;
 		spareReserved: boolean;
 		reason: string;
+		leadMinutes: number;
+		leadMessage: string;
+		repeatMinutes: number;
 	}
 	let form = $state<Form | null>(null);
 	let picker = $state<MapPicker>();
@@ -137,7 +146,9 @@
 				'message',
 				kind === 'faction_change'
 					? 'You are now fighting for {faction}, {name}.'
-					: 'Welcome to {server}, {name}! Read the rules with /rules.'
+					: kind === 'restart_notice'
+						? 'Scheduled restart: the server restarts when this round ends. Rejoin in a minute or two.'
+						: 'Welcome to {server}, {name}! Read the rules with /rules.'
 			),
 			onlyFirstVisit: b('onlyFirstVisit', false),
 			afterFaction: b('afterFaction', false),
@@ -155,7 +166,13 @@
 			bannedElsewhere: b('bannedElsewhere', true),
 			watchlist: b('watchlist', false),
 			spareReserved: b('spareReserved', true),
-			reason: s('reason', 'Your account does not meet this server’s requirements.')
+			reason: s('reason', 'Your account does not meet this server’s requirements.'),
+			leadMinutes: n('leadMinutes', 30),
+			leadMessage: s(
+				'leadMessage',
+				'Scheduled restart in about {minutes} minutes, at the end of the round then in progress.'
+			),
+			repeatMinutes: n('repeatMinutes', 0)
 		};
 		dry = null;
 		pendingSel =
@@ -201,6 +218,14 @@
 					watchlist: f.watchlist,
 					spareReserved: f.spareReserved,
 					reason: f.reason
+				};
+			case 'restart_notice':
+				return {
+					message: f.message,
+					leadMinutes: Number(f.leadMinutes),
+					leadMessage: f.leadMessage,
+					repeatMinutes: Number(f.repeatMinutes),
+					minPlayers: Number(f.minPlayers)
 				};
 		}
 	}
@@ -277,6 +302,8 @@
 				].filter(Boolean);
 				return `${rules.join(', ')}${c.spareReserved ? ' · spares reserved slots' : ''}`;
 			}
+			case 'restart_notice':
+				return `"${c.message}"${c.leadMinutes ? ` · heads-up ${c.leadMinutes} min before` : ''}${c.repeatMinutes ? ` · again every ${c.repeatMinutes} min` : ''} · at least ${c.minPlayers} on`;
 		}
 	}
 </script>
@@ -292,7 +319,7 @@
 </div>
 
 {#if admin}
-	<div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+	<div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 		{#each KINDS as k (k.kind)}
 			<button
 				type="button"
@@ -515,65 +542,64 @@
 					With a rotation the target is set as next and the match ended; without one the map is
 					requested directly.
 				</p>
-			{:else}
-				<div class="space-y-1.5 text-[13px]">
-					<label class="flex items-center gap-2"
-						><input type="checkbox" bind:checked={f.bannedElsewhere} /> Banned on another server in this
-						organisation</label
-					>
-					<label class="flex items-center gap-2"
-						><input type="checkbox" bind:checked={f.watchlist} /> On the watchlist</label
-					>
-					<label class="flex items-center gap-2 {data.steam ? '' : 'text-mist-600'}"
-						><input type="checkbox" bind:checked={f.vacBans} disabled={!data.steam} /> Any VAC ban on
-						record</label
-					>
-					<label class="flex items-center gap-2 {data.steam ? '' : 'text-mist-600'}"
-						><input type="checkbox" bind:checked={f.gameBans} disabled={!data.steam} /> Any game ban on
-						record</label
-					>
-					<div class="flex flex-wrap items-center gap-2 {data.steam ? '' : 'text-mist-600'}">
-						Steam account younger than
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="0"
-							max="3650"
-							bind:value={f.minAccountDays}
-							disabled={!data.steam}
-						/>
-						days (0 = off)
-					</div>
-					<label class="flex items-center gap-2 pl-5 {data.steam ? '' : 'text-mist-600'}"
-						><input
-							type="checkbox"
-							bind:checked={f.privateProfiles}
-							disabled={!data.steam || !f.minAccountDays}
-						/> …and treat private profiles (age unknown) as too young</label
-					>
-					<label class="flex items-center gap-2"
-						><input type="checkbox" bind:checked={f.spareReserved} /> Never kick players with a reserved
-						slot</label
-					>
-				</div>
+			{:else if f.kind === 'restart_notice'}
 				<label class="block"
-					><span class="field-label">Kick reason shown to the player</span><input
+					><span class="field-label">Message once the restart window is open</span><input
 						class="input"
 						type="text"
-						bind:value={f.reason}
+						bind:value={f.message}
 						maxlength="200"
+						required
 					/></label
 				>
-				{#if !data.steam}
-					<p class="note text-warn">
-						Steam lookup is off (STEAM_API_KEY), so only the ban-list and watchlist rules can run.
-					</p>
-				{:else}
-					<p class="note">
-						Steam data is fetched when a player first appears and refreshed daily. Kicks land in the
-						audit trail with the rule that matched.
-					</p>
-				{/if}
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_3fr]">
+					<label class="block"
+						><span class="field-label">Heads-up (minutes before)</span><input
+							class="input"
+							type="number"
+							min="0"
+							max="719"
+							bind:value={f.leadMinutes}
+						/></label
+					>
+					<label class="block"
+						><span class="field-label">Heads-up message</span><input
+							class="input"
+							type="text"
+							bind:value={f.leadMessage}
+							maxlength="200"
+							disabled={!Number(f.leadMinutes)}
+						/></label
+					>
+				</div>
+				<div class="grid grid-cols-2 gap-3">
+					<label class="block"
+						><span class="field-label">Repeat while open (minutes, 0 = once)</span><input
+							class="input"
+							type="number"
+							min="0"
+							max="1440"
+							bind:value={f.repeatMinutes}
+						/></label
+					>
+					<label class="block"
+						><span class="field-label">Only with at least (players)</span><input
+							class="input"
+							type="number"
+							min="0"
+							max="1000"
+							bind:value={f.minPlayers}
+						/></label
+					>
+				</div>
+				<p class="note">
+					WARDOGS restarts a server twelve hours after it started, when the round then in progress
+					ends; the header shows where this server is in that cycle. Each message goes once per game
+					start. Placeholders: <span class="chip">{'{minutes}'}</span>
+					<span class="chip">{'{uptime}'}</span> <span class="chip">{'{server}'}</span>
+					<span class="chip">{'{map}'}</span> <span class="chip">{'{players}'}</span>
+					<span class="chip">{'{max}'}</span>.
+				</p>
 			{/if}
 
 			{#if dry && dryFor === 'form'}
