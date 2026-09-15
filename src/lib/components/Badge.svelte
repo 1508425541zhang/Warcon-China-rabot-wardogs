@@ -4,8 +4,9 @@
 	let {
 		tone = '',
 		class: cls = '',
+		title,
 		children
-	}: { tone?: Tone; class?: string; children: Snippet } = $props();
+	}: { tone?: Tone; class?: string; title?: string; children: Snippet } = $props();
 	const TONES: Record<Tone, string> = {
 		'': '',
 		ok: 'bg-ok/15 text-ok',
@@ -16,4 +17,4 @@
 	};
 </script>
 
-<span class="badge {TONES[tone]} {cls}">{@render children()}</span>
+<span class="badge {TONES[tone]} {cls}" {title}>{@render children()}</span>

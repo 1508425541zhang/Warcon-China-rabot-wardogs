@@ -162,6 +162,8 @@ function reservedClient(opts: {
 	writable?: boolean;
 	conflicts?: number;
 	routeError?: InstanceType<typeof GameError>;
+	/** what GET /v1/reserved-slots answers (the live builds serve the read without the writes) */
+	live?: string[];
 }) {
 	const calls: string[] = [];
 	let text = opts.text;
@@ -171,6 +173,7 @@ function reservedClient(opts: {
 		json: async (method: string, path: string) => {
 			calls.push(`${method} ${path}`);
 			if (path.startsWith('/v1/reserved-slots')) {
+				if (method === 'GET' && opts.live) return { reservedSlots: opts.live };
 				if (opts.routeError) throw opts.routeError;
 				if (!opts.route)
 					throw new GameError(404, 'This server build does not serve it.', 'no_route');
@@ -225,9 +228,16 @@ test('reservedAdd falls back to the document on no_route and writes only that ke
 		text: `${SESSION}\r\nServerName=x\r\nMaxReservedSlots=5\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n`
 	});
 	const r: any = await ACTIONS.reservedAdd.run(f.client, { steamId: ID });
-	expect(f.calls).toEqual(['POST /v1/reserved-slots', 'GET /v1/config', 'PUT /v1/config r1']);
+	expect(f.calls).toEqual([
+		'POST /v1/reserved-slots',
+		'GET /v1/config',
+		'PUT /v1/config r1',
+		'GET /v1/reserved-slots'
+	]);
 	expect(r.via).toBe('config');
 	expect(r.revision).toBe('r2');
+	// no read route either: nothing to compare the document against
+	expect(r.pendingRestart).toBe(false);
 	expect(r.message).toContain(ID);
 	expect(f.text()).toBe(
 		`${SESSION}\r\nServerName=x\r\nMaxReservedSlots=5\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n.DefaultReservedPlayerIds=${ID}\r\n`
@@ -240,9 +250,51 @@ test('viaConfig skips the live route; reservedRemove drops the id', async () => 
 		text: `${SESSION}\n!DefaultReservedPlayerIds=ClearArray\n.DefaultReservedPlayerIds=${ID}\n`
 	});
 	const r: any = await ACTIONS.reservedRemove.run(f.client, { steamId: ID, viaConfig: true });
-	expect(f.calls).toEqual(['GET /v1/config', 'PUT /v1/config r1']);
+	expect(f.calls).toEqual(['GET /v1/config', 'PUT /v1/config r1', 'GET /v1/reserved-slots']);
 	expect(r.via).toBe('config');
 	expect(f.text()).toBe(`${SESSION}\n!DefaultReservedPlayerIds=ClearArray\n`);
+});
+
+// Seen on a real CL-501228 server 2026-09-15: the document edit lands, but the running server
+// keeps the list it loaded at start, so GET /v1/reserved-slots still lists a withdrawn id.
+test('a document edit the running server has not taken up is reported as pending a restart', async () => {
+	let f = reservedClient({
+		route: false,
+		live: [ID],
+		text: `${SESSION}\n!DefaultReservedPlayerIds=ClearArray\n.DefaultReservedPlayerIds=${ID}\n`
+	});
+	let r: any = await ACTIONS.reservedRemove.run(f.client, { steamId: ID, viaConfig: true });
+	expect(f.text()).toBe(`${SESSION}\n!DefaultReservedPlayerIds=ClearArray\n`);
+	expect(r.pendingRestart).toBe(true);
+	expect(r.message).toMatch(/keeps it until it restarts/);
+
+	f = reservedClient({ route: false, live: [], text: `${SESSION}\n` });
+	r = await ACTIONS.reservedAdd.run(f.client, { steamId: ID, viaConfig: true });
+	expect(r.pendingRestart).toBe(true);
+	expect(r.message).toMatch(/when it restarts/);
+
+	// the running list agrees with the document: nothing pending
+	f = reservedClient({
+		route: false,
+		live: [],
+		text: `${SESSION}\n.DefaultReservedPlayerIds=${ID}\n`
+	});
+	r = await ACTIONS.reservedRemove.run(f.client, { steamId: ID, viaConfig: true });
+	expect(r.pendingRestart).toBe(false);
+	expect(r.message).toBe(`Removed the reserved slot for ${ID}.`);
+});
+
+test('the reserved read returns the document list beside the live one when asked', async () => {
+	const f = reservedClient({
+		route: false,
+		live: [ID],
+		text: `${SESSION}\n.DefaultReservedPlayerIds=76561198000000002\n`
+	});
+	expect(await ACTIONS.reserved.run(f.client, {})).toEqual({ reserved: [ID] });
+	expect(await ACTIONS.reserved.run(f.client, { document: '1' })).toEqual({
+		reserved: [ID],
+		document: ['76561198000000002']
+	});
 });
 
 test('the document path reports present and absent with the codes the sync expects', async () => {
@@ -279,7 +331,8 @@ test('a revision conflict is retried once with the fresh revision, then reported
 		'GET /v1/config',
 		'PUT /v1/config r1',
 		'GET /v1/config',
-		'PUT /v1/config r2'
+		'PUT /v1/config r2',
+		'GET /v1/reserved-slots'
 	]);
 	expect(r.revision).toBe('r3');
 

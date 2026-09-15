@@ -147,7 +147,7 @@ async function reservedViaConfig(
 	c: WardogsClient,
 	id: string,
 	op: 'add' | 'remove'
-): Promise<{ message: string; via: 'config'; revision: string }> {
+): Promise<{ message: string; via: 'config'; revision: string; pendingRestart: boolean }> {
 	for (let attempt = 0; ; attempt++) {
 		const doc = (await ACTIONS.config.run(c, {})) as {
 			revision: string;
@@ -179,11 +179,21 @@ async function reservedViaConfig(
 		);
 		const r = configResult(status, body, etag);
 		if (r.ok) {
+			// Say what actually happened: the document is written, but the running server may not
+			// read it until it restarts. The caller sees `pendingRestart` and the message says so.
+			const live = await liveReservedIds(c).catch(() => null);
+			const pendingRestart = live !== null && live.includes(id) !== (op === 'add');
+			const done =
+				op === 'add' ? `Reserved a slot for ${id}` : `Removed the reserved slot for ${id}`;
 			return {
-				message:
-					op === 'add' ? `Reserved a slot for ${id}.` : `Removed the reserved slot for ${id}.`,
+				message: pendingRestart
+					? op === 'add'
+						? `${done} in the config document. The running server takes it up when it restarts.`
+						: `${done} in the config document. The running server keeps it until it restarts.`
+					: `${done}.`,
 				via: 'config',
-				revision: r.revision
+				revision: r.revision,
+				pendingRestart
 			};
 		}
 		if (r.conflict) {
@@ -200,6 +210,21 @@ async function reservedViaConfig(
 		const e = classifyGameError('PUT', '/v1/config', status, '', body);
 		e.body = null;
 		throw e;
+	}
+}
+
+/**
+ * The running server's reserved list, or null on a build without the read route. Used to check
+ * whether a document edit reached the running list: the live builds load DefaultReservedPlayerIds
+ * at start, so a slot added or removed through the document reads back unchanged here until the
+ * server restarts (seen on a real server 2026-09-15).
+ */
+async function liveReservedIds(c: WardogsClient): Promise<string[] | null> {
+	try {
+		return ((await c.json('GET', '/v1/reserved-slots')).reservedSlots || []) as string[];
+	} catch (err) {
+		if (isNoRoute(err)) return null;
+		throw err;
 	}
 }
 
@@ -353,12 +378,24 @@ export const ACTIONS: Record<string, ActionDef> = {
 			}))
 		})
 	},
+	// `document: 1` also reads DefaultReservedPlayerIds from the config document (null when the
+	// build has none), so the slots page can show which ids the running server has not caught up
+	// with: in the document but not live arrives at restart; live but not in the document leaves.
 	reserved: {
 		cap: 'server.view',
 		mutating: false,
-		run: async (c) => ({
-			reserved: (await c.json('GET', '/v1/reserved-slots')).reservedSlots || []
-		})
+		run: async (c, p) => {
+			const reserved = (await c.json('GET', '/v1/reserved-slots')).reservedSlots || [];
+			if (!p.document) return { reserved };
+			let document: string[] | null = null;
+			try {
+				const doc = (await ACTIONS.config.run(c, {})) as { text: string };
+				document = reservedFromText(doc.text);
+			} catch (err) {
+				if (!(err instanceof GameError)) throw err;
+			}
+			return { reserved, document };
+		}
 	},
 	sponsor: {
 		cap: 'server.view',
