@@ -297,6 +297,53 @@ export async function writeSnapshot(
 	});
 }
 
+/**
+ * A ban or reserved slot someone just added or removed by hand through the rcon actions: the
+ * copies in server_bans and server_reserved are brought in line at once, rather than at the
+ * worker's next re-read (five minutes by default), so no page keeps showing a slot the server no
+ * longer has, or misses one it just got. The worker's own re-read still follows and is the
+ * authority; this only closes the gap.
+ */
+export async function noteLocalEdit(
+	env: Env,
+	serverId: string,
+	kind: Kind,
+	op: 'add' | 'remove',
+	steamId: string,
+	reason = '',
+	ts = new Date()
+): Promise<void> {
+	if (kind === 'ban') {
+		if (op === 'remove') {
+			await env.db
+				.delete(serverBans)
+				.where(and(eq(serverBans.serverId, serverId), eq(serverBans.steamId, steamId)));
+			return;
+		}
+		await env.db
+			.insert(serverBans)
+			.values({ serverId, steamId, reason, seenAt: ts })
+			.onConflictDoUpdate({
+				target: [serverBans.serverId, serverBans.steamId],
+				set: { reason, seenAt: ts }
+			});
+		return;
+	}
+	if (op === 'remove') {
+		await env.db
+			.delete(serverReserved)
+			.where(and(eq(serverReserved.serverId, serverId), eq(serverReserved.steamId, steamId)));
+		return;
+	}
+	await env.db
+		.insert(serverReserved)
+		.values({ serverId, steamId, seenAt: ts })
+		.onConflictDoUpdate({
+			target: [serverReserved.serverId, serverReserved.steamId],
+			set: { seenAt: ts }
+		});
+}
+
 // ---- the run -----------------------------------------------------------------------------------
 
 export interface ReconcileOptions {

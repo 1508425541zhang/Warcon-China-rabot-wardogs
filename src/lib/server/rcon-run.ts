@@ -9,6 +9,8 @@ import { ACTIONS, ACTION_NAMES } from './actions';
 import { GameError } from './rcon';
 import { gateway } from './gateway';
 import { assertRate } from './ratelimit';
+import { noteLocalEdit } from './lists-sync';
+import type { Kind } from './lists-plan';
 
 function safe<T>(fn: () => T, fallback: T): T {
 	try {
@@ -17,6 +19,14 @@ function safe<T>(fn: () => T, fallback: T): T {
 		return fallback;
 	}
 }
+
+/** Actions that edit a list the worker mirrors in server_bans / server_reserved. */
+const LIST_EDITS: Record<string, { kind: Kind; op: 'add' | 'remove' }> = {
+	ban: { kind: 'ban', op: 'add' },
+	unban: { kind: 'ban', op: 'remove' },
+	reservedAdd: { kind: 'reserve', op: 'add' },
+	reservedRemove: { kind: 'reserve', op: 'remove' }
+};
 
 function messageOf(result: unknown): string {
 	if (
@@ -95,8 +105,20 @@ export async function runAction(
 	try {
 		const result = await gateway().run(env, server, name, params);
 		const durationMs = Date.now() - started;
-		// The panel shows what the worker last saw; after a change, have it look again now.
-		if (def.mutating) gateway().observeSoon(server.id);
+		// The panel shows what the worker last saw; after a change, have it look again now. A list
+		// edit also rewrites the mirror here, so the change shows before the worker's re-read lands.
+		const listEdit = LIST_EDITS[name];
+		if (listEdit && /^\d{17}$/.test(target)) {
+			await noteLocalEdit(
+				env,
+				server.id,
+				listEdit.kind,
+				listEdit.op,
+				target,
+				typeof params?.reason === 'string' ? params.reason.slice(0, 200) : ''
+			).catch((err) => console.error('[warcon] list mirror', err));
+		}
+		if (def.mutating) gateway().observeSoon(server.id, { lists: !!listEdit });
 		// A new document may change MaxReservedSlots, which the worker otherwise re-reads hourly.
 		if (name === 'configApply') gateway().identityChanged(server.id);
 		if (def.mutating || auditReads) {

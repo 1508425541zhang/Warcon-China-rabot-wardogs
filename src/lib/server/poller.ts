@@ -124,10 +124,15 @@ export async function stopPoller(): Promise<void> {
 	if (envRef) await releaseOwnership(envRef);
 }
 
-/** Look at this server as soon as its lane is free (a command was just sent, a list was edited). */
-export function observeSoon(serverId: string): void {
+/**
+ * Look at this server as soon as its lane is free (a command was just sent, a list was edited).
+ * `lists` makes that pass re-read the ban list and reserved slots as well, so the mirror and the
+ * worker's own copy catch up now rather than at the next snapshot.
+ */
+export function observeSoon(serverId: string, opts?: { lists?: boolean }): void {
 	const m = memoryOf(serverId);
 	if (!m) return;
+	if (opts?.lists) m.listsAt = 0;
 	if (m.inFlight !== null) m.again = true;
 	else {
 		// ...but never inside a rate-limit hold the listener asked for.
