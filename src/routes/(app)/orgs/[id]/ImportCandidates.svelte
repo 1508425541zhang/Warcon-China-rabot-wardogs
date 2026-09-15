@@ -8,6 +8,7 @@
 	import { describeSync } from '$lib/lists';
 	import Badge from '$lib/components/Badge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import { matches } from '$lib/table.svelte';
 	import type { ImportCandidate, ListKind, ListSyncSummary } from '$lib/types';
 
 	let { kind, org, owner }: { kind: ListKind; org: { id: string; name: string }; owner: boolean } =
@@ -18,6 +19,18 @@
 	let busy = $state(false);
 	let picked = $state<Record<string, boolean>>({});
 	let mine = $derived((candidates ?? []).filter((c) => c.kind === kind));
+	let search = $state('');
+	/** the candidates the dialog shows; Select all / none act on these */
+	let shown = $derived(
+		mine.filter((c) =>
+			matches(
+				search,
+				c.name,
+				c.steamId,
+				...c.servers.flatMap((s) => [s.serverName, s.reason, s.bannedBy])
+			)
+		)
+	);
 	let noun = $derived(kind === 'ban' ? 'ban' : 'reserved slot');
 	let path = $derived(`/api/orgs/${encodeURIComponent(org.id)}/lists/import`);
 
@@ -88,6 +101,15 @@
 			server in {org.name}. Removing an imported entry later lifts it everywhere the panel manages
 			it.
 		</p>
+		{#if mine.length > 5}
+			<input
+				class="mb-3 input w-full sm:w-72"
+				type="search"
+				placeholder="Filter by name, SteamID, server…"
+				aria-label="Filter candidates"
+				bind:value={search}
+			/>
+		{/if}
 		<div class="max-h-[50vh] table-wrap overflow-y-auto">
 			<table>
 				<thead>
@@ -99,7 +121,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each mine as c (c.steamId)}
+					{#each shown as c (c.steamId)}
 						<tr>
 							<td><input type="checkbox" bind:checked={picked[c.steamId]} /></td>
 							<td>
@@ -122,6 +144,8 @@
 								</td>
 							{/if}
 						</tr>
+					{:else}
+						<tr><td colspan="4" class="py-6 text-center text-mist-600">Nobody matches.</td></tr>
 					{/each}
 				</tbody>
 			</table>
@@ -131,11 +155,11 @@
 				type="button"
 				class="mr-auto btn"
 				onclick={() => {
-					const all = mine.every((c) => picked[c.steamId]);
-					const next: Record<string, boolean> = {};
-					for (const c of mine) next[c.steamId] = !all;
+					const all = shown.every((c) => picked[c.steamId]);
+					const next = { ...picked };
+					for (const c of shown) next[c.steamId] = !all;
 					picked = next;
-				}}>{mine.every((c) => picked[c.steamId]) ? 'Select none' : 'Select all'}</button
+				}}>{shown.every((c) => picked[c.steamId]) ? 'Select none' : 'Select all'}</button
 			>
 			<button type="button" class="btn" data-close onclick={() => (importing = false)}
 				>Cancel</button

@@ -8,6 +8,8 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import MapPicker from '$lib/components/MapPicker.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort, matches } from '$lib/table.svelte';
 	import { watchLive } from '$lib/live';
 	import type {
 		DryRunResult,
@@ -25,6 +27,22 @@
 
 	/** The last actions the rules took and what became of them; refreshed as deliveries happen. */
 	let deliveries = $state<OutboxView[]>([]);
+	let deliverySearch = $state('');
+	const deliverySort = new TableSort<OutboxView>({
+		when: { by: (d) => d.createdAt, dir: 'desc' },
+		rule: { by: (d) => d.triggerName },
+		action: { by: (d) => d.action },
+		target: { by: (d) => d.target },
+		state: { by: (d) => d.state },
+		result: { by: (d) => d.outcome }
+	});
+	let deliveryRows = $derived(
+		deliverySort.sorted(
+			deliveries.filter((d) =>
+				matches(deliverySearch, d.triggerName, d.action, d.target, d.state, d.outcome)
+			)
+		)
+	);
 	let deliveriesTimer: ReturnType<typeof setTimeout> | undefined;
 	async function refreshDeliveries() {
 		try {
@@ -640,16 +658,28 @@
 			>what the rules did, newest first · <b>unknown</b> means sent with no answer, never retried on its
 			own</span
 		>
+		<input
+			class="input w-full sm:ml-auto sm:w-64"
+			type="search"
+			placeholder="Filter by rule, action, target, state…"
+			aria-label="Filter recent actions"
+			bind:value={deliverySearch}
+		/>
 	</div>
 	<div class="table-wrap">
 		<table>
-			<thead
-				><tr
-					><th>When</th><th>Rule</th><th>Action</th><th>Target</th><th>State</th><th>Result</th></tr
-				></thead
-			>
+			<thead>
+				<tr>
+					<SortHeader sort={deliverySort} key="when">When</SortHeader>
+					<SortHeader sort={deliverySort} key="rule">Rule</SortHeader>
+					<SortHeader sort={deliverySort} key="action">Action</SortHeader>
+					<SortHeader sort={deliverySort} key="target">Target</SortHeader>
+					<SortHeader sort={deliverySort} key="state">State</SortHeader>
+					<SortHeader sort={deliverySort} key="result">Result</SortHeader>
+				</tr>
+			</thead>
 			<tbody>
-				{#each deliveries as d (d.id)}
+				{#each deliveryRows as d (d.id)}
 					<tr>
 						<td class="whitespace-nowrap">{fmtTime(d.createdAt)}</td>
 						<td>{d.triggerName}</td>
@@ -659,7 +689,11 @@
 						<td class="text-mist-400">{d.outcome}</td>
 					</tr>
 				{:else}
-					<tr><td colspan="6" class="py-6 text-center text-mist-600">No actions yet.</td></tr>
+					<tr
+						><td colspan="6" class="py-6 text-center text-mist-600"
+							>{deliveries.length ? 'Nothing matches.' : 'No actions yet.'}</td
+						></tr
+					>
 				{/each}
 			</tbody>
 		</table>

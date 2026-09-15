@@ -12,6 +12,8 @@
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import SteamName from '$lib/components/SteamName.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort, matches } from '$lib/table.svelte';
 	import { isSteamId, steamProfiles, type SteamProfile } from '$lib/steam-profiles';
 	import { describeSync, STATE_TONE } from '$lib/lists';
 	import type { ListSyncServer, ServerListsState } from '$lib/types';
@@ -103,16 +105,16 @@
 				a.steamId.localeCompare(b.steamId)
 		);
 	});
-	let rows = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		return slots.filter(
-			(s) =>
-				!q ||
-				s.steamId.includes(q) ||
-				(s.name ?? '').toLowerCase().includes(q) ||
-				(s.src?.note ?? '').toLowerCase().includes(q)
-		);
+	/** a column sort on top of that order; clicking the active header a third time restores it */
+	const sort = new TableSort<(typeof slots)[number]>({
+		player: { by: (s) => s.name },
+		steamId: { by: (s) => s.steamId },
+		source: { by: (s) => s.rank },
+		note: { by: (s) => s.src?.note }
 	});
+	let rows = $derived(
+		sort.sorted(slots.filter((s) => matches(search, s.steamId, s.name, s.src?.note)))
+	);
 	let onlineSlots = $derived(slots.filter((s) => s.online).length);
 	let localSlots = $derived(slots.filter((s) => s.here && !s.src?.managed).length);
 
@@ -367,9 +369,15 @@
 	{#if slots.length}
 		<div class="table-wrap">
 			<table>
-				<thead
-					><tr><th>Player</th><th>SteamID64</th><th>Source</th><th>Note</th><th></th></tr></thead
-				>
+				<thead>
+					<tr>
+						<SortHeader {sort} key="player">Player</SortHeader>
+						<SortHeader {sort} key="steamId">SteamID64</SortHeader>
+						<SortHeader {sort} key="source">Source</SortHeader>
+						<SortHeader {sort} key="note">Note</SortHeader>
+						<th></th>
+					</tr>
+				</thead>
 				<tbody>
 					{#each rows as s (s.steamId)}
 						<tr class={s.src?.managed && !s.here ? 'opacity-70' : ''}>

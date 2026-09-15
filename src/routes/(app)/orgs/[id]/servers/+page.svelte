@@ -7,6 +7,8 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Pulse from '$lib/components/Pulse.svelte';
 	import RoleBadge from '$lib/components/RoleBadge.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort, matches } from '$lib/table.svelte';
 	import type { LiveView } from '$lib/types';
 	import type { PageProps } from './$types';
 
@@ -21,18 +23,30 @@
 	});
 
 	let q = $state('');
-	let shown = $derived.by(() => {
-		const needle = q.trim().toLowerCase();
-		return data.orgServers.filter((s) => {
-			if (!needle) return true;
-			const st = live[s.id]?.status;
-			return `${s.name} ${s.host}:${s.port} ${s.notes} ${st?.serverName ?? ''} ${
-				st ? mapName(st.map) : ''
-			}`
-				.toLowerCase()
-				.includes(needle);
-		});
+	type Row = (typeof data.orgServers)[number];
+	const status = (s: Row) => (live[s.id]?.ok ? live[s.id].status : null);
+	const sort = new TableSort<Row>({
+		server: { by: (s) => s.name },
+		target: { by: (s) => `${s.host}:${s.port}` },
+		map: { by: (s) => (status(s) ? mapName(status(s)!.map) : null) },
+		players: { by: (s) => status(s)?.playerCount, dir: 'desc' },
+		access: { by: (s) => s.roleName }
 	});
+	let shown = $derived(
+		sort.sorted(
+			data.orgServers.filter((s) => {
+				const st = live[s.id]?.status;
+				return matches(
+					q,
+					s.name,
+					`${s.host}:${s.port}`,
+					s.notes,
+					st?.serverName,
+					st ? mapName(st.map) : null
+				);
+			})
+		)
+	);
 	let seen = $derived(data.orgServers.filter((s) => live[s.id]));
 	let reachable = $derived(seen.filter((s) => live[s.id].ok).length);
 	let playing = $derived(
@@ -89,12 +103,16 @@
 	{/if}
 	<div class="table-wrap">
 		<table>
-			<thead
-				><tr
-					><th>Server</th><th>Target</th><th>Map</th><th class="num">Players</th><th>Your access</th
-					><th></th></tr
-				></thead
-			>
+			<thead>
+				<tr>
+					<SortHeader {sort} key="server">Server</SortHeader>
+					<SortHeader {sort} key="target">Target</SortHeader>
+					<SortHeader {sort} key="map">Map</SortHeader>
+					<SortHeader {sort} key="players" num>Players</SortHeader>
+					<SortHeader {sort} key="access">Your access</SortHeader>
+					<th></th>
+				</tr>
+			</thead>
 			<tbody>
 				{#each shown as s (s.id)}
 					{@const v = live[s.id]}

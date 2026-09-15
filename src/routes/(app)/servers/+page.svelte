@@ -7,6 +7,8 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import GrantList from '$lib/components/GrantList.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort, matches } from '$lib/table.svelte';
 	import type { OrgMemberView, RoleView, ServerInfo, Status, Features } from '$lib/types';
 	import type { PageProps } from './$types';
 
@@ -53,15 +55,21 @@
 
 	let q = $state('');
 	let orgFilter = $state('');
-	let shown = $derived.by(() => {
-		const needle = q.trim().toLowerCase();
-		return data.managed.filter(
-			(s) =>
-				(!orgFilter || s.orgId === orgFilter) &&
-				(!needle ||
-					`${s.name} ${s.host}:${s.port} ${s.orgName} ${s.notes}`.toLowerCase().includes(needle))
-		);
+	const sort = new TableSort<(typeof data.managed)[number]>({
+		name: { by: (s) => s.name },
+		org: { by: (s) => s.orgName },
+		target: { by: (s) => `${s.host}:${s.port}` },
+		order: { by: (s) => s.sortOrder }
 	});
+	let shown = $derived(
+		sort.sorted(
+			data.managed.filter(
+				(s) =>
+					(!orgFilter || s.orgId === orgFilter) &&
+					matches(q, s.name, `${s.host}:${s.port}`, s.orgName, s.notes)
+			)
+		)
+	);
 	let filtering = $derived(!!q.trim() || !!orgFilter);
 	/** where a new server goes by default: the header scope when it is an owned org, else the first */
 	let preferredOrg = $derived(
@@ -219,13 +227,15 @@
 
 <div class="table-wrap">
 	<table>
-		<thead
-			><tr
-				><th>Name</th>{#if multiOrg}<th>Organisation</th>{/if}<th>Target</th><th class="num"
-					>Order</th
-				><th></th></tr
-			></thead
-		>
+		<thead>
+			<tr>
+				<SortHeader {sort} key="name">Name</SortHeader>
+				{#if multiOrg}<SortHeader {sort} key="org">Organisation</SortHeader>{/if}
+				<SortHeader {sort} key="target">Target</SortHeader>
+				<SortHeader {sort} key="order" num>Order</SortHeader>
+				<th></th>
+			</tr>
+		</thead>
 		<tbody>
 			{#each shown as s (s.id)}
 				<tr>

@@ -6,6 +6,8 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import PopulationChart from '$lib/components/PopulationChart.svelte';
 	import CashChart from '$lib/components/CashChart.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort } from '$lib/table.svelte';
 	import { factionColor } from '$lib/format';
 	import type { Analytics, Range } from '$lib/server/analytics';
 	import type { PageProps } from './$types';
@@ -17,6 +19,30 @@
 	let loading = $state(false);
 	let view = $state<'chart' | 'table'>('chart');
 	let cashView = $state<'chart' | 'table'>('chart');
+
+	const playerSort = new TableSort<Analytics['players'][number]>({
+		player: { by: (p) => p.name },
+		minutes: { by: (p) => p.minutes, dir: 'desc' },
+		sessions: { by: (p) => p.sessions, dir: 'desc' },
+		kills: { by: (p) => p.kills, dir: 'desc' },
+		deaths: { by: (p) => p.deaths, dir: 'desc' },
+		lastSeen: { by: (p) => p.lastSeen, dir: 'desc' }
+	});
+	let players = $derived(playerSort.sorted(a?.players ?? []));
+	const matchSort = new TableSort<Analytics['matches'][number]>({
+		started: { by: (m) => m.startedAt, dir: 'desc' },
+		map: { by: (m) => (m.map ? mapLabel(data.catalog, m.map) : null) },
+		mode: {
+			by: (m) => expSetLabel(data.catalog, m.experiences ? m.experiences.split('+') : [])
+		},
+		length: {
+			by: (m) => Date.parse(m.endedAt ?? new Date().toISOString()) - Date.parse(m.startedAt),
+			dir: 'desc'
+		},
+		peak: { by: (m) => m.peakPlayers, dir: 'desc' },
+		result: { by: (m) => m.winner }
+	});
+	let matchRows = $derived(matchSort.sorted(a?.matches ?? []));
 
 	async function load() {
 		loading = true;
@@ -201,15 +227,18 @@
 		<span class="label-sm">Most active players</span>
 		<div class="table-wrap">
 			<table>
-				<thead
-					><tr
-						><th>Player</th><th class="num">Playtime</th><th class="num">Sessions</th><th
-							class="num">K</th
-						><th class="num">D</th><th>Last seen</th></tr
-					></thead
-				>
+				<thead>
+					<tr>
+						<SortHeader sort={playerSort} key="player">Player</SortHeader>
+						<SortHeader sort={playerSort} key="minutes" num>Playtime</SortHeader>
+						<SortHeader sort={playerSort} key="sessions" num>Sessions</SortHeader>
+						<SortHeader sort={playerSort} key="kills" num>K</SortHeader>
+						<SortHeader sort={playerSort} key="deaths" num>D</SortHeader>
+						<SortHeader sort={playerSort} key="lastSeen">Last seen</SortHeader>
+					</tr>
+				</thead>
 				<tbody>
-					{#each a.players as p (p.steamId)}
+					{#each players as p (p.steamId)}
 						<tr>
 							<td
 								>{p.name} <span class="font-mono text-[12px] text-mist-600">{p.steamId}</span>
@@ -236,15 +265,18 @@
 		<span class="label-sm">Matches</span>
 		<div class="table-wrap">
 			<table>
-				<thead
-					><tr
-						><th>Started</th><th>Map</th><th>Mode &amp; mods</th><th class="num">Length</th><th
-							class="num">Peak</th
-						><th>Result</th></tr
-					></thead
-				>
+				<thead>
+					<tr>
+						<SortHeader sort={matchSort} key="started">Started</SortHeader>
+						<SortHeader sort={matchSort} key="map">Map</SortHeader>
+						<SortHeader sort={matchSort} key="mode">Mode &amp; mods</SortHeader>
+						<SortHeader sort={matchSort} key="length" num>Length</SortHeader>
+						<SortHeader sort={matchSort} key="peak" num>Peak</SortHeader>
+						<SortHeader sort={matchSort} key="result">Result</SortHeader>
+					</tr>
+				</thead>
 				<tbody>
-					{#each a.matches as m (m.id)}
+					{#each matchRows as m (m.id)}
 						<tr>
 							<td class="whitespace-nowrap">{fmtTime(m.startedAt)}</td>
 							<td>{m.map ? mapLabel(data.catalog, m.map) : '—'}</td>

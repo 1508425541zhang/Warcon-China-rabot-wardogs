@@ -10,6 +10,8 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
 	import ImportCandidates from './ImportCandidates.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort, matches } from '$lib/table.svelte';
 	import type { ListEntryView, ListSyncSummary, OrgListsView } from '$lib/types';
 
 	let {
@@ -28,17 +30,19 @@
 	let banning = $state(false);
 	let owner = $derived(lists.role === 'owner');
 
-	let rows = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		return entries.filter(
-			(e) =>
-				!q ||
-				e.steamId.includes(q) ||
-				(e.name || '').toLowerCase().includes(q) ||
-				e.reason.toLowerCase().includes(q) ||
-				e.addedByName.toLowerCase().includes(q)
-		);
+	/** newest first as the server sends them, until a header is clicked */
+	const sort = new TableSort<ListEntryView>({
+		player: { by: (e) => e.name || e.steamId },
+		reason: { by: (e) => e.reason },
+		by: { by: (e) => e.addedByName },
+		added: { by: (e) => e.addedAt, dir: 'desc' },
+		// permanent bans last, then the soonest to lift first
+		expires: { by: (e) => e.expiresAt ?? '\uffff' },
+		servers: { by: (e) => e.servers.filter((s) => s.state === 'applied').length, dir: 'desc' }
 	});
+	let rows = $derived(
+		sort.sorted(entries.filter((e) => matches(search, e.steamId, e.name, e.reason, e.addedByName)))
+	);
 	let dossierBase = $derived(
 		lists.servers.length ? `/server/${encodeURIComponent(lists.servers[0].id)}/players` : null
 	);
@@ -141,12 +145,12 @@
 	<table>
 		<thead>
 			<tr>
-				<th>Player</th>
-				<th>Reason</th>
-				<th>By</th>
-				<th>Added</th>
-				<th>Expires</th>
-				<th>Servers</th>
+				<SortHeader {sort} key="player">Player</SortHeader>
+				<SortHeader {sort} key="reason">Reason</SortHeader>
+				<SortHeader {sort} key="by">By</SortHeader>
+				<SortHeader {sort} key="added">Added</SortHeader>
+				<SortHeader {sort} key="expires">Expires</SortHeader>
+				<SortHeader {sort} key="servers">Servers</SortHeader>
 				<th></th>
 			</tr>
 		</thead>
