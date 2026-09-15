@@ -27,7 +27,14 @@
 				mustChange: boolean;
 		  }
 		| { kind: 'grants'; user: UserView; grants: Record<string, string> }
-		| { kind: 'reset'; user: UserView; password: string; mustChange: boolean };
+		| {
+				kind: 'reset';
+				user: UserView;
+				password: string;
+				mustChange: boolean;
+				/** lost device: also drop their authenticator app, passkeys and recovery key */
+				resetAuth: boolean;
+		  };
 	let dialog = $state<Dialog | null>(null);
 	let busy = $state(false);
 
@@ -37,6 +44,7 @@
 		user: { by: (u) => u.name || u.username },
 		role: { by: (u) => u.role },
 		status: { by: status },
+		signIn: { by: (u) => (u.authComplete ? 1 : 0) },
 		orgs: { by: (u) => u.orgs.length, dir: 'desc' },
 		access: { by: (u) => (u.role === 'owner' ? Infinity : u.grants.length), dir: 'desc' },
 		lastLogin: { by: (u) => u.lastLoginAt, dir: 'desc' }
@@ -72,7 +80,7 @@
 		dialog = { kind: 'grants', user: u, grants };
 	};
 	const openReset = (u: UserView) => {
-		dialog = { kind: 'reset', user: u, password: '', mustChange: true };
+		dialog = { kind: 'reset', user: u, password: '', mustChange: true, resetAuth: false };
 	};
 
 	async function run(fn: () => Promise<void>, done: string) {
@@ -133,9 +141,10 @@
 			() =>
 				api('PATCH', `/api/users/${d.user.id}`, {
 					password: d.password,
-					mustChangePassword: d.mustChange
+					mustChangePassword: d.mustChange,
+					resetAuth: d.resetAuth
 				}),
-			'Password reset.'
+			d.resetAuth ? 'Sign-in methods reset.' : 'Password reset.'
 		);
 	}
 	async function remove(u: UserView) {
@@ -191,6 +200,7 @@
 				<SortHeader {sort} key="user">User</SortHeader>
 				<SortHeader {sort} key="role">Role</SortHeader>
 				<SortHeader {sort} key="status">Status</SortHeader>
+				<SortHeader {sort} key="signIn">Sign-in</SortHeader>
 				<SortHeader {sort} key="orgs">Organisations</SortHeader>
 				<SortHeader {sort} key="access">Server access</SortHeader>
 				<SortHeader {sort} key="lastLogin">Last login</SortHeader>
@@ -209,6 +219,14 @@
 						{#if u.disabled}<Badge tone="err">disabled</Badge>{:else if u.mustChangePassword}<Badge
 								tone="info">must change pw</Badge
 							>{:else}<Badge tone="ok">active</Badge>{/if}
+					</td>
+					<td>
+						<div class="flex flex-wrap items-center gap-1.5 text-[12px] text-mist-400">
+							{#if u.signIn.length}{u.signIn.join(' · ')}{:else}<span class="text-mist-600"
+									>none</span
+								>{/if}
+							{#if !u.authComplete}<Badge tone="warn">incomplete</Badge>{/if}
+						</div>
 					</td>
 					<td>
 						{#if u.orgs.length}
@@ -252,7 +270,7 @@
 							{#if u.role !== 'owner'}<button class="btn btn-sm" onclick={() => openGrants(u)}
 									>Access</button
 								>{/if}
-							<button class="btn btn-sm" onclick={() => openReset(u)}>Reset PW</button>
+							<button class="btn btn-sm" onclick={() => openReset(u)}>Reset sign-in</button>
 							{#if u.id !== data.user.id}<button
 									class="btn btn-sm btn-danger"
 									onclick={() => remove(u)}>Delete</button
@@ -351,7 +369,7 @@
 	</Modal>
 {:else if dialog?.kind === 'reset'}
 	{@const d = dialog}
-	<Modal title="Reset password for @{d.user.username}" onclose={() => (dialog = null)}>
+	<Modal title="Reset sign-in for @{d.user.username}" onclose={() => (dialog = null)}>
 		<form
 			class="space-y-3"
 			onsubmit={(e) => {
@@ -372,7 +390,14 @@
 			<label class="inline-flex items-center gap-2 text-[13px]"
 				><input type="checkbox" bind:checked={d.mustChange} /> Require a new password at next sign-in</label
 			>
-			<p class="note">All of their sessions are signed out.</p>
+			<label class="flex items-start gap-2 text-[13px]"
+				><input type="checkbox" class="mt-0.5" bind:checked={d.resetAuth} />
+				<span
+					>Lost device: also remove their authenticator app, every passkey and their recovery key.
+					Linked Discord and Steam accounts stay.</span
+				></label
+			>
+			<p class="note">All of their sessions are signed out. Tell them the password another way.</p>
 			<div class="flex justify-end gap-2 pt-2">
 				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
 				<button type="submit" class="btn btn-primary" disabled={busy}>Reset</button>

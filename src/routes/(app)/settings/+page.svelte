@@ -33,6 +33,12 @@
 			id: 'housekeeping',
 			title: 'Housekeeping and retention',
 			blurb: 'Database writes that are not observations, and how long history is kept.'
+		},
+		{
+			id: 'accounts',
+			title: 'Accounts and sign-in',
+			blurb:
+				'Every account must hold two independent ways in and a second factor on any password (see the account page). These are the grace periods before an account that still falls short is limited to its account page.'
 		}
 	];
 

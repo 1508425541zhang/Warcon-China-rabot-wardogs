@@ -197,7 +197,7 @@ rejected as cross-site against the https `ORIGIN`.
 | `GAME_TLS_INSECURE`                                          | `false`                | Accept self-signed certificates on `https` game servers.                                                                                                                          |
 | `SETUP_TOKEN`                                                | unset                  | When set, first-run setup requires it.                                                                                                                                            |
 | `STEAM_API_KEY`                                              | unset                  | Steam lookups: persona and avatar, account age, VAC and game bans, for dossiers, the risk score and the kick-on-connect trigger. Free at <https://steamcommunity.com/dev/apikey>. |
-| `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`                | unset                  | "Sign in with Discord": invite links create accounts through it, existing accounts can link it. OAuth redirect: `<ORIGIN>/api/auth/callback/discord`.                             |
+| `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`                | unset                  | "Sign in with Discord": invite links create accounts through it, existing accounts can link it. OAuth redirect: `<ORIGIN>/api/auth/callback/discord`. Steam sign-in needs no key. |
 
 ### Roles
 
@@ -239,14 +239,53 @@ the matching built-in role of its organisation.
 
 ### Self-service sign-up
 
-Invite links always let a newcomer create an account, with Discord or with a username and password
+Invite links always let a newcomer create an account: with Discord or Steam (the provider's
+identity becomes the account), with a passkey, or, behind a link, with a username and password
 (8 sign-ups per IP address per half hour; add a [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/)
-widget with `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to keep bots off the password form).
+widget with `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to keep bots off the username forms).
 With `ALLOW_ORG_SIGNUP=true`, `/sign-up` additionally
 lets anyone create an organisation of their own and become its owner, up to three per person, and
-**Continue with Discord** on the sign-in page creates an account for a Discord user who has none
-and sends them to `/sign-up`; the site owner still sees and can rename or delete every org. Leave
+**Discord** and **Steam** on the sign-in page create an account for a user who has none
+and send them to `/sign-up`; the site owner still sees and can rename or delete every org. Leave
 it off for a single-clan install.
+
+### Sign-in methods and recovery
+
+The panel holds no email address, so nobody is ever sent a reset link. Instead every account is
+expected to be able to survive losing one thing. The rules, checked on the **Account** page:
+
+- **Two independent ways in.** A passkey, a linked Discord or Steam account, a password with an
+  authenticator app, and a saved recovery key each count as one.
+- **A second factor on any password.** A password on its own is never enough; turn on the
+  authenticator app (TOTP, with backup codes) or drop the password and rely on passkeys and
+  providers. Passkeys and provider sign-ins are two factors by themselves and never ask for a code.
+- **Owners hold a linked provider or a recovery key.** An organisation owner can reset a member's
+  methods from the Users page, but nobody resets an owner, so an owner needs a way back in that
+  does not depend on one device.
+
+The **recovery key** is a 40-character secret shown once; the panel stores only its hash. Using it
+at `/recover` signs the account in once, discards the key, and lands on the account page to set
+things up again. New accounts start with a passkey or a provider (the password form sits behind a
+link). Existing accounts keep working: a banner asks for the missing pieces, and after a grace
+period (**Settings**: 14 days for owners, 30 for members, counted from their first sign-in after
+this release) an account that still falls short is limited to its account page until it complies.
+
+When every method is gone, whoever runs the box resets the account from a shell (the container
+image has it too):
+
+```sh
+bun run auth:reset -- <username>           # local checkout
+docker compose run --rm migrate bun ./build/reset-auth.js <username>   # Compose
+```
+
+It removes the authenticator app, passkeys and recovery key, keeps Discord and Steam links, signs
+every session out, and prints a temporary password that must be changed at the next sign-in.
+
+Passkeys need the panel to be served over `https` at the exact `ORIGIN` (the WebAuthn relying
+party id is its hostname); `http://localhost` works for development. Steam sign-in uses Steam's
+OpenID and needs no key; `STEAM_API_KEY` only improves the username and avatar of accounts it
+creates. Better Auth's own `/api/auth/*` routes stay closed to browsers: passkey ceremonies go
+through `/api/passkeys/*`, and codes, recovery keys and Steam through the panel's own pages.
 
 ### Player dossiers, risk and the watchlist
 
@@ -357,15 +396,17 @@ panel and need `ORIGIN` to be https for the pictures to show.
 
 ### Accounts and personal data
 
-An account holds a username, display name, password hash, sessions (with IP address and
-browser), the Discord id and avatar URL when Discord is linked, and a SteamID64 if the person
-links one on the Account page (so an organisation can hand them a reserved slot). Every sign-in and action is
-written to the audit trail with the actor's name, IP address and browser. Nothing else is
-collected, and nothing leaves the panel.
+An account holds a username, display name, password hash if a password is set, the encrypted
+authenticator secret and backup codes if the app is on, passkey public keys, the hash of a
+recovery key, sessions (with IP address and browser), the Discord id and avatar URL when Discord
+is linked, and a SteamID64 when Steam is linked or the person enters one on the Account page (so
+an organisation can hand them a reserved slot). Every sign-in and action is written to the audit
+trail with the actor's name, IP address and browser. No email address is ever asked for. Nothing
+else is collected, and nothing leaves the panel.
 
 Anyone can delete their own account from the **Account** page (right to erasure): password
-accounts confirm with the password, Discord-only accounts by typing their username after a recent
-sign-in. Deletion removes the account, its credentials, sessions, server roles and organisation
+accounts confirm with the password, the rest by typing their username after a recent sign-in.
+Deletion removes the account, its credentials, passkeys, sessions, server roles and organisation
 memberships at once. Audit entries the person caused stay for the record but lose their name, IP
 address and browser, and entries that named them lose the username; one row recording the deletion
 itself keeps the requester's IP. The only owner of an organisation, or the only site owner, must
@@ -487,7 +528,9 @@ src/lib/server/env.ts          process config + the database connection
 src/lib/server/db/schema.ts    every table, as Drizzle definitions (source of truth for migrations)
 src/lib/server/db/index.ts     Bun SQL client + Drizzle + migration runner
 drizzle/                       generated SQL migrations (bun run db:generate) + TimescaleDB setup
-src/lib/server/auth.ts         Better Auth config (username + admin plugins, Drizzle adapter)
+src/lib/server/auth.ts         Better Auth config (username, admin, two-factor, passkey plugins; Drizzle adapter)
+src/lib/enrolment.ts           the sign-in rules (two ways in, second factor on passwords); server/enrolment.ts applies them
+src/lib/server/steam-openid.ts Steam sign-in (OpenID 2.0); recovery.ts recovery keys; auth-plugin.ts sessions for both
 src/lib/capabilities.ts        the capability vocabulary and the built-in role defaults (client-safe)
 src/lib/server/access.ts       global and org roles, per-server capability access, accessible servers, login throttling
 src/lib/server/roles.ts        an organisation's editable server roles (built-ins seeded per org)
@@ -522,7 +565,8 @@ src/lib/server/audit.ts        audit writer/query with secret redaction
 src/lib/server/mockgame.ts     in-process imitation of the WDRCON API for demo/testing
 src/lib/config-doc.ts / config-fields.ts   ServerSettings.ini parser and line-level setter (pure, tested) / the keys the config form manages
 src/lib/components/            Modal, MapPicker, PopulationChart, CashChart, ConfigForm, Toasts, badges…
-src/routes/(auth)/             /sign-in, /setup, /join/[token] (form actions)     src/routes/sign-out
+src/routes/(auth)/             /sign-in (+ /verify), /setup, /join/[token], /recover (form actions)     src/routes/sign-out
+src/routes/api/passkeys/       WebAuthn ceremonies relayed to Better Auth; src/routes/auth/steam/ the Steam callback
 src/routes/(app)/              dashboard, /server/[id]/{,players,players/[steamId],bans,rotation,config,automation,analytics,log}, /audit, /orgs, /orgs/[id]/{,bans,reserved}, /users, /servers, /account
 src/routes/api/                JSON API (below)
 docs/wardogs-api.md            the reverse-engineered game-server API

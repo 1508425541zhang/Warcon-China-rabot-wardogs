@@ -312,6 +312,27 @@
 	</div>
 </header>
 
+{#if !data.user.authComplete && !data.user.apiKey && !page.url.pathname.startsWith('/account')}
+	<div class="page-x pt-4">
+		<a
+			href="/account?enrol=1"
+			class="flex flex-wrap items-center justify-between gap-2 rounded-ctl border border-warn/30 bg-warn/10 px-3 py-2 text-[13px] hover:bg-warn/15"
+		>
+			<span>
+				<span class="font-medium">Finish setting up your sign-in.</span>
+				Two ways in, and an authenticator app on any password, so a lost device is not a lost account.
+			</span>
+			<span class="text-mist-400">
+				{#if data.enrolment.daysLeft !== null}
+					{data.enrolment.daysLeft} day{data.enrolment.daysLeft === 1 ? '' : 's'} left →
+				{:else}
+					Account page →
+				{/if}
+			</span>
+		</a>
+	</div>
+{/if}
+
 <main class="page-x py-6">
 	{@render children()}
 </main>

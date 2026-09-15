@@ -7,6 +7,7 @@ import { discordEnabled, getEnv, turnstileSiteKey } from '$lib/server/env';
 import { normalizeError } from '$lib/server/http';
 import { findInvite, inviteProblem, isMember, joinOrg, suspendedProblem } from '$lib/server/orgs';
 import { registerFromForm } from '$lib/server/signup';
+import { beginSteam } from '$lib/server/steam-auth';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
@@ -51,6 +52,16 @@ export const actions: Actions = {
 		});
 		if (!res.url) return fail(500, { error: 'Discord did not return an authorization URL.' });
 		redirect(303, res.url);
+	},
+
+	/** The same with Steam: an unknown Steam user gets an account because the invite allows it. */
+	steam: async (event) => {
+		const env = getEnv();
+		const found = await findInvite(env, event.params.token);
+		if (!found || inviteProblem(found.invite) || suspendedProblem(found.org))
+			return fail(410, { error: 'This invite link can no longer be used.' });
+		const here = `/join/${encodeURIComponent(event.params.token)}`;
+		beginSteam(event, env, { mode: 'signin', signup: true, next: here, back: here });
 	},
 
 	/** Create a username-and-password account (for people without Discord), then come back here. */

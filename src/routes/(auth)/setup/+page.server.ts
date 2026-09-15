@@ -1,4 +1,5 @@
-// First run: create the owner account. Only works while there are zero users.
+// First run: create the owner account. Only works while there are zero users. A passkey sign-up
+// goes through /api/passkeys (register-options checks the token and the zero-user rule the same way).
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { getEnv } from '$lib/server/env';
@@ -14,7 +15,7 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, locals }) => {
+	password: async ({ request, locals }) => {
 		const env = getEnv();
 		const auth = locals.auth!;
 		const form = await request.formData();

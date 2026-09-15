@@ -3,8 +3,17 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { like } from 'drizzle-orm';
-import { account, session, user, verification } from './db/schema';
-import { admin, username } from 'better-auth/plugins';
+import {
+	account,
+	passkey as passkeyTable,
+	session,
+	twoFactor as twoFactorTable,
+	user,
+	verification
+} from './db/schema';
+import { admin, twoFactor, username } from 'better-auth/plugins';
+import { passkey } from '@better-auth/passkey';
+import { count } from 'drizzle-orm';
 import { createAccessControl } from 'better-auth/plugins/access';
 import { adminAc, defaultStatements, userAc } from 'better-auth/plugins/admin/access';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
@@ -12,7 +21,9 @@ import { getRequestEvent } from '$app/server';
 import { writeAudit } from './audit';
 import { assertMayDeleteSelf, auditSelfDelete, eraseUserTraces } from './erasure';
 import { discordEnabled, type Env } from './env';
-import { CLIENT_IP_HEADER } from './http';
+import { ApiError, CLIENT_IP_HEADER } from './http';
+import { warconSessions } from './auth-plugin';
+import { refreshAuthComplete, startGrace } from './enrolment';
 
 export const authConfigured = (env: Partial<Env> | undefined) => Boolean(env?.BETTER_AUTH_SECRET);
 
@@ -31,7 +42,7 @@ const USERNAME_MAX = 32;
  * mapper, before the username plugin validates the row, so a taken handle becomes "handle2"
  * instead of a failed sign-in. One query fetches every name that could collide.
  */
-async function freeUsername(env: Env, wanted: string): Promise<string> {
+export async function freeUsername(env: Env, wanted: string): Promise<string> {
 	const base =
 		wanted
 			.toLowerCase()
@@ -87,8 +98,38 @@ const DISABLED_PATHS = [
 	'/admin/remove-user',
 	'/admin/set-user-password',
 	'/admin/update-user',
-	'/admin/has-permission'
+	'/admin/has-permission',
+	'/two-factor/enable',
+	'/two-factor/disable',
+	'/two-factor/get-totp-uri',
+	'/two-factor/verify-totp',
+	'/two-factor/send-otp',
+	'/two-factor/verify-otp',
+	'/two-factor/generate-backup-codes',
+	'/two-factor/verify-backup-code',
+	'/two-factor/view-backup-codes',
+	'/passkey/generate-register-options',
+	'/passkey/verify-registration',
+	'/passkey/generate-authenticate-options',
+	'/passkey/verify-authentication',
+	'/passkey/list-user-passkeys',
+	'/passkey/delete-passkey',
+	'/passkey/update-passkey',
+	'/warcon/sign-in-user'
 ];
+
+/**
+ * A passkey-first sign-up carries who the account is for from the options step to the
+ * verification step, inside the server-stored challenge (the browser only ever sees an opaque
+ * challenge id), so the role in here is trustworthy.
+ */
+export interface PasskeySignup {
+	username: string;
+	name: string;
+	role: 'owner' | 'member';
+	/** first-run setup: only valid while the panel still has no users */
+	setup?: boolean;
+}
 
 // Global roles: "owner" runs the panel (every admin-plugin permission), "member" only sees
 // servers they are granted. Per-server roles live in server_grants, not here.
@@ -106,7 +147,14 @@ function build(env: Env) {
 		secret: env.BETTER_AUTH_SECRET,
 		database: drizzleAdapter(env.db, {
 			provider: 'pg',
-			schema: { user, session, account, verification }
+			schema: {
+				user,
+				session,
+				account,
+				verification,
+				twoFactor: twoFactorTable,
+				passkey: passkeyTable
+			}
 		}),
 		emailAndPassword: {
 			enabled: true,
@@ -117,7 +165,9 @@ function build(env: Env) {
 		user: {
 			additionalFields: {
 				mustChangePassword: { type: 'boolean', defaultValue: false, input: false },
-				defaultOrgId: { type: 'string', required: false, input: false }
+				defaultOrgId: { type: 'string', required: false, input: false },
+				authComplete: { type: 'boolean', defaultValue: false, input: false },
+				authGraceStartedAt: { type: 'date', required: false, input: false }
 			},
 			// Self-service deletion from the account page (right to erasure). The endpoint checks the
 			// password when one is given; erasure.ts refuses to orphan the panel or an organisation and
@@ -186,6 +236,22 @@ function build(env: Env) {
 							ip: session.ipAddress ?? '',
 							userAgent: session.userAgent ?? ''
 						}).catch((err) => console.error('audit login', err));
+						// The sign-in rules: start the grace clock on the first sign-in and re-check the
+						// verdict, in case a method changed through a path that did not refresh it.
+						await startGrace(env, session.userId);
+						await refreshAuthComplete(env, session.userId).catch((err) =>
+							console.error('enrolment refresh', err)
+						);
+					}
+				}
+			},
+			account: {
+				create: {
+					// Discord and Steam links land here through their callbacks.
+					after: async (a) => {
+						await refreshAuthComplete(env, a.userId).catch((err) =>
+							console.error('enrolment refresh', err)
+						);
 					}
 				}
 			}
@@ -205,9 +271,81 @@ function build(env: Env) {
 				usernameValidator: (u) => USERNAME_RE.test(u)
 			}),
 			admin({ ac, roles: ROLES, defaultRole: 'member', adminRoles: ['owner'] }),
+			twoFactor({
+				issuer: env.APP_NAME || 'Warcon',
+				// Passkey-only and Discord-only accounts have no password to confirm with.
+				allowPasswordless: true,
+				backupCodeOptions: { storeBackupCodes: 'encrypted' }
+			}),
+			passkey({
+				rpID: new URL(env.ORIGIN).hostname,
+				rpName: env.APP_NAME || 'Warcon',
+				origin: env.ORIGIN,
+				registration: {
+					// Signed-in users add passkeys to their own account (the plugin still uses the session
+					// when there is one). Without a session this is a passkey-first sign-up: the account is
+					// created only once the passkey is verified, so an abandoned attempt leaves nothing.
+					requireSession: false,
+					resolveUser: ({ context }) => {
+						const signup = parseSignup(context);
+						return {
+							id: crypto.randomUUID(),
+							name: signup.name,
+							email: emailFor(signup.username),
+							displayName: signup.username
+						};
+					},
+					afterVerification: async ({ ctx, context }) => {
+						if (!context) return;
+						const signup = parseSignup(context);
+						if (signup.setup) {
+							const [row] = await env.db.select({ n: count() }).from(user);
+							if ((row?.n ?? 0) > 0) throw new ApiError(409, 'Setup already completed.');
+						}
+						const [taken] = await env.db
+							.select({ id: user.id })
+							.from(user)
+							.where(like(user.username, signup.username.toLowerCase()))
+							.limit(1);
+						if (taken) throw new ApiError(409, 'That username is taken.');
+						const created = await ctx.context.internalAdapter.createUser(
+							{
+								email: emailFor(signup.username),
+								emailVerified: true,
+								name: signup.name,
+								username: signup.username.toLowerCase(),
+								displayUsername: signup.username,
+								role: signup.role,
+								createdAt: new Date(),
+								updatedAt: new Date()
+							},
+							{ method: 'passkey' }
+						);
+						return { userId: created.id };
+					}
+				}
+			}),
+			warconSessions(),
 			sveltekitCookies(getRequestEvent)
 		]
 	});
+}
+
+function parseSignup(context: string | null | undefined): PasskeySignup {
+	let parsed: Partial<PasskeySignup> = {};
+	try {
+		parsed = context ? (JSON.parse(context) as Partial<PasskeySignup>) : {};
+	} catch {
+		parsed = {};
+	}
+	const username = String(parsed.username ?? '');
+	if (!USERNAME_RE.test(username)) throw new ApiError(400, 'Sign-up details are missing.');
+	return {
+		username,
+		name: String(parsed.name ?? '').slice(0, 80) || username,
+		role: parsed.role === 'owner' ? 'owner' : 'member',
+		setup: !!parsed.setup
+	};
 }
 
 export type Auth = ReturnType<typeof build>;

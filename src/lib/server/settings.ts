@@ -13,7 +13,7 @@ export interface SettingSpec {
 	default: number;
 	min: number;
 	max: number;
-	group: 'observation' | 'delivery' | 'housekeeping';
+	group: 'observation' | 'delivery' | 'housekeeping' | 'accounts';
 }
 
 export const SETTINGS = {
@@ -169,6 +169,24 @@ export const SETTINGS = {
 		min: 7,
 		max: 3650,
 		group: 'housekeeping'
+	},
+	authGraceDays: {
+		label: 'Owner sign-in grace',
+		help: 'Days an owner may keep signing in before the sign-in rules (two ways in, a second factor on any password) close the panel to them until they comply. Counted from their first sign-in after the rules arrived.',
+		unit: 'days',
+		default: 14,
+		min: 0,
+		max: 365,
+		group: 'accounts'
+	},
+	authMemberGraceDays: {
+		label: 'Member sign-in grace',
+		help: 'The same grace period for members. Their organisation owners can always reset their sign-in methods.',
+		unit: 'days',
+		default: 30,
+		min: 0,
+		max: 365,
+		group: 'accounts'
 	}
 } as const satisfies Record<string, SettingSpec>;
 

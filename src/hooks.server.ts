@@ -4,6 +4,7 @@ import { json, redirect } from '@sveltejs/kit';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { authConfigured, getAuth, initAuth } from '$lib/server/auth';
 import { keyUser, toSessionUser } from '$lib/server/access';
+import { statusFor } from '$lib/server/enrolment';
 import { resolveBearer } from '$lib/server/apikeys';
 import { looksLikeOurToken, parseBearer } from '$lib/server/apikeys-core';
 import { assertRate } from '$lib/server/ratelimit';
@@ -32,8 +33,8 @@ const SECURITY_HEADERS: Record<string, string> = {
 	'x-robots-tag': 'noindex, nofollow'
 };
 
-// Routes a user who must change their password may still reach.
-const PASSWORD_GATE_EXEMPT = /^\/(account|sign-out|join|api\/auth)(\/|$)/;
+// Routes a user who must change their password, or fix their sign-in methods, may still reach.
+const PASSWORD_GATE_EXEMPT = /^\/(account|sign-out|join|api\/auth|api\/passkeys|auth\/steam)(\/|$)/;
 // The only Better Auth routes a browser must reach: the OAuth callback and its error page.
 const AUTH_PUBLIC = /^\/api\/auth\/(callback\/[^/]+|error|ok)$/;
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -189,6 +190,24 @@ export const handle: Handle = async ({ event, resolve }) => {
 				);
 			}
 			redirect(303, '/account?force=1');
+		}
+
+		// The sign-in rules ($lib/enrolment): once the grace period is over, an account that still
+		// fails them can only reach the account page, where every method can be added.
+		if (event.locals.user && statusFor(event.locals.user).due && !PASSWORD_GATE_EXEMPT.test(path)) {
+			if (path.startsWith('/api/')) {
+				return json(
+					{
+						ok: false,
+						error: {
+							message: 'Finish setting up your sign-in methods first.',
+							code: 'enrolment_required'
+						}
+					},
+					{ status: 403 }
+				);
+			}
+			redirect(303, '/account?enrol=1');
 		}
 	}
 

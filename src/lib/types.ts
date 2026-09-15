@@ -240,6 +240,10 @@ export interface UserView {
 	role: 'owner' | 'member';
 	disabled: boolean;
 	mustChangePassword: boolean;
+	/** meets the sign-in rules (two ways in, second factor on any password, ...) */
+	authComplete: boolean;
+	/** sign-in methods on file, e.g. ["password", "authenticator", "passkey ×2", "discord"] */
+	signIn: string[];
 	image: string | null;
 	createdAt: string | null;
 	lastLoginAt: string | null;

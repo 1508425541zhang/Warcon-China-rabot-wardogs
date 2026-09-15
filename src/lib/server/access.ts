@@ -34,6 +34,10 @@ export interface SessionUser {
 	image: string | null;
 	/** the org the panel opens scoped to, unless a session scope overrides it; null = all */
 	defaultOrgId: string | null;
+	/** meets the sign-in rules (see $lib/enrolment); false opens the account-page gate once grace ends */
+	authComplete: boolean;
+	/** ISO time the grace period started (first sign-in after the rules arrived); null = not yet */
+	authGraceStartedAt: string | null;
 	/** set when this "user" is really an organisation API key (see apikeys.ts) */
 	apiKey?: ApiKeyPrincipal | null;
 }
@@ -47,6 +51,8 @@ export const keyUser = (k: ApiKeyPrincipal): SessionUser => ({
 	mustChangePassword: false,
 	image: null,
 	defaultOrgId: k.orgId,
+	authComplete: true,
+	authGraceStartedAt: null,
 	apiKey: k
 });
 
@@ -70,7 +76,14 @@ export function toSessionUser(u: Record<string, unknown>): SessionUser {
 		role: u.role === 'owner' ? 'owner' : 'member',
 		mustChangePassword: Boolean(u.mustChangePassword),
 		image: typeof u.image === 'string' ? u.image : null,
-		defaultOrgId: typeof u.defaultOrgId === 'string' && u.defaultOrgId ? u.defaultOrgId : null
+		defaultOrgId: typeof u.defaultOrgId === 'string' && u.defaultOrgId ? u.defaultOrgId : null,
+		authComplete: Boolean(u.authComplete),
+		authGraceStartedAt:
+			u.authGraceStartedAt instanceof Date
+				? u.authGraceStartedAt.toISOString()
+				: typeof u.authGraceStartedAt === 'string'
+					? u.authGraceStartedAt
+					: null
 	};
 }
 
