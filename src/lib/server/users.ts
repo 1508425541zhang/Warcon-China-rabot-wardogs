@@ -12,12 +12,15 @@ import {
 	orgMembers,
 	orgRoles,
 	organizations,
+	passkey,
 	serverGrants,
 	servers,
 	session,
+	twoFactor,
 	user
 } from './db/schema';
 import { ensureMemberships, soleOwnerOf } from './orgs';
+import { refreshAuthComplete } from './enrolment';
 import type { UserView } from '$lib/types';
 
 export function validatePassword(pw: unknown): string {
@@ -107,6 +110,16 @@ export async function listUsers(env: Env): Promise<UserView[]> {
 		if (!orgsByUser.has(m.userId)) orgsByUser.set(m.userId, []);
 		orgsByUser.get(m.userId)!.push({ orgId: m.orgId, orgName: m.orgName, role: m.role });
 	}
+	const [providers, passkeys] = await Promise.all([
+		env.db.select({ userId: account.userId, providerId: account.providerId }).from(account),
+		env.db.select({ userId: passkey.userId, n: count() }).from(passkey).groupBy(passkey.userId)
+	]);
+	const providersByUser = new Map<string, string[]>();
+	for (const p of providers) {
+		if (!providersByUser.has(p.userId)) providersByUser.set(p.userId, []);
+		providersByUser.get(p.userId)!.push(p.providerId);
+	}
+	const passkeysByUser = new Map(passkeys.map((p) => [p.userId, p.n]));
 	return users.map(({ u, lastLoginAt }) => ({
 		id: u.id,
 		username: label(u),
@@ -114,6 +127,13 @@ export async function listUsers(env: Env): Promise<UserView[]> {
 		role: u.role === 'owner' ? 'owner' : 'member',
 		disabled: !!u.banned,
 		mustChangePassword: u.mustChangePassword,
+		authComplete: u.authComplete,
+		signIn: signInSummary({
+			providers: providersByUser.get(u.id) ?? [],
+			twoFactor: !!u.twoFactorEnabled,
+			passkeys: passkeysByUser.get(u.id) ?? 0,
+			recoveryKey: !!u.recoveryKeyHash
+		}),
 		image: u.image,
 		createdAt: iso(u.createdAt),
 		lastLoginAt: iso(
@@ -122,6 +142,22 @@ export async function listUsers(env: Env): Promise<UserView[]> {
 		grants: byUser.get(u.id) || [],
 		orgs: orgsByUser.get(u.id) || []
 	}));
+}
+
+/** Short labels for the Users page: what an account can sign in with. */
+export function signInSummary(m: {
+	providers: string[];
+	twoFactor: boolean;
+	passkeys: number;
+	recoveryKey: boolean;
+}): string[] {
+	const out: string[] = [];
+	if (m.providers.includes('credential'))
+		out.push(m.twoFactor ? 'password + authenticator' : 'password');
+	if (m.passkeys) out.push(m.passkeys === 1 ? 'passkey' : `passkey ×${m.passkeys}`);
+	for (const p of m.providers) if (p !== 'credential') out.push(p);
+	if (m.recoveryKey) out.push('recovery key');
+	return out;
 }
 
 export async function setMustChangePassword(
@@ -179,6 +215,8 @@ export interface UpdateUserInput {
 	disabled?: unknown;
 	password?: unknown;
 	mustChangePassword?: unknown;
+	/** lost device: remove the authenticator app, every passkey and the recovery key */
+	resetAuth?: unknown;
 }
 
 export async function updateUser(
@@ -233,12 +271,26 @@ export async function updateUser(
 		set.mustChangePassword = !!body.mustChangePassword;
 		changes.mustChangePassword = !!body.mustChangePassword;
 	}
+	const resetAuth = !!body.resetAuth;
+	if (resetAuth) {
+		if (u.id === actor.id) throw new ApiError(400, 'Reset your own methods from the account page.');
+		set.twoFactorEnabled = false;
+		set.recoveryKeyHash = null;
+		set.recoveryKeyAt = null;
+		signOut = true;
+		changes.resetAuth = true;
+	}
 	if (!Object.keys(changes).length) throw new ApiError(400, 'Nothing to update.');
 	set.updatedAt = new Date();
 	await env.db.transaction(async (tx) => {
 		await tx.update(user).set(set).where(eq(user.id, u.id));
+		if (resetAuth) {
+			await tx.delete(twoFactor).where(eq(twoFactor.userId, u.id));
+			await tx.delete(passkey).where(eq(passkey.userId, u.id));
+		}
 		if (signOut) await tx.delete(session).where(eq(session.userId, u.id));
 	});
+	if (resetAuth || body.password !== undefined) await refreshAuthComplete(env, u.id);
 	await writeAudit(env, req, {
 		actor,
 		category: 'user',
@@ -391,21 +443,120 @@ export async function linkedProviders(env: Env, userId: string): Promise<string[
 	return found.map((r) => r.providerId);
 }
 
-/** Removes the Discord account link, keeping at least one way to sign in. */
-export async function unlinkDiscord(env: Env, userId: string): Promise<void> {
-	const [other] = await env.db
-		.select({ id: account.id })
-		.from(account)
-		.where(and(eq(account.userId, userId), ne(account.providerId, 'discord')))
-		.limit(1);
-	if (!other)
+/** Sign-in paths other than `except`: linked accounts (password, Discord, Steam) and passkeys. */
+async function otherWaysIn(env: Env, userId: string, except: string): Promise<number> {
+	const [[a], [p]] = await Promise.all([
+		env.db
+			.select({ n: count() })
+			.from(account)
+			.where(and(eq(account.userId, userId), ne(account.providerId, except))),
+		env.db.select({ n: count() }).from(passkey).where(eq(passkey.userId, userId))
+	]);
+	return (a?.n ?? 0) + (p?.n ?? 0);
+}
+
+/** Removes a linked provider (discord, steam) or the password (credential), never the last way in. */
+export async function unlinkProvider(env: Env, userId: string, provider: string): Promise<void> {
+	if (!(await otherWaysIn(env, userId, provider)))
 		throw new ApiError(
 			400,
-			'Set a password before unlinking Discord, or you would have no way to sign in.'
+			'Add a passkey or another sign-in method first, or you would have no way to sign in.'
 		);
 	await env.db
 		.delete(account)
-		.where(and(eq(account.userId, userId), eq(account.providerId, 'discord')));
+		.where(and(eq(account.userId, userId), eq(account.providerId, provider)));
+	if (provider === 'credential') {
+		// No password means nothing for the authenticator app to be a second factor of.
+		await env.db.delete(twoFactor).where(eq(twoFactor.userId, userId));
+		await env.db
+			.update(user)
+			.set({ twoFactorEnabled: false, mustChangePassword: false, updatedAt: new Date() })
+			.where(eq(user.id, userId));
+	}
+	await refreshAuthComplete(env, userId);
+}
+
+/** Removes the Discord account link, keeping at least one way to sign in. */
+export const unlinkDiscord = (env: Env, userId: string) => unlinkProvider(env, userId, 'discord');
+
+export interface PasskeyView {
+	id: string;
+	name: string;
+	createdAt: string | null;
+	/** "platform" (this device's own authenticator) or "cross-platform" (security key, phone) */
+	deviceType: string;
+	backedUp: boolean;
+}
+
+export async function listPasskeys(env: Env, userId: string): Promise<PasskeyView[]> {
+	const rows = await env.db
+		.select({
+			id: passkey.id,
+			name: passkey.name,
+			createdAt: passkey.createdAt,
+			deviceType: passkey.deviceType,
+			backedUp: passkey.backedUp
+		})
+		.from(passkey)
+		.where(eq(passkey.userId, userId))
+		.orderBy(asc(passkey.createdAt));
+	return rows.map((r) => ({
+		id: r.id,
+		name: r.name || 'Passkey',
+		createdAt: iso(r.createdAt),
+		deviceType: r.deviceType,
+		backedUp: r.backedUp
+	}));
+}
+
+export async function deletePasskey(env: Env, userId: string, id: string): Promise<PasskeyView> {
+	const mine = await listPasskeys(env, userId);
+	const target = mine.find((p) => p.id === id);
+	if (!target) throw new ApiError(404, 'Passkey not found.');
+	// Any other way in will do: another passkey, or a linked account (password, Discord, Steam).
+	if ((await otherWaysIn(env, userId, '__none__')) <= 1)
+		throw new ApiError(400, 'That is your only way to sign in. Add another method first.');
+	await env.db.delete(passkey).where(and(eq(passkey.id, id), eq(passkey.userId, userId)));
+	await refreshAuthComplete(env, userId);
+	return target;
+}
+
+/**
+ * An account created by a sign-in provider Better Auth has no built-in support for (Steam). Goes
+ * through Better Auth's internal adapter so ids, hooks and the account row match its own users.
+ */
+export async function createSsoUser(
+	auth: Auth,
+	env: Env,
+	input: {
+		username: string;
+		name: string;
+		image?: string | null;
+		provider: string;
+		accountId: string;
+	}
+): Promise<string> {
+	const ctx = await auth.$context;
+	const created = await ctx.internalAdapter.createUser(
+		{
+			email: `${input.accountId}@${input.provider}.invalid`,
+			emailVerified: true,
+			name: input.name || input.username,
+			image: input.image ?? undefined,
+			username: input.username.toLowerCase(),
+			displayUsername: input.username,
+			role: 'member',
+			createdAt: new Date(),
+			updatedAt: new Date()
+		},
+		{ method: input.provider }
+	);
+	await ctx.internalAdapter.linkAccount({
+		userId: created.id,
+		providerId: input.provider,
+		accountId: input.accountId
+	});
+	return created.id;
 }
 
 /**

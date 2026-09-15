@@ -59,7 +59,17 @@ export const user = pgTable('user', {
 	/** the member's own SteamID64, so an org can hand its members a reserved slot */
 	steamId: text('steam_id').unique(),
 	/** the organisation the panel opens on (dashboard, switcher, Servers); null = every org */
-	defaultOrgId: text('default_org_id').references(() => organizations.id, { onDelete: 'set null' })
+	defaultOrgId: text('default_org_id').references(() => organizations.id, { onDelete: 'set null' }),
+	// two-factor plugin
+	twoFactorEnabled: boolean('two_factor_enabled').default(false),
+	// warcon sign-in policy (see enrolment.ts): recomputed whenever a sign-in method changes
+	/** the account meets the sign-in rules (two ways in, a second factor on the password, ...) */
+	authComplete: boolean('auth_complete').notNull().default(false),
+	/** first sign-in since the rules arrived; the grace period counts from here */
+	authGraceStartedAt: ts('auth_grace_started_at'),
+	/** sha-256 of the one-time recovery key; null = none issued (or the last one was used) */
+	recoveryKeyHash: text('recovery_key_hash'),
+	recoveryKeyAt: ts('recovery_key_at')
 });
 
 export const session = pgTable(
@@ -117,6 +127,48 @@ export const verification = pgTable(
 		updatedAt: ts('updated_at').notNull().defaultNow()
 	},
 	(t) => [index('verification_identifier_idx').on(t.identifier)]
+);
+
+/** two-factor plugin: one TOTP secret and the (encrypted) backup codes per user */
+export const twoFactor = pgTable(
+	'two_factor',
+	{
+		id: text('id').primaryKey(),
+		secret: text('secret').notNull(),
+		backupCodes: text('backup_codes').notNull(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		/** false between "enable" and the first code the user proves they can produce */
+		verified: boolean('verified').default(true),
+		failedVerificationCount: integer('failed_verification_count').default(0),
+		lockedUntil: ts('locked_until')
+	},
+	(t) => [index('two_factor_user_id_idx').on(t.userId), index('two_factor_secret_idx').on(t.secret)]
+);
+
+/** passkey plugin: WebAuthn credentials; a user may hold several (phone, laptop, security key) */
+export const passkey = pgTable(
+	'passkey',
+	{
+		id: text('id').primaryKey(),
+		name: text('name'),
+		publicKey: text('public_key').notNull(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		credentialID: text('credential_id').notNull(),
+		counter: integer('counter').notNull(),
+		deviceType: text('device_type').notNull(),
+		backedUp: boolean('backed_up').notNull(),
+		transports: text('transports'),
+		createdAt: ts('created_at'),
+		aaguid: text('aaguid')
+	},
+	(t) => [
+		index('passkey_user_id_idx').on(t.userId),
+		index('passkey_credential_id_idx').on(t.credentialID)
+	]
 );
 
 // ---- Warcon ------------------------------------------------------------------------------------

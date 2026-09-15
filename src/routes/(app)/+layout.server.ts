@@ -5,6 +5,7 @@ import { accessibleServers, canManage, userOrgs } from '$lib/server/access';
 import { userCount } from '$lib/server/users';
 import { orgsRemaining } from '$lib/server/signup';
 import { resolveScope } from '$lib/server/scope';
+import { statusFor } from '$lib/server/enrolment';
 
 export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 	const env = getEnv();
@@ -31,6 +32,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		canCreateOrg: orgsLeft === null || orgsLeft > 0,
 		servers,
 		demoAllowed: flag(env.ALLOW_DEMO_SERVER, false),
+		/** sign-in rules: how long until an incomplete account is limited to its account page */
+		enrolment: statusFor(locals.user),
 		steamLookup: !!env.STEAM_API_KEY
 	};
 };

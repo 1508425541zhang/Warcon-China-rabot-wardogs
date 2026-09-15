@@ -1,14 +1,19 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import RegisterForm from '$lib/components/RegisterForm.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	let busy = $state(false);
-	let oauthError = $derived(
-		page.url.searchParams.get('error') === 'discord' ? 'Discord sign-in failed. Try again.' : ''
-	);
+	let oauthError = $derived.by(() => {
+		const e = page.url.searchParams.get('error') ?? '';
+		if (e === 'discord') return 'Discord sign-in failed. Try again.';
+		if (e === 'steam_disabled') return 'This account is disabled.';
+		if (e.startsWith('steam')) return 'Steam sign-in failed. Try again.';
+		return '';
+	});
 	let canCreate = $derived(data.remaining === null || data.remaining > 0);
 	// Only the create action echoes the org name back; the register/discord actions do not.
 	let orgName = $derived((form as { orgName?: string } | null)?.orgName ?? '');
@@ -81,12 +86,14 @@
 {:else}
 	<RegisterForm
 		discord={data.discord}
+		steam
 		discordAction="?/discord"
+		steamAction="?/steam"
 		registerAction="?/register"
 		signInHref="/sign-in?next=%2Fsign-up"
-		discordLabel="Continue with Discord"
 		registerLabel="Create account"
 		turnstileSiteKey={data.turnstileSiteKey}
 		{form}
+		onPasskeyDone={() => invalidateAll()}
 	/>
 {/if}

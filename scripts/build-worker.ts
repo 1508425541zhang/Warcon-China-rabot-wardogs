@@ -34,7 +34,11 @@ const shims: BunPlugin = {
 };
 
 const result = await Bun.build({
-	entrypoints: [resolve(root, 'src/worker/worker.ts'), resolve(root, 'src/worker/migrate.ts')],
+	entrypoints: [
+		resolve(root, 'src/worker/worker.ts'),
+		resolve(root, 'src/worker/migrate.ts'),
+		resolve(root, 'src/worker/reset-auth.ts')
+	],
 	outdir: resolve(root, 'build'),
 	target: 'bun',
 	format: 'esm',

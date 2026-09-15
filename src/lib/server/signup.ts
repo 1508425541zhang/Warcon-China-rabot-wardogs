@@ -66,7 +66,7 @@ export async function verifyTurnstile(env: Env, token: string, ip: string): Prom
 
 // Self-registration shares the login throttle table: 8 attempts per IP in 30 minutes, then a
 // 15-minute lock. Successful sign-ups count too, so one address cannot mint accounts in bulk.
-const signupKeys = (req: Request) => [`signup:${clientIp(req) || 'unknown'}`];
+export const signupKeys = (req: Request) => [`signup:${clientIp(req) || 'unknown'}`];
 
 /**
  * Form action body for "create a username and password" on the join and sign-up pages: makes the

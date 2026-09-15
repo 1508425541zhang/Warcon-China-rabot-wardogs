@@ -40,6 +40,7 @@ export async function api<T = any>(method: string, path: string, body?: unknown)
 	}
 	if (res.status === 401 && data?.error?.code === 'unauthenticated') void goto('/sign-in');
 	if (data?.error?.code === 'must_change_password') void goto('/account?force=1');
+	if (data?.error?.code === 'enrolment_required') void goto('/account?enrol=1');
 	if (!res.ok || (data && data.ok === false)) {
 		throw new ApiError(
 			data?.error?.message || `Request failed (${res.status}).`,

@@ -13,6 +13,7 @@ import {
 	orgsRemaining,
 	registerFromForm
 } from '$lib/server/signup';
+import { beginSteam } from '$lib/server/steam-auth';
 
 const HERE = '/sign-up';
 
@@ -47,6 +48,15 @@ export const actions: Actions = {
 		});
 		if (!res.url) return fail(500, { error: 'Discord did not return an authorization URL.' });
 		redirect(303, res.url);
+	},
+
+	/** The same with Steam. */
+	steam: async (event) => {
+		const env = getEnv();
+		if (!orgSignupEnabled(env)) return fail(404, { error: 'Sign-up is not enabled.' });
+		if ((await userCount(env)) === 0)
+			return fail(409, { error: 'This panel has not been set up yet. Open /setup first.' });
+		beginSteam(event, env, { mode: 'signin', signup: true, next: HERE, back: HERE });
 	},
 
 	register: async (event) => {

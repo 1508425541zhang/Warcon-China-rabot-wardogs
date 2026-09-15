@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import RegisterForm from '$lib/components/RegisterForm.svelte';
 	import RoleBadge from '$lib/components/RoleBadge.svelte';
@@ -7,9 +8,13 @@
 
 	let { data, form }: PageProps = $props();
 	let busy = $state(false);
-	let oauthError = $derived(
-		page.url.searchParams.get('error') === 'discord' ? 'Discord sign-in failed. Try again.' : ''
-	);
+	let oauthError = $derived.by(() => {
+		const e = page.url.searchParams.get('error') ?? '';
+		if (e === 'discord') return 'Discord sign-in failed. Try again.';
+		if (e === 'steam_disabled') return 'This account is disabled.';
+		if (e.startsWith('steam')) return 'Steam sign-in failed. Try again.';
+		return '';
+	});
 	let signInHref = $derived(`/sign-in?next=${encodeURIComponent(page.url.pathname)}`);
 </script>
 
@@ -84,13 +89,17 @@
 	{:else}
 		<RegisterForm
 			discord={data.discord}
+			steam
 			discordAction="?/discord"
+			steamAction="?/steam"
 			registerAction="?/register"
 			{signInHref}
-			discordLabel="Continue with Discord to join"
+			passkeyLabel="Create account with a passkey"
 			registerLabel="Create account and join"
 			turnstileSiteKey={data.turnstileSiteKey}
+			invite={page.params.token}
 			{form}
+			onPasskeyDone={() => invalidateAll()}
 		/>
 	{/if}
 {/if}

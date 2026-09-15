@@ -7,6 +7,7 @@ import { writeAudit } from '$lib/server/audit';
 import { clearLoginFailures, loginLockSeconds, noteLoginFailure } from '$lib/server/access';
 import { userCount } from '$lib/server/users';
 import { orgSignupEnabled } from '$lib/server/signup';
+import { beginSteam } from '$lib/server/steam-auth';
 
 /**
  * Where to go after signing in: a same-site path from ?next (an invite link), else the dashboard.
@@ -51,9 +52,16 @@ export const actions: Actions = {
 			});
 		}
 
+		let secondFactor = false;
 		try {
-			// The session-create hook in auth.ts writes the "login ok" audit row; cookies are set by the SvelteKit plugin.
-			await auth.api.signInUsername({ body: { username, password }, headers: request.headers });
+			// The session-create hook in auth.ts writes the "login ok" audit row; cookies are set by the
+			// SvelteKit plugin. With an authenticator enrolled, Better Auth withholds the session and sets
+			// a short-lived challenge cookie instead; /sign-in/verify finishes the job.
+			const res = await auth.api.signInUsername({
+				body: { username, password },
+				headers: request.headers
+			});
+			secondFactor = !!(res as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect;
 		} catch (err) {
 			if (!isAPIError(err)) throw err;
 			const code = (err as { body?: { code?: string } }).body?.code || '';
@@ -78,7 +86,22 @@ export const actions: Actions = {
 			return fail(401, { error: 'Bad username or password.', username });
 		}
 		await clearLoginFailures(env, keys);
-		redirect(303, nextPath(url));
+		const next = nextPath(url);
+		if (secondFactor)
+			redirect(303, `/sign-in/verify${next === '/' ? '' : `?next=${encodeURIComponent(next)}`}`);
+		redirect(303, next);
+	},
+
+	/** Steam OpenID: linked accounts sign in; new Steam users get an account only when sign-up is open. */
+	steam: async (event) => {
+		const env = getEnv();
+		const next = nextPath(event.url);
+		beginSteam(event, env, {
+			mode: 'signin',
+			signup: orgSignupEnabled(env),
+			next: next === '/' && orgSignupEnabled(env) ? '/sign-up' : next,
+			back: `/sign-in${next === '/' ? '' : `?next=${encodeURIComponent(next)}`}`
+		});
 	},
 
 	/**

@@ -127,6 +127,13 @@
       "when": 1789429887927,
       "tag": "0017_reserved_uncapped",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789475867742,
+      "tag": "0018_auth_methods",
+      "breakpoints": true
     }
   ]
 }
