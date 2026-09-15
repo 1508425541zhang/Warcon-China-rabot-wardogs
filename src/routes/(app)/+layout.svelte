@@ -312,7 +312,7 @@
 	</div>
 </header>
 
-{#if !data.user.authComplete && !data.user.apiKey && !page.url.pathname.startsWith('/account')}
+{#if !data.user.authComplete && data.authPolicy.nudge && !data.user.apiKey && !page.url.pathname.startsWith('/account')}
 	<div class="page-x pt-4">
 		<a
 			href="/account?enrol=1"
@@ -323,10 +323,12 @@
 				Two ways in, and an authenticator app on any password, so a lost device is not a lost account.
 			</span>
 			<span class="text-mist-400">
-				{#if data.enrolment.daysLeft !== null}
+				{#if data.authPolicy.enforced && data.enrolment.daysLeft !== null}
 					{data.enrolment.daysLeft} day{data.enrolment.daysLeft === 1 ? '' : 's'} left →
+				{:else if data.authPolicy.enforced}
+					Required →
 				{:else}
-					Account page →
+					Recommended →
 				{/if}
 			</span>
 		</a>

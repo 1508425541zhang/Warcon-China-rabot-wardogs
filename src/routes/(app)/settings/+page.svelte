@@ -38,14 +38,20 @@
 			id: 'accounts',
 			title: 'Accounts and sign-in',
 			blurb:
-				'Every account must hold two independent ways in and a second factor on any password (see the account page). These are the grace periods before an account that still falls short is limited to its account page.'
+				'Who the sign-in rules (two ways in, a second factor on any password; see the account page) are enforced on, and how long an account may fall short before the panel is limited to its account page.'
 		}
 	];
 
 	const shown = (s: Setting, v = s.value) => (s.unit === 'ms' ? String(v / 1000) : String(v));
 	const unitLabel = (s: Setting) => (s.unit === 'ms' ? 's' : s.unit === 'days' ? 'days' : '');
 	const bounds = (s: Setting) =>
-		s.unit === 'ms' ? `${s.min / 1000}–${s.max / 1000} s` : `${s.min}–${s.max}`;
+		s.unit === 'choice'
+			? ''
+			: s.unit === 'ms'
+				? `${s.min / 1000}–${s.max / 1000} s`
+				: `${s.min}–${s.max}`;
+	const optionLabel = (s: Setting, v: number) =>
+		s.options?.find((o) => o.value === v)?.label ?? String(v);
 	const value = (s: Setting) => (s.key in edits ? edits[s.key] : shown(s));
 	const dirty = (s: Setting) => s.key in edits && edits[s.key] !== shown(s);
 
@@ -157,23 +163,37 @@
 								<div class="text-[12.5px] text-mist-500">{s.help}</div>
 							</td>
 							<td class="whitespace-nowrap">
-								<span class="join">
-									<input
-										class="input w-28"
-										type="number"
-										step={s.unit === 'ms' ? 0.5 : 1}
+								{#if s.options}
+									<select
+										class="input pr-[30px]"
 										value={value(s)}
-										oninput={(e) => (edits[s.key] = (e.target as HTMLInputElement).value)}
-									/>
-									<span class="pointer-events-none btn btn-ghost">{unitLabel(s)}</span>
-								</span>
+										onchange={(e) => (edits[s.key] = (e.target as HTMLSelectElement).value)}
+									>
+										{#each s.options as o (o.value)}<option value={String(o.value)}
+												>{o.label}</option
+											>{/each}
+									</select>
+								{:else}
+									<span class="join">
+										<input
+											class="input w-28"
+											type="number"
+											step={s.unit === 'ms' ? 0.5 : 1}
+											value={value(s)}
+											oninput={(e) => (edits[s.key] = (e.target as HTMLInputElement).value)}
+										/>
+										<span class="pointer-events-none btn btn-ghost">{unitLabel(s)}</span>
+									</span>
+								{/if}
 								{#if dirty(s)}<Badge tone="warn" class="ml-1">unsaved</Badge>{/if}
 							</td>
 							<td class="whitespace-nowrap text-mist-500">{bounds(s)}</td>
 							<td class="whitespace-nowrap">
 								{#if s.stored}
 									<button class="btn btn-sm" disabled={busy} onclick={() => reset(s)}
-										>Reset to {shown(s, s.default)}{unitLabel(s)}</button
+										>Reset to {s.options
+											? optionLabel(s, s.default)
+											: shown(s, s.default) + unitLabel(s)}</button
 									>
 								{:else}<span class="text-[12.5px] text-mist-600">default</span>{/if}
 							</td>

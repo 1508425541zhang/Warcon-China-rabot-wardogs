@@ -4,7 +4,7 @@ import { json, redirect } from '@sveltejs/kit';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { authConfigured, getAuth, initAuth } from '$lib/server/auth';
 import { keyUser, toSessionUser } from '$lib/server/access';
-import { statusFor } from '$lib/server/enrolment';
+import { enrolmentPolicy, statusFor } from '$lib/server/enrolment';
 import { resolveBearer } from '$lib/server/apikeys';
 import { looksLikeOurToken, parseBearer } from '$lib/server/apikeys-core';
 import { assertRate } from '$lib/server/ratelimit';
@@ -192,9 +192,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 			redirect(303, '/account?force=1');
 		}
 
-		// The sign-in rules ($lib/enrolment): once the grace period is over, an account that still
-		// fails them can only reach the account page, where every method can be added.
-		if (event.locals.user && statusFor(event.locals.user).due && !PASSWORD_GATE_EXEMPT.test(path)) {
+		// The sign-in rules ($lib/enrolment), for accounts the "Sign-in rules" setting enforces them on:
+		// once the grace period is over, an account that still fails them can only reach the account
+		// page, where every method can be added. For the rest the rules stay advice (a banner).
+		if (
+			event.locals.user &&
+			statusFor(event.locals.user).due &&
+			!PASSWORD_GATE_EXEMPT.test(path) &&
+			(await enrolmentPolicy(env, event.locals.user)).enforced
+		) {
 			if (path.startsWith('/api/')) {
 				return json(
 					{

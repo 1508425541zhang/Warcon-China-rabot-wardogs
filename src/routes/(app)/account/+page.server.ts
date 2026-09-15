@@ -20,7 +20,12 @@ import {
 	validatePassword
 } from '$lib/server/users';
 import { requireSteamId } from '$lib/server/steam';
-import { authMethodsFor, refreshAuthComplete, statusFor } from '$lib/server/enrolment';
+import {
+	authMethodsFor,
+	enrolmentPolicy,
+	refreshAuthComplete,
+	statusFor
+} from '$lib/server/enrolment';
 import { assessEnrolment } from '$lib/enrolment';
 import { clearRecoveryKey, issueRecoveryKey } from '$lib/server/recovery';
 import { beginSteam } from '$lib/server/steam-auth';
@@ -47,6 +52,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		methods,
 		enrolment,
 		status: statusFor({ ...user, authComplete: enrolment.complete }),
+		/** whether the rules close the panel after the grace period, or are advice only */
+		policy: await enrolmentPolicy(env, { ...user, authComplete: enrolment.complete }),
 		recoveryKeyAt: row?.recoveryKeyAt ? row.recoveryKeyAt.toISOString() : null
 	};
 };
