@@ -239,7 +239,9 @@ export function buildStatusEmbed(
 			? COLORS.busy
 			: COLORS.empty;
 	const filled = s.maxPlayers > 0 ? Math.round((s.playerCount / s.maxPlayers) * PLAYER_BAR) : 0;
-	const online = `${busy ? '🟢' : '⚪'} **${s.playerCount} / ${s.maxPlayers}** online  ${bar(Math.min(PLAYER_BAR, Math.max(0, filled)), PLAYER_BAR, '▰', '▱')}`;
+	// The server's cap is its public slots; MaxReservedSlots holds more back for reserved players.
+	const held = live.reservedSlots ? ` +${live.reservedSlots} reserved` : '';
+	const online = `${busy ? '🟢' : '⚪'} **${s.playerCount} / ${s.maxPlayers}**${held} online  ${bar(Math.min(PLAYER_BAR, Math.max(0, filled)), PLAYER_BAR, '▰', '▱')}`;
 	const zone = zoneLabel(s.alternator);
 	const where = [
 		`**${mapName(s.map)}**`,

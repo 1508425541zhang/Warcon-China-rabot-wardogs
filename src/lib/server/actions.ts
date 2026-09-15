@@ -5,7 +5,6 @@ import type { Capability } from '../capabilities';
 import { ApiError, int, str } from './http';
 import { gamePath } from './hostpolicy';
 import { classifyGameError, etagOf, GameError, parseJson, WardogsClient } from './rcon';
-import { parseMaxReservedSlots } from './lists-plan';
 import { reservedFromText, reservedIntoText } from '../reserved-doc';
 
 export interface ActionDef {
@@ -139,8 +138,9 @@ const isNoRoute = (err: unknown): boolean =>
  * Reserved slots on a build without the live routes (CL-499480 and CL-501228 alike), the way the
  * official console does it: the DefaultReservedPlayerIds array of the config document, edited with
  * the smallest possible change and applied against the revision that was read. Bounded to that one
- * key, which is why `slots.manage` may do it without `config.apply`. Error codes match what the
- * live routes and the org list sync expect: 409 `already_reserved` / `reserved_full`,
+ * key, which is why `slots.manage` may do it without `config.apply`. The list has no length limit
+ * (MaxReservedSlots holds player slots back for its members; it does not cap the list). Error
+ * codes match what the live routes and the org list sync expect: 409 `already_reserved`,
  * 404 `reserved_not_found`; a second revision conflict is 412 `revision_conflict`, never a 409.
  */
 async function reservedViaConfig(
@@ -166,14 +166,6 @@ async function reservedViaConfig(
 		if (op === 'add') {
 			if (present) {
 				throw new GameError(409, `SteamId ${id} is already reserved.`, 'already_reserved');
-			}
-			const cap = parseMaxReservedSlots(doc.text);
-			if (cap !== null && ids.length >= cap) {
-				throw new GameError(
-					409,
-					`Reserved slots are full (${ids.length}/${cap}).`,
-					'reserved_full'
-				);
 			}
 		} else if (!present) {
 			throw new GameError(404, `SteamId ${id} has no reserved slot.`, 'reserved_not_found');

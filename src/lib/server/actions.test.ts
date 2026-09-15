@@ -245,7 +245,7 @@ test('viaConfig skips the live route; reservedRemove drops the id', async () => 
 	expect(f.text()).toBe(`${SESSION}\n!DefaultReservedPlayerIds=ClearArray\n`);
 });
 
-test('the document path reports present, absent and full with the codes the sync expects', async () => {
+test('the document path reports present and absent with the codes the sync expects', async () => {
 	const two = `${SESSION}\nMaxReservedSlots=2\n.DefaultReservedPlayerIds=${ID}\n.DefaultReservedPlayerIds=76561198000000002\n`;
 	let f = reservedClient({ route: false, text: two });
 	await expect(ACTIONS.reservedAdd.run(f.client, { steamId: ID })).rejects.toMatchObject({
@@ -254,21 +254,22 @@ test('the document path reports present, absent and full with the codes the sync
 	});
 	expect(f.calls.filter((c) => c.startsWith('PUT'))).toEqual([]);
 
-	f = reservedClient({ route: false, text: two });
-	await expect(
-		ACTIONS.reservedAdd.run(f.client, { steamId: '76561198000000003' })
-	).rejects.toMatchObject({ status: 409, code: 'reserved_full' });
-	expect(f.calls.filter((c) => c.startsWith('PUT'))).toEqual([]);
-
 	f = reservedClient({ route: false, text: `${SESSION}\n` });
 	await expect(
 		ACTIONS.reservedRemove.run(f.client, { steamId: ID, viaConfig: true })
 	).rejects.toMatchObject({ status: 404, code: 'reserved_not_found' });
+});
 
-	// No MaxReservedSlots key: no cap is applied.
-	f = reservedClient({ route: false, text: `${SESSION}\n.DefaultReservedPlayerIds=1\n` });
-	const r: any = await ACTIONS.reservedAdd.run(f.client, { steamId: ID, viaConfig: true });
+test('MaxReservedSlots never limits the list: a third id goes in beside two held slots', async () => {
+	const two = `${SESSION}\nMaxReservedSlots=2\n.DefaultReservedPlayerIds=${ID}\n.DefaultReservedPlayerIds=76561198000000002\n`;
+	const f = reservedClient({ route: false, text: two });
+	const r: any = await ACTIONS.reservedAdd.run(f.client, {
+		steamId: '76561198000000003',
+		viaConfig: true
+	});
 	expect(r.via).toBe('config');
+	expect(f.text()).toContain('.DefaultReservedPlayerIds=76561198000000003');
+	expect(f.text()).toContain('MaxReservedSlots=2');
 });
 
 test('a revision conflict is retried once with the fresh revision, then reported as 412', async () => {

@@ -36,7 +36,7 @@ export interface Gateway {
 	settingsChanged(env: Env): Promise<void>;
 	/** A trigger on this server was created, changed or deleted: drop the worker's cached rule set. */
 	triggersChanged(serverId: string): void;
-	/** The build may have changed (a connection test ran): re-read capabilities and the server id at the next look. */
+	/** The build or config may have changed (a connection test or config apply ran): re-read capabilities, the server id and the held reserved slots at the next look. */
 	identityChanged(serverId: string): void;
 	/** A status-card webhook was added or changed: post or fix the cards now rather than at the next tick. */
 	statusChanged(): void;

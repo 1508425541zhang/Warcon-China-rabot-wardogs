@@ -10,12 +10,14 @@
 
 	let { data }: PageProps = $props();
 
-	type Summary = { ok: true; status: Status } | { ok: false; error: string };
+	type Summary =
+		{ ok: true; status: Status; reservedSlots: number | null } | { ok: false; error: string };
 	let summaries = $state<Record<string, Summary>>({});
 
 	// Every observation the worker makes of these servers arrives here as it happens.
 	function onLive(v: LiveView) {
-		if (v.ok && v.status) summaries[v.serverId] = { ok: true, status: v.status };
+		if (v.ok && v.status)
+			summaries[v.serverId] = { ok: true, status: v.status, reservedSlots: v.reservedSlots };
 		else if (v.status && !v.ok)
 			summaries[v.serverId] = { ok: false, error: v.error || 'Unreachable.' };
 		else summaries[v.serverId] = { ok: false, error: v.error || 'Not observed yet.' };
@@ -227,7 +229,10 @@
 									>Match <b class="text-mist-100">{Math.floor(st.matchSeconds / 60)} min</b></span
 								>{/if}
 							<span class="ml-auto text-mist-400"
-								><b class="text-mist-100">{fmtNum(st.playerCount)}</b> / {fmtNum(st.maxPlayers)} players</span
+								><b class="text-mist-100">{fmtNum(st.playerCount)}</b> / {fmtNum(
+									st.maxPlayers
+								)}{#if sum.reservedSlots}
+									+ {sum.reservedSlots} reserved{/if} players</span
 							>
 						</div>
 						<div class="mb-3 progress"><span class="progress-bar" style="width:{pct}%"></span></div>

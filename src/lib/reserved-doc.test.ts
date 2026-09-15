@@ -1,5 +1,10 @@
 import { expect, test } from 'bun:test';
-import { hasReservedKey, reservedFromText, reservedIntoText } from './reserved-doc';
+import {
+	hasReservedKey,
+	reservedFromText,
+	reservedIntoText,
+	reservedSlotsHeld
+} from './reserved-doc';
 import { parseIni, getScalar } from './config-doc';
 
 // The TLR server's session section as GET /v1/config returns it on live build CL-501228.
@@ -19,6 +24,17 @@ const LIVE = [
 test('reads the live build form', () => {
 	expect(reservedFromText(LIVE)).toEqual(['00000000000000000']);
 	expect(hasReservedKey(LIVE)).toBe(true);
+});
+
+test('MaxReservedSlots is the held-back slot count, not a list cap; absent or junk is null', () => {
+	expect(reservedSlotsHeld(LIVE)).toBe(2);
+	expect(reservedSlotsHeld('[/Script/WDGame.WDGameSession]\r\nMaxReservedSlots = 12 \r\n')).toBe(
+		12
+	);
+	expect(reservedSlotsHeld('[/Script/WDGame.WDGameSession]\nServerName=x\n')).toBeNull();
+	expect(reservedSlotsHeld('[/Script/Engine.GameSession]\nMaxReservedSlots=8\n')).toBeNull();
+	expect(reservedSlotsHeld('[/Script/WDGame.WDGameSession]\nMaxReservedSlots=-1\n')).toBeNull();
+	expect(reservedSlotsHeld('')).toBeNull();
 });
 
 test('reads the quoted +Key form the reference ini uses', () => {

@@ -376,7 +376,7 @@
 						{@const r = d.orgLists.reserve}
 						<Badge tone="accent">reserved slot</Badge>
 						<span class="min-w-0 flex-1 truncate text-mist-400"
-							>{r.reason || 'org-wide'} · priority {r.priority}{#if r.member}
+							>{r.reason || 'org-wide'}{#if r.member}
 								· member{/if}</span
 						>
 						<span class="inline-flex flex-wrap gap-1">
