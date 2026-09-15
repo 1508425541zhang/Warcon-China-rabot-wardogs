@@ -16,6 +16,7 @@
 
 	const TABS = [
 		['', 'Overview', true],
+		['/servers', 'Servers', false],
 		['/access', 'Access', true],
 		['/roles', 'Roles', true],
 		['/players', 'Players', false],
