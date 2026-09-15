@@ -32,6 +32,12 @@
 	});
 	/** SteamIDs the game server holds a slot for right now */
 	let reserved = $state<string[]>([]);
+	/**
+	 * DefaultReservedPlayerIds as the config document has it, on builds where the panel edits the
+	 * document (null otherwise). The live builds load it at start, so the two disagree between an
+	 * edit and the next restart: shown as "arrives at restart" / "leaves at restart".
+	 */
+	let document = $state<string[] | null>(null);
 	let reservedId = $state('');
 	let search = $state('');
 	let busy = $state(false);
@@ -66,16 +72,24 @@
 	 * on this server, then members.
 	 */
 	let slots = $derived.by(() => {
-		const ids = new Set([...reserved, ...Object.keys(listState?.reserved ?? {})]);
+		const ids = new Set([
+			...reserved,
+			...(document ?? []),
+			...Object.keys(listState?.reserved ?? {})
+		]);
 		const rows = [...ids].flatMap((steamId) => {
 			const src = slotSource(steamId);
-			// A slot no org list manages that the server no longer reports is a stale copy (withdrawn
-			// from the official console, or here a moment ago): nothing to show, nothing to withdraw.
-			if (src && !src.managed && !reserved.includes(steamId)) return [];
+			const here = reserved.includes(steamId);
+			const inDocument = document?.includes(steamId) ?? here;
+			// A slot no org list manages that the server no longer reports (nor the document) is a
+			// stale copy, withdrawn from the official console or here a moment ago: nothing to show.
+			if (src && !src.managed && !here && !inDocument) return [];
 			return {
 				steamId,
 				src,
-				here: reserved.includes(steamId),
+				here,
+				/** the document and the running server disagree until the server restarts */
+				pending: here && !inDocument ? 'leaves' : !here && inDocument ? 'arrives' : null,
 				name: online[steamId] ?? src?.name ?? steam[steamId]?.name ?? null,
 				online: steamId in online,
 				rank: src?.member ? 3 : src?.managed ? 1 : 2
@@ -133,7 +147,13 @@
 		}
 	}
 	async function refreshReserved() {
-		reserved = (await rconGet<{ reserved: string[] }>(id, 'reserved')).reserved;
+		const r = await rconGet<{ reserved: string[]; document?: string[] | null }>(
+			id,
+			'reserved',
+			viaConfig ? { document: 1 } : undefined
+		);
+		reserved = r.reserved;
+		document = viaConfig ? (r.document ?? null) : null;
 		void refreshListState();
 	}
 	const refreshAll = () => Promise.all([refreshReserved(), invalidateAll()]);
@@ -144,7 +164,9 @@
 	});
 	// Personas are looked up for the roster's ids alone, so a lookup never re-runs on its own result.
 	let slotIds = $derived(
-		[...new Set([...reserved, ...Object.keys(listState?.reserved ?? {})])].sort().join(',')
+		[...new Set([...reserved, ...(document ?? []), ...Object.keys(listState?.reserved ?? {})])]
+			.sort()
+			.join(',')
 	);
 	$effect(() => {
 		const ids = slotIds.split(',').filter(Boolean);
@@ -387,12 +409,27 @@
 								{:else}
 									<Badge>local</Badge>
 								{/if}
+								{#if s.pending === 'leaves'}
+									<Badge
+										tone="warn"
+										class="ml-1"
+										title="Removed from the config document; the running server keeps the slot until it restarts"
+										>leaves at restart</Badge
+									>
+								{:else if s.pending === 'arrives'}
+									<Badge
+										tone="warn"
+										class="ml-1"
+										title="In the config document; the running server takes the slot up when it restarts"
+										>arrives at restart</Badge
+									>
+								{/if}
 							</td>
 							<td
 								>{#if s.src?.note}{s.src.note}{:else}<span class="text-mist-600">—</span>{/if}</td
 							>
 							<td class="text-right">
-								{#if canReserve && s.here}
+								{#if canReserve && (s.here || s.pending === 'arrives') && s.pending !== 'leaves'}
 									<button
 										type="button"
 										class="btn btn-sm btn-ghost"
@@ -415,7 +452,9 @@
 		<p class="note">
 			<Badge tone="ok">org</Badge> and <Badge tone="accent">member</Badge> slots come from the organisation
 			and are handed back if withdrawn here; <Badge>local</Badge> slots were reserved on this server and
-			the panel leaves them alone.
+			the panel leaves them alone.{#if viaConfig}
+				This build reads its reserved list from the config document at start, so a slot reserved or
+				withdrawn here is marked until the server restarts.{/if}
 		</p>
 	{:else}
 		<div class="callout mb-0">

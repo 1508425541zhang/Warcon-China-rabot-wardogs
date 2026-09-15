@@ -1028,8 +1028,10 @@ export function mockHandle(
 			// The reserved list lives in the document. A document that carries the key replaces the
 			// list (how the console and Warcon reserve slots on builds without the live routes); one
 			// without it gets the current list written back, so the two never disagree.
+			// ...except on the live build, which loads the list at start: the document changes, the
+			// running list does not, until a restart (as seen on a real CL-501228 server).
 			if (hasReservedKey(text)) {
-				s.reserved = reservedFromText(text).filter((id) => /^\d{17}$/.test(id));
+				if (!liveBuild()) s.reserved = reservedFromText(text).filter((id) => /^\d{17}$/.test(id));
 				s.configText = text;
 			} else s.configText = reservedIntoText(text, s.reserved);
 			s.configRevision++;
