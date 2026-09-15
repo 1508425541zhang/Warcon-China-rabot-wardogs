@@ -24,8 +24,11 @@ export interface Gateway {
 	live(env: Env, ids: string[]): Promise<Map<string, LiveView>>;
 	/** Someone is looking at these servers: keep them in the watched tier. */
 	interest(ids: string[]): void;
-	/** A command just went to this server: look again as soon as possible. */
-	observeSoon(serverId: string): void;
+	/**
+	 * A command just went to this server: look again as soon as possible. `lists` when a ban or
+	 * reserved slot changed, so the pass re-reads those too instead of waiting for the next snapshot.
+	 */
+	observeSoon(serverId: string, opts?: { lists?: boolean }): void;
 	/** Observes the server now and returns the view (a server just added, a read that cannot wait). */
 	observeNow(env: Env, serverId: string): Promise<LiveView | null>;
 	/** Pushes an org's lists to all its servers now. */

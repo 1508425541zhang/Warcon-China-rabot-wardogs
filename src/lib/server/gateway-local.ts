@@ -57,8 +57,8 @@ export const localGateway: Gateway = {
 	interest(ids: string[]) {
 		touchInterest(ids, settings().watchLeaseMs);
 	},
-	observeSoon(serverId: string) {
-		observeSoon(serverId);
+	observeSoon(serverId: string, opts?: { lists?: boolean }) {
+		observeSoon(serverId, opts);
 	},
 	observeNow(env: Env, serverId: string) {
 		return observeNow(env, serverId);

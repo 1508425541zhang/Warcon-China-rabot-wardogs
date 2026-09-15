@@ -67,8 +67,11 @@
 	 */
 	let slots = $derived.by(() => {
 		const ids = new Set([...reserved, ...Object.keys(listState?.reserved ?? {})]);
-		const rows = [...ids].map((steamId) => {
+		const rows = [...ids].flatMap((steamId) => {
 			const src = slotSource(steamId);
+			// A slot no org list manages that the server no longer reports is a stale copy (withdrawn
+			// from the official console, or here a moment ago): nothing to show, nothing to withdraw.
+			if (src && !src.managed && !reserved.includes(steamId)) return [];
 			return {
 				steamId,
 				src,

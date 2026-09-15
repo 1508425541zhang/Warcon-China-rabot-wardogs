@@ -143,8 +143,8 @@ export function connectRemoteGateway(env: Env): Gateway {
 		interest(ids) {
 			void call(env, '/interest', { ids }).catch(() => {});
 		},
-		observeSoon(serverId) {
-			void call(env, '/observe-soon', { serverId }).catch(() => {});
+		observeSoon(serverId, opts) {
+			void call(env, '/observe-soon', { serverId, lists: !!opts?.lists }).catch(() => {});
 		},
 		observeNow(env, serverId) {
 			return call<LiveView | null>(env, '/observe-now', { serverId });

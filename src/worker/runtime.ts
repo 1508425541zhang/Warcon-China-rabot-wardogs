@@ -83,7 +83,7 @@ async function relay(env: Env, path: string, url: URL, req: Request): Promise<Re
 			localGateway.interest(Array.isArray(body.ids) ? body.ids.map(String) : []);
 			return ok(null);
 		case '/observe-soon':
-			localGateway.observeSoon(String(body.serverId));
+			localGateway.observeSoon(String(body.serverId), { lists: body.lists === true });
 			return ok(null);
 		case '/observe-now':
 			return ok(await localGateway.observeNow(env, String(body.serverId)));
