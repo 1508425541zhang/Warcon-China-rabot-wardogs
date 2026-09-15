@@ -8,7 +8,7 @@
 // not a schema change.
 import { and, asc, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
-import { ApiError, int, newId, str } from './http';
+import { ApiError, newId, str } from './http';
 import { writeAudit } from './audit';
 import { getOrg, listsRoleFor, type OrgRow, type ServerRow, type SessionUser } from './access';
 import type { Db } from './db';
@@ -26,7 +26,7 @@ import {
 	type ListRow
 } from './db/schema';
 import { requireSteamId } from './steam';
-import { desiredFor, MEMBER_PRIORITY, memberSlots } from './lists-sync';
+import { desiredFor, memberSlots } from './lists-sync';
 import { gateway } from './gateway';
 import type {
 	ImportCandidate,
@@ -227,7 +227,6 @@ function shapeEntry(
 		reason: r.reason,
 		expiresAt: iso(r.expiresAt),
 		expired: !!r.expiresAt && r.expiresAt.getTime() <= now.getTime() && !r.removedAt,
-		priority: r.priority,
 		addedByName: r.addedByName,
 		addedAt: r.addedAt.toISOString(),
 		removedAt: iso(r.removedAt),
@@ -284,8 +283,6 @@ export async function orgListsView(
 				id: s.id,
 				name: s.name,
 				syncedAt: iso(y?.syncedAt),
-				reservedCap: y?.reservedCap ?? null,
-				reservedUsed: y?.reservedUsed ?? 0,
 				lastError: y?.lastError ?? ''
 			};
 		}),
@@ -350,7 +347,6 @@ export async function entriesView(
 			reason: m.username ? `member @${m.username}` : 'member',
 			expiresAt: null,
 			expired: false,
-			priority: MEMBER_PRIORITY,
 			addedByName: '',
 			addedAt: m.since.toISOString(),
 			removedAt: null,
@@ -393,7 +389,6 @@ export async function addEntry(
 ): Promise<{ entry: ListEntryView; sync: ListSyncSummary }> {
 	const steamId = requireSteamId(body.steamId);
 	const reason = str(body.reason, 200);
-	const priority = kind === 'reserve' ? int(body.priority, 0, -1000, 1000) : 0;
 	const expiresAt = kind === 'ban' ? parseExpiry(body.expiresAt) : null;
 	const list = await listOf(env, org.id, kind);
 	const id = newId();
@@ -420,7 +415,6 @@ export async function addEntry(
 			steamId,
 			reason,
 			expiresAt,
-			priority,
 			addedBy: actor.id,
 			addedByName: actor.username
 		});
@@ -443,8 +437,7 @@ export async function addEntry(
 			kind,
 			listId: list.id,
 			reason,
-			expiresAt: iso(expiresAt),
-			priority
+			expiresAt: iso(expiresAt)
 		}
 	});
 	const sync = await gateway().syncOrg(env, org);
@@ -677,8 +670,6 @@ export async function serverListsState(
 		sync: sync
 			? {
 					syncedAt: iso(sync.syncedAt),
-					reservedCap: sync.reservedCap,
-					reservedUsed: sync.reservedUsed,
 					lastError: sync.lastError
 				}
 			: null
@@ -688,8 +679,7 @@ export async function serverListsState(
 		managed,
 		name: null,
 		note: '',
-		member: false,
-		priority: null
+		member: false
 	});
 	for (const b of bans) out.bans[b.steamId] = { state: 'local', managed: false };
 	for (const r of reserved) out.reserved[r.steamId] = slot('local', false);
@@ -703,8 +693,7 @@ export async function serverListsState(
 	for (const d of desired.bans) out.bans[d.steamId] ??= { state: 'pending', managed: true };
 	for (const d of desired.reserved) {
 		const s = (out.reserved[d.steamId] ??= slot('pending', true));
-		s.priority = d.priority;
-		s.member = d.priority === MEMBER_PRIORITY;
+		s.member = d.member;
 	}
 	// what the page shows for each slot: the player's name and the note on the org entry
 	const slotIds = Object.keys(out.reserved);

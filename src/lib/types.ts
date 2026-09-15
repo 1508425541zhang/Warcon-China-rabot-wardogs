@@ -131,6 +131,11 @@ export interface LiveView {
 	gameServerId: string;
 	/** when the game process started (from GET /v1/health); null until read, or unserved by the build */
 	startedAt: string | null;
+	/**
+	 * MaxReservedSlots from the config document: player slots held back from public joins for
+	 * reserved players, on top of `status.maxPlayers`; null until the worker has read it
+	 */
+	reservedSlots: number | null;
 	/** set while the listener has asked the panel to slow down (429 with Retry-After) */
 	throttledUntil: string | null;
 	status: Status | null;
@@ -472,7 +477,6 @@ export interface ListEntryView {
 	expiresAt: string | null;
 	/** true once expiresAt has passed and the poller has not yet lifted it */
 	expired: boolean;
-	priority: number;
 	addedByName: string;
 	addedAt: string;
 	removedAt: string | null;
@@ -508,9 +512,6 @@ export interface OrgListsView {
 		name: string;
 		/** last successful sync run; null = never */
 		syncedAt: string | null;
-		/** MaxReservedSlots as last read from the server; null = unknown */
-		reservedCap: number | null;
-		reservedUsed: number;
 		/** why the last run could not reach or finish on the server */
 		lastError: string;
 	}[];
@@ -534,8 +535,6 @@ export interface ReservedSlotState {
 	note: string;
 	/** a slot the org hands its members, not an entry someone added */
 	member: boolean;
-	/** org list priority; null for slots added on the server itself */
-	priority: number | null;
 }
 
 /** Per-server view of which bans and reserved slots the org lists manage; for the players page. */
@@ -548,8 +547,6 @@ export interface ServerListsState {
 	reserved: Record<string, ReservedSlotState>;
 	sync: {
 		syncedAt: string | null;
-		reservedCap: number | null;
-		reservedUsed: number;
 		lastError: string;
 	} | null;
 }

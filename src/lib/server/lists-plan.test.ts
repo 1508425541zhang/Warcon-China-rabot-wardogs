@@ -4,37 +4,13 @@ import {
 	isAlreadyApplied,
 	isGone,
 	isUnreachable,
-	parseMaxReservedSlots,
 	planSync,
-	RESERVED_FULL,
 	type PlanInput,
 	type StateLike
 } from './lists-plan';
 
 const now = new Date('2026-09-09T12:00:00Z');
 const ago = (ms: number) => new Date(now.getTime() - ms);
-
-describe('parseMaxReservedSlots', () => {
-	test('reads the key inside the WDGameSession section', () => {
-		expect(
-			parseMaxReservedSlots(
-				'[/Script/WDGame.WDGameSession]\nServerName=x\nMaxReservedSlots=8\n\n[/Script/Engine.GameSession]\nMaxPlayers=64\n'
-			)
-		).toBe(8);
-	});
-	test('CRLF and spaces around =', () => {
-		expect(
-			parseMaxReservedSlots('[/Script/WDGame.WDGameSession]\r\nMaxReservedSlots = 12 \r\n')
-		).toBe(12);
-	});
-	test('absent', () => {
-		expect(parseMaxReservedSlots('[/Script/WDGame.WDGameSession]\nServerName=x\n')).toBeNull();
-		expect(parseMaxReservedSlots('')).toBeNull();
-	});
-	test('the same key in another section does not count', () => {
-		expect(parseMaxReservedSlots('[/Script/Engine.GameSession]\nMaxReservedSlots=8\n')).toBeNull();
-	});
-});
 
 describe('game error interpretation', () => {
 	test('already applied', () => {
@@ -44,14 +20,7 @@ describe('game error interpretation', () => {
 			isAlreadyApplied({ status: 400, message: 'steamId must be a 17-digit SteamID64.' })
 		).toBe(false);
 	});
-	test('a full reserved list and a revision conflict are not "already applied"', () => {
-		expect(
-			isAlreadyApplied({
-				status: 409,
-				code: 'reserved_full',
-				message: 'Reserved slots are full (3/3).'
-			})
-		).toBe(false);
+	test('a revision conflict is not "already applied"', () => {
 		expect(isAlreadyApplied({ status: 412, code: 'revision_conflict', message: 'changed' })).toBe(
 			false
 		);
@@ -91,7 +60,6 @@ const state = (p: Partial<StateLike> & Pick<StateLike, 'kind' | 'steamId'>): Sta
 
 const input = (p: Partial<PlanInput> = {}): PlanInput => ({
 	now,
-	cap: null,
 	retryAfterMs: 5 * 60_000,
 	desired: { bans: [], reserved: [] },
 	observed: { bans: [], reserved: [] },
@@ -100,12 +68,7 @@ const input = (p: Partial<PlanInput> = {}): PlanInput => ({
 });
 
 const ban = (steamId: string, reason = '') => ({ steamId, reason, listId: 'L' });
-const slot = (steamId: string, priority = 0, addedAt = now) => ({
-	steamId,
-	listId: 'L',
-	priority,
-	addedAt
-});
+const slot = (steamId: string, member = false) => ({ steamId, listId: 'L', member });
 
 describe('planSync', () => {
 	test('wanted and absent → add', () => {
@@ -180,32 +143,23 @@ describe('planSync', () => {
 		).toEqual(['1']);
 	});
 
-	test('reserved slots fill by priority then age; the rest overflow', () => {
+	test('every wanted reserved slot is added: the list has no cap, members included', () => {
 		const p = planSync(
 			input({
-				cap: 3,
 				desired: {
 					bans: [],
-					reserved: [
-						slot('low', 0, ago(3000)),
-						slot('old-high', 5, ago(2000)),
-						slot('new-high', 5, ago(1000)),
-						slot('mid', 2)
-					]
+					reserved: [slot('a'), slot('b'), slot('c'), slot('member', true)]
 				},
-				observed: { bans: [], reserved: ['local'] }
+				observed: { bans: [], reserved: ['local', 'b'] }
 			})
 		);
-		expect(p.adds.map((a) => a.steamId)).toEqual(['old-high', 'new-high']);
-		expect(p.overflow.map((o) => o.steamId)).toEqual(['mid', 'low']);
-		expect(p.overflow[0].error.startsWith(RESERVED_FULL)).toBe(true);
-		expect(p.reservedUsed).toBe(3);
+		expect(p.adds.map((a) => a.steamId)).toEqual(['a', 'c', 'member']);
+		expect(p.local).toEqual([{ kind: 'reserve', steamId: 'b' }]);
 	});
 
-	test('a slot the panel is removing frees room in the same run', () => {
+	test('a managed reserved slot no longer wanted is removed; a local one is left alone', () => {
 		const p = planSync(
 			input({
-				cap: 2,
 				desired: { bans: [], reserved: [slot('new')] },
 				observed: { bans: [], reserved: ['local', 'stale'] },
 				state: [state({ kind: 'reserve', steamId: 'stale' })]
@@ -213,32 +167,6 @@ describe('planSync', () => {
 		);
 		expect(p.removes).toEqual([{ kind: 'reserve', steamId: 'stale' }]);
 		expect(p.adds.map((a) => a.steamId)).toEqual(['new']);
-		expect(p.overflow).toEqual([]);
-	});
-
-	test('overflow rows are reconsidered every run, not backed off', () => {
-		const p = planSync(
-			input({
-				cap: 5,
-				desired: { bans: [], reserved: [slot('1')] },
-				state: [
-					state({
-						kind: 'reserve',
-						steamId: '1',
-						state: 'failed',
-						error: `${RESERVED_FULL} (3/3).`,
-						attemptedAt: ago(1000)
-					})
-				]
-			})
-		);
-		expect(p.adds.map((a) => a.steamId)).toEqual(['1']);
-	});
-
-	test('no cap known → everything is added', () => {
-		const p = planSync(input({ desired: { bans: [], reserved: [slot('1'), slot('2')] } }));
-		expect(p.adds.length).toBe(2);
-		expect(p.overflow).toEqual([]);
 	});
 });
 
@@ -251,6 +179,6 @@ test('isGone: a missing entry is gone, a missing route is not', () => {
 test('isUnreachable: outages and rate limiting both stop the run; ordinary refusals do not', () => {
 	expect(isUnreachable({ status: 502, code: 'unreachable', message: 'x' })).toBe(true);
 	expect(isUnreachable({ status: 429, code: 'rate_limited', message: 'slow down' })).toBe(true);
-	expect(isUnreachable({ status: 409, code: 'reserved_full', message: 'full' })).toBe(false);
+	expect(isUnreachable({ status: 409, code: 'already_reserved', message: 'already' })).toBe(false);
 	expect(isUnreachable({ status: 400, message: 'bad id' })).toBe(false);
 });

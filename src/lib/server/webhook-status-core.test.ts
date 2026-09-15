@@ -65,6 +65,7 @@ const live = (over: Partial<LiveView> = {}): LiveView => ({
 	build: '',
 	gameServerId: '',
 	startedAt: null,
+	reservedSlots: null,
 	throttledUntil: null,
 	status,
 	players,
@@ -75,6 +76,16 @@ const live = (over: Partial<LiveView> = {}): LiveView => ({
 });
 
 describe('buildStatusEmbed', () => {
+	test('slots the server holds back for reserved players sit beside the public cap', () => {
+		const e = buildStatusEmbed(opts, server, live({ reservedSlots: 2 }));
+		expect(e.description?.split('\n')[0]).toBe(
+			'🟢 **6 / 100** +2 reserved online  ▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱'
+		);
+		expect(buildStatusEmbed(opts, server, live({ reservedSlots: 0 })).description).toContain(
+			'**6 / 100** online'
+		);
+	});
+
 	test('the card: bars, map line, faction rows, columns, art and author', () => {
 		const e = buildStatusEmbed(opts, server, live());
 		expect(e.title).toBe('EU #1');

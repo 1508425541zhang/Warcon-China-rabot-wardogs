@@ -11,6 +11,7 @@ import type { Env } from './env';
 import { publicMessage } from './http';
 import type { OrgRow, ServerRow } from './access';
 import { ACTIONS } from './actions';
+import { reservedSlotsHeld } from '../reserved-doc';
 import { GameError, WardogsClient } from './rcon';
 import { matches, samples, serverLive } from './db/schema';
 import type { DbOrTx } from './db';
@@ -104,6 +105,8 @@ export interface ServerMemory {
 export interface Identity {
 	build: string;
 	gameServerId: string;
+	/** MaxReservedSlots from the config document; null until read or when the document lacks it */
+	reservedSlots: number | null;
 	features: Features | null;
 	/** when it was last (re)read; 0 asks the next observation to read it */
 	checkedAt: number;
@@ -148,7 +151,14 @@ export function memoryFor(server: ServerRow, org: OrgRow): ServerMemory {
 			liveWrittenAt: 0,
 			sampleKey: '',
 			sampleWrittenAt: 0,
-			identity: { build: '', gameServerId: '', features: null, checkedAt: 0, hydrated: false },
+			identity: {
+				build: '',
+				gameServerId: '',
+				reservedSlots: null,
+				features: null,
+				checkedAt: 0,
+				hydrated: false
+			},
 			startedAt: 0,
 			healthUnserved: false,
 			count: 0
@@ -181,6 +191,7 @@ async function hydrateIdentity(env: Env, m: ServerMemory): Promise<void> {
 			.select({
 				build: serverLive.build,
 				gameServerId: serverLive.gameServerId,
+				reservedSlots: serverLive.reservedSlots,
 				startedAt: serverLive.startedAt
 			})
 			.from(serverLive)
@@ -189,6 +200,7 @@ async function hydrateIdentity(env: Env, m: ServerMemory): Promise<void> {
 		if (row) {
 			if (!m.identity.build) m.identity.build = row.build;
 			if (!m.identity.gameServerId) m.identity.gameServerId = row.gameServerId;
+			if (m.identity.reservedSlots === null) m.identity.reservedSlots = row.reservedSlots;
 			if (!m.startedAt && row.startedAt) m.startedAt = row.startedAt.getTime();
 		}
 	} catch (e) {
@@ -238,6 +250,15 @@ async function refreshIdentity(client: WardogsClient, m: ServerMemory, now: numb
 			retrySoon();
 			holdFor(m, err);
 		}
+	}
+	// How many player slots the server holds back for reserved players lives in its config document
+	// (MaxReservedSlots), which every build serves; the status route only reports the public cap.
+	try {
+		const cfg = (await ACTIONS.config.run(client, {})) as { text: string };
+		next.reservedSlots = reservedSlotsHeld(cfg.text);
+	} catch (err) {
+		retrySoon();
+		holdFor(m, err);
 	}
 	m.identity = next;
 	// A new build may serve what the old one did not.
@@ -365,6 +386,7 @@ const liveKeyOf = (m: ServerMemory) =>
 		m.holdUntil,
 		m.identity.build,
 		m.identity.gameServerId,
+		m.identity.reservedSlots,
 		m.startedAt,
 		idsOf(m.players)
 	]);

@@ -7,9 +7,13 @@
 
 import { createHash } from 'node:crypto';
 import type { GameResponse } from './transport';
-import { parseMaxReservedSlots } from './lists-plan';
 import { rotationFromText } from '../rotation-doc';
-import { hasReservedKey, reservedFromText, reservedIntoText } from '../reserved-doc';
+import {
+	hasReservedKey,
+	reservedFromText,
+	reservedIntoText,
+	reservedSlotsHeld
+} from '../reserved-doc';
 
 export const MOCK_PASSWORD = 'demo';
 
@@ -414,13 +418,18 @@ function seed(name: string): State {
 	return state;
 }
 
+/** Player slots open to the public: MaxPlayers less what MaxReservedSlots holds back. */
+const publicSlots = (s: State): number =>
+	Math.max(0, s.maxPlayers - (reservedSlotsHeld(s.configText) ?? 0));
+
 function seedConfig(s: State): string {
 	return [
 		'[/Script/WDGame.WDGameSession]',
 		`ServerName=${s.serverName}`,
 		'ServerPassword=',
 		`ServerImageURL=${s.sponsorUrl}`,
-		'MaxReservedSlots=20',
+		// Two of MaxPlayers held back for reserved players, as on the TLR server (98+2 of 100).
+		'MaxReservedSlots=2',
 		// The live build serialises arrays as a clear followed by one line per value.
 		'!DefaultReservedPlayerIds=ClearArray',
 		...s.reserved.map((id) => `.DefaultReservedPlayerIds=${id}`),
@@ -711,7 +720,8 @@ export function mockHandle(
 			scoreTick: { current: s.scoreTick, min: 18, max: 30 },
 			scoreCap: s.scoreCap,
 			matchSeconds: Math.floor((Date.now() - s.matchStart) / 1000),
-			players: { current: s.players.length, max: s.maxPlayers },
+			// The live server reports MaxPlayers less the slots MaxReservedSlots holds back (98 for 100).
+			players: { current: s.players.length, max: publicSlots(s) },
 			factionScores: s.factions.map((f) => ({
 				name: f.name,
 				colorHex: f.colorHex,
@@ -935,11 +945,7 @@ export function mockHandle(
 		if (s.reserved.includes(b.steamId)) {
 			return fail(409, `SteamId ${b.steamId} is already reserved.`, 'already_reserved');
 		}
-		// MaxReservedSlots from the config document is honoured, like the real server.
-		const cap = parseMaxReservedSlots(s.configText) ?? 20;
-		if (s.reserved.length >= cap) {
-			return fail(409, `Reserved slots are full (${cap}/${cap}).`, 'reserved_full');
-		}
+		// The list has no length limit: MaxReservedSlots holds player slots back, it does not cap it.
 		s.reserved.push(b.steamId);
 		// Persisted to the document like the real server, whose revision moves with the file.
 		s.configText = reservedIntoText(s.configText, s.reserved);

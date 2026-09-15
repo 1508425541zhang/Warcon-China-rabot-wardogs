@@ -35,17 +35,15 @@ import {
 	isAlreadyApplied,
 	isGone,
 	isUnreachable,
-	parseMaxReservedSlots,
 	planHasWork,
 	planSync,
-	RESERVED_FULL,
 	type Kind,
 	type PlanInput,
 	type SyncPlan
 } from './lists-plan';
 import type { Ban, Features, ListSyncServer, ListSyncSummary } from '$lib/types';
 
-/** A failed add or remove is not retried for this long (cap overflows are recomputed every run). */
+/** A failed add or remove is not retried for this long. */
 const RETRY_AFTER_MS = 5 * 60_000;
 /** How long an API-triggered fan-out waits for each server before reporting it as still syncing. */
 const FANOUT_WAIT_MS = 15_000;
@@ -118,15 +116,10 @@ export async function desiredFor(
 		.map((r) => ({ steamId: r.steamId, reason: r.reason, listId: r.listId }));
 	const reserved = active
 		.filter((r) => r.kind === 'reserve')
-		.map((r) => ({
-			steamId: r.steamId,
-			listId: r.listId,
-			priority: r.priority,
-			addedAt: r.addedAt
-		}));
+		.map((r) => ({ steamId: r.steamId, listId: r.listId, member: false }));
 	if (org.membersReserved) {
-		// Members who set a SteamID get a slot from the org's reserve list, below every explicit
-		// entry when a server is full, unless the org has banned them.
+		// Members who set a SteamID get a slot from the org's reserve list, unless the org has
+		// banned them.
 		const [reserveList] = await env.db
 			.select({ id: lists.id })
 			.from(serverLists)
@@ -138,19 +131,11 @@ export async function desiredFor(
 			const have = new Set(reserved.map((r) => r.steamId));
 			for (const m of await memberSlots(env, server.orgId))
 				if (!banned.has(m.steamId) && !have.has(m.steamId))
-					reserved.push({
-						steamId: m.steamId,
-						listId: reserveList.id,
-						priority: MEMBER_PRIORITY,
-						addedAt: m.since
-					});
+					reserved.push({ steamId: m.steamId, listId: reserveList.id, member: true });
 		}
 	}
 	return { bans, reserved };
 }
-
-/** Explicit entries always outrank member-derived slots when a server's cap bites. */
-export const MEMBER_PRIORITY = -1_000_000;
 
 /** Members of the org who linked a SteamID on their account and are not disabled. */
 export async function memberSlots(
@@ -378,13 +363,10 @@ async function run(
 		.from(serverListSync)
 		.where(eq(serverListSync.serverId, server.id))
 		.limit(1);
-	let cap = syncRow?.reservedCap ?? null;
-	let capCheckedAt = syncRow?.capCheckedAt ?? null;
 
 	const planWith = (observed: Observed) =>
 		planSync({
 			now,
-			cap,
 			retryAfterMs: RETRY_AFTER_MS,
 			desired,
 			observed: { bans: observed.bans.map((b) => b.steamId), reserved: observed.reserved },
@@ -397,21 +379,8 @@ async function run(
 	let plan = planWith(observed);
 	let client = opts.client;
 	let reserve: ReserveMode = { writable: true, viaConfig: false };
-	const wantsReserve = desired.reserved.some((d) => !observed.reserved.includes(d.steamId));
-	if (
-		!planHasWork(plan) &&
-		!plan.overflow.length &&
-		!wantsReserve &&
-		plan.confirms.length === 0 &&
-		plan.deletes.length === 0
-	) {
-		await bookkeep(env, server.id, {
-			syncedAt: now,
-			reservedCap: cap,
-			reservedUsed: plan.reservedUsed,
-			capCheckedAt,
-			lastError: ''
-		});
+	if (!planHasWork(plan) && plan.confirms.length === 0 && plan.deletes.length === 0) {
+		await bookkeep(env, server.id, { syncedAt: now, lastError: '' });
 		return { ...base, ok: true, observed: flat(observed) };
 	}
 	try {
@@ -420,17 +389,6 @@ async function run(
 			observed = await liveObserved(client);
 			fresh = true;
 			await writeSnapshot(env, server.id, observed, now);
-		}
-		// The cap matters only when there are reserved slots to hand out; read it each time then,
-		// since an admin may have just changed MaxReservedSlots to make room.
-		if (wantsReserve) {
-			try {
-				const cfg = (await ACTIONS.config.run(client, {})) as { text?: string };
-				cap = parseMaxReservedSlots(cfg.text || '');
-			} catch {
-				cap = null;
-			}
-			capCheckedAt = now;
 		}
 		plan = planWith(observed);
 		// Live builds since CL-499480 have no reserved-slot routes and answer those calls 404, which
@@ -451,30 +409,17 @@ async function run(
 		}
 	} catch (err) {
 		const message = publicMessage(err, 'Could not reach the server.');
-		await bookkeep(env, server.id, {
-			syncedAt: syncRow?.syncedAt ?? null,
-			reservedCap: cap,
-			reservedUsed: syncRow?.reservedUsed ?? 0,
-			capCheckedAt,
-			lastError: message
-		});
+		await bookkeep(env, server.id, { syncedAt: syncRow?.syncedAt ?? null, lastError: message });
 		return { ...base, error: message };
 	}
 
 	const outcome = await execute(client, plan, observed, reserve);
 	await record(env, server.id, plan, outcome, now, {
 		syncedAt: now,
-		reservedCap: cap,
-		reservedUsed: plan.reservedUsed - outcome.failedAdds.filter((f) => f.kind === 'reserve').length,
-		capCheckedAt,
 		lastError: outcome.aborted ?? ''
 	});
 
-	const failedNow = [
-		...outcome.failedAdds,
-		...outcome.failedRemoves,
-		...plan.overflow.map((o) => ({ ...o, error: o.error }))
-	];
+	const failedNow = [...outcome.failedAdds, ...outcome.failedRemoves];
 	const previous = new Map(state.map((s) => [`${s.kind}:${s.steamId}`, s.error]));
 	const newFailures = failedNow.filter((f) => previous.get(`${f.kind}:${f.steamId}`) !== f.error);
 	if (outcome.added.length || outcome.removed.length || newFailures.length || outcome.aborted) {
@@ -616,11 +561,7 @@ async function execute(
 			} else if (isUnreachable(f)) {
 				out.aborted = f.message;
 				return out;
-			} else
-				out.failedAdds.push({
-					...a,
-					error: f.code === 'reserved_full' ? `${RESERVED_FULL}: ${f.message}` : f.message
-				});
+			} else out.failedAdds.push({ ...a, error: f.message });
 		}
 	}
 	return out;
@@ -628,9 +569,6 @@ async function execute(
 
 interface Bookkeeping {
 	syncedAt: Date | null;
-	reservedCap: number | null;
-	reservedUsed: number;
-	capCheckedAt: Date | null;
 	lastError: string;
 }
 
@@ -675,7 +613,6 @@ async function record(
 		...o.added.map(applied),
 		...plan.confirms.map(applied),
 		...o.failedAdds.map(failed),
-		...plan.overflow.map(failed),
 		...o.failedRemoves.map((f) => failed({ ...f }))
 	];
 	const drops = [...o.removed, ...plan.deletes];

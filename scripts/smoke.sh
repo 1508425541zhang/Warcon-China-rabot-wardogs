@@ -216,7 +216,7 @@ check list-badid '17-digit' "$(req $J1 POST /api/orgs/$ORG/lists/ban/entries '{"
 check list-expiry-past 'future' "$(req $J1 POST /api/orgs/$ORG/lists/ban/entries '{"steamId":"76561198100000502","expiresAt":"2020-01-01T00:00:00Z"}')"
 check list-entries "\"steamId\":\"$L1\"" "$(req $J1 GET /api/orgs/$ORG/lists/ban/entries)"
 check list-count '"entryCount":1' "$(req $J1 GET /api/orgs/$ORG/lists)"
-check reserve-add '"priority":5' "$(req $J1 POST /api/orgs/$ORG/lists/reserve/entries '{"steamId":"76561198100000601","priority":5}')"
+check reserve-add '"reason":"donor"' "$(req $J1 POST /api/orgs/$ORG/lists/reserve/entries '{"steamId":"76561198100000601","reason":"donor"}')"
 check list-remove '"ok":true' "$(req $J1 DELETE /api/orgs/$ORG/lists/ban/entries/$L1)"
 check list-remove-gone 'not on the' "$(req $J1 DELETE /api/orgs/$ORG/lists/ban/entries/$L1)"
 check list-readd "\"steamId\":\"$L1\"" "$(req $J1 POST /api/orgs/$ORG/lists/ban/entries "$LB")"
@@ -246,13 +246,14 @@ check sync-removed '0' "$(req $J1 GET /api/servers/$SID/rcon/bans | grep -c $L1)
 check sync-local-kept '76561198100000301' "$(req $J1 GET /api/servers/$SID/rcon/bans)"
 check sync-now '"sync"' "$(req $J1 POST /api/orgs/$ORG/lists/sync)"
 check sync-server-now '"ok":true' "$(req $J1 POST /api/servers/$SID/lists/sync)"
-check sync-view-servers '"reservedCap"' "$(req $J1 GET /api/orgs/$ORG/lists)"
-# cap: the demo server holds 2 seeded slots + 1 added above + the org's 601; capping it at 3 makes the next org slot overflow
+check sync-view-servers '"syncedAt"' "$(req $J1 GET /api/orgs/$ORG/lists)"
+# MaxReservedSlots holds player slots back; it never caps the list. With 1 held back the demo server
+# already lists 2 seeded + 999 + 601, and another org slot still lands.
 CFG=$(req $J1 GET /api/servers/$SID/rcon/config); REV=$(echo "$CFG" | sed -E 's/.*"revision":"([^"]+)".*/\1/')
-BODY="{\"text\":\"[/Script/WDGame.WDGameSession]\\r\\nServerName=Renamed\\r\\nMaxReservedSlots=3\\r\\n\",\"revision\":\"$REV\",\"force\":true}"
+BODY="{\"text\":\"[/Script/WDGame.WDGameSession]\\r\\nServerName=Renamed\\r\\nMaxReservedSlots=1\\r\\n\",\"revision\":\"$REV\",\"force\":true}"
 req $J1 POST /api/servers/$SID/rcon/configApply "$BODY" >/dev/null
-check reserve-full 'Reserved slots are full' "$(req $J1 POST /api/orgs/$ORG/lists/reserve/entries '{"steamId":"76561198100000602"}')"
-check reserve-full-state '"state":"failed"' "$(req $J1 GET /api/orgs/$ORG/lists/reserve/entries)"
+check reserve-uncapped '"ok":true' "$(req $J1 POST /api/orgs/$ORG/lists/reserve/entries '{"steamId":"76561198100000602"}')"
+check reserve-uncapped-applied '76561198100000602' "$(req $J1 GET /api/servers/$SID/rcon/reserved)"
 check audit-sync '"action":"lists.sync"' "$(req $J1 GET '/api/audit?action=lists.sync')"
 # import: the seeded local ban is a candidate; adopting it makes it managed; editors may look but not adopt
 check import-candidates '"steamId":"76561198100000301"' "$(req $J1 GET /api/orgs/$ORG/lists/import)"
@@ -271,10 +272,6 @@ check steam-badid '400' "$(form $J1 '/account?/steam' 'steamId=abc')"
 check steam-set '200' "$(form $J1 '/account?/steam' 'steamId=76561198100000801')"
 check steam-dup-carol '409' "$(form $J5 '/account?/steam' 'steamId=76561198100000801')"
 check steam-shown '76561198100000801' "$(curl -s -b $J1 $B/account)"
-# raise the cap again so the member slot fits (2 seeded + 999 + 601 + 602 now + james = 6)
-CFG=$(req $J1 GET /api/servers/$SID/rcon/config); REV=$(echo "$CFG" | sed -E 's/.*"revision":"([^"]+)".*/\1/')
-BODY="{\"text\":\"[/Script/WDGame.WDGameSession]\\r\\nServerName=Renamed\\r\\nMaxReservedSlots=20\\r\\n\",\"revision\":\"$REV\",\"force\":true}"
-req $J1 POST /api/servers/$SID/rcon/configApply "$BODY" >/dev/null
 check members-reserved '"sync"' "$(req $J1 PATCH /api/orgs/$ORG '{"membersReserved":true}')"
 check member-slot '76561198100000801' "$(req $J1 GET /api/servers/$SID/rcon/reserved)"
 check member-entry '"member":true' "$(req $J1 GET /api/orgs/$ORG/lists/reserve/entries)"

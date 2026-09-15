@@ -212,7 +212,9 @@
 			</div>
 			<div class="kv">
 				<span class="text-mist-400">Players</span><span
-					>{fmtNum(status.playerCount)} / {fmtNum(status.maxPlayers)}</span
+					>{fmtNum(status.playerCount)} / {fmtNum(status.maxPlayers)}{#if live?.reservedSlots}<span
+							class="text-mist-400">&nbsp;+ {live.reservedSlots} reserved</span
+						>{/if}</span
 				>
 			</div>
 			<div class="kv">

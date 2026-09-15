@@ -97,6 +97,8 @@ export async function runAction(
 		const durationMs = Date.now() - started;
 		// The panel shows what the worker last saw; after a change, have it look again now.
 		if (def.mutating) gateway().observeSoon(server.id);
+		// A new document may change MaxReservedSlots, which the worker otherwise re-reads hourly.
+		if (name === 'configApply') gateway().identityChanged(server.id);
 		if (def.mutating || auditReads) {
 			// An action that took another path than the caller asked for (reserved slots written to
 			// the config document) says so in the trail, with the revision it produced.

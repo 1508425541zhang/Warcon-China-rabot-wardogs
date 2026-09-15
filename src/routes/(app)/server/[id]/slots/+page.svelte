@@ -54,16 +54,16 @@
 			(s) => s.state === 'pending' || s.state === 'failed'
 		).length
 	);
-	let slotCap = $derived(listState?.sync?.reservedCap ?? null);
-	let slotPct = $derived(
-		slotCap ? Math.min(100, Math.round((reserved.length / slotCap) * 100)) : 0
-	);
+	/** MaxReservedSlots: player slots held back for reserved players; null until the worker read it */
+	let heldSlots = $state<number | null>(null);
+	/** the public cap the server reports (MaxPlayers less the held slots); null until seen */
+	let publicSlots = $state<number | null>(null);
 	let slotSource = (steamId: string) => listState?.reserved[steamId] ?? null;
 
 	/**
 	 * The roster: everyone holding a slot on this server, plus org entries still on their way.
 	 * People playing right now come first, then the org's hand-picked entries, then slots added
-	 * on this server, then members (who rank below everyone else when the cap bites).
+	 * on this server, then members.
 	 */
 	let slots = $derived.by(() => {
 		const ids = new Set([...reserved, ...Object.keys(listState?.reserved ?? {})]);
@@ -82,7 +82,6 @@
 			(a, b) =>
 				Number(b.online) - Number(a.online) ||
 				a.rank - b.rank ||
-				(b.src?.priority ?? 0) - (a.src?.priority ?? 0) ||
 				(a.name ?? '￿').localeCompare(b.name ?? '￿') ||
 				a.steamId.localeCompare(b.steamId)
 		);
@@ -166,6 +165,8 @@
 			const next: Record<string, string> = {};
 			for (const p of v.players) next[p.steamId] = p.name;
 			online = next;
+			heldSlots = v.reservedSlots;
+			publicSlots = v.status?.maxPlayers ?? null;
 		});
 	});
 
@@ -217,8 +218,7 @@
 		<span class="label-sm">Slots held</span>
 		<div class="flex items-baseline gap-2">
 			<span class="font-display text-[34px] leading-none font-semibold tabular"
-				>{reserved.length}{#if slotCap !== null}<span class="text-mist-600">&nbsp;/ {slotCap}</span
-					>{/if}</span
+				>{reserved.length}</span
 			>
 			{#if onlineSlots}
 				<span class="ml-auto inline-flex items-center gap-1.5 text-[12.5px] text-ok"
@@ -226,18 +226,19 @@
 				>
 			{/if}
 		</div>
-		{#if slotCap !== null}
-			<div class="mt-3 progress"><span class="progress-bar" style="width: {slotPct}%"></span></div>
-			<p class="note">
-				{#if slotCap - reserved.length > 0}
-					{slotCap - reserved.length} more can be handed out before this server's cap (MaxReservedSlots).
-				{:else}
-					The cap is full: higher-priority organisation entries push out lower ones.
-				{/if}
-			</p>
-		{:else}
-			<p class="note">This server's cap (MaxReservedSlots) is not known until the first sync.</p>
+		{#if heldSlots !== null}
+			<div class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
+				<span
+					><span class="text-mist-400">Player slots</span>
+					<b>{publicSlots ?? '—'}</b> public + <b>{heldSlots}</b> reserved{#if publicSlots !== null}
+						= {publicSlots + heldSlots}{/if}</span
+				>
+			</div>
 		{/if}
+		<p class="note">
+			Anyone on the list skips the join queue, and the list has no length limit. MaxReservedSlots
+			only sets how many player slots are held back for them.
+		</p>
 	</div>
 
 	<div class="panel">
@@ -342,11 +343,7 @@
 		<div class="table-wrap">
 			<table>
 				<thead
-					><tr
-						><th>Player</th><th>SteamID64</th><th>Source</th><th>Note</th><th class="num"
-							>Priority</th
-						><th></th></tr
-					></thead
+					><tr><th>Player</th><th>SteamID64</th><th>Source</th><th>Note</th><th></th></tr></thead
 				>
 				<tbody>
 					{#each rows as s (s.steamId)}
@@ -391,11 +388,6 @@
 							<td
 								>{#if s.src?.note}{s.src.note}{:else}<span class="text-mist-600">—</span>{/if}</td
 							>
-							<td class="num text-mist-400"
-								>{#if s.src?.member}<span class="text-mist-600">member</span
-									>{:else if s.src?.priority !== null && s.src?.priority !== undefined}{s.src
-										.priority}{:else}<span class="text-mist-600">—</span>{/if}</td
-							>
 							<td class="text-right">
 								{#if canReserve && s.here}
 									<button
@@ -409,7 +401,7 @@
 						</tr>
 					{:else}
 						<tr
-							><td colspan="6" class="py-6 text-center text-mist-600"
+							><td colspan="5" class="py-6 text-center text-mist-600"
 								>Nobody matches that filter.</td
 							></tr
 						>
@@ -420,14 +412,13 @@
 		<p class="note">
 			<Badge tone="ok">org</Badge> and <Badge tone="accent">member</Badge> slots come from the organisation
 			and are handed back if withdrawn here; <Badge>local</Badge> slots were reserved on this server and
-			the panel leaves them alone. When a server's cap is full, higher priority wins and members rank
-			below every explicit entry.
+			the panel leaves them alone.
 		</p>
 	{:else}
 		<div class="callout mb-0">
 			<b>Nobody holds a reserved slot here yet.</b>
 			<span class="block text-mist-400"
-				>A reserved slot lets your admins, donors and clan members join even when the server is
+				>A reserved slot lets your admins, donors and clan members skip the queue when the server is
 				full. Reserve one above{#if listState?.canEditOrg}, or hand them out across every server
 					from the organisation's list{/if}.</span
 			>

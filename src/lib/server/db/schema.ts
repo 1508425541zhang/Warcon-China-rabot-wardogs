@@ -570,8 +570,6 @@ export const listEntries = pgTable(
 		reason: text('reason').notNull().default(''),
 		/** bans only: lifted automatically after this */
 		expiresAt: ts('expires_at'),
-		/** reserved slots only: higher wins when a server's MaxReservedSlots is hit */
-		priority: integer('priority').notNull().default(0),
 		addedBy: text('added_by'),
 		addedByName: text('added_by_name').notNull().default(''),
 		addedAt: ts('added_at').notNull().defaultNow(),
@@ -643,15 +641,12 @@ export const serverListState = pgTable(
 	]
 );
 
-/** Per-server sync bookkeeping: last run, the reserved-slot cap the server reported, last error. */
+/** Per-server sync bookkeeping: last run and last error. */
 export const serverListSync = pgTable('server_list_sync', {
 	serverId: text('server_id')
 		.primaryKey()
 		.references(() => servers.id, { onDelete: 'cascade' }),
 	syncedAt: ts('synced_at'),
-	reservedCap: integer('reserved_cap'),
-	reservedUsed: integer('reserved_used').notNull().default(0),
-	capCheckedAt: ts('cap_checked_at'),
 	lastError: text('last_error').notNull().default(''),
 	updatedAt: ts('updated_at').notNull().defaultNow()
 });
@@ -676,6 +671,8 @@ export const serverLive = pgTable('server_live', {
 	gameServerId: text('game_server_id').notNull().default(''),
 	/** when the game process started, from uptimeSeconds on GET /v1/health; null until read or unserved */
 	startedAt: ts('started_at'),
+	/** MaxReservedSlots from the config document: player slots held back for reserved players; null until read */
+	reservedSlots: integer('reserved_slots'),
 	/** Status as the action registry shapes it */
 	status: jsonb('status'),
 	/** Player[] as the action registry shapes it */

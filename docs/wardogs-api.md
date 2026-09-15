@@ -41,7 +41,7 @@ Warcon, and Warcon's own process talks plain HTTP to the listener.
 |---|---|---|---|---|
 | GET | `/v1/capabilities` | | `{ apiVersion, build, auth:{scheme,header}, limits:{maxBodyBytes,maxRequestsPerMinutePerIp}, config:{writable,document}, routes:["GET /v1/status", ...] }` | Console feature-detects `PATCH /v1/players/{id}` (change team), `GET /v1/server-id` and `PUT /v1/config`. Warcon shows `build` and the routes under Servers → Test, and the worker re-reads it hourly. |
 | GET | `/v1/server-id` | | `{ serverId: "<uuid>" }` | **New in CL-501228.** The server's join code, issued by the WARDOGS backend; read-only. Warcon action `serverId`; shown as "Join code" in the server header (click to copy), the connection test and, as a copyable code block, on the Discord status card. |
-| GET | `/v1/status` | | `{ serverName, map, experiences[], lighting, alternator, scoreTick:{current,min,max}, scoreCap, matchSeconds, players:{current,max}, factionScores:[{name,colorHex,score}], rotation:{nowIndex,nextIndex} }` | Live build CL-499480 (2026-09-11) sends **no `scoreCap` and no `matchSeconds`**; the mock has them, Warcon treats both as optional. `players.max` is the engine's clamped value (98 for `MaxPlayers=100`). |
+| GET | `/v1/status` | | `{ serverName, map, experiences[], lighting, alternator, scoreTick:{current,min,max}, scoreCap, matchSeconds, players:{current,max}, factionScores:[{name,colorHex,score}], rotation:{nowIndex,nextIndex} }` | Live build CL-499480 (2026-09-11) sends **no `scoreCap` and no `matchSeconds`**; the mock has them, Warcon treats both as optional. `players.max` is the public cap: `MaxPlayers` less `MaxReservedSlots` (98 for `MaxPlayers=100`, `MaxReservedSlots=2`); Warcon shows the held-back slots beside it from the config document. |
 | GET | `/v1/players` | | `{ players:[{name, steamId, faction, kills, deaths, cash, pingMs}], count }` | Confirmed on CL-499480. List responses all carry `count`. |
 | POST | `/v1/players/{steamId}/kick` | `{ reason }` | `{ message }` | |
 | POST | `/v1/players/{steamId}/kill` | | `{ message }` | |
@@ -51,8 +51,8 @@ Warcon, and Warcon's own process talks plain HTTP to the listener.
 | GET | `/v1/bans` | | `{ bans:[{steamId, bannedAtUtc, bannedBy, reason}], count }` | Entries from `+DefaultBannedPlayerIds` come back with `bannedBy:"config"`, `reason:null`, `bannedAtUtc:"0001-01-01T00:00:00.000Z"`; Warcon blanks that date. |
 | POST | `/v1/bans` | `{ steamId, reason? }` | `{ message }` | Persists to `+DefaultBannedPlayerIds`. |
 | DELETE | `/v1/bans/{steamId}` | | `{ message }` | Unknown id: `404 { code:"ban_not_found", message:"Error: SteamId … is not currently banned." }`. |
-| GET | `/v1/reserved-slots` | | `{ reservedSlots:[steamId], count }` | Permanent only on real servers (the console carries a `reservedExpiry` flag and `expiresAtUtc`, but only its mock sets them). |
-| POST | `/v1/reserved-slots` | `{ steamId }` | `{ message }` | Limited by `MaxReservedSlots`. **Not served by live builds CL-499480 / CL-501228.** Both the console (since 2026-09-14) and Warcon then edit `DefaultReservedPlayerIds` in the config document instead: `GET /v1/config`, add the id, `PUT /v1/config` with `If-Match` (`src/lib/reserved-doc.ts`, `reservedViaConfig` in `actions.ts`); Warcon keeps the live-route error codes (`already_reserved`, `reserved_full`, `reserved_not_found`) so the org list sync behaves the same either way. |
+| GET | `/v1/reserved-slots` | | `{ reservedSlots:[steamId], count }` | Permanent only on real servers (the console carries a `reservedExpiry` flag and `expiresAtUtc`, but only its mock sets them). The list has no length limit: anyone on it skips the join queue; `MaxReservedSlots` only says how many player slots are held back for them. |
+| POST | `/v1/reserved-slots` | `{ steamId }` | `{ message }` | **Not served by live builds CL-499480 / CL-501228.** Both the console (since 2026-09-14) and Warcon then edit `DefaultReservedPlayerIds` in the config document instead: `GET /v1/config`, add the id, `PUT /v1/config` with `If-Match` (`src/lib/reserved-doc.ts`, `reservedViaConfig` in `actions.ts`); Warcon keeps the live-route error codes (`already_reserved`, `reserved_not_found`) so the org list sync behaves the same either way. The console's mock refused adds beyond `MaxReservedSlots` with a `reserved_full` 409; no real server does, and Warcon no longer imitates it. |
 | DELETE | `/v1/reserved-slots/{steamId}` | | `{ message }` | **Not served by live builds**; same document fallback. |
 | GET | `/v1/catalog/maps` | | `{ maps:[{id, displayName}] }` | Map ids: `Kavkazi` (Bakurani), `Europe` (Ozeti), `NorthAmerica` (Zestafona). |
 | GET | `/v1/catalog/lightings` | | `{ lightings:[{id, displayName}] }` | `DayStartClear`, `DayEarlyClear`, `DayEarlyFog`, `DayClear`, `DayLateClear`, `DayLateGray`, `DayLateGrayFog`, `DayEndClear`. |
@@ -117,6 +117,11 @@ authoritative list for any server is its own `routes` array; Warcon shows it und
 [/Script/WDRCON.WDRCONSettings]           bEnabled, BindAddress, Port, Password, PasswordHash, AllowedOrigins, bWriteAuditLogFile
 [WDServerFeed]                            Url, Token          (CL-499480: "kill-event feed endpoint and its ingest token")
 ```
+
+`MaxReservedSlots` is not a limit on `DefaultReservedPlayerIds`: the server takes the list at
+any length, and everyone on it skips the join queue (also with `MaxReservedSlots=0`). It is the
+number of `MaxPlayers` held back from public joins for them, which is why the TLR server with
+`MaxPlayers=100` and `MaxReservedSlots=2` reports `players.max` 98: 98 public + 2 reserved.
 
 `allowedKeys` on CL-499480 also lists `PlayerIdentityEntries` under `WDGameSession` and
 `AllowedOrigins` under the RCON block, and CL-501228 adds `bWriteAuditLogFile` there (presumably

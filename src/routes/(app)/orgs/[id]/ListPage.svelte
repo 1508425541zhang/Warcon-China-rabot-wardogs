@@ -91,7 +91,6 @@
 	// reserved-slot add form
 	let newId = $state('');
 	let newReason = $state('');
-	let newPriority = $state(0);
 
 	let rows = $derived.by(() => {
 		const q = search.trim().toLowerCase();
@@ -119,13 +118,11 @@
 		try {
 			const res = await api<{ sync: ListSyncSummary }>('POST', path, {
 				steamId,
-				reason: newReason.trim(),
-				priority: newPriority
+				reason: newReason.trim()
 			});
 			toast(describeSync(res.sync, `Reserved a slot for ${steamId}.`), 'ok', 8000);
 			newId = '';
 			newReason = '';
-			newPriority = 0;
 			await invalidateAll();
 		} catch (err) {
 			toast(errorMessage(err), 'err');
@@ -213,8 +210,8 @@
 				Bans kept by the organisation and pushed to every one of its servers. Bans added on a server
 				directly stay local to it.
 			{:else}
-				Reserved slots the organisation hands out on every one of its servers. Each server also has
-				its own cap (MaxReservedSlots).
+				Reserved slots the organisation hands out on every one of its servers. Anyone on the list
+				skips the join queue; the list has no length limit.
 			{/if}
 		</p>
 	</div>
@@ -237,9 +234,6 @@
 				<div class="font-medium">{s.name}</div>
 				<div class="text-mist-400">
 					{#if s.syncedAt}synced {fmtTime(s.syncedAt)}{:else}never synced{/if}
-					{#if kind === 'reserve' && s.reservedCap !== null}
-						· slots {s.reservedUsed} / {s.reservedCap}
-					{/if}
 				</div>
 				{#if s.lastError}<div class="text-danger">{s.lastError}</div>{/if}
 			</div>
@@ -277,18 +271,8 @@
 					bind:value={newReason}
 				/></label
 			>
-			<label class="block sm:w-28"
-				><span class="field-label">Priority</span><input
-					class="input"
-					type="number"
-					min="-1000"
-					max="1000"
-					bind:value={newPriority}
-				/></label
-			>
 			<button type="submit" class="btn btn-primary" disabled={busy}>Reserve</button>
 		</form>
-		<p class="note">Higher priority wins when a server's reserved slots are full.</p>
 		{#if owner}
 			<label class="mt-3 flex items-start gap-2 border-t border-white/8 pt-3 text-[13px]">
 				<input
@@ -302,7 +286,7 @@
 					><b>Members get a reserved slot.</b>
 					<span class="block text-mist-400"
 						>Every member of {org.name} who linked a SteamID on their Account page is reserved a slot
-						on all its servers, below the entries above when a server is full. Banned members are skipped.</span
+						on all its servers. Banned members are skipped.</span
 					></span
 				>
 			</label>
@@ -352,7 +336,7 @@
 				<th>{kind === 'ban' ? 'Reason' : 'Note'}</th>
 				<th>By</th>
 				<th>Added</th>
-				{#if kind === 'ban'}<th>Expires</th>{:else}<th class="num">Priority</th>{/if}
+				{#if kind === 'ban'}<th>Expires</th>{/if}
 				<th>Servers</th>
 				<th></th>
 			</tr>
@@ -386,8 +370,6 @@
 								{fmtTime(e.expiresAt)}
 							{/if}
 						</td>
-					{:else}
-						<td class="num">{e.priority}</td>
 					{/if}
 					<td>
 						<span class="inline-flex flex-wrap gap-1">
@@ -408,7 +390,7 @@
 				</tr>
 			{:else}
 				<tr
-					><td colspan="7" class="py-6 text-center text-mist-600"
+					><td colspan={kind === 'ban' ? 7 : 6} class="py-6 text-center text-mist-600"
 						>{entries.length ? 'Nothing matches the filter.' : `No ${noun}s yet.`}</td
 					></tr
 				>

@@ -267,12 +267,12 @@ Each organisation keeps a **ban list** and a **reserved-slot list** in the panel
 **Ban list** and **Reserved slots** tabs of the organisation page, and pushes them to every one of
 its servers. Each server's own **Bans** and **Reserved slots** tabs show what that server holds,
 mark the entries the organisation put there, and link to the organisation lists. The Reserved
-slots tab is a roster: who holds a slot, whether they are playing right now, the note and priority
-on their org entry, and how many slots the server's cap has left. Ban a player from the
+slots tab is a roster: who holds a slot, whether they are playing right now, the note on their
+org entry, and how many player slots the server holds back for them. Ban a player from the
 Players tab or a dossier and choose _every server in the organisation_ (the default, when you may
 edit the org list) or _this server only_. Org owners and
 anyone whose role on one of the org's servers includes _Org lists_ can edit the lists; a ban can carry a reason and
-an expiry, a reserved slot a priority for when a server's `MaxReservedSlots` is full.
+an expiry, a reserved slot a note.
 
 Each entry shows where it stands on every server: **applied** by the panel, **pending** the next
 sync, **failed** (hover for the server's answer), or **local**. Local means the player was already
@@ -291,14 +291,15 @@ A ban with an **expiry** is lifted by the panel when the time comes: the entry m
 history as expired and the next sync removes it from every server the panel applied it to. With
 **Members get a reserved slot** on (an owner's switch on the Reserved slots tab), every member of
 the organisation who linked a SteamID on their Account page is reserved a slot on all its servers,
-ranked below the explicit entries when a server is full and skipped while the org has them banned.
+skipped while the org has them banned.
 
 Sync happens twice over: right away when a list is edited (the toast says on how many servers the
 change landed, and which are unreachable and will be retried), and on every poll, where the
 poller re-applies anything missing, so an org ban that someone lifts on the server directly comes
-back at the next poll; use the org list to lift it everywhere. Reserved slots respect each
-server's `MaxReservedSlots`: when a server is full, the org's entries are applied in priority
-order and the rest show as failed until room is made. Live builds have no reserved-slot routes,
+back at the next poll; use the org list to lift it everywhere. A reserved slot is a queue skip:
+the game takes the list at any length, and `MaxReservedSlots` only sets how many player slots
+are held back for the people on it (a 100-slot server with 2 held back reports 98 to the public;
+the panel shows the split). Live builds have no reserved-slot routes,
 so on those the panel writes `DefaultReservedPlayerIds` in the config document instead (one
 revision-checked apply per change), as the official console does. Every run that changes something, or fails,
 is in the audit trail under `system` as `lists.sync`, and reaches Discord webhooks that mirror
@@ -394,7 +395,7 @@ organisation, its members or its keys, and never reach the site owner's routes.
 # add a reserved slot from a bot: no cookie, no CSRF header, just the bearer
 curl -X POST "$ORIGIN/api/orgs/$ORG_ID/lists/reserve/entries" \
   -H "Authorization: Bearer wck_…" -H "Content-Type: application/json" \
-  -d '{"steamId":"76561198000000000","reason":"donor","priority":10}'
+  -d '{"steamId":"76561198000000000","reason":"donor"}'
 ```
 
 Every call a key makes is audited under `<label> (API key)`. Revoking a key on the org page ends
@@ -550,7 +551,7 @@ POST /api/servers/:id/players/:steamId/notes {body}     DELETE .../notes/:noteId
 GET/POST /api/servers/:id/triggers {kind,name,enabled,config}   PATCH/DELETE .../:triggerId   POST .../dry-run {kind,config}
 GET/POST /api/orgs/:id/webhooks {label,url,events,serverIds,enabled}   PATCH/DELETE .../:webhookId   POST .../:webhookId/test
 GET  /api/orgs/:id/lists                                 the org's ban and reserved-slot lists, and the caller's role on them
-GET/POST /api/orgs/:id/lists/:kind/entries {steamId,reason,expiresAt,priority}   DELETE .../entries/:steamId   (kind = ban | reserve; ?includeRemoved=1)
+GET/POST /api/orgs/:id/lists/:kind/entries {steamId,reason,expiresAt}   DELETE .../entries/:steamId   (kind = ban | reserve; ?includeRemoved=1)
 POST /api/orgs/:id/lists/sync                            push the lists to every org server now
 GET  /api/orgs/:id/lists/import                          server entries not on the org list   POST {entries:[{kind,steamId,reason}]} adopts them (owner)
 GET  /api/servers/:id/lists/state                        which bans / reserved slots here come from the org lists   POST .../lists/sync
