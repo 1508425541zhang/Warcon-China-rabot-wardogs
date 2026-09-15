@@ -144,6 +144,8 @@ as owner:
 
 1. **Orgs → New organisation**, or rename the **Default** organisation every install starts with.
 2. **Servers → Add server**: name, host, port, scheme, RCON password. Use **Test** to check reach.
+   The organisation's **Servers** tab then shows them side by side with the live view: reach, map,
+   players, and who may open each.
 3. **Orgs → your org → New invite link**: pick the role joiners get, copy the link into your
    Discord. People open it, sign in with Discord, and appear under **Members**, where you can adjust
    their per-server roles.
@@ -268,7 +270,9 @@ Each organisation keeps a **ban list** and a **reserved-slot list** in the panel
 its servers. Each server's own **Bans** and **Reserved slots** tabs show what that server holds,
 mark the entries the organisation put there, and link to the organisation lists. The Reserved
 slots tab is a roster: who holds a slot, whether they are playing right now, the note on their
-org entry, and how many player slots the server holds back for them. Ban a player from the
+org entry, and how many player slots the server holds back for them. The organisation's Reserved
+slots tab has the same shape across every server: the roster with who is playing where, how far
+the list has been applied on each server, and the form that hands out a slot everywhere. Ban a player from the
 Players tab or a dossier and choose _every server in the organisation_ (the default, when you may
 edit the org list) or _this server only_. Org owners and
 anyone whose role on one of the org's servers includes _Org lists_ can edit the lists; a ban can carry a reason and

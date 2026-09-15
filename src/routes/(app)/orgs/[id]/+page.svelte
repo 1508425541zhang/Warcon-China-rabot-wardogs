@@ -624,33 +624,9 @@
 				{/each}
 			</div>
 			<p class="note">
-				Pushed to every server in {data.org.name}. Server admins can add and remove entries too.
+				Pushed to every server in {data.org.name} (see the Servers tab). Server admins can add and remove
+				entries too.
 			</p>
-		</div>
-
-		<div class="panel">
-			<div class="mb-3 flex items-center gap-3">
-				<span class="label-sm mb-0!"
-					>Servers <span class="text-mist-600"
-						>{data.orgServers.length} / {data.org.serverLimit}</span
-					></span
-				>
-				<a class="ml-auto btn btn-sm" href="/servers">Manage servers</a>
-			</div>
-			{#each data.orgServers as s (s.id)}
-				<div class="kv items-center">
-					<a href="/server/{encodeURIComponent(s.id)}" class="text-accent hover:underline"
-						>{s.name}</a
-					>
-					<span class="font-mono text-[12px] text-mist-600">{s.host}:{s.port}</span>
-				</div>
-			{:else}
-				<p class="text-[13px] text-mist-400">
-					No servers yet. <a href="/servers" class="text-accent underline">Add one</a>; members with
-					a default server role on their invite link only get access to servers that exist when they
-					join.
-				</p>
-			{/each}
 		</div>
 	</div>
 </div>
