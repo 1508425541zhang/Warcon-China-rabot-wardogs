@@ -10,6 +10,8 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
 	import SteamName from '$lib/components/SteamName.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort, matches } from '$lib/table.svelte';
 	import { steamProfiles, type SteamProfile } from '$lib/steam-profiles';
 	import { describeSync, STATE_TONE } from '$lib/lists';
 	import type { Ban, ListSyncServer, ListSyncSummary, ServerListsState } from '$lib/types';
@@ -33,17 +35,20 @@
 	let busy = $state(false);
 	let banning = $state(false);
 
-	let banRows = $derived.by(() => {
-		const q = banSearch.trim().toLowerCase();
-		return bans.filter(
-			(b) =>
-				!q ||
-				b.steamId.includes(q) ||
-				(steam[b.steamId]?.name || '').toLowerCase().includes(q) ||
-				(b.bannedBy || '').toLowerCase().includes(q) ||
-				(b.reason || '').toLowerCase().includes(q)
-		);
+	const sort = new TableSort<Ban>({
+		player: { by: (b) => steam[b.steamId]?.name || b.steamId },
+		source: { by: (b) => (banSource(b.steamId)?.managed ? 'org' : 'local') },
+		bannedAt: { by: (b) => b.bannedAtUtc, dir: 'desc' },
+		by: { by: (b) => b.bannedBy },
+		reason: { by: (b) => b.reason }
 	});
+	let banRows = $derived(
+		sort.sorted(
+			bans.filter((b) =>
+				matches(banSearch, b.steamId, steam[b.steamId]?.name, b.bannedBy, b.reason)
+			)
+		)
+	);
 	let orgBanCount = $derived(
 		data.orgLists?.lists.find((l) => l.kind === 'ban')?.entryCount ?? null
 	);
@@ -232,10 +237,15 @@
 	</div>
 	<div class="table-wrap">
 		<table>
-			<thead
-				><tr><th>Player</th><th>Source</th><th>Banned at (UTC)</th><th>By</th><th>Reason</th></tr
-				></thead
-			>
+			<thead>
+				<tr>
+					<SortHeader {sort} key="player">Player</SortHeader>
+					<SortHeader {sort} key="source">Source</SortHeader>
+					<SortHeader {sort} key="bannedAt">Banned at (UTC)</SortHeader>
+					<SortHeader {sort} key="by">By</SortHeader>
+					<SortHeader {sort} key="reason">Reason</SortHeader>
+				</tr>
+			</thead>
 			<tbody>
 				{#each banRows as b (b.steamId)}
 					{@const src = banSource(b.steamId)}

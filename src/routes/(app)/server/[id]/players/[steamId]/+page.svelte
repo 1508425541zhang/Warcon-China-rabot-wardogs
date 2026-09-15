@@ -8,6 +8,8 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
 	import { describeSync, STATE_TONE } from '$lib/lists';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort } from '$lib/table.svelte';
 	import type { DossierView, ListSyncSummary } from '$lib/types';
 	import type { PageProps } from './$types';
 
@@ -24,6 +26,27 @@
 
 	let busy = $state(false);
 	let banning = $state(false);
+
+	const serverSort = new TableSort<DossierView['perServer'][number]>({
+		server: { by: (s) => s.serverName },
+		sessions: { by: (s) => s.sessions, dir: 'desc' },
+		minutes: { by: (s) => s.minutes, dir: 'desc' },
+		kills: { by: (s) => s.kills, dir: 'desc' },
+		deaths: { by: (s) => s.deaths, dir: 'desc' },
+		lastSeen: { by: (s) => s.lastSeen, dir: 'desc' }
+	});
+	let perServer = $derived(serverSort.sorted(d.perServer));
+	const sessionSort = new TableSort<DossierView['recent'][number]>({
+		joined: { by: (s) => s.joinedAt, dir: 'desc' },
+		server: { by: (s) => s.serverName },
+		name: { by: (s) => s.name },
+		faction: { by: (s) => s.faction },
+		minutes: { by: (s) => s.minutes, dir: 'desc' },
+		kills: { by: (s) => s.kills, dir: 'desc' },
+		deaths: { by: (s) => s.deaths, dir: 'desc' },
+		cash: { by: (s) => s.cash, dir: 'desc' }
+	});
+	let recent = $derived(sessionSort.sorted(d.recent));
 
 	/** remove the player from an org list (unban across the org, or withdraw the reserved slot) */
 	async function orgRemove(kind: 'ban' | 'reserve') {
@@ -182,15 +205,18 @@
 			<span class="label-sm">By server</span>
 			<div class="table-wrap">
 				<table>
-					<thead
-						><tr
-							><th>Server</th><th class="num">Sessions</th><th class="num">Playtime</th><th
-								class="num">K</th
-							><th class="num">D</th><th>Last seen</th></tr
-						></thead
-					>
+					<thead>
+						<tr>
+							<SortHeader sort={serverSort} key="server">Server</SortHeader>
+							<SortHeader sort={serverSort} key="sessions" num>Sessions</SortHeader>
+							<SortHeader sort={serverSort} key="minutes" num>Playtime</SortHeader>
+							<SortHeader sort={serverSort} key="kills" num>K</SortHeader>
+							<SortHeader sort={serverSort} key="deaths" num>D</SortHeader>
+							<SortHeader sort={serverSort} key="lastSeen">Last seen</SortHeader>
+						</tr>
+					</thead>
 					<tbody>
-						{#each d.perServer as s (s.serverId)}
+						{#each perServer as s (s.serverId)}
 							<tr>
 								<td
 									><a
@@ -218,14 +244,20 @@
 			<span class="label-sm">Recent sessions</span>
 			<div class="max-h-[420px] table-wrap">
 				<table>
-					<thead
-						><tr
-							><th>Joined</th><th>Server</th><th>Name</th><th>Faction</th><th class="num">Length</th
-							><th class="num">K</th><th class="num">D</th><th class="num">Cash</th></tr
-						></thead
-					>
+					<thead>
+						<tr>
+							<SortHeader sort={sessionSort} key="joined">Joined</SortHeader>
+							<SortHeader sort={sessionSort} key="server">Server</SortHeader>
+							<SortHeader sort={sessionSort} key="name">Name</SortHeader>
+							<SortHeader sort={sessionSort} key="faction">Faction</SortHeader>
+							<SortHeader sort={sessionSort} key="minutes" num>Length</SortHeader>
+							<SortHeader sort={sessionSort} key="kills" num>K</SortHeader>
+							<SortHeader sort={sessionSort} key="deaths" num>D</SortHeader>
+							<SortHeader sort={sessionSort} key="cash" num>Cash</SortHeader>
+						</tr>
+					</thead>
 					<tbody>
-						{#each d.recent as s (s.id)}
+						{#each recent as s (s.id)}
 							<tr>
 								<td class="whitespace-nowrap">{fmtTime(s.joinedAt)}</td>
 								<td>{s.serverName}</td>

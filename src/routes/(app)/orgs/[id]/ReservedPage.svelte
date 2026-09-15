@@ -14,6 +14,8 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import SteamName from '$lib/components/SteamName.svelte';
 	import ImportCandidates from './ImportCandidates.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort, matches } from '$lib/table.svelte';
 	import type { ListEntryView, ListSyncSummary, OrgListsView } from '$lib/types';
 
 	let {
@@ -75,9 +77,8 @@
 	/**
 	 * The roster: people playing right now first, then slots handed out by hand, then members.
 	 */
-	let rows = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		return entries
+	let roster = $derived(
+		entries
 			.map((e) => {
 				const live = online[e.steamId];
 				return {
@@ -87,22 +88,28 @@
 					avatar: steam[e.steamId]?.avatar ?? ''
 				};
 			})
-			.filter(
-				(r) =>
-					!q ||
-					r.e.steamId.includes(q) ||
-					(r.name ?? '').toLowerCase().includes(q) ||
-					r.e.reason.toLowerCase().includes(q) ||
-					r.e.addedByName.toLowerCase().includes(q)
-			)
 			.sort(
 				(a, b) =>
 					Number(!!b.live) - Number(!!a.live) ||
 					Number(a.e.member) - Number(b.e.member) ||
 					(a.name ?? '￿').localeCompare(b.name ?? '￿') ||
 					a.e.steamId.localeCompare(b.e.steamId)
-			);
+			)
+	);
+	/** a column sort on top of that order; clicking the active header a third time restores it */
+	const sort = new TableSort<(typeof roster)[number]>({
+		player: { by: (r) => r.name },
+		steamId: { by: (r) => r.e.steamId },
+		source: { by: (r) => (r.e.member ? 'member' : 'list') },
+		note: { by: (r) => r.e.reason },
+		added: { by: (r) => (r.e.member ? null : r.e.addedAt), dir: 'desc' },
+		servers: { by: (r) => r.e.servers.filter((s) => s.state === 'applied').length, dir: 'desc' }
 	});
+	let rows = $derived(
+		sort.sorted(
+			roster.filter((r) => matches(search, r.e.steamId, r.name, r.e.reason, r.e.addedByName))
+		)
+	);
 
 	$effect(() => {
 		const ids = servers.map((s) => s.id);
@@ -360,12 +367,12 @@
 			<table>
 				<thead>
 					<tr>
-						<th>Player</th>
-						<th>SteamID64</th>
-						<th>Source</th>
-						<th>Note</th>
-						<th>Added</th>
-						<th>Servers</th>
+						<SortHeader {sort} key="player">Player</SortHeader>
+						<SortHeader {sort} key="steamId">SteamID64</SortHeader>
+						<SortHeader {sort} key="source">Source</SortHeader>
+						<SortHeader {sort} key="note">Note</SortHeader>
+						<SortHeader {sort} key="added">Added</SortHeader>
+						<SortHeader {sort} key="servers">Servers</SortHeader>
 						<th></th>
 					</tr>
 				</thead>

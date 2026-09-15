@@ -8,6 +8,8 @@
 	import RoleBadge from '$lib/components/RoleBadge.svelte';
 	import GrantList from '$lib/components/GrantList.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort, matches } from '$lib/table.svelte';
 	import type { UserView } from '$lib/types';
 	import type { PageProps } from './$types';
 
@@ -28,6 +30,22 @@
 		| { kind: 'reset'; user: UserView; password: string; mustChange: boolean };
 	let dialog = $state<Dialog | null>(null);
 	let busy = $state(false);
+
+	let search = $state('');
+	const status = (u: UserView) => (u.disabled ? 2 : u.mustChangePassword ? 1 : 0);
+	const sort = new TableSort<UserView>({
+		user: { by: (u) => u.name || u.username },
+		role: { by: (u) => u.role },
+		status: { by: status },
+		orgs: { by: (u) => u.orgs.length, dir: 'desc' },
+		access: { by: (u) => (u.role === 'owner' ? Infinity : u.grants.length), dir: 'desc' },
+		lastLogin: { by: (u) => u.lastLoginAt, dir: 'desc' }
+	});
+	let rows = $derived(
+		sort.sorted(
+			data.users.filter((u) => matches(search, u.name, u.username, ...u.orgs.map((o) => o.orgName)))
+		)
+	);
 
 	const openEdit = (u: UserView | null) => {
 		dialog = {
@@ -150,17 +168,37 @@
 	its organisation.
 </div>
 
+<div class="mb-3 flex flex-wrap items-center gap-2">
+	<input
+		class="input w-full sm:w-80"
+		type="search"
+		placeholder="Filter by name, username, organisation…"
+		aria-label="Filter users"
+		bind:value={search}
+	/>
+	<span class="text-[12.5px] text-mist-600"
+		>{rows.length === data.users.length ? '' : `${rows.length} of `}{data.users.length} user{data
+			.users.length === 1
+			? ''
+			: 's'}</span
+	>
+</div>
+
 <div class="table-wrap">
 	<table>
-		<thead
-			><tr
-				><th>User</th><th>Role</th><th>Status</th><th>Organisations</th><th>Server access</th><th
-					>Last login</th
-				><th></th></tr
-			></thead
-		>
+		<thead>
+			<tr>
+				<SortHeader {sort} key="user">User</SortHeader>
+				<SortHeader {sort} key="role">Role</SortHeader>
+				<SortHeader {sort} key="status">Status</SortHeader>
+				<SortHeader {sort} key="orgs">Organisations</SortHeader>
+				<SortHeader {sort} key="access">Server access</SortHeader>
+				<SortHeader {sort} key="lastLogin">Last login</SortHeader>
+				<th></th>
+			</tr>
+		</thead>
 		<tbody>
-			{#each data.users as u (u.id)}
+			{#each rows as u (u.id)}
 				<tr>
 					<td>
 						<div>{u.name || u.username}</div>
@@ -222,6 +260,8 @@
 						</span>
 					</td>
 				</tr>
+			{:else}
+				<tr><td colspan="7" class="py-6 text-center text-mist-600">Nobody matches.</td></tr>
 			{/each}
 		</tbody>
 	</table>

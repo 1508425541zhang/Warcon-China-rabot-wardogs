@@ -2,6 +2,7 @@
 	import { rconGet, errorMessage } from '$lib/api';
 	import { poll } from '$lib/poll';
 	import { toast } from '$lib/toast.svelte';
+	import { matches } from '$lib/table.svelte';
 	import type { LogEntry } from '$lib/types';
 	import type { PageProps } from './$types';
 
@@ -12,6 +13,10 @@
 	let auto = $state(true);
 	let entries = $state<LogEntry[]>([]);
 	let loaded = $state(false);
+	let search = $state('');
+	let rows = $derived(
+		entries.filter((e) => matches(search, e.peer, e.sessionId, e.event, e.detail))
+	);
 
 	const EVENT_CLASS: Record<string, string> = {
 		AUTH_OK: 'text-ok',
@@ -43,7 +48,16 @@
 			><input type="checkbox" bind:checked={auto} /> Auto-refresh</label
 		>
 		<button class="btn btn-sm" onclick={refresh}>Refresh</button>
-		<span class="ml-auto text-[12.5px] text-mist-600">{entries.length} entries (newest first)</span>
+		<input
+			class="input w-full sm:w-64"
+			type="search"
+			placeholder="Filter by peer, event, detail…"
+			aria-label="Filter log entries"
+			bind:value={search}
+		/>
+		<span class="ml-auto text-[12.5px] text-mist-600"
+			>{search.trim() ? `${rows.length} of ` : ''}{entries.length} entries (newest first)</span
+		>
 	</div>
 	<div class="table-wrap">
 		<table>
@@ -52,7 +66,7 @@
 				></thead
 			>
 			<tbody>
-				{#each entries as e, i (i)}
+				{#each rows as e, i (i)}
 					<tr>
 						<td class="font-mono text-[12px] whitespace-nowrap">{e.timestampUtc}</td>
 						<td class="font-mono text-[12px]">{e.peer}</td>
@@ -63,7 +77,7 @@
 				{:else}
 					<tr
 						><td colspan="5" class="py-6 text-center text-mist-600"
-							>{loaded ? 'No entries.' : 'Loading…'}</td
+							>{!loaded ? 'Loading…' : entries.length ? 'Nothing matches.' : 'No entries.'}</td
 						></tr
 					>
 				{/each}

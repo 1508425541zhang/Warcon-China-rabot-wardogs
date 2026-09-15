@@ -8,12 +8,25 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import RoleBadge from '$lib/components/RoleBadge.svelte';
 	import CapabilityPicker from '$lib/components/CapabilityPicker.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort, matches } from '$lib/table.svelte';
 	import { capabilitySummary, type Capability } from '$lib/capabilities';
 	import type { ApiKeyView, InviteView, OrgMemberView, WebhookView } from '$lib/types';
 	import { STATUS_STYLE_LABELS, STATUS_STYLES, type StatusStyle } from '$lib/status-styles';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+
+	let memberSearch = $state('');
+	const memberSort = new TableSort<OrgMemberView>({
+		member: { by: (m) => m.name || m.username },
+		role: { by: (m) => m.role },
+		access: { by: (m) => (m.role === 'owner' ? Infinity : m.grants.length), dir: 'desc' },
+		joined: { by: (m) => m.joinedAt, dir: 'desc' }
+	});
+	let members = $derived(
+		memberSort.sorted(data.members.filter((m) => matches(memberSearch, m.name, m.username)))
+	);
 
 	type Dialog =
 		| {
@@ -379,15 +392,29 @@
 		</div>
 
 		<div class="panel">
-			<span class="label-sm">Members</span>
+			<div class="mb-3 flex flex-wrap items-center gap-2">
+				<span class="label-sm mb-0!">Members</span>
+				<input
+					class="input w-full sm:ml-auto sm:w-64"
+					type="search"
+					placeholder="Filter by name or username…"
+					aria-label="Filter members"
+					bind:value={memberSearch}
+				/>
+			</div>
 			<div class="table-wrap">
 				<table>
-					<thead
-						><tr><th>Member</th><th>Org role</th><th>Server access</th><th>Joined</th><th></th></tr
-						></thead
-					>
+					<thead>
+						<tr>
+							<SortHeader sort={memberSort} key="member">Member</SortHeader>
+							<SortHeader sort={memberSort} key="role">Org role</SortHeader>
+							<SortHeader sort={memberSort} key="access">Server access</SortHeader>
+							<SortHeader sort={memberSort} key="joined">Joined</SortHeader>
+							<th></th>
+						</tr>
+					</thead>
 					<tbody>
-						{#each data.members as m (m.userId)}
+						{#each members as m (m.userId)}
 							<tr>
 								<td>
 									<div>

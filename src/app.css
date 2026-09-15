@@ -402,6 +402,27 @@
 	.table-wrap .num {
 		@apply text-right tabular;
 	}
+	/* A sortable header: the label is a button that inherits the th's type, plus a slot for the arrow. */
+	.table-wrap .th-sort {
+		font: inherit;
+		color: inherit;
+		text-transform: inherit;
+		letter-spacing: inherit;
+		background: none;
+		border: 0;
+		padding: 0;
+		cursor: pointer;
+	}
+	.table-wrap .th-sort:hover,
+	.table-wrap .th-sort.active {
+		@apply text-mist-100;
+	}
+	.table-wrap .th-sort .th-arrow {
+		display: inline-block;
+		width: 1ch;
+		margin-left: 0.3em;
+		@apply text-accent;
+	}
 }
 
 /* Map art mirrored from the official console (static/maps): framed, cropped, never stretched.

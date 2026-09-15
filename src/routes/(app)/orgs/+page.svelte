@@ -7,11 +7,26 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import RoleBadge from '$lib/components/RoleBadge.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort, matches } from '$lib/table.svelte';
 	import type { OrgView } from '$lib/types';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	let siteOwner = $derived(data.user.role === 'owner');
+
+	let search = $state('');
+	const sort = new TableSort<(typeof data.orgViews)[number]>({
+		name: { by: (o) => o.name },
+		created: { by: (o) => o.createdAt, dir: 'desc' },
+		status: { by: (o) => !!o.suspended },
+		role: { by: (o) => o.role },
+		members: { by: (o) => o.memberCount, dir: 'desc' },
+		servers: { by: (o) => o.serverCount, dir: 'desc' }
+	});
+	let rows = $derived(
+		sort.sorted(data.orgViews.filter((o) => matches(search, o.name, o.slug, o.createdBy?.username)))
+	);
 
 	type Dialog =
 		{ kind: 'create'; name: string } | { kind: 'suspend'; org: OrgView; reason: string };
@@ -97,16 +112,39 @@
 		delete one from here or from its page.{/if}
 </div>
 
+{#if data.orgViews.length > 5}
+	<div class="mb-3 flex flex-wrap items-center gap-2">
+		<input
+			class="input w-full sm:w-72"
+			type="search"
+			placeholder="Search name or slug…"
+			aria-label="Search organisations"
+			bind:value={search}
+		/>
+		{#if search.trim()}
+			<span class="text-[12.5px] text-mist-400">{rows.length} of {data.orgViews.length}</span>
+		{/if}
+	</div>
+{/if}
+
 <div class="table-wrap">
 	<table>
-		<thead
-			><tr
-				><th>Organisation</th>{#if siteOwner}<th>Created</th><th>Status</th>{:else}<th>Your role</th
-					>{/if}<th class="num">Members</th><th class="num">Servers</th><th></th></tr
-			></thead
-		>
+		<thead>
+			<tr>
+				<SortHeader {sort} key="name">Organisation</SortHeader>
+				{#if siteOwner}
+					<SortHeader {sort} key="created">Created</SortHeader>
+					<SortHeader {sort} key="status">Status</SortHeader>
+				{:else}
+					<SortHeader {sort} key="role">Your role</SortHeader>
+				{/if}
+				<SortHeader {sort} key="members" num>Members</SortHeader>
+				<SortHeader {sort} key="servers" num>Servers</SortHeader>
+				<th></th>
+			</tr>
+		</thead>
 		<tbody>
-			{#each data.orgViews as o (o.id)}
+			{#each rows as o (o.id)}
 				<tr class={o.suspended ? 'text-mist-400' : ''}>
 					<td>
 						{#if o.role === 'owner' && (!o.suspended || siteOwner)}

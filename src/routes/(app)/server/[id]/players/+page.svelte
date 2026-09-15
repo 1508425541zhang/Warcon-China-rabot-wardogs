@@ -10,6 +10,8 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort, matches } from '$lib/table.svelte';
 	import type { LiveView, Player, PlayerMark, ServerListsState, Status } from '$lib/types';
 	import type { PageProps, Snapshot } from './$types';
 
@@ -44,10 +46,24 @@
 	let marksAt = 0;
 	let base = $derived(`/server/${encodeURIComponent(data.server.id)}/players`);
 
-	let rows = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		return all.filter((p) => !q || p.name.toLowerCase().includes(q) || p.steamId.includes(q));
+	/** the roster in the worker's order until a header is clicked */
+	const sort = new TableSort<Player>({
+		player: { by: (p) => p.name },
+		flags: {
+			by: (p) => {
+				const m = marks[p.steamId];
+				return m ? (m.watched ? 1000 : 0) + m.risk.score + (m.firstVisit ? 1 : 0) : 0;
+			},
+			dir: 'desc'
+		},
+		reserved: { by: (p) => !!listState?.reserved[p.steamId], dir: 'desc' },
+		faction: { by: (p) => p.faction },
+		kills: { by: (p) => p.kills, dir: 'desc' },
+		deaths: { by: (p) => p.deaths, dir: 'desc' },
+		cash: { by: (p) => p.cash, dir: 'desc' },
+		ping: { by: (p) => p.ping }
 	});
+	let rows = $derived(sort.sorted(all.filter((p) => matches(search, p.name, p.steamId))));
 	/** the dialog's player as the roster sees them now; null once they have left */
 	let live = $derived.by(() => {
 		const d = dialog;
@@ -185,15 +201,21 @@
 	</div>
 	<div class="table-wrap">
 		<table>
-			<thead
-				><tr
-					><th class="max-md:sticky max-md:left-0 max-md:z-10">Player</th><th>Flags</th><th
-						>Reserved</th
-					><th>Faction</th><th class="num">K</th><th class="num">D</th><th class="num">Cash</th><th
-						class="num">Ping</th
-					>{#if anyAction}<th class="text-right">Actions</th>{/if}</tr
-				></thead
-			>
+			<thead>
+				<tr>
+					<SortHeader {sort} key="player" class="max-md:sticky max-md:left-0 max-md:z-10"
+						>Player</SortHeader
+					>
+					<SortHeader {sort} key="flags">Flags</SortHeader>
+					<SortHeader {sort} key="reserved">Reserved</SortHeader>
+					<SortHeader {sort} key="faction">Faction</SortHeader>
+					<SortHeader {sort} key="kills" num>K</SortHeader>
+					<SortHeader {sort} key="deaths" num>D</SortHeader>
+					<SortHeader {sort} key="cash" num>Cash</SortHeader>
+					<SortHeader {sort} key="ping" num>Ping</SortHeader>
+					{#if anyAction}<th class="text-right">Actions</th>{/if}
+				</tr>
+			</thead>
 			<tbody>
 				{#each rows as p (p.steamId)}
 					{@const m = marks[p.steamId]}

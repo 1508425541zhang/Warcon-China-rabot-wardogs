@@ -16,6 +16,8 @@
 	import { api } from '$lib/api';
 	import { factionColor } from '$lib/format';
 	import type { CashPoint } from '$lib/server/analytics';
+	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { TableSort } from '$lib/table.svelte';
 	import type { LiveView, Player, Rotation, Status } from '$lib/types';
 	import type { PageProps } from './$types';
 
@@ -164,10 +166,24 @@
 		for (const p of players) m.set(p.faction || '', (m.get(p.faction || '') || 0) + 1);
 		return [...m.entries()];
 	});
+	/** the scoreboard's own order, kills then fewest deaths, is what a header sort layers on */
+	const boardSort = new TableSort<Player>(
+		{
+			player: { by: (p) => p.name },
+			faction: { by: (p) => p.faction },
+			kills: { by: (p) => p.kills, dir: 'desc' },
+			deaths: { by: (p) => p.deaths, dir: 'desc' },
+			cash: { by: (p) => p.cash, dir: 'desc' },
+			ping: { by: (p) => p.ping }
+		},
+		{ key: 'kills' }
+	);
 	let board = $derived(
-		players
-			.filter((p) => !teamFilter || (p.faction || 'unassigned') === teamFilter)
-			.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths)
+		boardSort.sorted(
+			players
+				.filter((p) => !teamFilter || (p.faction || 'unassigned') === teamFilter)
+				.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths)
+		)
 	);
 
 	async function sendBroadcast() {
@@ -440,13 +456,16 @@
 	</div>
 	<div class="table-wrap">
 		<table>
-			<thead
-				><tr
-					><th>Player</th><th>Faction</th><th class="num">K</th><th class="num">D</th><th
-						class="num">Cash</th
-					><th class="num">Ping</th></tr
-				></thead
-			>
+			<thead>
+				<tr>
+					<SortHeader sort={boardSort} key="player">Player</SortHeader>
+					<SortHeader sort={boardSort} key="faction">Faction</SortHeader>
+					<SortHeader sort={boardSort} key="kills" num>K</SortHeader>
+					<SortHeader sort={boardSort} key="deaths" num>D</SortHeader>
+					<SortHeader sort={boardSort} key="cash" num>Cash</SortHeader>
+					<SortHeader sort={boardSort} key="ping" num>Ping</SortHeader>
+				</tr>
+			</thead>
 			<tbody>
 				{#each board as p (p.steamId)}
 					<tr>
