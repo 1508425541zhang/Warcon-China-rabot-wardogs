@@ -266,9 +266,13 @@ expected to be able to survive losing one thing. The rules, checked on the **Acc
 The **recovery key** is a 40-character secret shown once; the panel stores only its hash. Using it
 at `/recover` signs the account in once, discards the key, and lands on the account page to set
 things up again. New accounts start with a passkey or a provider (the password form sits behind a
-link). Existing accounts keep working: a banner asks for the missing pieces, and after a grace
-period (**Settings**: 14 days for owners, 30 for members, counted from their first sign-in after
-this release) an account that still falls short is limited to its account page until it complies.
+link). Existing accounts keep working: a banner asks for the missing pieces. How hard the panel
+pushes is the site owner's **Settings → Sign-in rules** choice: _Advise only_ (the default: the
+banner and nothing more), _Require for privileged accounts_ (site owners, organisation owners and
+anyone whose server role can ban, change config, run automation or use raw RCON must comply;
+guests and viewers are left alone), or _Require for everyone_. Where required, an account that
+still falls short after its grace period (14 days for owners, 30 for members, both editable,
+counted from the first sign-in after this release) is limited to its account page until it does.
 
 When every method is gone, whoever runs the box resets the account from a shell (the container
 image has it too):

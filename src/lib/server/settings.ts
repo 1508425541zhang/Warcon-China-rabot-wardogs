@@ -9,12 +9,17 @@ import { siteSettings } from './db/schema';
 export interface SettingSpec {
 	label: string;
 	help: string;
-	unit: 'ms' | 'count' | 'days';
+	/** 'choice' renders a select over `options` (the value is still a number) */
+	unit: 'ms' | 'count' | 'days' | 'choice';
+	options?: readonly { value: number; label: string }[];
 	default: number;
 	min: number;
 	max: number;
 	group: 'observation' | 'delivery' | 'housekeeping' | 'accounts';
 }
+
+/** Values of the `authEnforce` setting: whom the sign-in rules are enforced on. */
+export const AUTH_ENFORCE = { advise: 0, privileged: 1, everyone: 2 } as const;
 
 export const SETTINGS = {
 	watchedPlayersMs: {
@@ -169,6 +174,20 @@ export const SETTINGS = {
 		min: 7,
 		max: 3650,
 		group: 'housekeeping'
+	},
+	authEnforce: {
+		label: 'Sign-in rules',
+		help: 'Every account should hold two independent ways in and a second factor on any password. "Advise" only shows the banner. "Privileged" also closes the panel, after the grace period, to site owners, organisation owners and anyone whose server role can ban, change config, run automation or use raw RCON; guests and viewers are left alone. "Everyone" applies that to every account.',
+		unit: 'choice',
+		options: [
+			{ value: 0, label: 'Advise only' },
+			{ value: 1, label: 'Require for privileged accounts' },
+			{ value: 2, label: 'Require for everyone' }
+		],
+		default: 0,
+		min: 0,
+		max: 2,
+		group: 'accounts'
 	},
 	authGraceDays: {
 		label: 'Owner sign-in grace',

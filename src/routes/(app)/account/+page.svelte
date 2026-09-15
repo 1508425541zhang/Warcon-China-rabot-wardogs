@@ -126,6 +126,8 @@
 			<span class="label-sm !mb-0">Sign-in methods</span>
 			{#if data.enrolment.complete}
 				<Badge tone="ok">meets the rules</Badge>
+			{:else if !data.policy.enforced}
+				<Badge tone="warn">recommended</Badge>
 			{:else if data.status.due}
 				<Badge tone="err">action required</Badge>
 			{:else if data.status.daysLeft !== null}
@@ -153,7 +155,17 @@
 				<ul class="list-disc space-y-1 pl-4 text-mist-200">
 					{#each data.enrolment.problems as p (p)}<li>{p}</li>{/each}
 				</ul>
-				{#if data.status.due}
+				{#if !data.policy.enforced}
+					<p class="mt-2 text-mist-400">
+						{#if data.policy.nudge}
+							This panel does not enforce the rules, but a lost device or a phished password is
+							still a lost account. Two ways in takes a minute.
+						{:else}
+							Not required for your role: you hold no server powers worth stealing. Still worth a
+							minute if you value the account.
+						{/if}
+					</p>
+				{:else if data.status.due}
 					<p class="mt-2 text-mist-400">The rest of the panel is closed until this is done.</p>
 				{:else if data.status.deadline}
 					<p class="mt-2 text-mist-400">

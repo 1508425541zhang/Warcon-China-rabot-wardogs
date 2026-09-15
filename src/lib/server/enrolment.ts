@@ -1,10 +1,11 @@
 // What sign-in methods an account holds, and whether that satisfies the rules in $lib/enrolment.
 // The verdict is cached on user.auth_complete so the request hook needs no extra query; call
 // refreshAuthComplete after anything that adds or removes a method.
-import { count, eq } from 'drizzle-orm';
+import { and, count, eq, or, sql } from 'drizzle-orm';
 import type { Env } from './env';
-import { account, passkey, user } from './db/schema';
-import { settings } from './settings';
+import { account, orgMembers, orgRoles, passkey, serverGrants, user } from './db/schema';
+import { AUTH_ENFORCE, settings } from './settings';
+import type { Capability } from '$lib/capabilities';
 import {
 	assessEnrolment,
 	enrolmentStatus,
@@ -67,3 +68,70 @@ export async function startGrace(env: Env, userId: string): Promise<void> {
 }
 
 export const statusFor = (u: EnrolmentSubject): EnrolmentStatus => enrolmentStatus(u, settings());
+
+/** Server capabilities that make an account worth protecting: it can hurt a server or its players. */
+export const PRIVILEGED_CAPS: Capability[] = [
+	'bans.manage',
+	'slots.manage',
+	'lists.edit',
+	'config.apply',
+	'automation.manage',
+	'rcon.raw',
+	'rotation.save',
+	'players.notes.manage'
+];
+
+/** Site owners, organisation owners, and anyone holding a server role with a privileged capability. */
+export async function isPrivileged(
+	env: Env,
+	u: { id: string; role: 'owner' | 'member' }
+): Promise<boolean> {
+	if (u.role === 'owner') return true;
+	const [[org], [grant]] = await Promise.all([
+		env.db
+			.select({ n: count() })
+			.from(orgMembers)
+			.where(and(eq(orgMembers.userId, u.id), eq(orgMembers.role, 'owner'))),
+		env.db
+			.select({ n: count() })
+			.from(serverGrants)
+			.innerJoin(orgRoles, eq(orgRoles.id, serverGrants.roleId))
+			.where(
+				and(
+					eq(serverGrants.userId, u.id),
+					// jsonb containment per capability, bound as text and cast (the idiom access.ts uses:
+					// a JS array bound straight to a jsonb or text[] parameter is JSON-encoded by the driver).
+					or(
+						...PRIVILEGED_CAPS.map(
+							(cap) => sql`${orgRoles.capabilities} @> (${JSON.stringify([cap])}::text)::jsonb`
+						)
+					)
+				)
+			)
+	]);
+	return (org?.n ?? 0) > 0 || (grant?.n ?? 0) > 0;
+}
+
+export interface EnrolmentPolicy {
+	/** the grace clock and the account-page gate apply to this account */
+	enforced: boolean;
+	/** the banner is shown; false for accounts the rules deliberately leave alone (guests, viewers) */
+	nudge: boolean;
+}
+
+/**
+ * What the `authEnforce` setting means for one account. Advise: banner for all, gate for none.
+ * Privileged: gate for owners and dangerous roles, silence for the rest. Everyone: gate for all.
+ * Complete accounts need nothing, so the privilege query only runs for those still short.
+ */
+export async function enrolmentPolicy(
+	env: Env,
+	u: { id: string; role: 'owner' | 'member'; authComplete: boolean }
+): Promise<EnrolmentPolicy> {
+	const mode = settings().authEnforce;
+	if (mode === AUTH_ENFORCE.advise) return { enforced: false, nudge: true };
+	if (mode === AUTH_ENFORCE.everyone) return { enforced: true, nudge: true };
+	if (u.authComplete) return { enforced: true, nudge: true };
+	const privileged = await isPrivileged(env, u);
+	return { enforced: privileged, nudge: privileged };
+}

@@ -5,7 +5,7 @@ import { accessibleServers, canManage, userOrgs } from '$lib/server/access';
 import { userCount } from '$lib/server/users';
 import { orgsRemaining } from '$lib/server/signup';
 import { resolveScope } from '$lib/server/scope';
-import { statusFor } from '$lib/server/enrolment';
+import { enrolmentPolicy, statusFor } from '$lib/server/enrolment';
 
 export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 	const env = getEnv();
@@ -34,6 +34,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		demoAllowed: flag(env.ALLOW_DEMO_SERVER, false),
 		/** sign-in rules: how long until an incomplete account is limited to its account page */
 		enrolment: statusFor(locals.user),
+		/** whether the rules are enforced on this account, and whether to nag about them at all */
+		authPolicy: await enrolmentPolicy(env, locals.user),
 		steamLookup: !!env.STEAM_API_KEY
 	};
 };
