@@ -9,6 +9,7 @@
 	import SortHeader from '$lib/components/SortHeader.svelte';
 	import { TableSort } from '$lib/table.svelte';
 	import { factionColor } from '$lib/format';
+	import { causeLabel } from '$lib/causes';
 	import type { Analytics, Range } from '$lib/server/analytics';
 	import type { PageProps } from './$types';
 
@@ -43,6 +44,23 @@
 		result: { by: (m) => m.winner }
 	});
 	let matchRows = $derived(matchSort.sorted(a?.matches ?? []));
+	const combatSort = new TableSort<NonNullable<Analytics['combat']>['players'][number]>(
+		{
+			player: { by: (p) => p.name },
+			kills: { by: (p) => p.kills, dir: 'desc' },
+			deaths: { by: (p) => p.deaths, dir: 'desc' },
+			headshots: { by: (p) => p.headshots, dir: 'desc' },
+			teamKills: { by: (p) => p.teamKills, dir: 'desc' },
+			distance: { by: (p) => p.avgDistanceM, dir: 'desc' }
+		},
+		{ key: 'kills' }
+	);
+	let combatPlayers = $derived(combatSort.sorted(a?.combat?.players ?? []));
+	let maxCauseKills = $derived(Math.max(1, ...(a?.combat?.causes.map((c) => c.kills) ?? [])));
+	let maxBucketKills = $derived(Math.max(1, ...(a?.combat?.perBucket.map((b) => b.kills) ?? [])));
+	const pct = (part: number, whole: number) =>
+		whole ? `${Math.round((part / whole) * 100)}%` : '—';
+	const kd = (k: number, d: number) => (d ? (k / d).toFixed(2) : k ? `${k}.00` : '—');
 
 	async function load() {
 		loading = true;
@@ -260,6 +278,127 @@
 			</table>
 		</div>
 	</div>
+
+	{#if a.combat}
+		<div class="mb-4 panel">
+			<div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+				<span class="label-sm mb-0">Combat</span>
+				<span class="text-[12px] text-mist-600"
+					>from the game's kill feed · kills per {a.bucketSeconds / 60} min bucket</span
+				>
+			</div>
+			<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+				{#each [['Kills', fmtNum(a.combat.kills)], ['Headshots', `${fmtNum(a.combat.headshots)} · ${pct(a.combat.headshots, a.combat.kills)}`], ['Team kills', fmtNum(a.combat.teamKills)], ['Suicides', fmtNum(a.combat.suicides)], ['By vehicle', fmtNum(a.combat.vehicleKills)]] as [label, value] (label)}
+					<div class="rounded-ctl border border-black bg-ink-950 px-3.5 py-3">
+						<div class="caps text-mist-400">{label}</div>
+						<div class="mt-1 font-display text-2xl font-semibold tabular">{value}</div>
+					</div>
+				{/each}
+			</div>
+			{#if a.combat.perBucket.length}
+				<div class="flex h-28 items-end gap-[2px]" role="img" aria-label="Kills per bucket">
+					{#each a.combat.perBucket as b (b.ts)}
+						<div
+							class="min-w-[2px] flex-1 bg-accent/80"
+							style="height:{Math.max(2, (b.kills / maxBucketKills) * 100)}px"
+							title="{fmtTime(b.ts)} · {b.kills} kill{b.kills === 1 ? '' : 's'}"
+						></div>
+					{/each}
+				</div>
+			{:else}
+				<div class="text-mist-600">No kills in this range yet.</div>
+			{/if}
+		</div>
+
+		<div class="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+			<div class="panel">
+				<span class="label-sm">Weapons and vehicles</span>
+				{#each a.combat.causes as c (c.cause)}
+					<div class="mb-2.5">
+						<div class="mb-1 flex justify-between text-[13px]">
+							<span
+								>{causeLabel(c.cause)}
+								<span class="text-mist-600">· {pct(c.headshots, c.kills)} headshots</span></span
+							><span class="font-mono text-mist-400 tabular">{fmtNum(c.kills)}</span>
+						</div>
+						<div class="progress">
+							<span class="progress-bar" style="width:{(c.kills / maxCauseKills) * 100}%"></span>
+						</div>
+					</div>
+				{:else}
+					<div class="text-mist-600">No data yet.</div>
+				{/each}
+			</div>
+			<div class="panel">
+				<span class="label-sm">Longest kills</span>
+				<div class="table-wrap">
+					<table>
+						<thead
+							><tr
+								><th>When</th><th>Killer</th><th>Victim</th><th>Cause</th><th class="num"
+									>Distance</th
+								></tr
+							></thead
+						>
+						<tbody>
+							{#each a.combat.longest as l (l.ts + l.killer + l.victim)}
+								<tr>
+									<td class="whitespace-nowrap text-mist-400">{fmtTime(l.ts)}</td>
+									<td>{l.killer}</td><td>{l.victim}</td>
+									<td>{causeLabel(l.cause) || '—'}</td>
+									<td class="num">{fmtNum(l.distanceM)} m</td>
+								</tr>
+							{:else}
+								<tr><td colspan="5" class="py-6 text-center text-mist-600">No data yet.</td></tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+
+		<div class="mb-4 panel">
+			<span class="label-sm">Top killers</span>
+			<div class="table-wrap">
+				<table>
+					<thead>
+						<tr>
+							<SortHeader sort={combatSort} key="player">Player</SortHeader>
+							<SortHeader sort={combatSort} key="kills" num>K</SortHeader>
+							<SortHeader sort={combatSort} key="deaths" num>D</SortHeader>
+							<th class="num">K/D</th>
+							<SortHeader sort={combatSort} key="headshots" num>Headshots</SortHeader>
+							<SortHeader sort={combatSort} key="teamKills" num>Team kills</SortHeader>
+							<SortHeader sort={combatSort} key="distance" num>Avg distance</SortHeader>
+						</tr>
+					</thead>
+					<tbody>
+						{#each combatPlayers as p (p.steamId)}
+							<tr class={p.teamKills >= 3 ? 'text-warn' : ''}>
+								<td
+									><a
+										href="/server/{encodeURIComponent(id)}/players/{p.steamId}"
+										class="hover:text-accent hover:underline">{p.name}</a
+									>
+									<span class="font-mono text-[12px] text-mist-600">{p.steamId}</span></td
+								>
+								<td class="num">{fmtNum(p.kills)}</td><td class="num">{fmtNum(p.deaths)}</td>
+								<td class="num">{kd(p.kills, p.deaths)}</td>
+								<td class="num">{p.headshots} · {pct(p.headshots, p.kills)}</td>
+								<td class="num">{p.teamKills}</td>
+								<td class="num">{p.avgDistanceM === null ? '—' : `${p.avgDistanceM} m`}</td>
+							</tr>
+						{:else}
+							<tr
+								><td colspan="7" class="py-6 text-center text-mist-600">No kills in this range.</td
+								></tr
+							>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	{/if}
 
 	<div class="panel">
 		<span class="label-sm">Matches</span>

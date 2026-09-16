@@ -7,7 +7,7 @@
 // over covered time, and session minutes come straight from joined_at and left_at.
 import { and, count, desc, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
-import { matches, playerSessions } from './db/schema';
+import { matches, playerSessions, servers } from './db/schema';
 import { settings } from './settings';
 
 import { MAX_COVER_S } from './rollups';
@@ -67,6 +67,40 @@ export interface MatchRow {
 	finalScores: { name: string; score: number }[] | null;
 	winner: string | null;
 }
+export interface CombatCause {
+	cause: string;
+	kills: number;
+	headshots: number;
+}
+export interface CombatPlayer {
+	steamId: string;
+	name: string;
+	kills: number;
+	deaths: number;
+	headshots: number;
+	teamKills: number;
+	avgDistanceM: number | null;
+}
+export interface LongestKill {
+	ts: string;
+	killer: string;
+	victim: string;
+	cause: string | null;
+	distanceM: number;
+}
+/** From the kill feed (kills table), for the range; null when this server has no feed set up and no kills. */
+export interface Combat {
+	kills: number;
+	headshots: number;
+	teamKills: number;
+	suicides: number;
+	vehicleKills: number;
+	/** kills per bucket, same buckets as `population` */
+	perBucket: { ts: string; kills: number }[];
+	causes: CombatCause[];
+	players: CombatPlayer[];
+	longest: LongestKill[];
+}
 export interface Analytics {
 	range: Range;
 	from: string;
@@ -91,6 +125,7 @@ export interface Analytics {
 	players: TopPlayer[];
 	matches: MatchRow[];
 	hourly: { hour: number; avg: number }[];
+	combat: Combat | null;
 }
 
 const num = (v: unknown): number => (v === null || v === undefined ? 0 : Number(v));
@@ -261,6 +296,8 @@ export async function loadAnalytics(env: Env, serverId: string, range: Range): P
 				  FROM s WHERE ok GROUP BY hour ORDER BY hour`)
 	).map((r) => ({ hour: num(r.hour), avg: num(r.avg) }));
 
+	const combat = await loadCombat(env, serverId, from, bucket);
+
 	const up = num(totals?.up);
 	const down = num(totals?.down);
 	return {
@@ -294,7 +331,97 @@ export async function loadAnalytics(env: Env, serverId: string, range: Range): P
 			finalScores: (r.finalScores as { name: string; score: number }[] | null) ?? null,
 			winner: r.winner
 		})),
-		hourly
+		hourly,
+		combat
+	};
+}
+
+async function loadCombat(
+	env: Env,
+	serverId: string,
+	from: Date,
+	bucket: number
+): Promise<Combat | null> {
+	const db = env.db;
+	const [feed] = await db
+		.select({ configured: sql<boolean>`feed_token_hash IS NOT NULL` })
+		.from(servers)
+		.where(eq(servers.id, serverId));
+	const [totals] = await db.execute<{
+		kills: string;
+		headshots: string;
+		teamKills: string;
+		suicides: string;
+		vehicleKills: string;
+	}>(sql`
+		SELECT COUNT(*) AS kills, COUNT(*) FILTER (WHERE headshot) AS headshots,
+		       COUNT(*) FILTER (WHERE team_kill) AS "teamKills", COUNT(*) FILTER (WHERE suicide) AS suicides,
+		       COUNT(*) FILTER (WHERE cause LIKE 'Vehicle.%' OR cause LIKE 'Id.Vehicle.%') AS "vehicleKills"
+		  FROM kills WHERE server_id = ${serverId} AND ts >= ${from}`);
+	if (!feed?.configured && !num(totals?.kills)) return null;
+	const [perBucket, causes, players, longest] = await Promise.all([
+		db.execute<{ b: Date; kills: string }>(sql`
+			SELECT to_timestamp(floor(extract(epoch FROM ts) / ${bucket}) * ${bucket}) AS b, COUNT(*) AS kills
+			  FROM kills WHERE server_id = ${serverId} AND ts >= ${from} GROUP BY b ORDER BY b`),
+		db.execute<{ cause: string; kills: string; headshots: string }>(sql`
+			SELECT cause, COUNT(*) AS kills, COUNT(*) FILTER (WHERE headshot) AS headshots
+			  FROM kills WHERE server_id = ${serverId} AND ts >= ${from} AND cause IS NOT NULL AND NOT suicide
+			 GROUP BY cause ORDER BY kills DESC LIMIT 12`),
+		db.execute<{
+			steamId: string;
+			name: string;
+			kills: string;
+			deaths: string;
+			headshots: string;
+			teamKills: string;
+			avg: string | null;
+		}>(sql`
+			WITH k AS (
+				SELECT killer_steam_id AS steam_id, MAX(killer_name) AS name, COUNT(*) AS kills,
+				       COUNT(*) FILTER (WHERE headshot) AS headshots, COUNT(*) FILTER (WHERE team_kill) AS team_kills,
+				       AVG(distance_m) AS avg
+				  FROM kills WHERE server_id = ${serverId} AND ts >= ${from} AND killer_steam_id IS NOT NULL AND NOT suicide
+				 GROUP BY killer_steam_id),
+			d AS (
+				SELECT victim_steam_id AS steam_id, COUNT(*) AS deaths
+				  FROM kills WHERE server_id = ${serverId} AND ts >= ${from} GROUP BY victim_steam_id)
+			SELECT k.steam_id AS "steamId", k.name, k.kills, COALESCE(d.deaths, 0) AS deaths, k.headshots,
+			       k.team_kills AS "teamKills", k.avg
+			  FROM k LEFT JOIN d ON d.steam_id = k.steam_id ORDER BY k.kills DESC LIMIT 25`),
+		db.execute<{ ts: Date; killer: string; victim: string; cause: string | null; d: number }>(sql`
+			SELECT ts, killer_name AS killer, victim_name AS victim, cause, distance_m AS d
+			  FROM kills WHERE server_id = ${serverId} AND ts >= ${from} AND distance_m IS NOT NULL
+			   AND NOT suicide AND NOT team_kill
+			 ORDER BY distance_m DESC LIMIT 5`)
+	]);
+	return {
+		kills: num(totals?.kills),
+		headshots: num(totals?.headshots),
+		teamKills: num(totals?.teamKills),
+		suicides: num(totals?.suicides),
+		vehicleKills: num(totals?.vehicleKills),
+		perBucket: perBucket.map((r) => ({ ts: isoOf(r.b), kills: num(r.kills) })),
+		causes: causes.map((r) => ({
+			cause: r.cause,
+			kills: num(r.kills),
+			headshots: num(r.headshots)
+		})),
+		players: players.map((r) => ({
+			steamId: r.steamId,
+			name: r.name,
+			kills: num(r.kills),
+			deaths: num(r.deaths),
+			headshots: num(r.headshots),
+			teamKills: num(r.teamKills),
+			avgDistanceM: r.avg === null ? null : Math.round(num(r.avg))
+		})),
+		longest: longest.map((r) => ({
+			ts: isoOf(r.ts),
+			killer: r.killer,
+			victim: r.victim,
+			cause: r.cause,
+			distanceM: Math.round(num(r.d))
+		}))
 	};
 }
 
