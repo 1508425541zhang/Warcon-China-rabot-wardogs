@@ -377,6 +377,22 @@ export interface DossierSession {
 	cash: number;
 }
 
+export interface PlayerCombat {
+	kills: number;
+	deaths: number;
+	headshots: number;
+	teamKills: number;
+	/** times this player was team-killed */
+	teamKilled: number;
+	suicides: number;
+	avgDistanceM: number | null;
+	longestM: number | null;
+	causes: { cause: string; kills: number }[];
+	victims: { steamId: string; name: string; kills: number }[];
+	nemeses: { steamId: string; name: string; deaths: number }[];
+	/** the last kills and deaths involving the player, newest first */
+	recent: (KillView & { serverId: string; serverName: string })[];
+}
 export interface DossierView {
 	steamId: string;
 	name: string;
@@ -399,6 +415,8 @@ export interface DossierView {
 		firstSeen: string | null;
 		lastSeen: string | null;
 	};
+	/** from the kill feed, across the org's servers the viewer can see; null when none has one */
+	combat: PlayerCombat | null;
 	perServer: {
 		serverId: string;
 		serverName: string;

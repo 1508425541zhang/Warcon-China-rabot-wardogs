@@ -1,6 +1,6 @@
 // Player intelligence: the dossier (history across an org's servers, Steam data, risk, notes,
 // watchlist) and the marks the players table shows next to each connected player.
-import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { ApiError, str } from './http';
 import { queryAudit, writeAudit } from './audit';
@@ -14,10 +14,11 @@ import {
 	type SessionUser
 } from './access';
 import { orgListMembership } from './lists';
-import { playerMarks, playerNotes, playerSessions, serverBans, servers } from './db/schema';
+import { kills, playerMarks, playerNotes, playerSessions, serverBans, servers } from './db/schema';
 import { getProfiles, isSteamId, steamEnabled, type SteamProfileRow } from './steam';
 import { accountAgeDays, assessRisk, namesResemble, type Risk } from './risk';
-import type { DossierView, PlayerMark, PlayerNoteView, SteamView } from '$lib/types';
+import type { DossierView, PlayerCombat, PlayerMark, PlayerNoteView, SteamView } from '$lib/types';
+import { killView } from './feed';
 
 export { requireSteamId } from './steam';
 
@@ -256,7 +257,7 @@ export async function dossier(
 	const online = recent.find((s) => s.leftAt === null) ?? null;
 	const name = names[0]?.name || steamId;
 
-	const [profiles, local, [mark], noteRows, actions, org, listsRole, allOrgServers] =
+	const [profiles, local, [mark], noteRows, actions, org, listsRole, allOrgServers, combat] =
 		await Promise.all([
 			getProfiles(env, [steamId], { refresh: !!opts.refreshSteam }),
 			localSignals(env, server.orgId, ids, null, [{ steamId, name }]),
@@ -281,7 +282,8 @@ export async function dossier(
 			),
 			getOrg(env, server.orgId),
 			listsRoleFor(env, user, server.orgId),
-			orgServers(env, server.orgId)
+			orgServers(env, server.orgId),
+			playerCombat(env, ids, nameOf, steamId)
 		]);
 	const l = local.get(steamId);
 	const admin = access.caps.has('players.notes.manage');
@@ -312,6 +314,7 @@ export async function dossier(
 			reason: b.reason,
 			bannedBy: b.bannedBy
 		})),
+		combat,
 		summary: {
 			sessions: num(summary?.sessions),
 			minutes: Math.round(num(summary?.minutes)),
@@ -488,3 +491,82 @@ export async function setWatch(
 
 /** Players whose sessions on this org's servers the caller may not see are simply absent: nothing to guard. */
 export const _internal = { bansOn, lastNames, ne, isNull };
+
+/** The player's kill-feed record across these servers, or null when none of them has a feed. */
+async function playerCombat(
+	env: Env,
+	serverIds: string[],
+	nameOf: Map<string, string>,
+	steamId: string
+): Promise<PlayerCombat | null> {
+	if (!serverIds.length) return null;
+	const db = env.db;
+	const [feed] = await db
+		.select({ n: sql<number>`COUNT(*)` })
+		.from(servers)
+		.where(and(inArray(servers.id, serverIds), sql`${servers.feedTokenHash} IS NOT NULL`));
+	const [t] = await db.execute<{
+		kills: string;
+		deaths: string;
+		headshots: string;
+		teamKills: string;
+		teamKilled: string;
+		suicides: string;
+		avg: string | null;
+		longest: string | null;
+	}>(sql`
+		SELECT COUNT(*) FILTER (WHERE killer_steam_id = ${steamId} AND NOT suicide) AS kills,
+		       COUNT(*) FILTER (WHERE victim_steam_id = ${steamId}) AS deaths,
+		       COUNT(*) FILTER (WHERE killer_steam_id = ${steamId} AND headshot AND NOT suicide) AS headshots,
+		       COUNT(*) FILTER (WHERE killer_steam_id = ${steamId} AND team_kill) AS "teamKills",
+		       COUNT(*) FILTER (WHERE victim_steam_id = ${steamId} AND team_kill) AS "teamKilled",
+		       COUNT(*) FILTER (WHERE victim_steam_id = ${steamId} AND suicide) AS suicides,
+		       AVG(distance_m) FILTER (WHERE killer_steam_id = ${steamId} AND NOT suicide) AS avg,
+		       MAX(distance_m) FILTER (WHERE killer_steam_id = ${steamId} AND NOT suicide) AS longest
+		  FROM kills WHERE server_id IN ${serverIds}
+		   AND (killer_steam_id = ${steamId} OR victim_steam_id = ${steamId})`);
+	if (!num(feed?.n) && !num(t?.kills) && !num(t?.deaths)) return null;
+	const [causes, victims, nemeses, recent] = await Promise.all([
+		db.execute<{ cause: string; kills: string }>(sql`
+			SELECT cause, COUNT(*) AS kills FROM kills
+			 WHERE server_id IN ${serverIds} AND killer_steam_id = ${steamId} AND NOT suicide AND cause IS NOT NULL
+			 GROUP BY cause ORDER BY kills DESC LIMIT 8`),
+		db.execute<{ steamId: string; name: string; kills: string }>(sql`
+			SELECT victim_steam_id AS "steamId", MAX(victim_name) AS name, COUNT(*) AS kills FROM kills
+			 WHERE server_id IN ${serverIds} AND killer_steam_id = ${steamId} AND NOT suicide
+			 GROUP BY victim_steam_id ORDER BY kills DESC LIMIT 5`),
+		db.execute<{ steamId: string; name: string; deaths: string }>(sql`
+			SELECT killer_steam_id AS "steamId", MAX(killer_name) AS name, COUNT(*) AS deaths FROM kills
+			 WHERE server_id IN ${serverIds} AND victim_steam_id = ${steamId} AND killer_steam_id IS NOT NULL AND NOT suicide
+			 GROUP BY killer_steam_id ORDER BY deaths DESC LIMIT 5`),
+		db
+			.select()
+			.from(kills)
+			.where(
+				and(
+					inArray(kills.serverId, serverIds),
+					or(eq(kills.killerSteamId, steamId), eq(kills.victimSteamId, steamId))
+				)
+			)
+			.orderBy(desc(kills.ts))
+			.limit(25)
+	]);
+	return {
+		kills: num(t?.kills),
+		deaths: num(t?.deaths),
+		headshots: num(t?.headshots),
+		teamKills: num(t?.teamKills),
+		teamKilled: num(t?.teamKilled),
+		suicides: num(t?.suicides),
+		avgDistanceM: t?.avg === null || t?.avg === undefined ? null : Math.round(num(t.avg)),
+		longestM: t?.longest === null || t?.longest === undefined ? null : Math.round(num(t.longest)),
+		causes: causes.map((r) => ({ cause: r.cause, kills: num(r.kills) })),
+		victims: victims.map((r) => ({ steamId: r.steamId, name: r.name, kills: num(r.kills) })),
+		nemeses: nemeses.map((r) => ({ steamId: r.steamId, name: r.name, deaths: num(r.deaths) })),
+		recent: recent.map((r) => ({
+			...killView(r),
+			serverId: r.serverId,
+			serverName: nameOf.get(r.serverId) || r.serverId
+		}))
+	};
+}
