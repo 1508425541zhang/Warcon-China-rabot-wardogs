@@ -38,6 +38,8 @@ const PASSWORD_GATE_EXEMPT = /^\/(account|sign-out|join|api\/auth|api\/passkeys|
 // The only Better Auth routes a browser must reach: the OAuth callback and its error page.
 const AUTH_PUBLIC = /^\/api\/auth\/(callback\/[^/]+|error|ok)$/;
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+/** Where the game posts kill feed batches (src/routes/api/feed/events). */
+const FEED_PATH = '/api/feed/';
 
 /** Reads config, opens the database, applies migrations, builds Better Auth and starts the poller once per process. */
 export const init: ServerInit = async () => {
@@ -150,9 +152,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// CSRF guard for the JSON API: every mutation must carry the custom header (browsers never add
 	// it to cross-site form posts or simple requests). Better Auth checks origins for its own routes.
+	// The kill feed is the game process posting with its own bearer, which no browser form can
+	// attach; the route checks that token itself.
 	if (
 		path.startsWith('/api/') &&
 		!isAuthApi &&
+		!path.startsWith(FEED_PATH) &&
 		!event.locals.apiKey &&
 		!SAFE_METHODS.has(event.request.method)
 	) {

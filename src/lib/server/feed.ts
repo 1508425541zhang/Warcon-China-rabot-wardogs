@@ -1,0 +1,233 @@
+// The kill feed on the database side: each server's feed token, which batch belongs to which
+// server, and how a batch becomes rows in `kills`. Inbound data from the game process, so it runs
+// on the web role and writes Postgres directly; the worker's lane is for requests Warcon makes.
+import { and, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { createHash, randomBytes } from 'node:crypto';
+import type { Env } from './env';
+import { decryptSecret, encryptSecret } from './crypto';
+import { ApiError } from './http';
+import { writeAudit } from './audit';
+import { kills, matches, playerSessions, serverLive, servers, type ServerRow } from './db/schema';
+import type { SessionUser } from './access';
+import { FEED_TOKEN_PREFIX, isTeamKill, parseBatch, type ParsedKill } from './feed-core';
+
+const hashToken = (token: string): string =>
+	createHash('sha256').update(token, 'utf8').digest('hex');
+
+/** Where the game should post: the panel's origin plus the route. */
+export const feedUrl = (env: Pick<Env, 'ORIGIN'>): string => `${env.ORIGIN}/api/feed/events`;
+
+export interface FeedSetup {
+	configured: boolean;
+	url: string;
+	/** the token, for org owners only; '' otherwise */
+	token: string;
+	feedAt: string | null;
+}
+
+export async function feedSetup(env: Env, server: ServerRow, reveal: boolean): Promise<FeedSetup> {
+	const [live] = await env.db
+		.select({ feedAt: serverLive.feedAt })
+		.from(serverLive)
+		.where(eq(serverLive.serverId, server.id));
+	return {
+		configured: !!server.feedTokenHash,
+		url: feedUrl(env),
+		token: reveal && server.feedTokenEnc ? decryptSecret(env, server.feedTokenEnc) : '',
+		feedAt: live?.feedAt ? live.feedAt.toISOString() : null
+	};
+}
+
+/** A new token for the server (replacing any it had), audited. */
+export async function mintFeedToken(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	server: ServerRow
+): Promise<string> {
+	const token = FEED_TOKEN_PREFIX + randomBytes(32).toString('base64url');
+	await env.db
+		.update(servers)
+		.set({ feedTokenEnc: encryptSecret(env, token), feedTokenHash: hashToken(token) })
+		.where(eq(servers.id, server.id));
+	tokenCache.clear();
+	await writeAudit(env, req, {
+		actor,
+		server: { id: server.id, name: server.name },
+		orgId: server.orgId,
+		category: 'server',
+		action: server.feedTokenHash ? 'feed.rotate' : 'feed.enable',
+		outcome: 'ok'
+	});
+	return token;
+}
+
+export async function removeFeedToken(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	server: ServerRow
+): Promise<void> {
+	if (!server.feedTokenHash) throw new ApiError(400, 'This server has no kill feed token.');
+	await env.db
+		.update(servers)
+		.set({ feedTokenEnc: null, feedTokenHash: null })
+		.where(eq(servers.id, server.id));
+	tokenCache.clear();
+	await writeAudit(env, req, {
+		actor,
+		server: { id: server.id, name: server.name },
+		orgId: server.orgId,
+		category: 'server',
+		action: 'feed.disable',
+		outcome: 'ok'
+	});
+}
+
+// A busy fleet posts many times a second; the token is looked up once a minute per process.
+const TOKEN_TTL_MS = 60_000;
+const tokenCache = new Map<string, { serverId: string; until: number }>();
+
+/** The server a feed bearer belongs to, or null. */
+export async function resolveFeedToken(env: Env, token: string): Promise<string | null> {
+	const hash = hashToken(token);
+	const hit = tokenCache.get(hash);
+	if (hit && hit.until > Date.now()) return hit.serverId;
+	const [row] = await env.db
+		.select({ id: servers.id })
+		.from(servers)
+		.where(eq(servers.feedTokenHash, hash));
+	if (!row) return null;
+	tokenCache.set(hash, { serverId: row.id, until: Date.now() + TOKEN_TTL_MS });
+	return row.id;
+}
+
+/** Test-only. */
+export const forgetFeedTokens = (): void => tokenCache.clear();
+
+const FEED_AT_EVERY_MS = 10_000;
+const feedAtWritten = new Map<string, number>();
+
+/** Dedupe looks only this far back: retries come seconds later, and chunk exclusion keeps it cheap. */
+const DEDUPE_WINDOW_MS = 24 * 3600_000;
+
+export interface IngestResult {
+	accepted: number;
+	skipped: number;
+	duplicates: number;
+}
+
+/**
+ * Writes one batch: parse, drop what is already stored, add the open match and both factions
+ * from the sessions the worker keeps, insert. `now` is the receipt time.
+ */
+export async function ingestBatch(
+	env: Env,
+	serverId: string,
+	body: unknown,
+	now = new Date()
+): Promise<IngestResult> {
+	let batch;
+	try {
+		batch = parseBatch(body);
+	} catch (err) {
+		throw new ApiError(400, err instanceof Error ? err.message : 'Malformed batch.');
+	}
+	const db = env.db;
+	let fresh: ParsedKill[] = batch.kills;
+	let duplicates = 0;
+	if (fresh.length) {
+		const ids = [...new Set(fresh.map((k) => k.eventId))];
+		const seen = new Set(
+			(
+				await db
+					.select({ eventId: kills.eventId })
+					.from(kills)
+					.where(
+						and(
+							eq(kills.serverId, serverId),
+							inArray(kills.eventId, ids),
+							gt(kills.ts, new Date(now.getTime() - DEDUPE_WINDOW_MS))
+						)
+					)
+			).map((r) => r.eventId)
+		);
+		const once = new Set<string>();
+		fresh = fresh.filter((k) => {
+			if (seen.has(k.eventId) || once.has(k.eventId)) return false;
+			once.add(k.eventId);
+			return true;
+		});
+		duplicates = batch.kills.length - fresh.length;
+	}
+	if (fresh.length) {
+		const steamIds = [
+			...new Set(
+				fresh.flatMap((k) =>
+					k.killerSteamId ? [k.killerSteamId, k.victimSteamId] : [k.victimSteamId]
+				)
+			)
+		];
+		const [open, [match]] = await Promise.all([
+			db
+				.select({ steamId: playerSessions.steamId, faction: playerSessions.faction })
+				.from(playerSessions)
+				.where(
+					and(
+						eq(playerSessions.serverId, serverId),
+						isNull(playerSessions.leftAt),
+						inArray(playerSessions.steamId, steamIds)
+					)
+				)
+				.orderBy(playerSessions.id),
+			db
+				.select({ id: matches.id })
+				.from(matches)
+				.where(and(eq(matches.serverId, serverId), isNull(matches.endedAt)))
+				.orderBy(sql`${matches.id} DESC`)
+				.limit(1)
+		]);
+		// Newest open session wins when a player somehow has two.
+		const faction = new Map<string, string | null>();
+		for (const s of open) faction.set(s.steamId, s.faction);
+		await db.insert(kills).values(
+			fresh.map((k) => {
+				const kf = k.killerSteamId ? (faction.get(k.killerSteamId) ?? null) : null;
+				const vf = faction.get(k.victimSteamId) ?? null;
+				return {
+					ts: now,
+					serverId,
+					eventId: k.eventId,
+					instanceId: batch.instanceId,
+					matchId: k.matchId,
+					matchRow: match?.id ?? null,
+					eventTime: k.eventTime,
+					map: k.map,
+					killerSteamId: k.killerSteamId,
+					killerName: k.killerName,
+					killerFaction: kf,
+					victimSteamId: k.victimSteamId,
+					victimName: k.victimName,
+					victimFaction: vf,
+					cause: k.cause,
+					distanceM: k.distanceM,
+					headshot: k.headshot,
+					suicide: k.suicide,
+					teamKill: isTeamKill(k, kf, vf),
+					tags: k.tags
+				};
+			})
+		);
+	}
+	// The liveness stamp, at most every ten seconds per server: the worker's upsert of the row
+	// leaves this column alone, so the two never fight.
+	const last = feedAtWritten.get(serverId) ?? 0;
+	if (now.getTime() - last >= FEED_AT_EVERY_MS) {
+		feedAtWritten.set(serverId, now.getTime());
+		await db
+			.insert(serverLive)
+			.values({ serverId, feedAt: now })
+			.onConflictDoUpdate({ target: serverLive.serverId, set: { feedAt: now } });
+	}
+	return { accepted: fresh.length, skipped: batch.skipped, duplicates };
+}
