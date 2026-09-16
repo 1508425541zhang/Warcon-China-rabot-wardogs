@@ -1,7 +1,7 @@
 // The kill feed on the database side: each server's feed token, which batch belongs to which
 // server, and how a batch becomes rows in `kills`. Inbound data from the game process, so it runs
 // on the web role and writes Postgres directly; the worker's lane is for requests Warcon makes.
-import { and, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Env } from './env';
 import { decryptSecret, encryptSecret } from './crypto';
@@ -265,4 +265,24 @@ export async function ingestBatch(
 			.onConflictDoUpdate({ target: serverLive.serverId, set: { feedAt: now } });
 	}
 	return { accepted: fresh.length, skipped: batch.skipped, duplicates, kills: written };
+}
+
+/** The newest `limit` kills on a server, older than `before` when given; newest first. */
+export async function recentKills(
+	env: Env,
+	serverId: string,
+	before: Date | null,
+	limit: number
+): Promise<KillView[]> {
+	const rows = await env.db
+		.select()
+		.from(kills)
+		.where(
+			before
+				? and(eq(kills.serverId, serverId), lt(kills.ts, before))
+				: eq(kills.serverId, serverId)
+		)
+		.orderBy(desc(kills.ts), desc(kills.eventTime))
+		.limit(limit);
+	return rows.map(killView);
 }
