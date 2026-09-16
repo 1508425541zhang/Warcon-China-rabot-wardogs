@@ -364,6 +364,7 @@ rule that fired, and can be mirrored to Discord.
 | Scheduled broadcast    | Rotates through a list of messages every N minutes while at least M players are on.                                                                                                                                   |
 | Empty-server map reset | After the server has been empty for N minutes on a different map or mode, sets the chosen map as next and ends the match (or requests it directly when there is no rotation).                                         |
 | Kick on connect risk   | Kicks joiners who match rules: VAC ban, game ban, Steam account younger than N days (optionally private profiles too), banned on another server in the org, or on the watchlist. Reserved-slot players can be spared. |
+| Team kill limit        | Whispers a player from N team kills in their current session, and kicks them at M. Needs the [kill feed](#kill-feed); acted on as each kill arrives, not per poll.                                                    |
 
 **Dry run** replays the last 24 hours of the server's own history (joins, player counts, empty
 stretches, cached Steam data) against a rule and lists what it would have done, so you can tune a
@@ -372,6 +373,29 @@ after someone connects, or after they pick a faction when the rule is set to wai
 choose a side after joining, so a whisper on join can land while they are still in the menu); the
 first poll after a restart or an outage never fires join rules, since everyone present looks like a
 joiner then.
+
+### Kill feed
+
+WARDOGS can push every kill to an HTTP endpoint: with `[WDServerFeed] Url` and `Token` set in
+`ServerSettings.ini`, the game process POSTs each kill (killer, victim, weapon or vehicle,
+distance, headshot and other context) a second or two after it happens. Warcon is that endpoint.
+On the server's **Configuration** tab an org owner turns the feed on, which mints a token, then
+**Write to config document** sets both keys and applies; the game reads them at its next restart
+(its own twelve-hour one, or a manual restart). The card shows when the last batch arrived, so a
+config that did not take is visible.
+
+What the feed adds: a live kill feed on the server's Overview tab, a **Combat** section on
+Analytics (kills per bucket, weapons, longest kills, top killers with headshot share and team
+kills), a Combat card on every player dossier (weapons, most-killed, nemeses, recent kills and
+deaths), and the team-kill trigger. Team kills are inferred: the feed carries no factions, so
+Warcon uses the factions it observed for both players at that moment. Kills are history and are
+never pruned (a TimescaleDB hypertable with compression where the extension is installed). The
+demo server feeds itself once its feed is turned on.
+
+The feed identifies its server by the token alone (the body's `serverId` changes with every
+reboot), so each server has its own. The token is stored encrypted, like the RCON password, and
+shown to org owners only. `POST /api/feed/events` is the one `/api` route that takes neither a
+session nor an API key, and it is exempt from the CSRF header for the same reason a bearer is.
 
 ### Discord webhooks
 
@@ -550,6 +574,9 @@ src/lib/server/rcon.ts         WardogsClient (Bearer auth, JSON/text calls, demo
 src/lib/server/transport.ts    fetch to the game server
 src/lib/server/poller.ts       the worker's scheduler: tiers, phases, concurrency budget, roster, housekeeping, stats
 src/lib/server/poller-schedule.ts  the scheduler's maths (phase per server, next due, budget) — pure
+src/lib/server/feed-core.ts    the kill feed's batch format and parsing — pure
+src/lib/server/feed.ts         feed tokens, batch ingest into `kills` (open match and factions attached), the stored feed
+src/lib/server/feed-events.ts  what the worker does with a batch: publish to browsers, run the team-kill rules, the demo's own feed
 src/lib/server/observe.ts      one observation: status/players, session diff, trigger evaluation, one fenced transaction, live snapshot, samples
 src/lib/server/sessions.ts     player presence in memory, batched session writes (join, leave, heartbeat)
 src/lib/server/outbox.ts       trigger delivery loop: claim with a lease, send through the lane, record the outcome
@@ -595,7 +622,10 @@ GET/POST /api/users  PATCH/DELETE /api/users/:id  PUT /api/users/:id/grants {gra
 GET/POST /api/servers {orgId,...}  PATCH/DELETE /api/servers/:id  POST /api/servers/:id/test
 GET/PUT /api/servers/:id/grants {grants:[{userId,roleId}]}   GET /api/servers/:id/summary
 GET|POST /api/servers/:id/rcon/:action   (GET for reads with query params, POST JSON for mutations)
-GET  /api/servers/:id/analytics?range=24h|7d|30d
+GET  /api/servers/:id/analytics?range=24h|7d|30d       includes `combat` from the kill feed when the server has one
+GET  /api/servers/:id/kills?before=<iso>&limit=50       the stored kill feed, newest first; `kills` frames on /api/live/events carry new ones
+GET/POST/DELETE /api/servers/:id/feed                   the kill feed setup: token and URL (POST mints or replaces, owners only)
+POST /api/feed/events                                   where the game posts (Authorization: Bearer wkf_…); not a panel route
 GET  /api/servers/:id/cash?since=<iso>                  cash-in-play samples since a moment (24 h at most), seeds the dashboard chart
 GET  /api/servers/:id/players/marks?ids=a,b&names=…     watchlist / first-visit / risk per connected player
 GET  /api/servers/:id/players/:steamId                  dossier   POST .../steam (refresh Steam data)
@@ -632,7 +662,7 @@ slots) · `rotationSave` (Save rotation) · `settings configValidate configApply
   one process observe, and a second worker takes over within seconds if the first stops renewing.
   Run `WARCON_ROLE=all` as a single replica only: two `all` processes would each keep their own
   live view and lanes, and browsers on the one that does not hold the lease would see nothing live.
-- The game has no push API. Freshness is the observation cadence, which the owner sets; the
+- Apart from the kill feed, the game has no push API. Freshness is the observation cadence, which the owner sets; the
   defaults (1 s players / 2 s status while watched, 2 s / 5 s while busy) are lighter on the game
   than the old per-browser polling was.
 - Password hashing is Better Auth's default scrypt, which runs natively via `node:crypto` on Bun.
