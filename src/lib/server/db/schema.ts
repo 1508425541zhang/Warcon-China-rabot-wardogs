@@ -2,6 +2,7 @@
 // (bun run db:generate); the app applies them at startup. Keep it free of SvelteKit imports.
 import { sql } from 'drizzle-orm';
 import {
+	bigint,
 	bigserial,
 	boolean,
 	customType,
@@ -309,6 +310,13 @@ export const servers = pgTable('servers', {
 	sortOrder: integer('sort_order').notNull().default(0),
 	/** Set when the site owner saved the target: private addresses (same box, LAN) are permitted. */
 	allowPrivate: boolean('allow_private').notNull().default(false),
+	/**
+	 * The kill feed token the game sends as its bearer (`[WDServerFeed] Token`), AES-GCM like the
+	 * password so it can be shown again and written into the config document; null = no feed.
+	 */
+	feedTokenEnc: text('feed_token_enc'),
+	/** sha256 of the token: how a feed batch finds its server */
+	feedTokenHash: text('feed_token_hash').unique(),
 	createdBy: text('created_by'),
 	createdAt: ts('created_at').notNull().defaultNow(),
 	updatedAt: ts('updated_at').notNull().defaultNow()
@@ -448,6 +456,55 @@ export const matches = pgTable(
 	},
 	(t) => [index('matches_server_idx').on(t.serverId, t.startedAt)]
 );
+
+/**
+ * One row per kill the game's feed delivered (`[WDServerFeed]`, see docs/wardogs-api.md), with
+ * what Warcon knew at receipt: the open match and both players' factions. History: never pruned;
+ * a TimescaleDB hypertable with compression where the extension exists (migration 0019).
+ */
+export const kills = pgTable(
+	'kills',
+	{
+		/** when Warcon received it, a second or two after the kill */
+		ts: ts('ts').notNull(),
+		serverId: text('server_id').notNull(),
+		eventId: text('event_id').notNull(),
+		/** the game's serverId: a per-boot instance id, not the join code */
+		instanceId: text('instance_id').notNull(),
+		/** the game's matchId: also per boot, as observed */
+		matchId: text('match_id').notNull(),
+		/** matches.id open on this server at receipt */
+		matchRow: bigint('match_row', { mode: 'number' }),
+		/** seconds on the match clock */
+		eventTime: real('event_time').notNull(),
+		map: text('map').notNull(),
+		/** null: the environment */
+		killerSteamId: text('killer_steam_id'),
+		killerName: text('killer_name'),
+		killerFaction: text('killer_faction'),
+		victimSteamId: text('victim_steam_id').notNull(),
+		victimName: text('victim_name').notNull(),
+		victimFaction: text('victim_faction'),
+		/** the raw weapon or vehicle tag, e.g. Id.Item.AK74M */
+		cause: text('cause'),
+		distanceM: real('distance_m'),
+		headshot: boolean('headshot').notNull().default(false),
+		/** the Suicide tag, or killer = victim */
+		suicide: boolean('suicide').notNull().default(false),
+		/** both factions known and equal, killer ≠ victim */
+		teamKill: boolean('team_kill').notNull().default(false),
+		/** the other context tags, short form: Penetration, Ricochet, RoadKill, VehicleExplosion, Falling, WeaponMelee */
+		tags: jsonb('tags').notNull()
+	},
+	(t) => [
+		// Not unique: a hypertable's unique indexes must include ts, so dedupe is a lookup (feed.ts).
+		index('kills_event_idx').on(t.eventId),
+		index('kills_server_ts_idx').on(t.serverId, t.ts.desc()),
+		index('kills_killer_idx').on(t.killerSteamId, t.ts.desc()),
+		index('kills_victim_idx').on(t.victimSteamId, t.ts.desc())
+	]
+);
+export type KillRow = typeof kills.$inferSelect;
 
 // ---- Player intelligence: org-scoped notes and watchlist, cached Steam data, ban snapshots ------
 
@@ -734,6 +791,8 @@ export const serverLive = pgTable('server_live', {
 	playersAt: ts('players_at'),
 	/** last attempt, successful or not */
 	observedAt: ts('observed_at'),
+	/** when the last kill feed batch arrived (written by the web process that took it) */
+	feedAt: ts('feed_at'),
 	updatedAt: ts('updated_at').notNull().defaultNow()
 });
 
