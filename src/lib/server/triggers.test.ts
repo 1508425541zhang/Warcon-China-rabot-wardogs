@@ -5,6 +5,7 @@ import {
 	renderTemplate,
 	restartNoticeStage,
 	riskKickVerdict,
+	teamKillStage,
 	validateConfig,
 	welcomeTargets
 } from './trigger-rules';
@@ -255,5 +256,34 @@ describe('restartNoticeStage', () => {
 	test('no heads-up when leadMinutes is 0', () => {
 		expect(restartNoticeStage({ ...cfg, leadMinutes: 0 }, null, at(11.9))).toBeNull();
 		expect(restartNoticeStage({ ...cfg, leadMinutes: 0 }, null, at(12))!.stage).toBe('due');
+	});
+});
+
+describe('team_kill', () => {
+	test('validateConfig needs at least one threshold, in order, and fills the texts', () => {
+		expect(() => validateConfig('team_kill', {})).toThrow(/threshold/);
+		expect(() => validateConfig('team_kill', { warnAt: 3, kickAt: 2 })).toThrow(/below/);
+		expect(validateConfig('team_kill', { warnAt: 2, kickAt: 4 })).toEqual({
+			warnAt: 2,
+			warnMessage: 'Careful, {name}: that was a team kill ({count} this session).',
+			kickAt: 4,
+			kickReason: 'Team killing ({count} this session).'
+		});
+		expect(validateConfig('team_kill', { kickAt: 3, kickReason: 'Out.' })).toMatchObject({
+			warnAt: 0,
+			kickAt: 3,
+			kickReason: 'Out.'
+		});
+	});
+
+	test('teamKillStage: a whisper from warnAt on, a kick from kickAt on', () => {
+		const cfg = { warnAt: 2, kickAt: 4 };
+		expect(teamKillStage(cfg, 1)).toBeNull();
+		expect(teamKillStage(cfg, 2)).toBe('warn');
+		expect(teamKillStage(cfg, 3)).toBe('warn');
+		expect(teamKillStage(cfg, 4)).toBe('kick');
+		expect(teamKillStage(cfg, 9)).toBe('kick');
+		expect(teamKillStage({ warnAt: 0, kickAt: 3 }, 2)).toBeNull();
+		expect(teamKillStage({ warnAt: 1, kickAt: 0 }, 50)).toBe('warn');
 	});
 });

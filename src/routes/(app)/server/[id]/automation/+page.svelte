@@ -105,6 +105,12 @@
 			label: 'Restart notice',
 			blurb:
 				'Warn players before the game’s twelve-hour restart, and tell them once it will happen at the end of the round.'
+		},
+		{
+			kind: 'team_kill',
+			label: 'Team kill limit',
+			blurb:
+				'Whisper a player over team kills, and kick them past a limit. Needs the kill feed (Configuration tab).'
 		}
 	];
 	const label = (kind: TriggerKind) => KINDS.find((k) => k.kind === kind)?.label ?? kind;
@@ -133,6 +139,10 @@
 		leadMinutes: number;
 		leadMessage: string;
 		repeatMinutes: number;
+		warnAt: number;
+		warnMessage: string;
+		kickAt: number;
+		kickReason: string;
 	}
 	let form = $state<Form | null>(null);
 	let picker = $state<MapPicker>();
@@ -190,7 +200,14 @@
 				'leadMessage',
 				'Scheduled restart in about {minutes} minutes, at the end of the round then in progress.'
 			),
-			repeatMinutes: n('repeatMinutes', 0)
+			repeatMinutes: n('repeatMinutes', 0),
+			warnAt: n('warnAt', 2),
+			warnMessage: s(
+				'warnMessage',
+				'Careful, {name}: that was a team kill ({count} this session).'
+			),
+			kickAt: n('kickAt', 4),
+			kickReason: s('kickReason', 'Team killing ({count} this session).')
 		};
 		dry = null;
 		pendingSel =
@@ -244,6 +261,13 @@
 					leadMessage: f.leadMessage,
 					repeatMinutes: Number(f.repeatMinutes),
 					minPlayers: Number(f.minPlayers)
+				};
+			case 'team_kill':
+				return {
+					warnAt: Number(f.warnAt),
+					warnMessage: f.warnMessage,
+					kickAt: Number(f.kickAt),
+					kickReason: f.kickReason
 				};
 		}
 	}
@@ -322,6 +346,14 @@
 			}
 			case 'restart_notice':
 				return `"${c.message}"${c.leadMinutes ? ` · heads-up ${c.leadMinutes} min before` : ''}${c.repeatMinutes ? ` · again every ${c.repeatMinutes} min` : ''} · at least ${c.minPlayers} on`;
+			case 'team_kill':
+				return [
+					c.warnAt ? `whisper from ${c.warnAt} team kill${c.warnAt === 1 ? '' : 's'}` : '',
+					c.kickAt ? `kick at ${c.kickAt}` : ''
+				]
+					.filter(Boolean)
+					.join(' · ')
+					.concat(' · per session');
 		}
 	}
 </script>
@@ -623,6 +655,54 @@
 					<span class="chip">{'{uptime}'}</span> <span class="chip">{'{server}'}</span>
 					<span class="chip">{'{map}'}</span> <span class="chip">{'{players}'}</span>
 					<span class="chip">{'{max}'}</span>.
+				</p>
+			{:else if f.kind === 'team_kill'}
+				<div class="grid grid-cols-2 gap-3">
+					<label class="block"
+						><span class="field-label">Whisper from, team kills</span><input
+							class="input"
+							type="number"
+							min="0"
+							max="100"
+							bind:value={f.warnAt}
+						/></label
+					>
+					<label class="block"
+						><span class="field-label">Kick at, team kills</span><input
+							class="input"
+							type="number"
+							min="0"
+							max="100"
+							bind:value={f.kickAt}
+						/></label
+					>
+				</div>
+				<label class="block"
+					><span class="field-label">Whisper</span><input
+						class="input"
+						type="text"
+						bind:value={f.warnMessage}
+						maxlength="200"
+						disabled={!Number(f.warnAt)}
+					/></label
+				>
+				<label class="block"
+					><span class="field-label">Kick reason</span><input
+						class="input"
+						type="text"
+						bind:value={f.kickReason}
+						maxlength="200"
+						disabled={!Number(f.kickAt)}
+					/></label
+				>
+				<p class="note">
+					Team kills come from the game's kill feed (set up on the Configuration tab) and are
+					counted per player within their current session. The whisper goes on every team kill from
+					the first threshold on; 0 turns either action off. Placeholders: <span class="chip"
+						>{'{name}'}</span
+					>
+					<span class="chip">{'{victim}'}</span> <span class="chip">{'{count}'}</span>
+					<span class="chip">{'{server}'}</span> <span class="chip">{'{map}'}</span>.
 				</p>
 			{/if}
 
