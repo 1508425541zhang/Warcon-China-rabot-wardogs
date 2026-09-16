@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { rconGet, rconPost, errorMessage, ApiError } from '$lib/api';
+	import { api, rconGet, rconPost, errorMessage, ApiError } from '$lib/api';
 	import { can } from '$lib/capabilities';
 	import { toast } from '$lib/toast.svelte';
 	import { confirmDialog } from '$lib/confirm.svelte';
@@ -8,6 +8,7 @@
 	import { sponsor as banners, loadSponsor } from '$lib/sponsor.svelte';
 	import { setScalarInText } from '$lib/config-doc';
 	import { lockedKeys, S_SESSION } from '$lib/config-fields';
+	import { fmtTime } from '$lib/format';
 	import type { ConfigDoc, ConfigResult, Status } from '$lib/types';
 	import type { PageProps } from './$types';
 
@@ -34,6 +35,90 @@
 	let mode = $state<'form' | 'raw'>('form');
 
 	let readOnly = $derived(!admin || !doc || !doc.writable);
+
+	// The kill feed: the game posts every kill to Warcon once [WDServerFeed] Url and Token are set
+	// in its config. The token is the server's identity on that route; org owners mint and see it.
+	interface FeedSetup {
+		configured: boolean;
+		url: string;
+		token: string;
+		feedAt: string | null;
+	}
+	let feed = $state<FeedSetup | null>(null);
+	let feedBusy = $state(false);
+	let feedPath = $derived(`/api/servers/${encodeURIComponent(id)}/feed`);
+	async function loadFeed() {
+		try {
+			feed = await api<FeedSetup>('GET', feedPath);
+		} catch {
+			feed = null;
+		}
+	}
+	async function feedAction(fn: () => Promise<unknown>, done: string) {
+		feedBusy = true;
+		try {
+			await fn();
+			toast(done, 'ok');
+			await loadFeed();
+		} catch (err) {
+			toast(errorMessage(err), 'err');
+		} finally {
+			feedBusy = false;
+		}
+	}
+	const enableFeed = () =>
+		feedAction(
+			() => api('POST', feedPath),
+			'Kill feed token created. Write it to the config to start the feed.'
+		);
+	async function rotateFeed() {
+		if (
+			!(await confirmDialog(
+				'Replace the token? The game keeps posting with the old one until the config is rewritten and the server restarts, and those posts will be refused.',
+				{ okLabel: 'Replace', danger: true }
+			))
+		)
+			return;
+		await feedAction(() => api('POST', feedPath), 'Token replaced. Write it to the config again.');
+	}
+	async function disableFeed() {
+		if (
+			!(await confirmDialog(
+				'Turn the kill feed off? Kills already stored stay; the game’s posts will be refused until a new token is written to its config.',
+				{ okLabel: 'Turn off', danger: true }
+			))
+		)
+			return;
+		await feedAction(() => api('DELETE', feedPath), 'Kill feed turned off.');
+	}
+	async function writeFeedConfig() {
+		if (!feed?.token || !doc) return;
+		if (
+			dirty &&
+			!(await confirmDialog(
+				'You have other unapplied config edits. Apply them to the server together with the kill feed settings?'
+			))
+		)
+			return;
+		text = setScalarInText(text, 'WDServerFeed', 'Url', feed.url);
+		text = setScalarInText(text, 'WDServerFeed', 'Token', feed.token);
+		await runConfig('configApply');
+	}
+	async function copyFeed(value: string, what: string) {
+		try {
+			await navigator.clipboard.writeText(value);
+			toast(`${what} copied.`, 'ok');
+		} catch {
+			window.prompt(`Copy the ${what.toLowerCase()}:`, value);
+		}
+	}
+	const feedAge = (iso: string) => {
+		const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
+		return s < 90 ? `${s}s ago` : s < 5400 ? `${Math.round(s / 60)} min ago` : fmtTime(iso);
+	};
+	$effect(() => {
+		void loadFeed();
+	});
 	let pinned = $derived(doc ? lockedKeys(doc.sections) : []);
 	let dirty = $derived(!!doc && text !== doc.text);
 
@@ -239,6 +324,73 @@
 				config document is read-only, so the banner cannot be changed from here.{/if}
 		</p>
 	</div>
+</div>
+
+<div class="mt-4 panel">
+	<div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+		<span class="label-sm mb-0">Kill feed</span>
+		{#if feed}
+			{#if feed.configured}
+				<span class="badge bg-ok/15 text-ok">on</span>
+				<span class="text-[12.5px] text-mist-600"
+					>{feed.feedAt ? `last batch ${feedAge(feed.feedAt)}` : 'no batch received yet'}</span
+				>
+			{:else}
+				<span class="badge">off</span>
+			{/if}
+		{/if}
+		{#if data.server.manager && feed}
+			<span class="ml-auto inline-flex flex-wrap gap-1.5">
+				{#if feed.configured}
+					<button class="btn btn-sm" disabled={feedBusy} onclick={rotateFeed}>Replace token</button>
+					<button class="btn btn-sm btn-danger" disabled={feedBusy} onclick={disableFeed}
+						>Turn off</button
+					>
+				{:else}
+					<button class="btn btn-sm btn-primary" disabled={feedBusy} onclick={enableFeed}
+						>Turn on</button
+					>
+				{/if}
+			</span>
+		{/if}
+	</div>
+	{#if feed?.configured && feed.token}
+		<div class="grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr]">
+			<span class="text-[13px] text-mist-400 md:pt-1.5">Url</span>
+			<div class="flex items-center gap-2">
+				<code
+					class="min-w-0 grow truncate rounded-ctl border border-black bg-ink-950 px-2.5 py-1.5 font-mono text-[12.5px]"
+					>{feed.url}</code
+				>
+				<button class="btn btn-sm" onclick={() => copyFeed(feed!.url, 'URL')}>Copy</button>
+			</div>
+			<span class="text-[13px] text-mist-400 md:pt-1.5">Token</span>
+			<div class="flex items-center gap-2">
+				<code
+					class="min-w-0 grow truncate rounded-ctl border border-black bg-ink-950 px-2.5 py-1.5 font-mono text-[12.5px]"
+					>{feed.token}</code
+				>
+				<button class="btn btn-sm" onclick={() => copyFeed(feed!.token, 'Token')}>Copy</button>
+			</div>
+		</div>
+		<div class="mt-3 flex flex-wrap items-center gap-2">
+			<button class="btn btn-primary" disabled={readOnly || busy} onclick={writeFeedConfig}
+				>Write to config document</button
+			>
+			<span class="text-[12.5px] text-mist-600"
+				>sets [WDServerFeed] Url and Token below and applies; the game reads them at its next
+				restart</span
+			>
+		</div>
+	{/if}
+	<p class="note">
+		With <span class="chip">[WDServerFeed]</span> set, the game posts every kill (killer, victim,
+		weapon, distance, headshot) to Warcon a second or two after it happens: the kill feed on the
+		Overview tab, combat stats on Analytics and player dossiers, and the team-kill trigger.
+		{#if feed && !feed.configured}Turn it on to get a token, write it to the config document, and
+			restart the server (or wait for the twelve-hour restart).{:else if feed && !data.server.manager}An
+			owner of the organisation holds the token.{/if}
+	</p>
 </div>
 
 <div class="mt-4 panel">
