@@ -71,6 +71,8 @@ interface State {
 	nextJoiner: number;
 	configText: string;
 	configRevision: number;
+	/** kill events since the last drain, as the game's feed would post them (feed-events.ts) */
+	feed: Record<string, unknown>[];
 }
 
 const MAPS = [
@@ -412,7 +414,8 @@ function seed(name: string): State {
 		lastScoreAt: now,
 		nextJoiner: 0,
 		configText: '',
-		configRevision: 1
+		configRevision: 1,
+		feed: []
 	};
 	state.configText = seedConfig(state);
 	return state;
@@ -527,6 +530,7 @@ function tick(s: State): void {
 			if (v !== p) {
 				v.deaths++;
 			}
+			feedKill(s, p, v);
 		}
 		p.pingMs = Math.max(5, p.pingMs + Math.floor(Math.random() * 9) - 4);
 	}
@@ -553,6 +557,54 @@ function tick(s: State): void {
 			pingMs: 20 + Math.floor(Math.random() * 90)
 		});
 	}
+}
+
+const FEED_CAUSES = [
+	'Id.Item.AK74M',
+	'Id.Item.WEPN_029',
+	'Id.Item.Mosin',
+	'Id.Item.SKS',
+	'Id.Item.SVDM',
+	'Id.Item.M4',
+	'Id.Item.M67Grenade',
+	'Id.Vehicle.WeaponExtension.STN_03.MainBarrel',
+	'Vehicle.Variant.Air.Rotary.Littlebird.Default'
+];
+/** Queues the kill the way the game's feed reports one (docs/wardogs-api.md, WDServerFeed). */
+function feedKill(s: State, killer: Player, victim: Player): void {
+	const suicide = killer === victim;
+	const cause = FEED_CAUSES[Math.floor(Math.random() * FEED_CAUSES.length)];
+	const headshot = !suicide && Math.random() < 0.25;
+	s.feed.push({
+		eventId: crypto.randomUUID().toUpperCase(),
+		type: 'killed',
+		eventTime: (Date.now() - s.matchStart) / 1000,
+		matchId: 'demo-match',
+		mapName: s.current.map,
+		killerName: killer.name,
+		killerId: '-demo',
+		killerSteamId: killer.steamId,
+		victimName: victim.name,
+		victimId: '-demo',
+		victimSteamId: victim.steamId,
+		cause: suicide ? undefined : cause,
+		distance: suicide ? undefined : Math.round(300 + Math.random() * 30000),
+		contextTags: [
+			...(headshot ? ['Meta.Progression.Context.Player.KillContext.Headshot'] : []),
+			...(suicide ? ['Meta.PlayerKillFlag.Player.Suicide'] : []),
+			'Meta.PlayerKillFlag.Player.Local.Kill',
+			'Meta.PlayerKillFlag.Player.Local.Death'
+		]
+	});
+	if (s.feed.length > 50) s.feed.splice(0, s.feed.length - 50);
+}
+
+/** The demo's queued kill events as one feed batch, or null when there are none. */
+export function drainMockFeed(key: string): Record<string, unknown> | null {
+	const s = states.get(key);
+	if (!s || !s.feed.length) return null;
+	const events = s.feed.splice(0);
+	return { serverId: `demo-${key}`, serverName: s.serverName, events };
 }
 
 function resetScores(s: State): void {
