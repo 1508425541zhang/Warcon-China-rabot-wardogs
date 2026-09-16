@@ -5,6 +5,7 @@
 //   broadcast    rotate through messages every N minutes while enough people are on
 //   empty_reset  send an empty server back to a chosen map after N minutes
 //   risk_kick    kick joiners who match Steam / ban-list rules (see risk.ts)
+//   team_kill    whisper or kick a player over team kills the kill feed reports (feed-events.ts)
 // The worker evaluates them on every observation and writes the actions they want to the outbox
 // (outbox.ts delivers, and every delivery lands in the audit trail as category "trigger"). A dry
 // run replays the last 24 hours from the samples and sessions tables so a rule can be checked
@@ -14,9 +15,11 @@ import type { Env } from './env';
 import { ApiError, int, newId, str } from './http';
 import { writeAudit } from './audit';
 import {
+	kills,
 	playerSessions,
 	samples,
 	serverLive,
+	servers,
 	triggers,
 	type ServerRow,
 	type SteamProfileRow,
@@ -34,6 +37,7 @@ import {
 	renderTemplate,
 	restartNoticeStage,
 	riskKickVerdict,
+	teamKillStage,
 	TRIGGER_LABELS,
 	validateConfig,
 	welcomeTargets,
@@ -44,6 +48,7 @@ import {
 	type RestartNoticeConfig,
 	type RestartNoticeState,
 	type RiskKickConfig,
+	type TeamKillConfig,
 	type WelcomeConfig
 } from './trigger-rules';
 import { fmtUptime, RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
@@ -295,6 +300,9 @@ export async function evaluateTriggers(
 					break;
 				case 'restart_notice':
 					evalRestartNotice(ctx, row, row.config as RestartNoticeConfig, out);
+					break;
+				case 'team_kill':
+					// Acted on as kills arrive (feed-events.ts), not per observation.
 					break;
 			}
 		} catch (err) {
@@ -702,6 +710,58 @@ export async function dryRun(
 			);
 		result.notes.push(
 			`${players.length} distinct player${players.length === 1 ? '' : 's'} joined in the window.`
+		);
+		return result;
+	}
+	if (kind === 'team_kill') {
+		const c = cfg as TeamKillConfig;
+		// Each team kill in the window, with the killer's running count since their session began
+		// (the session open at the time, else the hour before).
+		const rows = await env.db.execute<{
+			ts: Date;
+			killerName: string;
+			killerSteamId: string;
+			victimName: string;
+			n: string;
+		}>(sql`
+			SELECT k.ts, k.killer_name AS "killerName", k.killer_steam_id AS "killerSteamId",
+			       k.victim_name AS "victimName",
+			       (SELECT COUNT(*) FROM kills k2
+			         WHERE k2.server_id = k.server_id AND k2.killer_steam_id = k.killer_steam_id
+			           AND k2.team_kill AND k2.ts <= k.ts
+			           AND k2.ts >= COALESCE((SELECT MAX(s.joined_at) FROM player_sessions s
+			                                    WHERE s.server_id = k.server_id AND s.steam_id = k.killer_steam_id
+			                                      AND s.joined_at <= k.ts), k.ts - interval '1 hour')) AS n
+			  FROM kills k
+			 WHERE k.server_id = ${server.id} AND k.team_kill AND k.killer_steam_id IS NOT NULL
+			   AND k.ts >= ${from}
+			 ORDER BY k.ts ASC LIMIT 500`);
+		for (const r of rows) {
+			const stage = teamKillStage(c, Number(r.n));
+			if (!stage) continue;
+			const v = {
+				name: r.killerName,
+				victim: r.victimName,
+				count: Number(r.n),
+				server: server.name
+			};
+			push(
+				new Date(r.ts),
+				stage === 'kick'
+					? `kick ${r.killerName} (${r.killerSteamId}): ${renderTemplate(c.kickReason, v)}`
+					: `whisper ${r.killerName}: ${renderTemplate(c.warnMessage, v)}`
+			);
+		}
+		const [feed] = await env.db
+			.select({ configured: sql<boolean>`feed_token_hash IS NOT NULL` })
+			.from(servers)
+			.where(eq(servers.id, server.id));
+		if (!feed?.configured)
+			result.notes.push(
+				'This server has no kill feed set up (Configuration tab), so the rule cannot see any team kills.'
+			);
+		result.notes.push(
+			`${rows.length} team kill${rows.length === 1 ? '' : 's'} in the window, counted per killer within their session.`
 		);
 		return result;
 	}

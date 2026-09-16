@@ -13,7 +13,8 @@ export const TRIGGER_KINDS: TriggerKind[] = [
 	'broadcast',
 	'empty_reset',
 	'risk_kick',
-	'restart_notice'
+	'restart_notice',
+	'team_kill'
 ];
 export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	welcome: 'Welcome whisper',
@@ -21,7 +22,8 @@ export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	broadcast: 'Scheduled broadcast',
 	empty_reset: 'Empty-server map reset',
 	risk_kick: 'Kick on connect risk',
-	restart_notice: 'Restart notice'
+	restart_notice: 'Restart notice',
+	team_kill: 'Team kill limit'
 };
 
 export interface WelcomeConfig {
@@ -71,13 +73,24 @@ export interface RestartNoticeConfig {
 	repeatMinutes: number;
 	minPlayers: number;
 }
+/**
+ * Acts on team kills the kill feed reports, counted per killer within their current session:
+ * a whisper from `warnAt` team kills on (0 = never), a kick at `kickAt` (0 = never).
+ */
+export interface TeamKillConfig {
+	warnAt: number;
+	warnMessage: string;
+	kickAt: number;
+	kickReason: string;
+}
 export type TriggerConfig =
 	| WelcomeConfig
 	| FactionChangeConfig
 	| BroadcastConfig
 	| EmptyResetConfig
 	| RiskKickConfig
-	| RestartNoticeConfig;
+	| RestartNoticeConfig
+	| TeamKillConfig;
 
 const MAX_MESSAGE = 200;
 
@@ -166,7 +179,33 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 				minPlayers: int(c.minPlayers, 1, 0, 1000)
 			};
 		}
+		case 'team_kill': {
+			const warnAt = int(c.warnAt, 0, 0, 100);
+			const kickAt = int(c.kickAt, 0, 0, 100);
+			if (!warnAt && !kickAt)
+				throw new ApiError(400, 'Set a whisper threshold, a kick threshold, or both.');
+			if (warnAt && kickAt && kickAt < warnAt)
+				throw new ApiError(400, 'The kick threshold cannot be below the whisper threshold.');
+			return {
+				warnAt,
+				warnMessage:
+					str(c.warnMessage, MAX_MESSAGE) ||
+					'Careful, {name}: that was a team kill ({count} this session).',
+				kickAt,
+				kickReason: str(c.kickReason, MAX_MESSAGE) || 'Team killing ({count} this session).'
+			};
+		}
 	}
+}
+
+/** What a team-kill rule does once the killer's count this session has reached `count`. */
+export function teamKillStage(
+	cfg: Pick<TeamKillConfig, 'warnAt' | 'kickAt'>,
+	count: number
+): 'kick' | 'warn' | null {
+	if (cfg.kickAt && count >= cfg.kickAt) return 'kick';
+	if (cfg.warnAt && count >= cfg.warnAt) return 'warn';
+	return null;
 }
 
 /** Per-server memory of a restart notice: which stages went out for the current game start. */
