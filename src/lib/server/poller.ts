@@ -37,6 +37,8 @@ import {
 import { phaseOffset, pickDue, withHold } from './poller-schedule';
 import { applyRetentionPolicy, rollupSamples } from './rollups';
 import { liveView } from './live';
+import { feedDemoKills } from './feed-events';
+import { publicMessage } from './http';
 import type { LiveView } from '$lib/types';
 
 const BEAT_MS = 250;
@@ -288,7 +290,13 @@ function launchDue(env: Env, s: Scheduler, now: number): void {
 		s.active++;
 		s.launched++;
 		if (offline) s.activeOffline++;
-		withServer(m.server.id, PRIORITY.observe, () => observeServer(env, m, kinds))
+		withServer(m.server.id, PRIORITY.observe, () =>
+			observeServer(env, m, kinds).then(() =>
+				feedDemoKills(env, m.server).catch((err) =>
+					console.warn('[warcon] demo kill feed:', publicMessage(err))
+				)
+			)
+		)
 			.catch((err) => {
 				if (err instanceof LostOwnership) return;
 				console.error(`[warcon] observe ${m.server.name}`, err);

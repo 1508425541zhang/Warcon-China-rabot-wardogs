@@ -12,6 +12,10 @@ import { applyTriggerUpdates, enqueueIntents, wakeDelivery } from './outbox';
 import { LostOwnership, withOwnedTransaction } from './leadership';
 import { memoryOf } from './observe';
 import { publicMessage } from './http';
+import { isDemoServer } from './env';
+import { drainMockFeed } from './mockgame';
+import { ingestBatch } from './feed';
+import { servers, type ServerRow } from './db/schema';
 import type { KillView } from '$lib/types';
 
 export async function onKillsIngested(
@@ -111,4 +115,22 @@ async function actOnTeamKills(env: Env, serverId: string, teamKills: KillView[])
 		await applyTriggerUpdates(tx, out.updates);
 	});
 	if (queued) wakeDelivery();
+}
+
+/**
+ * The demo server's kills, fed through the same path as a real server's once its feed is turned
+ * on (Configuration tab): the mock has no process of its own to post from, so the worker drains
+ * its queue after each observation.
+ */
+export async function feedDemoKills(env: Env, server: ServerRow): Promise<void> {
+	if (!isDemoServer(env, server)) return;
+	const batch = drainMockFeed(server.id);
+	if (!batch) return;
+	const [row] = await env.db
+		.select({ on: sql<boolean>`${servers.feedTokenHash} IS NOT NULL` })
+		.from(servers)
+		.where(eq(servers.id, server.id));
+	if (!row?.on) return;
+	const r = await ingestBatch(env, server.id, batch);
+	if (r.kills.length) await onKillsIngested(env, server.id, r.kills);
 }
