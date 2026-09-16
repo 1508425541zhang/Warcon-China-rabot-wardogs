@@ -144,6 +144,25 @@ export interface LiveView {
 	playersAt: string | null;
 	observedAt: string | null;
 }
+/** One kill as the game's feed reported it and Warcon stored it (kills table). */
+export interface KillView {
+	eventId: string;
+	/** when Warcon received it */
+	ts: string;
+	map: string;
+	/** seconds on the match clock */
+	eventTime: number;
+	/** null: the environment */
+	killer: { steamId: string; name: string; faction: string | null } | null;
+	victim: { steamId: string; name: string; faction: string | null };
+	/** the raw weapon or vehicle tag; $lib/causes labels it */
+	cause: string | null;
+	distanceM: number | null;
+	headshot: boolean;
+	suicide: boolean;
+	teamKill: boolean;
+	tags: string[];
+}
 /** One trigger action and what became of it. */
 export interface OutboxView {
 	id: number;

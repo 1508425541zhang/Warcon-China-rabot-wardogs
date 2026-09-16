@@ -12,6 +12,7 @@ import { pollerStats, startPoller, stopPoller } from '$lib/server/poller';
 import { subscribe } from '$lib/server/events';
 import { organizations } from '$lib/server/db/schema';
 import { RELAY_PREFIX, serializeError } from '$lib/server/relay';
+import type { KillView } from '$lib/types';
 import type { Priority } from '$lib/server/dispatcher';
 
 const json = (data: unknown, status = 200) =>
@@ -113,6 +114,13 @@ async function relay(env: Env, path: string, url: URL, req: Request): Promise<Re
 			return ok(null);
 		case '/status-changed':
 			localGateway.statusChanged();
+			return ok(null);
+		case '/kills':
+			localGateway.killsIngested(
+				env,
+				String(body.serverId),
+				Array.isArray(body.kills) ? (body.kills as KillView[]) : []
+			);
 			return ok(null);
 		case '/events': {
 			const encoder = new TextEncoder();
