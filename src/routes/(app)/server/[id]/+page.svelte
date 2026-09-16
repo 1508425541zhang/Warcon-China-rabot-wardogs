@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { rconGet, rconPost, errorMessage } from '$lib/api';
 	import { poll } from '$lib/poll';
-	import { watchLive } from '$lib/live';
+	import { watchLive, type KillsNotice } from '$lib/live';
+	import { causeLabel } from '$lib/causes';
 	import { expSetLabel, fmtNum, lightingLabel, mapLabel, zoneLabel } from '$lib/format';
 	import { can } from '$lib/capabilities';
 	import { toast } from '$lib/toast.svelte';
@@ -18,7 +19,7 @@
 	import type { CashPoint } from '$lib/server/analytics';
 	import SortHeader from '$lib/components/SortHeader.svelte';
 	import { TableSort } from '$lib/table.svelte';
-	import type { LiveView, Player, Rotation, Status } from '$lib/types';
+	import type { KillView, LiveView, Player, Rotation, Status } from '$lib/types';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -134,6 +135,36 @@
 			noteCashSample(players);
 		}
 	}
+	// The kill feed: the stored tail on load, then every batch as the game delivers it (the event
+	// stream), with a slow re-read behind it in case a frame was missed.
+	const KILLS_MAX = 100;
+	let kills = $state<KillView[]>([]);
+	let feedConfigured = $state<boolean | null>(null);
+	let feedAt = $state<string | null>(null);
+	async function loadKills() {
+		try {
+			const r = await api<{ configured: boolean; feedAt: string | null; kills: KillView[] }>(
+				'GET',
+				`/api/servers/${encodeURIComponent(id)}/kills?limit=${KILLS_MAX}`
+			);
+			feedConfigured = r.configured;
+			feedAt = r.feedAt;
+			kills = r.kills;
+		} catch {
+			/* the panel keeps what it has */
+		}
+	}
+	function onKills(n: KillsNotice) {
+		if (n.serverId !== id || !n.kills.length) return;
+		const known = new Set(kills.map((k) => k.eventId));
+		const fresh = n.kills.filter((k) => !known.has(k.eventId)).reverse();
+		kills = [...fresh, ...kills].slice(0, KILLS_MAX);
+		feedAt = n.kills[n.kills.length - 1].ts;
+	}
+	let feedAgeS = $derived(
+		feedAt ? Math.max(0, Math.round((now - Date.parse(feedAt)) / 1000)) : null
+	);
+	const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour12: false });
 	async function refreshRotation() {
 		try {
 			rotation = await rconGet<Rotation>(id, 'rotation');
@@ -145,7 +176,11 @@
 	const refreshStatus = refreshRotation;
 
 	$effect(() => {
-		const stops = [watchLive([id], onLive), poll(refreshRotation, 30000)];
+		const stops = [
+			watchLive([id], onLive, undefined, onKills),
+			poll(refreshRotation, 30000),
+			poll(loadKills, 60000)
+		];
 		const t = setInterval(() => (now = Date.now()), 1000);
 		return () => {
 			stops.forEach((s) => s());
@@ -481,3 +516,78 @@
 		</table>
 	</div>
 </div>
+
+{#if feedConfigured || kills.length}
+	<div class="mt-4 panel">
+		<div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+			<span class="label-sm mb-0">Kill feed</span>
+			<span class="text-[12px] text-mist-600">from the game's own feed · newest first</span>
+			<span
+				class="ml-auto text-[12.5px] {feedAgeS !== null && feedAgeS > 900 && players.length
+					? 'text-warn'
+					: 'text-mist-600'}"
+			>
+				{#if feedAgeS === null}no batch received yet{:else if feedAgeS > 900 && players.length}no
+					events for {Math.round(feedAgeS / 60)} min with players on{:else}last event {feedAgeS}s
+					ago{/if}
+			</span>
+		</div>
+		<div class="max-h-[420px] table-wrap">
+			<table>
+				<thead>
+					<tr
+						><th>Time</th><th>Killer</th><th>Victim</th><th>Cause</th><th class="num">Distance</th
+						><th></th></tr
+					>
+				</thead>
+				<tbody>
+					{#each kills as k (k.eventId)}
+						<tr class={k.teamKill ? 'text-warn' : ''}>
+							<td class="font-mono text-[12px] whitespace-nowrap text-mist-400">{clock(k.ts)}</td>
+							<td>
+								{#if k.killer}
+									<a
+										href="/server/{encodeURIComponent(id)}/players/{k.killer.steamId}"
+										class="hover:text-accent hover:underline">{k.killer.name}</a
+									>
+									{#if k.killer.faction}<FactionChip
+											faction={k.killer.faction}
+											scores={status?.scores}
+										/>{/if}
+								{:else}<span class="text-mist-600">—</span>{/if}
+							</td>
+							<td>
+								<a
+									href="/server/{encodeURIComponent(id)}/players/{k.victim.steamId}"
+									class="hover:text-accent hover:underline">{k.victim.name}</a
+								>
+								{#if k.victim.faction}<FactionChip
+										faction={k.victim.faction}
+										scores={status?.scores}
+									/>{/if}
+							</td>
+							<td class="text-mist-200"
+								>{causeLabel(k.cause) || (k.tags.includes('Falling') ? 'Fall' : '—')}</td
+							>
+							<td class="num">{k.distanceM === null ? '—' : `${Math.round(k.distanceM)} m`}</td>
+							<td class="whitespace-nowrap">
+								{#if k.teamKill}<span class="chip">team kill</span>{/if}
+								{#if k.suicide}<span class="chip">suicide</span>{/if}
+								{#if k.headshot}<span class="chip">headshot</span>{/if}
+								{#each k.tags as t (t)}<span class="chip"
+										>{t.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()}</span
+									>{/each}
+							</td>
+						</tr>
+					{:else}
+						<tr
+							><td colspan="6" class="py-6 text-center text-mist-600"
+								>No kills received yet. They appear here as the game posts them.</td
+							></tr
+						>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	</div>
+{/if}
