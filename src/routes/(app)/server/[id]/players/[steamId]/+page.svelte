@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage, rconPost } from '$lib/api';
 	import { fmtNum, fmtTime } from '$lib/format';
+	import { causeLabel } from '$lib/causes';
 	import { can } from '$lib/capabilities';
 	import { toast } from '$lib/toast.svelte';
 	import { confirmDialog } from '$lib/confirm.svelte';
@@ -47,6 +48,10 @@
 		cash: { by: (s) => s.cash, dir: 'desc' }
 	});
 	let recent = $derived(sessionSort.sorted(d.recent));
+	let maxCause = $derived(Math.max(1, ...(d.combat?.causes.map((c) => c.kills) ?? [])));
+	const pct = (part: number, whole: number) =>
+		whole ? `${Math.round((part / whole) * 100)}%` : '—';
+	const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour12: false });
 
 	/** remove the player from an org list (unban across the org, or withdraw the reserved slot) */
 	async function orgRemove(kind: 'ban' | 'reserve') {
@@ -277,6 +282,103 @@
 				</table>
 			</div>
 		</div>
+
+		{#if d.combat}
+			<div class="panel">
+				<span class="label-sm">Combat</span>
+				<p class="mb-3 text-[12.5px] text-mist-600">
+					From the game's kill feed, across the organisation's servers you can see.
+				</p>
+				<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+					{#each [['Kills', fmtNum(d.combat.kills)], ['Deaths', fmtNum(d.combat.deaths)], ['K/D', kd(d.combat.kills, d.combat.deaths)], ['Headshots', `${d.combat.headshots} · ${pct(d.combat.headshots, d.combat.kills)}`], ['Team kills', String(d.combat.teamKills)], ['Team killed', String(d.combat.teamKilled)], ['Suicides', String(d.combat.suicides)], ['Distance', d.combat.avgDistanceM === null ? '—' : `${d.combat.avgDistanceM} m avg · ${d.combat.longestM} m best`]] as [label, value] (label)}
+						<div class="rounded-ctl border border-black bg-ink-950 px-3.5 py-3">
+							<div class="caps text-mist-400">{label}</div>
+							<div class="mt-1 font-display text-xl font-semibold tabular">{value}</div>
+						</div>
+					{/each}
+				</div>
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+					<div>
+						<span class="field-label">Weapons</span>
+						{#each d.combat.causes as c (c.cause)}
+							<div class="mb-2">
+								<div class="mb-0.5 flex justify-between text-[13px]">
+									<span>{causeLabel(c.cause)}</span><span class="font-mono text-mist-400 tabular"
+										>{c.kills}</span
+									>
+								</div>
+								<div class="progress">
+									<span class="progress-bar" style="width:{(c.kills / maxCause) * 100}%"></span>
+								</div>
+							</div>
+						{:else}<div class="text-[13px] text-mist-600">No kills yet.</div>{/each}
+					</div>
+					<div>
+						<span class="field-label">Most killed</span>
+						{#each d.combat.victims as v (v.steamId)}
+							<div class="flex justify-between text-[13px]">
+								<a
+									href="/server/{encodeURIComponent(id)}/players/{v.steamId}"
+									class="hover:text-accent hover:underline">{v.name}</a
+								>
+								<span class="font-mono text-mist-400 tabular">{v.kills}</span>
+							</div>
+						{:else}<div class="text-[13px] text-mist-600">Nobody yet.</div>{/each}
+					</div>
+					<div>
+						<span class="field-label">Nemeses</span>
+						{#each d.combat.nemeses as n (n.steamId)}
+							<div class="flex justify-between text-[13px]">
+								<a
+									href="/server/{encodeURIComponent(id)}/players/{n.steamId}"
+									class="hover:text-accent hover:underline">{n.name}</a
+								>
+								<span class="font-mono text-mist-400 tabular">{n.deaths}</span>
+							</div>
+						{:else}<div class="text-[13px] text-mist-600">Nobody yet.</div>{/each}
+					</div>
+				</div>
+				{#if d.combat.recent.length}
+					<span class="mt-4 field-label">Recent kills and deaths</span>
+					<div class="max-h-[320px] table-wrap">
+						<table>
+							<thead
+								><tr
+									><th>When</th><th>Server</th><th>Killer</th><th>Victim</th><th>Cause</th><th
+										class="num">Distance</th
+									><th></th></tr
+								></thead
+							>
+							<tbody>
+								{#each d.combat.recent as k (k.eventId)}
+									<tr class={k.teamKill ? 'text-warn' : ''}>
+										<td class="whitespace-nowrap text-mist-400" title={fmtTime(k.ts)}
+											>{clock(k.ts)}</td
+										>
+										<td>{k.serverName}</td>
+										<td class={k.killer?.steamId === d.steamId ? 'font-semibold' : ''}
+											>{k.killer?.name ?? '—'}</td
+										>
+										<td class={k.victim.steamId === d.steamId ? 'font-semibold' : ''}
+											>{k.victim.name}</td
+										>
+										<td>{causeLabel(k.cause) || (k.tags.includes('Falling') ? 'Fall' : '—')}</td>
+										<td class="num"
+											>{k.distanceM === null ? '—' : `${Math.round(k.distanceM)} m`}</td
+										>
+										<td class="whitespace-nowrap">
+											{#if k.teamKill}<span class="chip">team kill</span>{/if}
+											{#if k.suicide}<span class="chip">suicide</span>{/if}
+											{#if k.headshot}<span class="chip">headshot</span>{/if}
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		<div class="panel">
 			<span class="label-sm">Admin actions on this player</span>
