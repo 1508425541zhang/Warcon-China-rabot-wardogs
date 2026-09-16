@@ -8,7 +8,7 @@ import { GameError } from './rcon';
 import { emit, subscribe, type WarconEvent } from './events';
 import type { Gateway } from './gateway';
 import type { Priority } from './dispatcher';
-import type { LiveView, ListSyncSummary } from '$lib/types';
+import type { KillView, LiveView, ListSyncSummary } from '$lib/types';
 import type { SyncResult } from './lists-sync';
 import type { PollerStats } from './poller';
 import { RELAY_PREFIX, type RelayError } from './relay';
@@ -166,6 +166,9 @@ export function connectRemoteGateway(env: Env): Gateway {
 		},
 		statusChanged() {
 			void call(env, '/status-changed', {}).catch(() => {});
+		},
+		killsIngested(env, serverId, kills: KillView[]) {
+			void call(env, '/kills', { serverId, kills }).catch(() => {});
 		},
 		subscribe,
 		health(env) {

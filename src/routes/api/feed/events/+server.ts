@@ -4,6 +4,7 @@
 import { getEnv } from '$lib/server/env';
 import { ApiError, apiJson, clientIp, route } from '$lib/server/http';
 import { assertRate } from '$lib/server/ratelimit';
+import { gateway } from '$lib/server/gateway';
 import { ingestBatch, resolveFeedToken } from '$lib/server/feed';
 import { MAX_BODY_BYTES, parseFeedBearer } from '$lib/server/feed-core';
 
@@ -31,5 +32,7 @@ export const POST = route(async (event) => {
 		throw new ApiError(400, 'Malformed JSON body.');
 	}
 	const r = await ingestBatch(env, serverId, body);
-	return apiJson({ ok: true, ...r });
+	// Browsers watching the server see them at once; the worker's kill rules get their turn.
+	if (r.kills.length) gateway().killsIngested(env, serverId, r.kills);
+	return apiJson({ ok: true, accepted: r.accepted, skipped: r.skipped, duplicates: r.duplicates });
 });

@@ -3,12 +3,16 @@
 // lets the server drop out of the watched tier) and reopened when it comes back.
 import { api } from './api';
 import { noteLive } from './health.svelte';
-import type { LiveView } from './types';
+import type { KillView, LiveView } from './types';
 
 export interface OutboxNotice {
 	serverId: string;
 	id: number;
 	state: string;
+}
+export interface KillsNotice {
+	serverId: string;
+	kills: KillView[];
 }
 
 const SAFETY_POLL_MS = 20_000;
@@ -16,7 +20,8 @@ const SAFETY_POLL_MS = 20_000;
 export function watchLive(
 	ids: string[],
 	onEach: (v: LiveView) => void,
-	onOutbox?: (n: OutboxNotice) => void
+	onOutbox?: (n: OutboxNotice) => void,
+	onKills?: (n: KillsNotice) => void
 ): () => void {
 	if (!ids.length) return () => {};
 	const onLive = (v: LiveView) => {
@@ -43,6 +48,8 @@ export function watchLive(
 		source.addEventListener('live', (e) => onLive(JSON.parse((e as MessageEvent).data)));
 		if (onOutbox)
 			source.addEventListener('outbox', (e) => onOutbox(JSON.parse((e as MessageEvent).data)));
+		if (onKills)
+			source.addEventListener('kills', (e) => onKills(JSON.parse((e as MessageEvent).data)));
 		// On error the browser reconnects by itself; the safety poll covers the gap.
 	};
 	const close = () => {

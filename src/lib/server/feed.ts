@@ -7,7 +7,16 @@ import type { Env } from './env';
 import { decryptSecret, encryptSecret } from './crypto';
 import { ApiError } from './http';
 import { writeAudit } from './audit';
-import { kills, matches, playerSessions, serverLive, servers, type ServerRow } from './db/schema';
+import {
+	kills,
+	matches,
+	playerSessions,
+	serverLive,
+	servers,
+	type KillRow,
+	type ServerRow
+} from './db/schema';
+import type { KillView } from '$lib/types';
 import type { SessionUser } from './access';
 import { FEED_TOKEN_PREFIX, isTeamKill, parseBatch, type ParsedKill } from './feed-core';
 
@@ -115,6 +124,27 @@ export interface IngestResult {
 	accepted: number;
 	skipped: number;
 	duplicates: number;
+	/** what was written, in feed order */
+	kills: KillView[];
+}
+
+export function killView(r: KillRow): KillView {
+	return {
+		eventId: r.eventId,
+		ts: r.ts.toISOString(),
+		map: r.map,
+		eventTime: r.eventTime,
+		killer: r.killerSteamId
+			? { steamId: r.killerSteamId, name: r.killerName ?? '', faction: r.killerFaction }
+			: null,
+		victim: { steamId: r.victimSteamId, name: r.victimName, faction: r.victimFaction },
+		cause: r.cause,
+		distanceM: r.distanceM,
+		headshot: r.headshot,
+		suicide: r.suicide,
+		teamKill: r.teamKill,
+		tags: Array.isArray(r.tags) ? (r.tags as string[]) : []
+	};
 }
 
 /**
@@ -160,6 +190,7 @@ export async function ingestBatch(
 		});
 		duplicates = batch.kills.length - fresh.length;
 	}
+	let written: KillView[] = [];
 	if (fresh.length) {
 		const steamIds = [
 			...new Set(
@@ -190,34 +221,38 @@ export async function ingestBatch(
 		// Newest open session wins when a player somehow has two.
 		const faction = new Map<string, string | null>();
 		for (const s of open) faction.set(s.steamId, s.faction);
-		await db.insert(kills).values(
-			fresh.map((k) => {
-				const kf = k.killerSteamId ? (faction.get(k.killerSteamId) ?? null) : null;
-				const vf = faction.get(k.victimSteamId) ?? null;
-				return {
-					ts: now,
-					serverId,
-					eventId: k.eventId,
-					instanceId: batch.instanceId,
-					matchId: k.matchId,
-					matchRow: match?.id ?? null,
-					eventTime: k.eventTime,
-					map: k.map,
-					killerSteamId: k.killerSteamId,
-					killerName: k.killerName,
-					killerFaction: kf,
-					victimSteamId: k.victimSteamId,
-					victimName: k.victimName,
-					victimFaction: vf,
-					cause: k.cause,
-					distanceM: k.distanceM,
-					headshot: k.headshot,
-					suicide: k.suicide,
-					teamKill: isTeamKill(k, kf, vf),
-					tags: k.tags
-				};
-			})
-		);
+		const rows = await db
+			.insert(kills)
+			.values(
+				fresh.map((k) => {
+					const kf = k.killerSteamId ? (faction.get(k.killerSteamId) ?? null) : null;
+					const vf = faction.get(k.victimSteamId) ?? null;
+					return {
+						ts: now,
+						serverId,
+						eventId: k.eventId,
+						instanceId: batch.instanceId,
+						matchId: k.matchId,
+						matchRow: match?.id ?? null,
+						eventTime: k.eventTime,
+						map: k.map,
+						killerSteamId: k.killerSteamId,
+						killerName: k.killerName,
+						killerFaction: kf,
+						victimSteamId: k.victimSteamId,
+						victimName: k.victimName,
+						victimFaction: vf,
+						cause: k.cause,
+						distanceM: k.distanceM,
+						headshot: k.headshot,
+						suicide: k.suicide,
+						teamKill: isTeamKill(k, kf, vf),
+						tags: k.tags
+					};
+				})
+			)
+			.returning();
+		written = rows.map(killView);
 	}
 	// The liveness stamp, at most every ten seconds per server: the worker's upsert of the row
 	// leaves this column alone, so the two never fight.
@@ -229,5 +264,5 @@ export async function ingestBatch(
 			.values({ serverId, feedAt: now })
 			.onConflictDoUpdate({ target: serverLive.serverId, set: { feedAt: now } });
 	}
-	return { accepted: fresh.length, skipped: batch.skipped, duplicates };
+	return { accepted: fresh.length, skipped: batch.skipped, duplicates, kills: written };
 }

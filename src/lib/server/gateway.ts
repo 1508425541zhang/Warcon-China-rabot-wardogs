@@ -5,7 +5,7 @@
 import type { Env } from './env';
 import type { OrgRow, ServerRow } from './access';
 import type { ListSyncSummary } from '$lib/types';
-import type { LiveView } from '$lib/types';
+import type { KillView, LiveView } from '$lib/types';
 import type { WarconEvent } from './events';
 import type { Priority } from './dispatcher';
 import type { SyncResult } from './lists-sync';
@@ -43,6 +43,8 @@ export interface Gateway {
 	identityChanged(serverId: string): void;
 	/** A status-card webhook was added or changed: post or fix the cards now rather than at the next tick. */
 	statusChanged(): void;
+	/** The kill feed just delivered these for a server: publish them, and let kill rules see them. */
+	killsIngested(env: Env, serverId: string, kills: KillView[]): void;
 	/** Live events (observations, deliveries). */
 	subscribe(fn: (e: WarconEvent) => void): () => void;
 	/** The worker's scheduler stats (for /api/health and the settings page). */

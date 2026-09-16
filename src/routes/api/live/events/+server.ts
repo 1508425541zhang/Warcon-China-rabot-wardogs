@@ -71,6 +71,7 @@ export const GET = async (event) => {
 			unsubscribe = gateway().subscribe((e) => {
 				if (e.type === 'live' && wanted.has(e.live.serverId)) send('live', e.live);
 				else if (e.type === 'outbox' && wanted.has(e.serverId)) send('outbox', e);
+				else if (e.type === 'kills' && wanted.has(e.serverId)) send('kills', e);
 			});
 			timers.push(setInterval(() => gateway().interest(ids), INTEREST_MS));
 			timers.push(
