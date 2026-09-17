@@ -38,8 +38,8 @@ const PASSWORD_GATE_EXEMPT = /^\/(account|sign-out|join|api\/auth|api\/passkeys|
 // The only Better Auth routes a browser must reach: the OAuth callback and its error page.
 const AUTH_PUBLIC = /^\/api\/auth\/(callback\/[^/]+|error|ok)$/;
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-/** Where the game posts kill feed batches (src/routes/api/feed/events). */
-const FEED_PATH = '/api/feed/';
+/** Where the game posts kill feed batches (src/routes/api/ingest/events, and the older Url form). */
+const FEED_PATHS = ['/api/ingest/', '/api/feed/'];
 
 /** Reads config, opens the database, applies migrations, builds Better Auth and starts the poller once per process. */
 export const init: ServerInit = async () => {
@@ -157,7 +157,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (
 		path.startsWith('/api/') &&
 		!isAuthApi &&
-		!path.startsWith(FEED_PATH) &&
+		!FEED_PATHS.some((p) => path.startsWith(p)) &&
 		!event.locals.apiKey &&
 		!SAFE_METHODS.has(event.request.method)
 	) {
