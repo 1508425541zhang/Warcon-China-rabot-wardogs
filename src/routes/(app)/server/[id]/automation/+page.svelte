@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage } from '$lib/api';
-	import { fmtTime, mapLabel } from '$lib/format';
+	import { fmtAgo, fmtSpan, fmtTime, mapLabel } from '$lib/format';
 	import { can } from '$lib/capabilities';
 	import { toast } from '$lib/toast.svelte';
 	import { confirmDialog } from '$lib/confirm.svelte';
@@ -154,12 +154,69 @@
 	const short = (kind: TriggerKind): string =>
 		kind === 'team_kill' ? 'needs the kill feed' : kind === 'risk_kick' ? 'needs a Steam key' : '';
 	let addOpen = $state(false);
-	let summary = $derived.by(() => {
-		const n = data.triggers.length;
-		if (!n) return 'No rules on this server yet';
-		const on = data.triggers.filter((t) => t.enabled).length;
-		return `${n} rule${n === 1 ? '' : 's'} · ${on} on`;
+
+	// The status lines count up on their own: a minute clock, only while the page is open.
+	let now = $state(Date.now());
+	$effect(() => {
+		const t = setInterval(() => (now = Date.now()), 30_000);
+		return () => clearInterval(t);
 	});
+	interface Health {
+		/** the newest delivery for the rule failed, with nothing delivered since */
+		failing: boolean;
+		latest: string;
+		outcome: string;
+		/** deliveries since midnight, or in the loaded window when that is shorter */
+		count: number;
+	}
+	/**
+	 * What the loaded deliveries say about each rule. A trigger's own `lastResult` records the
+	 * intent ("Kicking 2 players"), not what became of it, so health comes from the outbox rows the
+	 * page already has: the server's last 40. A busy rule can push a quiet rule's rows out of that
+	 * window, in which case the quiet rule shows its plain "Fired" line, which is honest.
+	 */
+	let health = $derived.by(() => {
+		const byRule = new Map<string, Health>();
+		const rows = [...deliveries].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+		const since = Math.max(new Date(now).setHours(0, 0, 0, 0), windowStart);
+		for (const d of rows) {
+			if (!d.triggerId) continue;
+			const h = byRule.get(d.triggerId);
+			const today = Date.parse(d.createdAt) >= since ? 1 : 0;
+			if (h) h.count += today;
+			else
+				byRule.set(d.triggerId, {
+					failing: d.state === 'failed',
+					latest: d.createdAt,
+					outcome: d.outcome,
+					count: today
+				});
+		}
+		return byRule;
+	});
+	/** when the oldest loaded delivery happened; the counts cannot see past it */
+	let windowStart = $derived(
+		deliveries.reduce((min, d) => Math.min(min, Date.parse(d.createdAt)), Infinity)
+	);
+	/** the outbox route's page size: fewer rows than that means the window holds everything */
+	const OUTBOX_PAGE = 40;
+	let coversToday = $derived(
+		deliveries.length < OUTBOX_PAGE || windowStart <= new Date(now).setHours(0, 0, 0, 0)
+	);
+	/** "31 today", or "31 in the last 3 h" when the loaded window is shorter than the day */
+	const countLine = (h: Health) =>
+		coversToday ? `${h.count} today` : `${h.count} in the last ${fmtSpan(now - windowStart)}`;
+	let failingCount = $derived(data.triggers.filter((t) => health.get(t.id)?.failing).length);
+	let lastAction = $derived(
+		deliveries.reduce<string | null>(
+			(max, d) => (!max || d.createdAt > max ? d.createdAt : max),
+			null
+		)
+	);
+	let onlyFailing = $state(false);
+	let rows = $derived(
+		onlyFailing ? data.triggers.filter((t) => health.get(t.id)?.failing) : data.triggers
+	);
 
 	interface Form {
 		id: string | null;
@@ -453,7 +510,27 @@
 <div class="mb-3 flex flex-wrap items-start gap-3">
 	<div class="min-w-0 grow">
 		<span class="label-sm mb-0">Rules</span>
-		<div class="mt-0.5 text-[12.5px] text-mist-400">{summary}</div>
+		<div class="mt-0.5 text-[12.5px] text-mist-400">
+			{#if data.triggers.length}
+				{data.triggers.length} rule{data.triggers.length === 1 ? '' : 's'} · {data.triggers.filter(
+					(t) => t.enabled
+				).length} on
+				{#if lastAction}· last action <span title={fmtTime(lastAction)}
+						>{fmtAgo(lastAction, now)}</span
+					>{/if}
+				{#if failingCount}
+					· <button
+						type="button"
+						class="cursor-pointer text-danger underline decoration-danger/50 underline-offset-2 hover:decoration-danger"
+						aria-pressed={onlyFailing}
+						onclick={() => (onlyFailing = !onlyFailing)}
+						>{failingCount} failing{onlyFailing ? ' · show all' : ''}</button
+					>
+				{/if}
+			{:else}
+				No rules on this server yet
+			{/if}
+		</div>
 	</div>
 	{#if admin}
 		<div class="relative">
@@ -504,7 +581,8 @@
 </div>
 
 <div class="space-y-2">
-	{#each data.triggers as t (t.id)}
+	{#each rows as t (t.id)}
+		{@const h = health.get(t.id)}
 		<div class="panel py-3.5 {t.enabled ? '' : 'opacity-60'}">
 			<div class="flex items-start gap-3">
 				<button
@@ -535,13 +613,31 @@
 						{:else}
 							<span class="font-semibold">{t.name}</span>
 						{/if}
+						{#if h?.failing}<Badge tone="err">▲ failing</Badge>{/if}
 						<span class="chip">{label(t.kind)}</span>
 					</div>
 					<div class="mt-0.5 line-clamp-2 text-[13px] text-mist-400">{describe(t)}</div>
-					<div class="mt-0.5 text-[12px] text-mist-600">
-						{#if t.lastFiredAt}Last fired {fmtTime(t.lastFiredAt)} · {t.lastResult}{:else if t.lastResult}{t.lastResult}{:else}Never
-							fired{/if}
-						{#if t.fireCount}· {t.fireCount} action{t.fireCount === 1 ? '' : 's'} so far{/if}
+					<!-- One of four shapes, most urgent first: failing, off, fired, never fired. -->
+					<div class="mt-0.5 text-[12px] {h?.failing ? 'text-mist-100' : 'text-mist-600'}">
+						{#if h?.failing}
+							Latest actions failed · <span class="font-mono text-[11.5px] text-mist-400"
+								>{h.outcome}</span
+							>
+							· <span title={fmtTime(h.latest)}>{fmtAgo(h.latest, now)}</span>
+						{:else if !t.enabled}
+							Off · {#if t.lastFiredAt}last fired <span title={fmtTime(t.lastFiredAt)}
+									>{fmtAgo(t.lastFiredAt, now)}</span
+								>{:else}never fired{/if}
+						{:else if t.lastFiredAt}
+							Fired <span title={fmtTime(t.lastFiredAt)}>{fmtAgo(t.lastFiredAt, now)}</span>
+							{#if h?.count}· {countLine(h)}{:else if t.fireCount}· {t.fireCount} action{t.fireCount ===
+								1
+									? ''
+									: 's'} so far{/if}
+						{:else}
+							Never fired{#if needs(t.kind)}
+								· {needs(t.kind)}{/if}
+						{/if}
 					</div>
 				</div>
 				{#if admin}

@@ -1,18 +1,37 @@
 import { describe, expect, test } from 'bun:test';
-import { toDatetimeLocal } from './format';
+import { fmtAgo, fmtSpan } from './format';
 
-describe('toDatetimeLocal', () => {
-	test('round-trips through a datetime-local field in the local timezone', () => {
-		const iso = '2026-09-09T09:00:00.000Z';
-		const field = toDatetimeLocal(iso);
-		expect(field).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
-		// The browser reads the field as local time; converting back must give the same instant.
-		expect(new Date(field).toISOString()).toBe(iso);
+const MIN = 60_000;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
+
+describe('fmtSpan', () => {
+	test('picks the coarsest unit that still reads', () => {
+		expect(fmtSpan(0)).toBe('0 s');
+		expect(fmtSpan(40_000)).toBe('40 s');
+		expect(fmtSpan(12 * MIN)).toBe('12 min');
+		expect(fmtSpan(90 * MIN)).toBe('2 h');
+		expect(fmtSpan(35 * HOUR)).toBe('35 h');
+		expect(fmtSpan(DAY)).toBe('24 h');
+		expect(fmtSpan(36 * HOUR)).toBe('2 days');
+		expect(fmtSpan(6 * DAY)).toBe('6 days');
 	});
+});
 
-	test('blank for missing or invalid input', () => {
-		expect(toDatetimeLocal('')).toBe('');
-		expect(toDatetimeLocal(undefined)).toBe('');
-		expect(toDatetimeLocal('not a date')).toBe('');
+describe('fmtAgo', () => {
+	const now = Date.parse('2026-09-17T12:00:00Z');
+	test('reads as a status line', () => {
+		expect(fmtAgo(now - 10_000, now)).toBe('just now');
+		expect(fmtAgo(now - 2 * MIN, now)).toBe('2 min ago');
+		expect(fmtAgo(now - 4 * HOUR, now)).toBe('4 h ago');
+		expect(fmtAgo(now - 3 * DAY, now)).toBe('3 days ago');
+	});
+	test('takes ISO strings and never goes negative', () => {
+		expect(fmtAgo(new Date(now - 5 * MIN).toISOString(), now)).toBe('5 min ago');
+		expect(fmtAgo(now + 10 * MIN, now)).toBe('just now');
+	});
+	test('falls back to the date past a month', () => {
+		expect(fmtAgo(now - 47 * DAY, now)).not.toContain('ago');
+		expect(fmtAgo('not a date', now)).toBe('not a date');
 	});
 });
