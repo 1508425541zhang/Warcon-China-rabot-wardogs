@@ -59,6 +59,12 @@ export interface ServerInfo {
 	manager: boolean;
 	sortOrder: number;
 	demo: boolean;
+	/** the org owner's switches for the public pages; see $lib/features for what is actually on */
+	publicStatus: boolean;
+	publicLeaderboards: boolean;
+	/** what the site owner allows this server's organisation */
+	allowPublicStatus: boolean;
+	allowPublicLeaderboards: boolean;
 }
 
 export interface CatalogItem {
@@ -281,6 +287,11 @@ export interface OrgView {
 	/** the site owner's per-org override, if any */
 	customServerLimit: number | null;
 	suspended: { at: string; reason: string } | null;
+	/** site-owner allowances for the public surfaces ($lib/features) */
+	allowPublicStatus: boolean;
+	allowPublicLeaderboards: boolean;
+	/** the org's Discord invite link for its public pages; '' = none */
+	discordInviteUrl: string;
 	createdBy: { username: string; name: string } | null;
 	createdAt: string | null;
 }

@@ -187,6 +187,14 @@ export const organizations = pgTable('organizations', {
 	suspendedReason: text('suspended_reason').notNull().default(''),
 	/** members who set a SteamID on their account get a reserved slot on every org server */
 	membersReserved: boolean('members_reserved').notNull().default(false),
+	/**
+	 * Site-owner allowances: what this org's owners may switch on per server. Each public surface
+	 * needs the allowance and the server's own switch; $lib/features computes the effective set.
+	 */
+	allowPublicStatus: boolean('allow_public_status').notNull().default(false),
+	allowPublicLeaderboards: boolean('allow_public_leaderboards').notNull().default(false),
+	/** a discord.gg or discord.com/invite link, shown as a button on the org's public pages; '' = none */
+	discordInviteUrl: text('discord_invite_url').notNull().default(''),
 	createdAt: ts('created_at').notNull().defaultNow(),
 	updatedAt: ts('updated_at').notNull().defaultNow()
 });
@@ -317,6 +325,9 @@ export const servers = pgTable('servers', {
 	feedTokenEnc: text('feed_token_enc'),
 	/** sha256 of the token: how a feed batch finds its server */
 	feedTokenHash: text('feed_token_hash').unique(),
+	/** the org owner's switches for the public pages; effective only with the org's allowance ($lib/features) */
+	publicStatus: boolean('public_status').notNull().default(false),
+	publicLeaderboards: boolean('public_leaderboards').notNull().default(false),
 	createdBy: text('created_by'),
 	createdAt: ts('created_at').notNull().defaultNow(),
 	updatedAt: ts('updated_at').notNull().defaultNow()
@@ -646,6 +657,12 @@ export const webhooks = pgTable(
 		statusStyle: text('status_style', { enum: ['banner', 'compact', 'scoreboard'] })
 			.notNull()
 			.default('banner'),
+		/** seconds between edits of one card (30-300); the per-server spacing applies on top */
+		statusIntervalS: integer('status_interval_s').notNull().default(60),
+		/** which links the card carries: the public status page, the public leaderboard, the panel */
+		linkStatus: boolean('link_status').notNull().default(true),
+		linkLeaderboard: boolean('link_leaderboard').notNull().default(true),
+		linkPanel: boolean('link_panel').notNull().default(false),
 		/** server id -> the Discord id of its message, once posted */
 		statusMessages: jsonb('status_messages'),
 		statusSentAt: ts('status_sent_at'),

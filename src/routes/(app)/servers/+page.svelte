@@ -10,6 +10,7 @@
 	import SortHeader from '$lib/components/SortHeader.svelte';
 	import { TableSort, matches } from '$lib/table.svelte';
 	import type { OrgMemberView, RoleView, ServerInfo, Status, Features } from '$lib/types';
+	import { FEATURE_LABELS, PUBLIC_FEATURES, featureState, NO_ALLOWANCES } from '$lib/features';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -39,6 +40,8 @@
 				password: string;
 				notes: string;
 				sortOrder: string;
+				publicStatus: boolean;
+				publicLeaderboards: boolean;
 		  }
 		| { kind: 'test'; server: ServerInfo; result: TestOk }
 		| {
@@ -87,9 +90,15 @@
 			scheme: s?.scheme ?? 'http',
 			password: '',
 			notes: s?.notes ?? '',
-			sortOrder: String(s?.sortOrder ?? 0)
+			sortOrder: String(s?.sortOrder ?? 0),
+			publicStatus: s?.publicStatus ?? false,
+			publicLeaderboards: s?.publicLeaderboards ?? false
 		};
 	};
+	/** What the site owner allows the dialog's organisation (the server's, or the one picked for a new one). */
+	const allowancesOf = (d: { server: ServerInfo | null; orgId: string }) =>
+		d.server ?? data.ownedOrgs.find((o) => o.id === d.orgId) ?? NO_ALLOWANCES;
+	const FEATURE_KEY = { status: 'publicStatus', leaderboards: 'publicLeaderboards' } as const;
 
 	async function run(fn: () => Promise<void>, done: string) {
 		busy = true;
@@ -116,6 +125,10 @@
 			notes: d.notes,
 			sortOrder: Number(d.sortOrder) || 0
 		};
+		// A switch the org is not allowed is left out: it stays as it was and the API never sees it.
+		for (const feature of PUBLIC_FEATURES)
+			if (featureState(allowancesOf(d), d, feature).allowed)
+				payload[FEATURE_KEY[feature]] = d[FEATURE_KEY[feature]];
 		if (d.password) payload.password = d.password;
 		if (d.server) {
 			const id = d.server.id;
@@ -354,6 +367,20 @@
 						bind:value={d.sortOrder}
 					/></label
 				>
+			</div>
+			<div>
+				<span class="field-label">Public pages</span>
+				{#each PUBLIC_FEATURES as feature (feature)}
+					{@const st = featureState(allowancesOf(d), d, feature)}
+					<label
+						class="flex items-center gap-2 py-0.5 text-[13px] {st.allowed ? '' : 'opacity-50'}"
+						title={st.reason ?? undefined}
+					>
+						<input type="checkbox" bind:checked={d[FEATURE_KEY[feature]]} disabled={!st.allowed} />
+						{FEATURE_LABELS[feature]}
+						{#if st.reason}<span class="text-[12px] text-mist-600">· {st.reason}</span>{/if}
+					</label>
+				{/each}
 			</div>
 			<p class="note">
 				{#if data.user.role === 'owner'}

@@ -18,7 +18,12 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 	const access = row ? await serverAccessFor(env, user, row.id) : null;
 	if (!row || !access) error(404, 'Server not found, or you have no access to it.');
 	const org = await getOrg(env, row.orgId);
-	const server: ServerInfo = shapeServer(env, row, org?.name ?? '', access);
+	const server: ServerInfo = shapeServer(
+		env,
+		row,
+		org ?? { name: '', allowPublicStatus: false, allowPublicLeaderboards: false },
+		access
+	);
 	let catalog: Catalog = EMPTY;
 	// A build too old to report capabilities predates the route removals, so assume the live routes.
 	let features: Features = {
