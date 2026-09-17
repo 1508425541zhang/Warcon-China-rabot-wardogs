@@ -58,21 +58,21 @@
 		players: PublicStatus['roster'];
 	};
 	// One column per faction in scoreboard order, its players under its score; factions only the
-	// roster names (no score yet) follow, and players without a faction come last.
+	// roster names (no score yet) follow. Players without a faction are listed in one row below.
 	let teams = $derived.by((): Team[] => {
 		const out: Team[] = view.scores.map((f) => ({ ...f, players: [] }));
-		const unassigned: Team = { name: 'No team yet', colorHex: null, score: null, players: [] };
 		for (const p of view.roster) {
-			let t = p.faction ? out.find((x) => x.name === p.faction) : unassigned;
+			if (!p.faction) continue;
+			let t = out.find((x) => x.name === p.faction);
 			if (!t) {
-				t = { name: p.faction!, colorHex: null, score: null, players: [] };
+				t = { name: p.faction, colorHex: null, score: null, players: [] };
 				out.push(t);
 			}
 			t.players.push(p);
 		}
-		if (unassigned.players.length) out.push(unassigned);
 		return out;
 	});
+	let unassigned = $derived(view.roster.filter((p) => !p.faction).map((p) => p.name));
 	let pct = $derived(
 		view.maxPlayers ? Math.min(100, Math.round((view.players / view.maxPlayers) * 100)) : 0
 	);
@@ -100,6 +100,14 @@
 			: 'could not be reached'}"
 	/>
 </svelte:head>
+
+{#snippet unassignedRow()}
+	<!-- players the game has not put on a team yet (white in game): one row, names only -->
+	<div class="mt-3 flex items-center gap-4 table-wrap px-3.5 py-2.5 lg:mt-4">
+		<span class="shrink-0 caps text-mist-400">Unassigned</span>
+		<span class="min-w-0 text-[13.5px]">{unassigned.join(' · ')}</span>
+	</div>
+{/snippet}
 
 <div class="rise">
 	<div class="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start lg:gap-4">
@@ -236,12 +244,15 @@
 					</div>
 				{/each}
 			</div>
+			{#if unassigned.length}{@render unassignedRow()}{/if}
 			{#if view.scores.length}
 				<div class="mt-1.5 text-[12px] text-mist-600">
 					First to {cap}{#if view.matchSeconds !== null}
 						· {fmtDuration(view.matchSeconds)} played{/if}
 				</div>
 			{/if}
+		{:else if unassigned.length}
+			{@render unassignedRow()}
 		{:else}
 			<div class="mt-3 table-wrap py-6 text-center text-mist-600 lg:mt-4">Nobody on right now.</div>
 		{/if}
