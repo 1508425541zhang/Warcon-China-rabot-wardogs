@@ -5,6 +5,7 @@ import {
 	onTarget,
 	renderTemplate,
 	restartNoticeStage,
+	fullMoments,
 	lowStretches,
 	riskKickVerdict,
 	seedRule,
@@ -101,9 +102,16 @@ describe('validateConfig', () => {
 		expect(() => validateConfig('seed_reward', { minutes: 60 * 24 * 8, windowDays: 7 })).toThrow(
 			'window'
 		);
+		expect(() => validateConfig('seed_reward', { minutes: 60, lowAt: 20, fullAt: 20 })).toThrow(
+			'Filled'
+		);
+		expect(validateConfig('seed_reward', { minutes: 60, lowAt: 20, fullAt: '90' })).toMatchObject({
+			fullAt: 90
+		});
 		expect(validateConfig('seed_reward', { minutes: '45' })).toEqual({
 			lowAt: 20,
 			untilFull: true,
+			fullAt: null,
 			minutes: 45,
 			windowDays: 7,
 			slotDays: 7,
@@ -121,6 +129,7 @@ describe('validateConfig', () => {
 		).toEqual({
 			lowAt: 1,
 			untilFull: false,
+			fullAt: null,
 			minutes: 30,
 			windowDays: 90,
 			slotDays: 1,
@@ -135,94 +144,95 @@ describe('seedRule', () => {
 		expect(seedRule([{ kind: 'welcome', config: { lowAt: 5 } }])).toBeNull();
 		expect(
 			seedRule([
-				{ kind: 'seed_reward', config: { lowAt: 10, untilFull: false } },
-				{ kind: 'seed_reward', config: { lowAt: 1, untilFull: true } },
+				{ kind: 'seed_reward', config: { lowAt: 10, untilFull: false, fullAt: 90 } },
+				{ kind: 'seed_reward', config: { lowAt: 1, untilFull: true, fullAt: null } },
 				{ kind: 'broadcast', config: {} }
 			])
-		).toEqual({ lowAt: 10, untilFull: false });
+		).toEqual({ lowAt: 10, untilFull: false, fullAt: 90 });
 		expect(seedRule([{ kind: 'seed_reward', config: { lowAt: 1, untilFull: true } }])).toEqual({
 			lowAt: 1,
-			untilFull: true
+			untilFull: true,
+			fullAt: null
 		});
 	});
 });
 
 describe('seed replay', () => {
 	const M = 60_000;
-	test('lowStretches merges neighbouring low samples and says whether each ended by filling', () => {
-		const rows = [
-			{ ts: 0, ok: true, count: 3 },
-			{ ts: 10 * M, ok: true, count: 5 },
-			{ ts: 20 * M, ok: true, count: 25 },
-			{ ts: 30 * M, ok: false, count: 0 },
-			{ ts: 40 * M, ok: true, count: 20 }
-		];
+	const rows = [
+		{ ts: 0, ok: true, count: 3, max: 32 },
+		{ ts: 10 * M, ok: true, count: 5, max: 32 },
+		{ ts: 20 * M, ok: true, count: 25, max: 32 },
+		{ ts: 30 * M, ok: false, count: 0, max: 32 },
+		{ ts: 40 * M, ok: true, count: 20, max: 32 },
+		{ ts: 45 * M, ok: true, count: 32, max: 32 }
+	];
+	test('lowStretches merges neighbouring low samples and ends the last one at the window end', () => {
 		expect(lowStretches(rows, 20, 50 * M)).toEqual([
-			{ from: 0, to: 20 * M, filled: true },
-			{ from: 40 * M, to: 50 * M, filled: false }
+			{ from: 0, to: 20 * M },
+			{ from: 40 * M, to: 45 * M }
 		]);
-		expect(lowStretches(rows, 4, 50 * M)).toEqual([{ from: 0, to: 10 * M, filled: true }]);
+		expect(lowStretches(rows, 4, 50 * M)).toEqual([{ from: 0, to: 10 * M }]);
 		expect(lowStretches([], 20, 50 * M)).toEqual([]);
-		// a sample holds for at most the cap: the worker was away for the rest of the gap, so no
-		// stretch cut by the cap can be known to have filled
+		// a sample holds for at most the cap: the worker was away for the rest of the gap
 		expect(lowStretches(rows, 20, 50 * M, 3 * M)).toEqual([
-			{ from: 0, to: 3 * M, filled: false },
-			{ from: 10 * M, to: 13 * M, filled: false },
-			{ from: 40 * M, to: 43 * M, filled: false }
+			{ from: 0, to: 3 * M },
+			{ from: 10 * M, to: 13 * M },
+			{ from: 40 * M, to: 43 * M }
 		]);
-		// a low sample followed by a failed one ends without filling
-		expect(
-			lowStretches(
-				[
-					{ ts: 0, ok: true, count: 3 },
-					{ ts: 10 * M, ok: false, count: 0 }
-				],
-				20,
-				50 * M
-			)
-		).toEqual([{ from: 0, to: 10 * M, filled: false }]);
 	});
-	test('seedReplay banks a stretch only for players still on when the server filled', () => {
+	test('fullMoments are the samples at or over the fill line, or the server limit without one', () => {
+		expect(fullMoments(rows, null)).toEqual([45 * M]);
+		expect(fullMoments(rows, 25)).toEqual([20 * M, 45 * M]);
+		expect(fullMoments(rows, 40)).toEqual([]);
+	});
+	test('seedReplay banks pending low time at a full moment for players still on', () => {
 		const stretches = [
-			{ from: 0, to: 30 * M, filled: true },
-			{ from: 60 * M, to: 90 * M, filled: false }
+			{ from: 0, to: 30 * M },
+			{ from: 60 * M, to: 90 * M }
 		];
+		const fulls = [50 * M];
 		const totals = seedReplay(
 			stretches,
+			fulls,
 			[
-				// on throughout: 30 min banked when it filled at 30 min; the unfilled stretch is nothing
+				// on throughout: 30 min pending, banked when it filled at 50 min; the later stretch
+				// never fills, so it stays pending
 				{ steamId: 'a', joinedAt: -5 * M, leftAt: null },
-				// joined 10 min in and stayed past the fill: 20 min banked; later session unfilled
-				{ steamId: 'b', joinedAt: 10 * M, leftAt: 40 * M },
+				// joined 10 min in, stayed past the fill: 20 min banked; later session never fills
+				{ steamId: 'b', joinedAt: 10 * M, leftAt: 55 * M },
 				{ steamId: 'b', joinedAt: 80 * M, leftAt: null },
 				// only on while the server was busy
-				{ steamId: 'c', joinedAt: 30 * M, leftAt: 60 * M },
+				{ steamId: 'c', joinedAt: 30 * M, leftAt: 45 * M },
 				// left before it filled: forfeited
 				{ steamId: 'd', joinedAt: 0, leftAt: 20 * M }
 			],
 			25 * 60,
 			100 * M
 		);
-		expect(totals.get('a')).toEqual({ seconds: 1800, crossedAt: 30 * M });
+		expect(totals.get('a')).toEqual({ seconds: 1800, crossedAt: 50 * M });
 		expect(totals.get('b')).toEqual({ seconds: 1200, crossedAt: null });
 		expect(totals.has('c')).toBe(false);
 		expect(totals.has('d')).toBe(false);
+		// two fills: each banks what was pending since the last
 		expect(
 			seedReplay(
 				stretches,
-				[{ steamId: 'b', joinedAt: 10 * M, leftAt: 40 * M }],
-				10 * 60,
+				[50 * M, 95 * M],
+				[{ steamId: 'a', joinedAt: 0, leftAt: null }],
+				55 * 60,
 				100 * M
-			).get('b')
-		).toEqual({ seconds: 1200, crossedAt: 30 * M });
+			).get('a')
+		).toEqual({ seconds: 3600, crossedAt: 95 * M });
 	});
 	test('seedReplay without the fill requirement credits every low minute as it passes', () => {
 		const stretches = [
-			{ from: 0, to: 30 * M, filled: true },
-			{ from: 60 * M, to: 90 * M, filled: false }
+			{ from: 0, to: 30 * M },
+			{ from: 60 * M, to: 90 * M }
 		];
 		const totals = seedReplay(
 			stretches,
+			[],
 			[
 				{ steamId: 'a', joinedAt: -5 * M, leftAt: null },
 				{ steamId: 'd', joinedAt: 0, leftAt: 20 * M }

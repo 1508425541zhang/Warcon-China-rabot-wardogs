@@ -96,8 +96,10 @@ export interface TeamKillConfig {
  */
 export interface SeedRewardConfig {
 	lowAt: number;
-	/** count a low stretch only once the server has climbed past `lowAt` with the player still on */
+	/** count seed time only once the server has filled with the player still on */
 	untilFull: boolean;
+	/** what "filled" means: at least this many on; null is the player limit the server reports */
+	fullAt: number | null;
 	minutes: number;
 	windowDays: number;
 	slotDays: number;
@@ -234,9 +236,17 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 					400,
 					'The seed time needed cannot exceed the window it is counted over.'
 				);
+			const lowAt = int(c.lowAt, 20, 1, 1000);
+			const fullAt =
+				c.fullAt === null || c.fullAt === undefined || c.fullAt === ''
+					? null
+					: int(c.fullAt, 0, 1, 1000);
+			if (fullAt !== null && fullAt <= lowAt)
+				throw new ApiError(400, 'Filled must be more players than the seeding threshold.');
 			return {
-				lowAt: int(c.lowAt, 20, 1, 1000),
+				lowAt,
 				untilFull: c.untilFull === undefined ? true : !!c.untilFull,
+				fullAt,
 				minutes,
 				windowDays,
 				slotDays: int(c.slotDays, 7, 1, 365),
@@ -250,9 +260,6 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 export interface LowStretch {
 	from: number;
 	to: number;
-	/** the stretch ended because the count climbed past the threshold (not the window's end, a
-	 *  failed sample or a gap in sampling): only then does the time in it count as seeding */
-	filled: boolean;
 }
 
 /**
@@ -270,17 +277,21 @@ export function lowStretches(
 	for (let i = 0; i < rows.length; i++) {
 		const r = rows[i];
 		if (!r.ok || r.count > lowAt) continue;
-		const next = i + 1 < rows.length ? rows[i + 1] : null;
-		const end = Math.min(to, next ? next.ts : to, r.ts + maxHoldMs);
+		const end = Math.min(to, i + 1 < rows.length ? rows[i + 1].ts : to, r.ts + maxHoldMs);
 		if (end <= r.ts) continue;
-		const filled = !!next && end === next.ts && next.ok && next.count > lowAt;
 		const last = out[out.length - 1];
-		if (last && last.to >= r.ts) {
-			last.to = end;
-			last.filled = filled;
-		} else out.push({ from: r.ts, to: end, filled });
+		if (last && last.to >= r.ts) last.to = end;
+		else out.push({ from: r.ts, to: end });
 	}
 	return out;
+}
+
+/** The moments the server was filled: samples with the count at or over the rule's fill line. */
+export function fullMoments(
+	rows: { ts: number; ok: boolean; count: number; max: number }[],
+	fullAt: number | null
+): number[] {
+	return rows.filter((r) => r.ok && r.count >= (fullAt ?? r.max)).map((r) => r.ts);
 }
 
 export interface SeedSession {
@@ -298,36 +309,43 @@ export interface SeedTotal {
 
 /**
  * Seed time per player from how their sessions overlap the low stretches, as the live rule
- * banks it. With `untilFull` a stretch counts only if it ended by the server filling while the
- * player was still on, credited at that moment; without it every minute of overlap counts as it
- * passes. `to` closes open sessions.
+ * banks it. With `untilFull` the low time is pending until a full moment with the player still
+ * on, and credited then; a session that ends first forfeits it. Without it every minute of
+ * overlap counts as it passes. `to` closes open sessions.
  */
 export function seedReplay(
 	stretches: LowStretch[],
+	fulls: number[],
 	sessions: SeedSession[],
 	targetSeconds: number,
 	to: number,
 	untilFull = true
 ): Map<string, SeedTotal> {
 	const banked = new Map<string, { at: number; ms: number }[]>();
+	const add = (steamId: string, at: number, ms: number) =>
+		(banked.get(steamId) ?? banked.set(steamId, []).get(steamId)!).push({ at, ms });
 	for (const s of sessions) {
 		const end = s.leftAt ?? to;
+		const spans: { from: number; to: number }[] = [];
 		for (const l of stretches) {
 			const from = Math.max(s.joinedAt, l.from);
-			if (untilFull) {
-				if (!l.filled || end < l.to || l.to <= from) continue;
-				(banked.get(s.steamId) ?? banked.set(s.steamId, []).get(s.steamId)!).push({
-					at: l.to,
-					ms: l.to - from
-				});
-			} else {
-				const until = Math.min(end, l.to);
-				if (until <= from) continue;
-				(banked.get(s.steamId) ?? banked.set(s.steamId, []).get(s.steamId)!).push({
-					at: until,
-					ms: until - from
-				});
-			}
+			const until = Math.min(end, l.to);
+			if (until > from) spans.push({ from, to: until });
+		}
+		if (!untilFull) {
+			for (const span of spans) add(s.steamId, span.to, span.to - span.from);
+			continue;
+		}
+		// A low stretch never overlaps a full moment, so each span sits wholly before or after one.
+		let pending = 0;
+		let next = 0;
+		for (const f of fulls) {
+			if (f < s.joinedAt) continue;
+			if (f > end) break;
+			for (; next < spans.length && spans[next].to <= f; next++)
+				pending += spans[next].to - spans[next].from;
+			if (pending) add(s.steamId, f, pending);
+			pending = 0;
 		}
 	}
 	const out = new Map<string, SeedTotal>();
@@ -352,14 +370,18 @@ export function seedReplay(
  * whether the time only counts once the server fills, or null when there is no such rule. With
  * more than one rule (one is enforced at save) the highest threshold wins.
  */
-export function seedRule(
-	rows: { kind: string; config: unknown }[]
-): { lowAt: number; untilFull: boolean } | null {
-	let out: { lowAt: number; untilFull: boolean } | null = null;
+export interface SeedRuleShape {
+	lowAt: number;
+	untilFull: boolean;
+	fullAt: number | null;
+}
+export function seedRule(rows: { kind: string; config: unknown }[]): SeedRuleShape | null {
+	let out: SeedRuleShape | null = null;
 	for (const r of rows) {
 		if (r.kind !== 'seed_reward') continue;
 		const c = r.config as SeedRewardConfig;
-		if (out === null || c.lowAt > out.lowAt) out = { lowAt: c.lowAt, untilFull: c.untilFull };
+		if (out === null || c.lowAt > out.lowAt)
+			out = { lowAt: c.lowAt, untilFull: c.untilFull, fullAt: c.fullAt ?? null };
 	}
 	return out;
 }
