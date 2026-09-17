@@ -3,9 +3,7 @@
 	// and the form that connects another. A channel connected here is a webhook restricted to this
 	// server carrying only those two things; the org page lists it with the rest and is where the
 	// audit mirror (bans, kicks, sign-ins) is set up. Each row is a line of text with one Edit
-	// button; changing, testing, pausing and disconnecting a channel happen in its dialog. The
-	// public pages the cards link to are switched on here too, so a channel, its card and the
-	// pages it points at are set up in one place.
+	// button; changing, testing, pausing and disconnecting a channel happen in its dialog.
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage } from '$lib/api';
 	import { fmtTime } from '$lib/format';
@@ -15,7 +13,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import type { WebhookView } from '$lib/types';
 	import type { StatusStyle } from '$lib/status-styles';
-	import { effectiveFeatures, featureState, FEATURE_LABELS, PUBLIC_FEATURES } from '$lib/features';
+	import { effectiveFeatures } from '$lib/features';
 	import ChannelFields from './ChannelFields.svelte';
 	import type { PageProps } from './$types';
 
@@ -200,18 +198,6 @@
 	/** A channel this page can manage: this server only, carrying nothing but the card and team kills. */
 	const ownHere = (w: WebhookView) =>
 		w.serverIds?.length === 1 && w.events.every((e) => e === 'teamkills');
-
-	// --- the public pages the cards link to ---
-	const FEATURE_KEY = { status: 'publicStatus', leaderboards: 'publicLeaderboards' } as const;
-	const FEATURE_PATH = { status: '', leaderboards: '/leaderboard' } as const;
-	const setPublic = (feature: 'status' | 'leaderboards', on: boolean) =>
-		run(
-			() =>
-				api('PATCH', `/api/servers/${encodeURIComponent(data.server.id)}`, {
-					[FEATURE_KEY[feature]]: on
-				}),
-			on ? `${FEATURE_LABELS[feature]} is on.` : `${FEATURE_LABELS[feature]} is off.`
-		);
 </script>
 
 <div class="panel">
@@ -319,7 +305,11 @@
 			<p class="note">
 				In Discord, open the channel's settings → Integrations → Webhooks → New Webhook, copy its
 				URL and paste it here. The URL is stored encrypted and never shown again. Pictures need the
-				panel to be reachable over https.
+				panel to be reachable over https. The public pages a card can link to are switched on under
+				<a
+					href="/server/{encodeURIComponent(data.server.id)}/public"
+					class="text-accent hover:underline">Public</a
+				>.
 			</p>
 			<div class="flex justify-end">
 				<button type="submit" class="btn btn-primary" disabled={busy}>Connect channel</button>
@@ -327,43 +317,6 @@
 		</form>
 	{/if}
 </div>
-
-{#if data.server.manager}
-	<div class="mt-4 panel">
-		<span class="label-sm">Public pages</span>
-		<p class="mb-3 text-[13px] text-mist-400">
-			What a card can link to without a sign-in. Each page is open to anyone with the address once
-			you switch it on here; the site owner can close them for {data.server.orgName}.
-		</p>
-		{#each PUBLIC_FEATURES as feature (feature)}
-			{@const st = featureState(data.server, data.server, feature)}
-			<div class="kv items-center">
-				<label class="flex items-center gap-2 text-[13px] {st.allowed ? '' : 'opacity-50'}">
-					<input
-						type="checkbox"
-						checked={st.wanted}
-						disabled={busy || !st.allowed}
-						onchange={(e) => setPublic(feature, e.currentTarget.checked)}
-					/>
-					{FEATURE_LABELS[feature]}
-				</label>
-				<span class="text-right text-[12.5px] text-mist-400">
-					{#if st.reason}{st.reason}{:else if st.on}<a
-							href="/s/{encodeURIComponent(data.server.id)}{FEATURE_PATH[feature]}"
-							class="text-accent hover:underline">/s/{data.server.id}{FEATURE_PATH[feature]}</a
-						>{:else}off{/if}
-				</span>
-			</div>
-		{/each}
-		<p class="note">
-			The public status page shows the map, scores, player count, join code and who is on with kills
-			and deaths; leaderboards show names and stats and open a career page per player. Neither shows
-			SteamIDs, pings, cash or anything about the panel. A public JSON copy of each page sits under <code
-				class="chip">/api/public/servers/{data.server.id}</code
-			>.
-		</p>
-	</div>
-{/if}
 
 {#if editing}
 	{@const e = editing}

@@ -458,8 +458,7 @@ leaderboard, and the panel. The card's title opens the first link and the rest s
 under the body. A public link goes out only while that page is on for the server (see
 [Public pages](#public-pages)), so a card never sends people to the sign-in wall; the panel link
 is off by default, for staff channels. The server's **Discord** tab has these controls next to
-the card style, with the switches for the public pages they point at, so connecting a channel,
-choosing a style, a cadence and the links, and opening the pages all happen in one place.
+the card style; the pages themselves are switched on under the server's **Public** tab.
 
 ### Leaderboards and careers
 
@@ -482,7 +481,8 @@ nothing is precomputed.
 ### Public pages
 
 Two pages of a server can be opened to anyone with the address. An org owner **switches each on**
-per server (in the server's edit dialog, or on its Discord tab); nothing is public until then.
+per server on the server's **Public** tab, which shows the addresses to copy (the server's edit
+dialog carries the same switches); nothing is public until then.
 The site owner can **close** either page for a whole organisation from the org's page, next to
 the server limit, which shuts every such page in it at once.
 
@@ -718,7 +718,7 @@ src/lib/config-doc.ts / config-fields.ts   ServerSettings.ini parser and line-le
 src/lib/components/            Modal, MapPicker, PopulationChart, CashChart, ConfigForm, Toasts, badges…
 src/routes/(auth)/             /sign-in (+ /verify), /setup, /join/[token], /recover (form actions)     src/routes/sign-out
 src/routes/api/passkeys/       WebAuthn ceremonies relayed to Better Auth; src/routes/auth/steam/ the Steam callback
-src/routes/(app)/              dashboard, /server/[id]/{,players,players/[steamId],bans,rotation,config,automation,analytics,leaderboard,log}, /audit, /orgs, /orgs/[id]/{,bans,reserved}, /users, /servers, /account
+src/routes/(app)/              dashboard, /server/[id]/{,players,players/[steamId],bans,rotation,config,automation,analytics,leaderboard,log,discord,public}, /audit, /orgs, /orgs/[id]/{,bans,reserved}, /users, /servers, /account
 src/routes/(public)/           /s/[id]{,/leaderboard,/players/[steamId]}: the public pages, no session
 src/routes/api/                JSON API (below)
 docs/wardogs-api.md            the reverse-engineered game-server API
