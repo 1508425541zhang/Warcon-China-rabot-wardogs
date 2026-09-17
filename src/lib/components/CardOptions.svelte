@@ -53,7 +53,7 @@
 	</div>
 	<p class="note">
 		The title opens the first link, the rest sit under the card. A public link goes out only while
-		that page is on for the server, so a card never sends people to the sign-in wall. Edits wait at
-		least the refresh interval, longer when many servers share one webhook.
+		that page is on for the server (its Public tab), so a card never sends people to the sign-in
+		wall. Edits wait at least the refresh interval, longer when many servers share one webhook.
 	</p>
 </div>

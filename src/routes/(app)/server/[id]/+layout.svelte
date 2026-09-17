@@ -23,9 +23,11 @@
 		['/leaderboard', 'Leaderboards'],
 		['/log', 'Server log']
 	] as const;
-	// Discord webhooks are an org owner's to manage, so the tab shows for them alone.
+	// Discord webhooks and the public pages are an org owner's to manage, so those tabs show for them alone.
 	let visibleTabs = $derived(
-		data.server.manager ? [...TABS, ['/discord', 'Discord'] as const] : [...TABS]
+		data.server.manager
+			? [...TABS, ['/discord', 'Discord'] as const, ['/public', 'Public'] as const]
+			: [...TABS]
 	);
 	let base = $derived(`/server/${encodeURIComponent(data.server.id)}`);
 	let current = $derived(page.url.pathname.slice(base.length) || '');
