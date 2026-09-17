@@ -203,9 +203,7 @@
 		<table>
 			<thead>
 				<tr>
-					<SortHeader {sort} key="player" class="max-md:sticky max-md:left-0 max-md:z-10"
-						>Player</SortHeader
-					>
+					<SortHeader {sort} key="player">Player</SortHeader>
 					<SortHeader {sort} key="flags">Flags</SortHeader>
 					<SortHeader {sort} key="reserved">Reserved</SortHeader>
 					<SortHeader {sort} key="faction">Faction</SortHeader>
@@ -221,7 +219,7 @@
 					{@const m = marks[p.steamId]}
 					{@const r = listState?.reserved[p.steamId]}
 					<tr>
-						<td class="max-md:sticky max-md:left-0 max-md:z-10 max-md:bg-ink-950"
+						<td
 							><a
 								href="{base}/{p.steamId}"
 								class="font-medium text-mist-100 underline decoration-mist-600 underline-offset-[3px] hover:text-accent hover:decoration-accent"
