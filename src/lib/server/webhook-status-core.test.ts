@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import type { LiveView, Player, Status } from '$lib/types';
 import {
 	buildStatusEmbed,
+	cardLinks,
+	clampInterval,
 	embedLength,
 	escapeMarkdown,
 	factionFields,
@@ -19,6 +21,7 @@ const opts = {
 	now: Date.parse('2026-09-13T12:00:00Z')
 };
 const server = { id: 's1', name: 'EU #1' };
+const panelLink = { label: 'Panel', url: 'https://rcon.example.com/server/s1' };
 const p = (name: string, faction: string | null, kills: number, deaths: number): Player => ({
 	name,
 	steamId: name,
@@ -87,7 +90,7 @@ describe('buildStatusEmbed', () => {
 	});
 
 	test('the card: bars, map line, faction rows, columns, art and author', () => {
-		const e = buildStatusEmbed(opts, server, live());
+		const e = buildStatusEmbed({ ...opts, links: [panelLink] }, server, live());
 		expect(e.title).toBe('EU #1');
 		expect(e.url).toBe('https://rcon.example.com/server/s1');
 		expect(e.color).toBe(0xd86060); // Valkyra leads
@@ -393,5 +396,81 @@ describe('score cap on live builds', () => {
 		);
 		expect(e.description).toContain('First to 100');
 		expect(e.description).toContain('🟥🟥🟥🟥🟥⬛⬛⬛⬛⬛ **50** Valkyra');
+	});
+});
+
+describe('links', () => {
+	const flags = { linkStatus: true, linkLeaderboard: true, linkPanel: true };
+	const on = { status: true, leaderboards: true };
+	test('a public link goes out only while its page is on; the panel link whenever asked', () => {
+		expect(cardLinks('https://x.io', 's1', flags, on)).toEqual([
+			{ label: 'Live status', url: 'https://x.io/s/s1' },
+			{ label: 'Leaderboard', url: 'https://x.io/s/s1/leaderboard' },
+			{ label: 'Panel', url: 'https://x.io/server/s1' }
+		]);
+		expect(cardLinks('https://x.io', 's1', flags, { status: false, leaderboards: false })).toEqual([
+			{ label: 'Panel', url: 'https://x.io/server/s1' }
+		]);
+		expect(
+			cardLinks(
+				'https://x.io',
+				's1',
+				{ ...flags, linkPanel: false },
+				{ status: true, leaderboards: false }
+			)
+		).toEqual([{ label: 'Live status', url: 'https://x.io/s/s1' }]);
+		expect(
+			cardLinks(
+				'https://x.io',
+				's1',
+				{ linkStatus: false, linkLeaderboard: false, linkPanel: false },
+				on
+			)
+		).toEqual([]);
+	});
+	test('the title points at the first link and the rest close the body; no links, no url', () => {
+		const links = cardLinks('https://x.io', 's1', flags, on);
+		for (const style of ['banner', 'compact', 'scoreboard'] as const) {
+			const e = buildStatusEmbed({ ...opts, style, links }, server, live());
+			expect(e.url).toBe('https://x.io/s/s1');
+			expect(e.description.split('\n').at(-1)).toBe(
+				'[Leaderboard](https://x.io/s/s1/leaderboard) · [Panel](https://x.io/server/s1)'
+			);
+			expect(e.description.length).toBeLessThanOrEqual(LIMITS.description);
+		}
+		const one = buildStatusEmbed({ ...opts, links: [panelLink] }, server, live());
+		expect(one.url).toBe(panelLink.url);
+		expect(one.description).not.toContain('](');
+		const none = buildStatusEmbed(opts, server, live());
+		expect(none.url).toBeUndefined();
+		expect(none.description).not.toContain('](');
+		const down = buildStatusEmbed({ ...opts, links }, server, live({ ok: false, error: 'x' }));
+		expect(down.url).toBe('https://x.io/s/s1');
+		expect(down.description.split('\n').at(-1)).toContain('[Panel]');
+	});
+	test('the links are part of the change key', () => {
+		const base = statusMessage(opts, server, live()).key;
+		const withPanel = statusMessage({ ...opts, links: [panelLink] }, server, live()).key;
+		expect(withPanel).not.toBe(base);
+		expect(statusMessage({ ...opts, links: [panelLink] }, server, live()).key).toBe(withPanel);
+		expect(
+			statusMessage(
+				{ ...opts, links: [{ label: 'Live status', url: 'https://x.io/s/s1' }] },
+				server,
+				live()
+			).key
+		).not.toBe(withPanel);
+	});
+});
+
+describe('clampInterval', () => {
+	test('30 to 300 seconds, whole, default 60', () => {
+		expect(clampInterval(undefined)).toBe(60);
+		expect(clampInterval('')).toBe(60);
+		expect(clampInterval('abc')).toBe(60);
+		expect(clampInterval(10)).toBe(30);
+		expect(clampInterval(45.4)).toBe(45);
+		expect(clampInterval('120')).toBe(120);
+		expect(clampInterval(9999)).toBe(300);
 	});
 });

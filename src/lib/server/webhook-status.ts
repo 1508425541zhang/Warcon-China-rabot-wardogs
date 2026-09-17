@@ -11,15 +11,22 @@ import { isOwner } from './leadership';
 import { memoryOf } from './observe';
 import { liveView } from './live';
 import { deleteDiscord, editDiscord, postDiscord, type PostResult } from './webhook-delivery';
-import { statusMessage, type StatusServer } from './webhook-status-core';
+import { cardLinks, statusMessage, type StatusServer } from './webhook-status-core';
+import { effectiveFeatures, type FeatureSet } from '$lib/features';
 
 export const STATUS_TICK_MS = 20_000;
 /** Re-edit an unchanged message this often so its embed timestamps do not drift into the past. */
 const HEARTBEAT_MS = 5 * 60_000;
-/** Edits of one message are at least this far apart, whatever the scores do. */
-const MIN_GAP_MS = 30_000;
-/** ...and further apart the more servers share one webhook: Discord allows ~30 requests a minute. */
+/**
+ * Edits of one message are at least the webhook's own interval apart (30 s to 5 min), and further
+ * apart the more servers share one webhook: Discord allows ~30 requests a minute.
+ */
 const GAP_PER_SERVER_MS = 4000;
+
+/** What a card needs of its server: the label and which public pages it has. */
+interface CardServer extends StatusServer {
+	features: FeatureSet;
+}
 /** After a failed request, leave that webhook alone for this long. */
 const BACKOFF_MS = 60_000;
 
@@ -92,15 +99,16 @@ export async function refreshStatusMessages(env: Env, now = Date.now()): Promise
 	for (const id of retryAt.keys()) if (!hooks.some((h) => h.hook.id === id)) retryAt.delete(id);
 	if (!hooks.length) return;
 	const rows = await env.db
-		.select({ id: servers.id, name: servers.name, orgId: servers.orgId })
+		.select({ server: servers, org: organizations })
 		.from(servers)
+		.innerJoin(organizations, eq(organizations.id, servers.orgId))
 		.where(inArray(servers.orgId, [...new Set(hooks.map((h) => h.hook.orgId))]))
 		.orderBy(asc(servers.sortOrder), asc(servers.name));
-	const byOrg = new Map<string, StatusServer[]>();
-	for (const r of rows) {
-		const list = byOrg.get(r.orgId) ?? [];
-		list.push({ id: r.id, name: r.name });
-		byOrg.set(r.orgId, list);
+	const byOrg = new Map<string, CardServer[]>();
+	for (const { server, org } of rows) {
+		const list = byOrg.get(server.orgId) ?? [];
+		list.push({ id: server.id, name: server.name, features: effectiveFeatures(org, server) });
+		byOrg.set(server.orgId, list);
 	}
 	// Different webhooks are different rate-limit buckets, so they need not wait on each other;
 	// the servers of one webhook go one after another, in the order the dashboard shows them.
@@ -120,7 +128,7 @@ async function refreshHook(
 	env: Env,
 	hook: WebhookRow,
 	orgName: string,
-	list: StatusServer[],
+	list: CardServer[],
 	now: number
 ): Promise<void> {
 	if ((retryAt.get(hook.id) ?? 0) > now) return;
@@ -135,7 +143,7 @@ async function refreshHook(
 		}
 		await env.db.update(webhooks).set({ statusMessages: map }).where(eq(webhooks.id, hook.id));
 	}
-	const gap = Math.max(MIN_GAP_MS, list.length * GAP_PER_SERVER_MS);
+	const gap = Math.max(hook.statusIntervalS * 1000, list.length * GAP_PER_SERVER_MS);
 	const opts = {
 		appName: env.APP_NAME || 'Warcon',
 		orgName,
@@ -148,7 +156,7 @@ async function refreshHook(
 		const st = sent.get(key);
 		const m = memoryOf(server.id);
 		const { payload, key: substance } = statusMessage(
-			opts,
+			{ ...opts, links: cardLinks(env.ORIGIN, server.id, hook, server.features) },
 			server,
 			m && m.observedAt ? liveView(m) : null
 		);

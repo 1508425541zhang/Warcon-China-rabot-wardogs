@@ -2,13 +2,29 @@
 	// What a channel carries and how its card looks. The connect form and the edit dialog share
 	// these fields so both ask the same question in the same words.
 	import { STATUS_STYLE_LABELS, STATUS_STYLES, type StatusStyle } from '$lib/status-styles';
+	import CardOptions from '$lib/components/CardOptions.svelte';
+	import type { FeatureSet } from '$lib/features';
 
 	type Carry = 'card' | 'teamkills' | 'both';
 	let {
 		name,
 		carry = $bindable(),
-		style = $bindable()
-	}: { name: string; carry: Carry; style: StatusStyle } = $props();
+		style = $bindable(),
+		interval = $bindable(),
+		linkStatus = $bindable(),
+		linkLeaderboard = $bindable(),
+		linkPanel = $bindable(),
+		features
+	}: {
+		name: string;
+		carry: Carry;
+		style: StatusStyle;
+		interval: number;
+		linkStatus: boolean;
+		linkLeaderboard: boolean;
+		linkPanel: boolean;
+		features: FeatureSet;
+	} = $props();
 </script>
 
 <div>
@@ -32,6 +48,7 @@
 		</select></label
 	>
 	<p class="note">{STATUS_STYLE_LABELS[style]}</p>
+	<CardOptions bind:interval bind:linkStatus bind:linkLeaderboard bind:linkPanel {features} />
 {/if}
 {#if carry !== 'card'}<p class="note">
 		One message per team kill, as the kill feed reports it (set up on the Configuration tab).

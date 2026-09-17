@@ -498,6 +498,12 @@ export interface WebhookView {
 	/** keeps a live status card per covered server in the channel, edited in place */
 	statusEnabled: boolean;
 	statusStyle: StatusStyle;
+	/** seconds between edits of one card, 30-300 */
+	statusIntervalS: number;
+	/** which links the card carries (each public one only while that page is on for the server) */
+	linkStatus: boolean;
+	linkLeaderboard: boolean;
+	linkPanel: boolean;
 	statusSentAt: string | null;
 	lastSentAt: string | null;
 	lastStatus: number | null;
