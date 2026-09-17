@@ -13,6 +13,7 @@
 	import { capabilitySummary, type Capability } from '$lib/capabilities';
 	import type { ApiKeyView, InviteView, OrgMemberView, WebhookView } from '$lib/types';
 	import { STATUS_STYLE_LABELS, STATUS_STYLES, type StatusStyle } from '$lib/status-styles';
+	import { FEATURE_LABELS, PUBLIC_FEATURES, allowed } from '$lib/features';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -318,6 +319,30 @@
 	function restore() {
 		void run(() => api('PATCH', orgPath, { suspended: false }), 'Organisation restored.', false);
 	}
+	const ALLOW_KEY = {
+		status: 'allowPublicStatus',
+		leaderboards: 'allowPublicLeaderboards'
+	} as const;
+	const setAllowance = (feature: 'status' | 'leaderboards', on: boolean) =>
+		run(
+			() => api('PATCH', orgPath, { [ALLOW_KEY[feature]]: on }),
+			on ? `${FEATURE_LABELS[feature]} allowed.` : `${FEATURE_LABELS[feature]} no longer allowed.`,
+			false
+		);
+
+	// --- the org's public pages: the Discord invite shown on them ---
+	let inviteUrl = $state('');
+	$effect(() => {
+		inviteUrl = data.org.discordInviteUrl;
+	});
+	function saveInvite() {
+		void run(
+			() => api('PATCH', orgPath, { discordInviteUrl: inviteUrl.trim() }),
+			inviteUrl.trim() ? 'Discord invite saved.' : 'Discord invite removed.',
+			false
+		);
+	}
+	let anyAllowed = $derived(PUBLIC_FEATURES.some((f) => allowed(data.org, f)));
 </script>
 
 <div class="grid grid-cols-1 gap-4 xl:grid-cols-[3fr_2fr]">
@@ -509,6 +534,24 @@
 						.serverLimit}.
 				</p>
 				<div class="mt-3 border-t border-white/8 pt-3">
+					<span class="field-label">Public pages this organisation may switch on</span>
+					{#each PUBLIC_FEATURES as feature (feature)}
+						<label class="flex items-center gap-2 py-1 text-[13px]">
+							<input
+								type="checkbox"
+								checked={allowed(data.org, feature)}
+								disabled={busy}
+								onchange={(e) => setAllowance(feature, e.currentTarget.checked)}
+							/>
+							{FEATURE_LABELS[feature]}
+						</label>
+					{/each}
+					<p class="note">
+						An allowance lets the org's owners open the page per server; withdrawing it closes every
+						such page at once. Nothing is public until you allow it here.
+					</p>
+				</div>
+				<div class="mt-3 border-t border-white/8 pt-3">
 					{#if data.org.suspended}
 						<button type="button" class="btn btn-sm" onclick={restore} disabled={busy}
 							>Restore organisation</button
@@ -533,6 +576,42 @@
 				</div>
 			</div>
 		{/if}
+
+		<div class="panel">
+			<span class="label-sm">Public pages</span>
+			{#if anyAllowed}
+				<p class="mb-3 text-[13px] text-mist-400">
+					The site owner allows {PUBLIC_FEATURES.filter((f) => allowed(data.org, f))
+						.map((f) => FEATURE_LABELS[f].toLowerCase())
+						.join(' and ')} for this organisation. Switch each on per server from the server's
+					<b>Discord</b> tab or its edit dialog.
+				</p>
+			{:else}
+				<p class="mb-3 text-[13px] text-mist-400">
+					Nothing is public for this organisation. Ask the site owner to allow a public status page
+					or public leaderboards; the switches are then on each server's <b>Discord</b> tab.
+				</p>
+			{/if}
+			<label class="block"
+				><span class="field-label">Discord invite shown on the public pages</span>
+				<span class="join w-full">
+					<input
+						class="input font-mono text-[12.5px]"
+						type="url"
+						bind:value={inviteUrl}
+						placeholder="https://discord.gg/…"
+						maxlength="200"
+					/>
+					<button
+						type="button"
+						class="btn btn-sm h-auto"
+						onclick={saveInvite}
+						disabled={busy || inviteUrl.trim() === data.org.discordInviteUrl}>Save</button
+					>
+				</span>
+			</label>
+			<p class="note">A discord.gg or discord.com/invite link; blank removes the button.</p>
+		</div>
 
 		<div class="panel">
 			<div class="mb-3 flex items-center gap-3">

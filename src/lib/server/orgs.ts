@@ -20,6 +20,7 @@ import { ensureOrgLists } from './lists';
 import { ensureOrgRoles, roleInOrg, rolesOf } from './roles';
 import { gateway } from './gateway';
 import type { InviteStatus, InviteView, ListSyncSummary, OrgMemberView, OrgView } from '$lib/types';
+import { parseDiscordInvite } from '$lib/discord-invite';
 
 /** A Drizzle transaction handle (what `db.transaction(async (tx) => ...)` passes). */
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
@@ -96,6 +97,9 @@ const shapeOrg = (
 	serverLimit: serverLimitFor(env, o),
 	customServerLimit: o.serverLimit,
 	suspended: o.suspendedAt ? { at: o.suspendedAt.toISOString(), reason: o.suspendedReason } : null,
+	allowPublicStatus: o.allowPublicStatus,
+	allowPublicLeaderboards: o.allowPublicLeaderboards,
+	discordInviteUrl: o.discordInviteUrl,
 	createdBy: creator ? { username: creator.username || '', name: creator.name } : null,
 	createdAt: iso(o.createdAt)
 });
@@ -134,7 +138,7 @@ export async function listOrgs(env: Env, ids: string[]): Promise<OrgView[]> {
 	);
 }
 
-/** Site-owner controls: per-org server limit and suspension. */
+/** Site-owner controls: per-org server limit, suspension and the public-surface allowances. */
 export async function setOrgControls(
 	env: Env,
 	req: Request,
@@ -155,6 +159,12 @@ export async function setOrgControls(
 		set.serverLimit = limit;
 		changes.serverLimit = limit;
 	}
+	// Withdrawing an allowance closes the pages at once: the effective set is computed from both
+	// switches ($lib/features), so the servers' own switches can stay as their owners left them.
+	if (body.allowPublicStatus !== undefined)
+		changes.allowPublicStatus = set.allowPublicStatus = !!body.allowPublicStatus;
+	if (body.allowPublicLeaderboards !== undefined)
+		changes.allowPublicLeaderboards = set.allowPublicLeaderboards = !!body.allowPublicLeaderboards;
 	if (body.suspended !== undefined) {
 		const suspended = !!body.suspended;
 		if (suspended && !org.suspendedAt) {
@@ -245,20 +255,35 @@ export async function updateOrg(
 	org: OrgRow,
 	body: Record<string, unknown>
 ): Promise<void> {
-	const name = validateOrgName(body.name);
-	const slug = await freeSlug(env, slugOf(name), org.id);
-	await env.db
-		.update(organizations)
-		.set({ name, slug, updatedAt: new Date() })
-		.where(eq(organizations.id, org.id));
+	const set: Partial<typeof organizations.$inferInsert> = {};
+	const detail: Record<string, unknown> = { orgId: org.id };
+	if (body.name !== undefined) {
+		set.name = validateOrgName(body.name);
+		set.slug = await freeSlug(env, slugOf(set.name), org.id);
+		detail.from = org.name;
+	}
+	if (body.discordInviteUrl !== undefined) {
+		const raw = str(body.discordInviteUrl, 200);
+		const url = raw ? parseDiscordInvite(raw) : '';
+		if (url === null)
+			throw new ApiError(
+				400,
+				'Paste a Discord invite link: https://discord.gg/<code> or https://discord.com/invite/<code>.'
+			);
+		set.discordInviteUrl = url;
+		detail.discordInviteUrl = url;
+	}
+	if (!Object.keys(set).length) throw new ApiError(400, 'Nothing to update.');
+	set.updatedAt = new Date();
+	await env.db.update(organizations).set(set).where(eq(organizations.id, org.id));
 	await writeAudit(env, req, {
 		actor,
 		orgId: org.id,
 		category: 'org',
 		action: 'org.update',
 		outcome: 'ok',
-		target: name,
-		detail: { orgId: org.id, from: org.name }
+		target: set.name ?? org.name,
+		detail
 	});
 }
 

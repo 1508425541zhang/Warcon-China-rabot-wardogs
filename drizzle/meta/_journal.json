@@ -148,6 +148,13 @@
       "when": 1789610368583,
       "tag": "0020_seed_seconds",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789663103965,
+      "tag": "0021_public_features",
+      "breakpoints": true
     }
   ]
 }

@@ -8,13 +8,14 @@ import { ApiError, int, newId, publicMessage, str } from './http';
 import { encryptSecret } from './crypto';
 import { writeAudit } from './audit';
 import { assertReachableTarget, normaliseHost } from './hostpolicy';
-import type { OrgRow, ServerRow, SessionUser } from './access';
+import { getOrg, type OrgRow, type ServerRow, type SessionUser } from './access';
 import { gateway } from './gateway';
 import { GameError, WardogsClient } from './rcon';
 import { orgRoles, serverGrants, servers, user } from './db/schema';
 import { rolesOf } from './roles';
 import { assertCanAddServer, ensureMemberships } from './orgs';
 import { ensureServerLists } from './lists';
+import { allowed, FEATURE_LABELS, NOT_ALLOWED, type PublicFeature } from '$lib/features';
 
 export interface TargetFields {
 	name?: string;
@@ -25,6 +26,29 @@ export interface TargetFields {
 	sortOrder?: number;
 	/** Recomputed whenever the target (host, port, scheme) changes; see hostpolicy.ts. */
 	allowPrivate?: boolean;
+	publicStatus?: boolean;
+	publicLeaderboards?: boolean;
+}
+
+/**
+ * The public-page switches an org owner may set. Turning one on needs the site owner's
+ * allowance for the organisation; turning off never does, so a page can always be closed.
+ */
+export function publicSwitches(
+	org: Pick<OrgRow, 'allowPublicStatus' | 'allowPublicLeaderboards'>,
+	body: Record<string, unknown>
+): Pick<TargetFields, 'publicStatus' | 'publicLeaderboards'> {
+	const out: Pick<TargetFields, 'publicStatus' | 'publicLeaderboards'> = {};
+	const read = (key: 'publicStatus' | 'publicLeaderboards', feature: PublicFeature) => {
+		if (body[key] === undefined) return;
+		const on = !!body[key];
+		if (on && !allowed(org, feature))
+			throw new ApiError(403, `${FEATURE_LABELS[feature]}: ${NOT_ALLOWED}`, 'not_allowed');
+		out[key] = on;
+	};
+	read('publicStatus', 'status');
+	read('publicLeaderboards', 'leaderboards');
+	return out;
 }
 
 /** May this user register a private (same-box, LAN) target? Only the site owner. */
@@ -128,6 +152,7 @@ export async function createServer(
 			err
 		)
 	);
+	const pub = publicSwitches(org, body);
 	const id = newId();
 	// One transaction: a server must never exist without its subscription to the org's lists.
 	await env.db.transaction(async (tx) => {
@@ -142,6 +167,8 @@ export async function createServer(
 			passwordEnc: encryptSecret(env, password),
 			notes: t.notes || '',
 			sortOrder: t.sortOrder || 0,
+			publicStatus: pub.publicStatus ?? false,
+			publicLeaderboards: pub.publicLeaderboards ?? false,
 			createdBy: actor.id
 		});
 		await ensureServerLists(tx, id, orgId);
@@ -154,7 +181,7 @@ export async function createServer(
 		action: 'server.create',
 		outcome: 'ok',
 		target: `${t.host}:${t.port}`,
-		detail: { scheme: t.scheme, orgId, allowPrivate: t.allowPrivate }
+		detail: { scheme: t.scheme, orgId, allowPrivate: t.allowPrivate, ...pub }
 	});
 	void gateway()
 		.observeNow(env, id)
@@ -182,6 +209,11 @@ export async function updateServer(
 		)
 	);
 	const set: Partial<typeof servers.$inferInsert> = { ...t };
+	if (body.publicStatus !== undefined || body.publicLeaderboards !== undefined) {
+		const org = await getOrg(env, server.orgId);
+		if (!org) throw new ApiError(404, 'Organisation not found.', 'not_found');
+		Object.assign(set, publicSwitches(org, body));
+	}
 	if (typeof body.password === 'string' && body.password)
 		set.passwordEnc = encryptSecret(env, body.password);
 	if (!Object.keys(set).length) throw new ApiError(400, 'Nothing to update.');
@@ -194,7 +226,12 @@ export async function updateServer(
 		category: 'server',
 		action: 'server.update',
 		outcome: 'ok',
-		detail: { ...t, credentialRotated: !!body.password }
+		detail: {
+			...t,
+			publicStatus: set.publicStatus,
+			publicLeaderboards: set.publicLeaderboards,
+			credentialRotated: !!body.password
+		}
 	});
 }
 

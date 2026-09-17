@@ -166,6 +166,9 @@ export interface OrgSummary {
 	suspended: boolean;
 	/** may open the org's ban and reserved lists: owners, and anyone whose role on one of its servers includes lists.edit */
 	lists: boolean;
+	/** site-owner allowances for the public surfaces ($lib/features) */
+	allowPublicStatus: boolean;
+	allowPublicLeaderboards: boolean;
 }
 
 /** Servers (with their orgs) where the user's granted role includes `cap`. */
@@ -190,7 +193,9 @@ export async function userOrgs(env: Env, user: SessionUser): Promise<OrgSummary[
 		slug: o.slug,
 		role,
 		suspended: !!o.suspendedAt,
-		lists
+		lists,
+		allowPublicStatus: o.allowPublicStatus,
+		allowPublicLeaderboards: o.allowPublicLeaderboards
 	});
 	if (user.apiKey) {
 		const o = await getOrg(env, user.apiKey.orgId);
@@ -369,18 +374,22 @@ export type ServerSummary = {
 	manager: boolean;
 	sortOrder: number;
 	demo: boolean;
+	publicStatus: boolean;
+	publicLeaderboards: boolean;
+	allowPublicStatus: boolean;
+	allowPublicLeaderboards: boolean;
 };
 
 export function shapeServer(
 	env: Env,
 	s: ServerRow,
-	orgName: string,
+	org: Pick<OrgRow, 'name' | 'allowPublicStatus' | 'allowPublicLeaderboards'>,
 	access: ServerAccess
 ): ServerSummary {
 	return {
 		id: s.id,
 		orgId: s.orgId,
-		orgName,
+		orgName: org.name,
 		name: s.name,
 		host: s.host,
 		port: s.port,
@@ -390,7 +399,11 @@ export function shapeServer(
 		caps: [...access.caps],
 		manager: access.manager,
 		sortOrder: s.sortOrder,
-		demo: isDemoServer(env, s)
+		demo: isDemoServer(env, s),
+		publicStatus: s.publicStatus,
+		publicLeaderboards: s.publicLeaderboards,
+		allowPublicStatus: org.allowPublicStatus,
+		allowPublicLeaderboards: org.allowPublicLeaderboards
 	};
 }
 
@@ -410,32 +423,28 @@ export async function accessibleServers(
 		if (orgId && orgId !== key.orgId) return [];
 		if (!key.capabilities.includes('server.view')) return [];
 		const rows = await env.db
-			.select({ server: servers, orgName: organizations.name })
+			.select({ server: servers, org: organizations })
 			.from(servers)
 			.innerJoin(organizations, eq(organizations.id, servers.orgId))
 			.where(and(eq(servers.orgId, key.orgId), isNull(organizations.suspendedAt)))
 			.orderBy(...order);
 		return rows
 			.filter((r) => keyCoversServer(key, r.server))
-			.map((r) =>
-				shapeServer(env, r.server, r.orgName, accessFromCaps(key.capabilities, 'API key'))
-			);
+			.map((r) => shapeServer(env, r.server, r.org, accessFromCaps(key.capabilities, 'API key')));
 	}
 	if (user.role === 'owner') {
 		const rowsAll = await env.db
-			.select({ server: servers, orgName: organizations.name })
+			.select({ server: servers, org: organizations })
 			.from(servers)
 			.innerJoin(organizations, eq(organizations.id, servers.orgId))
 			.where(inOrg)
 			.orderBy(...order);
-		return rowsAll.map((r) =>
-			shapeServer(env, r.server, r.orgName, resolveAccess({ manager: true })!)
-		);
+		return rowsAll.map((r) => shapeServer(env, r.server, r.org, resolveAccess({ manager: true })!));
 	}
 	const rows = await env.db
 		.select({
 			server: servers,
-			orgName: organizations.name,
+			org: organizations,
 			roleId: serverGrants.roleId,
 			roleName: orgRoles.name,
 			capabilities: orgRoles.capabilities,
@@ -461,7 +470,7 @@ export async function accessibleServers(
 		shapeServer(
 			env,
 			r.server,
-			r.orgName,
+			r.org,
 			resolveAccess({
 				manager: r.orgRole === 'owner',
 				grant: r.roleId
