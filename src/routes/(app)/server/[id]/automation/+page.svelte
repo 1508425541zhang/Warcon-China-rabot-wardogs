@@ -258,7 +258,7 @@
 		messages: string;
 		everyMinutes: number;
 		minPlayers: number;
-		maxPlayers: number | '';
+		maxPlayers: number | null;
 		afterMinutes: number;
 		cooldownMinutes: number;
 		vacBans: boolean;
@@ -281,7 +281,7 @@
 		kickReason: string;
 		lowAt: number;
 		untilFull: boolean;
-		fullAt: number | '';
+		fullAt: number | null;
 		minutes: number;
 		windowDays: number;
 		slotDays: number;
@@ -351,7 +351,7 @@
 				: 'Join our Discord for events and support.\nNo team-killing. Admins are watching.',
 			everyMinutes: n('everyMinutes', 15),
 			minPlayers: n('minPlayers', 1),
-			maxPlayers: typeof c.maxPlayers === 'number' ? c.maxPlayers : '',
+			maxPlayers: typeof c.maxPlayers === 'number' ? c.maxPlayers : null,
 			afterMinutes: n('afterMinutes', 20),
 			cooldownMinutes: n('cooldownMinutes', 30),
 			vacBans: b('vacBans', true),
@@ -380,7 +380,7 @@
 			kickReason: s('kickReason', 'Team killing ({count} this session).'),
 			lowAt: n('lowAt', 20),
 			untilFull: b('untilFull', true),
-			fullAt: typeof c.fullAt === 'number' ? c.fullAt : '',
+			fullAt: typeof c.fullAt === 'number' ? c.fullAt : null,
 			minutes: n('minutes', 60),
 			windowDays: n('windowDays', 7),
 			slotDays: n('slotDays', 7)
@@ -397,6 +397,7 @@
 				: null;
 	}
 
+	// A cleared number input binds null, not '': an optional count is sent only when it is a number.
 	function config(f: Form): Record<string, unknown> {
 		switch (f.kind) {
 			case 'welcome':
@@ -412,7 +413,7 @@
 					messages: f.messages.split('\n'),
 					everyMinutes: Number(f.everyMinutes),
 					minPlayers: Number(f.minPlayers),
-					maxPlayers: f.maxPlayers === '' ? null : Number(f.maxPlayers)
+					maxPlayers: typeof f.maxPlayers === 'number' ? f.maxPlayers : null
 				};
 			case 'empty_reset':
 				return {
@@ -457,7 +458,7 @@
 				return {
 					lowAt: Number(f.lowAt),
 					untilFull: f.untilFull,
-					fullAt: f.fullAt === '' ? null : Number(f.fullAt),
+					fullAt: typeof f.fullAt === 'number' ? f.fullAt : null,
 					minutes: Number(f.minutes),
 					windowDays: Number(f.windowDays),
 					slotDays: Number(f.slotDays),
