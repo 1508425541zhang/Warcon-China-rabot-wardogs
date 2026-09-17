@@ -1,6 +1,7 @@
 <script lang="ts" generics="K extends string">
 	// A sortable column header: the label is a button that toggles the table's sort, with an arrow
-	// for the active column. `num` right-aligns it like the numeric cells beneath.
+	// for the active column. `num` right-aligns it like the numeric cells beneath; the arrow's slot
+	// then sits before the label so the label's right edge lines up with the numbers.
 	import type { Snippet } from 'svelte';
 	import type { SortLike } from '$lib/table.svelte';
 
@@ -36,8 +37,10 @@
 			sort.toggle(key);
 		}}
 	>
-		{@render children()}<span class="th-arrow" aria-hidden="true"
-			>{active ? (sort.dir === 'asc' ? '↑' : '↓') : ''}</span
-		>
+		{#if num}<span class="th-arrow th-arrow-lead" aria-hidden="true"
+				>{active ? (sort.dir === 'asc' ? '↑' : '↓') : ''}</span
+			>{/if}{@render children()}{#if !num}<span class="th-arrow" aria-hidden="true"
+				>{active ? (sort.dir === 'asc' ? '↑' : '↓') : ''}</span
+			>{/if}
 	</button>
 </th>
