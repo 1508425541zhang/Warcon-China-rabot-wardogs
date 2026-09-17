@@ -382,6 +382,7 @@
 					>{feed.url}</code
 				>
 				<button class="btn btn-sm" onclick={() => copyFeed(feed!.url, 'URL')}>Copy</button>
+				<span class="text-[12.5px] text-mist-600">the game adds /api/ingest/events itself</span>
 			</div>
 			<span class="text-[13px] text-mist-400 md:pt-1.5">Token</span>
 			<div class="flex items-center gap-2">

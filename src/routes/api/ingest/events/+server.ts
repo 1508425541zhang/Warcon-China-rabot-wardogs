@@ -1,6 +1,7 @@
-// Where the game posts its kill feed ([WDServerFeed] Url). The bearer is the server's feed token
-// and nothing else identifies the sender: the body's serverId is a per-boot instance id. Not a
-// panel route: no session, no API key, no CSRF header (hooks.server.ts exempts the path).
+// Where the game posts its kill feed: [WDServerFeed] Url is the panel's origin and the game adds
+// /api/ingest/events itself. The bearer is the server's feed token and nothing else identifies
+// the sender: the body's serverId is a per-boot instance id. Not a panel route: no session, no
+// API key, no CSRF header (hooks.server.ts exempts the path).
 import { getEnv } from '$lib/server/env';
 import { ApiError, apiJson, clientIp, route } from '$lib/server/http';
 import { assertRate } from '$lib/server/ratelimit';

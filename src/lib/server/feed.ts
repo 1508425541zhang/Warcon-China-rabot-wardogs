@@ -39,8 +39,11 @@ import { FEED_TOKEN_PREFIX, isTeamKill, parseBatch, type ParsedKill } from './fe
 const hashToken = (token: string): string =>
 	createHash('sha256').update(token, 'utf8').digest('hex');
 
-/** Where the game should post: the panel's origin plus the route. */
-export const feedUrl = (env: Pick<Env, 'ORIGIN'>): string => `${env.ORIGIN}/api/feed/events`;
+/**
+ * What goes in [WDServerFeed] Url: the panel's origin alone. The game appends /api/ingest/events
+ * to whatever Url holds (CL-501228), so the route lives at that path.
+ */
+export const feedUrl = (env: Pick<Env, 'ORIGIN'>): string => env.ORIGIN;
 
 export interface FeedSetup {
 	configured: boolean;
