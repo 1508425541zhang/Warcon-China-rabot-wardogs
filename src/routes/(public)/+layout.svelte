@@ -1,7 +1,8 @@
 <script lang="ts">
 	// The bare public shell: the mark, the server name, the organisation, a Discord invite when
 	// the org set one, links between the server's public pages, and one footer line back to the
-	// panel. One column, phone first: the link is usually opened from Discord.
+	// panel. The same width as the panel's pages; one column on a phone, where the link is usually
+	// opened from Discord.
 	import { page } from '$app/state';
 	import Mark from '$lib/components/Mark.svelte';
 	import DiscordMark from '$lib/components/DiscordMark.svelte';
@@ -23,7 +24,7 @@
 		exact ? path === href : path === href || path.startsWith(href + '/');
 </script>
 
-<div class="mx-auto flex min-h-screen w-full max-w-[880px] flex-col px-4 pt-4 pb-6">
+<div class="page-x flex min-h-screen flex-col pt-4 pb-6">
 	<header class="mb-4 flex flex-wrap items-center gap-3">
 		<a href={base || '/'} class="shrink-0" aria-label={data.appName}><Mark size={34} /></a>
 		<div class="min-w-0 flex-1">
