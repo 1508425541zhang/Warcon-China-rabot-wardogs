@@ -168,8 +168,8 @@ export async function memberSlots(
 }
 
 /**
- * Lifts bans whose expiry has passed: the row is marked removed (so history keeps it) and the
- * next reconcile takes it off every server the panel applied it to. The poller runs this every
+ * Lifts bans and reserved slots whose expiry has passed: the row is marked removed (so history
+ * keeps it) and the next reconcile takes it off every server the panel applied it to. The poller runs this every
  * tick and fanOut before pushing, so an install without a poller still catches up on edit.
  */
 export async function expireEntries(env: Env): Promise<{ lifted: number; orgIds: string[] }> {
@@ -188,7 +188,7 @@ export async function expireEntries(env: Env): Promise<{ lifted: number; orgIds:
 	if (!rows.length) return { lifted: 0, orgIds: [] };
 	const listIds = [...new Set(rows.map((r) => r.listId))];
 	const owners = await env.db
-		.select({ listId: lists.id, orgId: lists.orgId, orgName: organizations.name })
+		.select({ listId: lists.id, kind: lists.kind, orgId: lists.orgId, orgName: organizations.name })
 		.from(lists)
 		.innerJoin(organizations, eq(organizations.id, lists.orgId))
 		.where(inArray(lists.id, listIds));
@@ -202,7 +202,7 @@ export async function expireEntries(env: Env): Promise<{ lifted: number; orgIds:
 			action: 'list.expire',
 			target: ids.join(', '),
 			outcome: 'ok',
-			message: `${ids.length} ban${ids.length === 1 ? '' : 's'} expired in ${o.orgName}`,
+			message: `${ids.length} ${o.kind === 'ban' ? 'ban' : 'reserved slot'}${ids.length === 1 ? '' : 's'} expired in ${o.orgName}`,
 			detail: { orgId: o.orgId, org: o.orgName, steamIds: ids }
 		}).catch((err) => console.error('[warcon] list.expire audit', err));
 	}
