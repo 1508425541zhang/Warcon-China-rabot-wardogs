@@ -152,6 +152,7 @@
 		kickAt: number;
 		kickReason: string;
 		lowAt: number;
+		untilFull: boolean;
 		minutes: number;
 		windowDays: number;
 		slotDays: number;
@@ -225,6 +226,7 @@
 			kickAt: n('kickAt', 4),
 			kickReason: s('kickReason', 'Team killing ({count} this session).'),
 			lowAt: n('lowAt', 20),
+			untilFull: b('untilFull', true),
 			minutes: n('minutes', 60),
 			windowDays: n('windowDays', 7),
 			slotDays: n('slotDays', 7)
@@ -294,6 +296,7 @@
 			case 'seed_reward':
 				return {
 					lowAt: Number(f.lowAt),
+					untilFull: f.untilFull,
 					minutes: Number(f.minutes),
 					windowDays: Number(f.windowDays),
 					slotDays: Number(f.slotDays),
@@ -386,7 +389,7 @@
 					.join(' · ')
 					.concat(' · per session');
 			case 'seed_reward':
-				return `${c.minutes} min with ${c.lowAt} or fewer on, within ${c.windowDays} day${c.windowDays === 1 ? '' : 's'} · slot for ${c.slotDays} day${c.slotDays === 1 ? '' : 's'}${c.message ? ' · whispers' : ''}`;
+				return `${c.minutes} min with ${c.lowAt} or fewer on${c.untilFull === false ? '' : ', staying until it fills'}, within ${c.windowDays} day${c.windowDays === 1 ? '' : 's'} · slot for ${c.slotDays} day${c.slotDays === 1 ? '' : 's'}${c.message ? ' · whispers' : ''}`;
 		}
 	}
 </script>
@@ -857,6 +860,10 @@
 						/></label
 					>
 				</div>
+				<label class="flex items-center gap-2 text-[13px]"
+					><input type="checkbox" bind:checked={f.untilFull} /> Only count seeding once the server has
+					filled past that number with the player still on</label
+				>
 				<label class="block"
 					><span class="field-label">Whisper on the grant (blank for none)</span><input
 						class="input"
@@ -866,11 +873,14 @@
 					/></label
 				>
 				<p class="note">
-					Every minute a player is on with that many or fewer players counts as seed time. When it
-					reaches the target within the window, the player goes on the organisation's reserved-slot
-					list with that expiry: this server applies it at once, the organisation's other servers at
-					their next sync, and it can be earned again once it lapses. Players who already hold a
-					reserved slot are skipped. Placeholders: <span class="chip">{'{name}'}</span>
+					Every minute a player is on with that many or fewer players counts as seed time. With the
+					box ticked it is banked only when the count climbs past that number with the player still
+					on, so leaving before it fills forfeits that stretch and sitting on an empty server earns
+					nothing; unticked, every low minute counts as it passes. When banked seed time reaches the
+					target within the window, the player goes on the organisation's reserved-slot list with
+					that expiry: this server applies it at once, the organisation's other servers at their
+					next sync, and it can be earned again once it lapses. Players who already hold a reserved
+					slot are skipped. Placeholders: <span class="chip">{'{name}'}</span>
 					<span class="chip">{'{server}'}</span>
 					<span class="chip">{'{minutes}'}</span> <span class="chip">{'{until}'}</span>
 					<span class="chip">{'{days}'}</span> <span class="chip">{'{players}'}</span>

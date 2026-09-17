@@ -997,7 +997,8 @@ export async function dryRun(
 				leftAt: s.leftAt ? s.leftAt.getTime() : null
 			})),
 			c.minutes * 60,
-			to.getTime()
+			to.getTime(),
+			c.untilFull
 		);
 		let reserved = new Set<string>();
 		if (readReserved) {

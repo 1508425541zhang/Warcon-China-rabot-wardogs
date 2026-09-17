@@ -96,6 +96,8 @@ export interface TeamKillConfig {
  */
 export interface SeedRewardConfig {
 	lowAt: number;
+	/** count a low stretch only once the server has climbed past `lowAt` with the player still on */
+	untilFull: boolean;
 	minutes: number;
 	windowDays: number;
 	slotDays: number;
@@ -234,6 +236,7 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 				);
 			return {
 				lowAt: int(c.lowAt, 20, 1, 1000),
+				untilFull: c.untilFull === undefined ? true : !!c.untilFull,
 				minutes,
 				windowDays,
 				slotDays: int(c.slotDays, 7, 1, 365),
@@ -247,6 +250,9 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 export interface LowStretch {
 	from: number;
 	to: number;
+	/** the stretch ended because the count climbed past the threshold (not the window's end, a
+	 *  failed sample or a gap in sampling): only then does the time in it count as seeding */
+	filled: boolean;
 }
 
 /**
@@ -264,11 +270,15 @@ export function lowStretches(
 	for (let i = 0; i < rows.length; i++) {
 		const r = rows[i];
 		if (!r.ok || r.count > lowAt) continue;
-		const end = Math.min(to, i + 1 < rows.length ? rows[i + 1].ts : to, r.ts + maxHoldMs);
+		const next = i + 1 < rows.length ? rows[i + 1] : null;
+		const end = Math.min(to, next ? next.ts : to, r.ts + maxHoldMs);
 		if (end <= r.ts) continue;
+		const filled = !!next && end === next.ts && next.ok && next.count > lowAt;
 		const last = out[out.length - 1];
-		if (last && last.to >= r.ts) last.to = end;
-		else out.push({ from: r.ts, to: end });
+		if (last && last.to >= r.ts) {
+			last.to = end;
+			last.filled = filled;
+		} else out.push({ from: r.ts, to: end, filled });
 	}
 	return out;
 }
@@ -286,46 +296,70 @@ export interface SeedTotal {
 	crossedAt: number | null;
 }
 
-/** Seed time per player from how their sessions overlap the low stretches; `to` closes open sessions. */
+/**
+ * Seed time per player from how their sessions overlap the low stretches, as the live rule
+ * banks it. With `untilFull` a stretch counts only if it ended by the server filling while the
+ * player was still on, credited at that moment; without it every minute of overlap counts as it
+ * passes. `to` closes open sessions.
+ */
 export function seedReplay(
 	stretches: LowStretch[],
 	sessions: SeedSession[],
 	targetSeconds: number,
-	to: number
+	to: number,
+	untilFull = true
 ): Map<string, SeedTotal> {
-	const spans = new Map<string, { from: number; to: number }[]>();
+	const banked = new Map<string, { at: number; ms: number }[]>();
 	for (const s of sessions) {
 		const end = s.leftAt ?? to;
 		for (const l of stretches) {
 			const from = Math.max(s.joinedAt, l.from);
-			const until = Math.min(end, l.to);
-			if (until <= from) continue;
-			(spans.get(s.steamId) ?? spans.set(s.steamId, []).get(s.steamId)!).push({ from, to: until });
+			if (untilFull) {
+				if (!l.filled || end < l.to || l.to <= from) continue;
+				(banked.get(s.steamId) ?? banked.set(s.steamId, []).get(s.steamId)!).push({
+					at: l.to,
+					ms: l.to - from
+				});
+			} else {
+				const until = Math.min(end, l.to);
+				if (until <= from) continue;
+				(banked.get(s.steamId) ?? banked.set(s.steamId, []).get(s.steamId)!).push({
+					at: until,
+					ms: until - from
+				});
+			}
 		}
 	}
 	const out = new Map<string, SeedTotal>();
-	for (const [steamId, list] of spans) {
-		list.sort((a, b) => a.from - b.from);
+	for (const [steamId, list] of banked) {
+		list.sort((a, b) => a.at - b.at);
 		let ms = 0;
 		let crossedAt: number | null = null;
-		for (const span of list) {
+		for (const b of list) {
 			const before = ms;
-			ms += span.to - span.from;
+			ms += b.ms;
 			if (crossedAt === null && ms >= targetSeconds * 1000)
-				crossedAt = span.from + (targetSeconds * 1000 - before);
+				// banked all at once when it fills; minute by minute otherwise
+				crossedAt = untilFull ? b.at : b.at - b.ms + (targetSeconds * 1000 - before);
 		}
 		out.set(steamId, { seconds: Math.floor(ms / 1000), crossedAt });
 	}
 	return out;
 }
 
-/** The highest low-population threshold among the enabled seeding rules, or null when there is none. */
-export function seedLowAt(rows: { kind: string; config: unknown }[]): number | null {
-	let out: number | null = null;
+/**
+ * What the worker counts seed time against on a server: the enabled seeding rule's threshold and
+ * whether the time only counts once the server fills, or null when there is no such rule. With
+ * more than one rule (one is enforced at save) the highest threshold wins.
+ */
+export function seedRule(
+	rows: { kind: string; config: unknown }[]
+): { lowAt: number; untilFull: boolean } | null {
+	let out: { lowAt: number; untilFull: boolean } | null = null;
 	for (const r of rows) {
 		if (r.kind !== 'seed_reward') continue;
-		const lowAt = (r.config as SeedRewardConfig).lowAt;
-		if (out === null || lowAt > out) out = lowAt;
+		const c = r.config as SeedRewardConfig;
+		if (out === null || c.lowAt > out.lowAt) out = { lowAt: c.lowAt, untilFull: c.untilFull };
 	}
 	return out;
 }
