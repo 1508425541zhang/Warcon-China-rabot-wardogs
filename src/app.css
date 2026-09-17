@@ -423,6 +423,10 @@
 		margin-left: 0.3em;
 		@apply text-accent;
 	}
+	.table-wrap .th-sort .th-arrow-lead {
+		margin-left: 0;
+		margin-right: 0.3em;
+	}
 }
 
 /* Map art mirrored from the official console (static/maps): framed, cropped, never stretched.
