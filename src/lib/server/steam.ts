@@ -135,6 +135,22 @@ export async function fetchSteam(env: Env, ids: string[]): Promise<SteamProfileR
 	return out;
 }
 
+/** What the cache holds for these ids, and nothing more: never a request to Steam (public pages). */
+export async function cachedProfiles(
+	env: Env,
+	ids: string[]
+): Promise<Map<string, SteamProfileRow>> {
+	const unique = [...new Set(ids.filter(isSteamId))];
+	const map = new Map<string, SteamProfileRow>();
+	if (!unique.length) return map;
+	const rows = await env.db
+		.select()
+		.from(steamProfiles)
+		.where(inArray(steamProfiles.steamId, unique));
+	for (const row of rows) map.set(row.steamId, row);
+	return map;
+}
+
 /**
  * Cached profiles for these ids. With a key configured, missing or stale rows are fetched first;
  * a Steam failure is logged and the cached rows are returned, unless `refresh` was asked for.
