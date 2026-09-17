@@ -122,6 +122,12 @@
 				<th class="num">#</th>
 				<th>Player</th>
 				<SortHeader {sort} key="playtime" num>Playtime</SortHeader>
+				<SortHeader
+					{sort}
+					key="seeded"
+					num
+					title="Time on with the server low, as a Seeding reward rule counts it">Seeded</SortHeader
+				>
 				<SortHeader {sort} key="kills" num>K</SortHeader>
 				<SortHeader {sort} key="deaths" num>D</SortHeader>
 				<SortHeader {sort} key="kd" num>K/D</SortHeader>
@@ -144,6 +150,7 @@
 						{#if showIds}<span class="font-mono text-[12px] text-mist-600">{r.steamId}</span>{/if}
 					</td>
 					<td class="num">{fmtMinutes(r.minutes)}</td>
+					<td class="num">{r.seedMinutes ? fmtMinutes(r.seedMinutes) : '—'}</td>
 					<td class="num">{fmtNum(r.kills)}</td>
 					<td class="num">{fmtNum(r.deaths)}</td>
 					<td class="num">{ratio(kdRatio(r.kills, r.deaths))}</td>
@@ -158,7 +165,7 @@
 				</tr>
 			{:else}
 				<tr>
-					<td colspan="14" class="py-6 text-center text-mist-600">
+					<td colspan="15" class="py-6 text-center text-mist-600">
 						{#if !board || loading}Loading…{:else if board.total === 0 && query.minMinutes > 0}Nobody
 							has {fmtMinutes(query.minMinutes)} of playtime in this range yet.{:else}No players in
 							this range yet.{/if}

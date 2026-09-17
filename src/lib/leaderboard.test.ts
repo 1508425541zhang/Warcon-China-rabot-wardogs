@@ -127,6 +127,7 @@ describe('metricValue', () => {
 		steamId: '76561198000000001',
 		name: 'Nomad',
 		minutes: 120,
+		seedMinutes: 45,
 		kills: 40,
 		deaths: 0,
 		headshots: 5,
@@ -144,6 +145,7 @@ describe('metricValue', () => {
 		expect(metricValue(row, 'perHour')).toBe(20);
 		expect(metricValue(row, 'winRate')).toBe(0.5);
 		expect(metricValue(row, 'cash')).toBe(900);
+		expect(metricValue(row, 'seeded')).toBe(45);
 		expect(metricValue({ ...row, minutes: 0 }, 'perHour')).toBeNull();
 	});
 });
