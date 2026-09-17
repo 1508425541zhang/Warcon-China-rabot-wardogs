@@ -7,6 +7,7 @@ import {
 	restartNoticeStage,
 	fullMoments,
 	lowStretches,
+	matchBoundary,
 	riskKickVerdict,
 	seedRule,
 	seedReplay,
@@ -518,5 +519,52 @@ describe('team_kill', () => {
 		expect(teamKillStage(cfg, 9)).toBe('kick');
 		expect(teamKillStage({ warnAt: 0, kickAt: 3 }, 2)).toBeNull();
 		expect(teamKillStage({ warnAt: 1, kickAt: 0 }, 50)).toBe('warn');
+	});
+});
+
+describe('matchBoundary', () => {
+	const look = (map: string, scores: number[], matchSeconds: number | null = null) => ({
+		map,
+		scores: ['Lonestar', 'Valkyra', 'Manticore'].map((name, i) => ({
+			name,
+			score: scores[i] ?? 0
+		})),
+		matchSeconds
+	});
+	test('no previous look is never a boundary', () => {
+		expect(matchBoundary(null, look('Bakurani', [0, 0, 0]))).toBeNull();
+	});
+	test('the same match: scores rising or level on the same map', () => {
+		expect(matchBoundary(look('Bakurani', [10, 4, 0]), look('Bakurani', [12, 4, 0]))).toBeNull();
+		expect(matchBoundary(look('Bakurani', [10, 4, 0]), look('Bakurani', [10, 4, 0]))).toBeNull();
+	});
+	test('the scores falling back is a round ending on the same map, leader as winner', () => {
+		const end = matchBoundary(look('Bakurani', [812, 1000, 640]), look('Bakurani', [0, 0, 0]));
+		expect(end).toMatchObject({ map: 'Bakurani', winner: 'Valkyra', leaders: ['Valkyra'] });
+		expect(end!.scores.map((f) => f.name)).toEqual(['Valkyra', 'Lonestar', 'Manticore']);
+	});
+	test('a look that lands a tick into the next round still counts: the total fell', () => {
+		expect(
+			matchBoundary(look('Bakurani', [812, 1000, 640]), look('Bakurani', [24, 0, 0]))?.winner
+		).toBe('Valkyra');
+	});
+	test('a map change ends the match whatever the scores did', () => {
+		expect(matchBoundary(look('Bakurani', [5, 0, 0]), look('Madrid', [9, 0, 0]))?.map).toBe(
+			'Bakurani'
+		);
+	});
+	test('the match clock going backwards ends it on builds that send one', () => {
+		expect(
+			matchBoundary(look('Bakurani', [5, 0, 0], 1800), look('Bakurani', [5, 0, 0], 20))?.map
+		).toBe('Bakurani');
+		expect(
+			matchBoundary(look('Bakurani', [5, 0, 0], 1800), look('Bakurani', [5, 0, 0], 1790))
+		).toBeNull();
+	});
+	test('a tie has leaders but no winner; a match nobody scored in has neither', () => {
+		const tie = matchBoundary(look('Bakurani', [7, 7, 1]), look('Bakurani', [0, 0, 0]));
+		expect(tie).toMatchObject({ winner: null, leaders: ['Lonestar', 'Valkyra'] });
+		const blank = matchBoundary(look('Bakurani', [0, 0, 0]), look('Madrid', [0, 0, 0]));
+		expect(blank).toMatchObject({ winner: null, leaders: [] });
 	});
 });

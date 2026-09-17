@@ -667,8 +667,8 @@ slots) · `rotationSave` (Save rotation) · `settings configValidate configApply
 ## Notes and limits
 
 - Analytics are derived from observation: player sessions are accurate to the cadence in force
-  (a second or two on a busy server), and match boundaries are inferred from the match clock and
-  map changes. Raw samples are kept for 14 days by default (a TimescaleDB retention policy, or the
+  (a second or two on a busy server), and match boundaries are inferred from map changes, the
+  faction scores falling back to zero and, on builds that send one, the match clock. Raw samples are kept for 14 days by default (a TimescaleDB retention policy, or the
   worker's own prune on plain Postgres) with hourly rollups behind the 30-day charts; sessions and
   matches for a year. Both are settings.
 - Several `web` processes can share one database and one worker; the worker's lease makes exactly

@@ -770,8 +770,10 @@ export function mockHandle(
 			lighting: s.current.lighting,
 			alternator: s.current.alternator,
 			scoreTick: { current: s.scoreTick, min: 18, max: 30 },
-			scoreCap: s.scoreCap,
-			matchSeconds: Math.floor((Date.now() - s.matchStart) / 1000),
+			// Live builds CL-499480 and CL-501228 send neither the cap nor the match clock.
+			...(liveBuild()
+				? {}
+				: { scoreCap: s.scoreCap, matchSeconds: Math.floor((Date.now() - s.matchStart) / 1000) }),
 			// The live server reports MaxPlayers less the slots MaxReservedSlots holds back (98 for 100).
 			players: { current: s.players.length, max: publicSlots(s) },
 			factionScores: s.factions.map((f) => ({
