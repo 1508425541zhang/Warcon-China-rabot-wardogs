@@ -1,9 +1,10 @@
 <script lang="ts">
-	// This server's Discord channels: the ones that carry its live status card or its team kills,
-	// and the form that connects another. A channel connected here is a webhook restricted to this
-	// server carrying only those two things; the org page lists it with the rest and is where the
-	// audit mirror (bans, kicks, sign-ins) is set up. Each row is a line of text with one Edit
-	// button; changing, testing, pausing and disconnecting a channel happen in its dialog.
+	// This server's Discord channels (a section of the Settings tab): the ones that carry its live
+	// status card or its team kills, and the form that connects another. A channel connected here
+	// is a webhook restricted to this server carrying only those two things; the org page lists it
+	// with the rest and is where the audit mirror (bans, kicks, sign-ins) is set up. Each row is a
+	// line of text with one Edit button; changing, testing, pausing and disconnecting a channel
+	// happen in its dialog.
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage } from '$lib/api';
 	import { fmtTime } from '$lib/format';
@@ -11,11 +12,10 @@
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import type { WebhookView } from '$lib/types';
+	import type { ServerInfo, WebhookView } from '$lib/types';
 	import type { StatusStyle } from '$lib/status-styles';
 	import { effectiveFeatures } from '$lib/features';
 	import ChannelFields from './ChannelFields.svelte';
-	import type { PageProps } from './$types';
 
 	type Carry = 'card' | 'teamkills' | 'both';
 	type CardSettings = {
@@ -26,7 +26,10 @@
 		linkPanel: boolean;
 	};
 
-	let { data }: PageProps = $props();
+	let {
+		data
+	}: { data: { server: ServerInfo; owner: boolean; https: boolean; channels: WebhookView[] } } =
+		$props();
 	let orgPage = $derived(`/orgs/${encodeURIComponent(data.server.orgId)}`);
 	let orgPath = $derived(`/api${orgPage}`);
 	let features = $derived(effectiveFeatures(data.server, data.server));
@@ -305,11 +308,8 @@
 			<p class="note">
 				In Discord, open the channel's settings → Integrations → Webhooks → New Webhook, copy its
 				URL and paste it here. The URL is stored encrypted and never shown again. Pictures need the
-				panel to be reachable over https. The public pages a card can link to are switched on under
-				<a
-					href="/server/{encodeURIComponent(data.server.id)}/public"
-					class="text-accent hover:underline">Public</a
-				>.
+				panel to be reachable over https. The public pages a card can link to are switched on below,
+				under Public pages.
 			</p>
 			<div class="flex justify-end">
 				<button type="submit" class="btn btn-primary" disabled={busy}>Connect channel</button>

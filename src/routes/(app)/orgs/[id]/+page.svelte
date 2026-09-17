@@ -596,7 +596,7 @@
 				<p class="mb-3 text-[13px] text-mist-400">
 					This organisation may open a {PUBLIC_FEATURES.filter((f) => allowed(data.org, f))
 						.map((f) => FEATURE_LABELS[f].toLowerCase())
-						.join(' and ')}. Switch each on per server from the server's <b>Public</b> tab or its edit
+						.join(' and ')}. Switch each on per server from the server's <b>Settings</b> tab or its edit
 					dialog.
 				</p>
 			{:else}
