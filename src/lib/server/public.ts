@@ -8,9 +8,11 @@ import type { Env } from './env';
 import { ApiError, clientIp, normalizeError } from './http';
 import { organizations, servers, type OrgRow, type ServerRow } from './db/schema';
 import { readLiveRows } from './live';
+import { recentKills } from './feed';
 import { assertRate } from './ratelimit';
 import { effectiveFeatures, type FeatureSet, type PublicFeature } from '$lib/features';
-import type { LiveView } from '$lib/types';
+import { EMPTY_FILTER } from '$lib/kills';
+import type { KillView, LiveView } from '$lib/types';
 
 export interface PublicServer {
 	server: ServerRow;
@@ -73,14 +75,55 @@ export interface PublicStatus {
 	scoreCap: number | null;
 	matchSeconds: number | null;
 	roster: { name: string; faction: string | null; kills: number; deaths: number }[];
+	/** the last kills, newest first; null when the server does not show its feed publicly */
+	kills: PublicKill[] | null;
 }
+
+/** One kill as the public page shows it: names and factions, never a SteamID. */
+export interface PublicKill {
+	eventId: string;
+	ts: string;
+	/** seconds on the match clock */
+	eventTime: number;
+	/** null: the environment */
+	killer: { name: string; faction: string | null } | null;
+	victim: { name: string; faction: string | null };
+	/** the raw weapon or vehicle tag; $lib/causes labels it */
+	cause: string | null;
+	distanceM: number | null;
+	headshot: boolean;
+	suicide: boolean;
+	teamKill: boolean;
+	tags: string[];
+}
+
+/** How many kills the public page carries: enough to read the last few minutes, one small read. */
+export const PUBLIC_KILLS = 20;
+
+export const publicKill = (k: KillView): PublicKill => ({
+	eventId: k.eventId,
+	ts: k.ts,
+	eventTime: k.eventTime,
+	killer: k.killer ? { name: k.killer.name, faction: k.killer.faction } : null,
+	victim: { name: k.victim.name, faction: k.victim.faction },
+	cause: k.cause,
+	distanceM: k.distanceM,
+	headshot: k.headshot,
+	suicide: k.suicide,
+	teamKill: k.teamKill,
+	tags: k.tags
+});
 
 /**
  * The public shape of the live snapshot. An unreachable server keeps its map (the art stays
  * up) and says only that it could not be reached: the stored error names the RCON host and
  * port and never leaves the panel.
  */
-export function publicStatus(ps: PublicServer, live: LiveView | null): PublicStatus {
+export function publicStatus(
+	ps: PublicServer,
+	live: LiveView | null,
+	kills: KillView[] | null
+): PublicStatus {
 	const ok = !!live && live.ok && !!live.status;
 	const s = live?.status ?? null;
 	return {
@@ -110,14 +153,21 @@ export function publicStatus(ps: PublicServer, live: LiveView | null): PublicSta
 						deaths: Number(p.deaths) || 0
 					}))
 					.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || a.name.localeCompare(b.name))
-			: []
+			: [],
+		kills: kills ? kills.map(publicKill) : null
 	};
 }
 
-/** The live snapshot row (never a worker call): one indexed read however many viewers ask. */
+/**
+ * The live snapshot row (never a worker call) and, when the server shows its feed, the last
+ * kills by the same index the Kills tab pages on: two small reads however many viewers ask.
+ */
 export async function readPublicStatus(env: Env, ps: PublicServer): Promise<PublicStatus> {
-	const live = (await readLiveRows(env, [ps.server.id])).get(ps.server.id) ?? null;
-	return publicStatus(ps, live);
+	const [rows, kills] = await Promise.all([
+		readLiveRows(env, [ps.server.id]),
+		ps.server.publicKills ? recentKills(env, ps.server.id, null, PUBLIC_KILLS, EMPTY_FILTER) : null
+	]);
+	return publicStatus(ps, rows.get(ps.server.id) ?? null, kills);
 }
 
 /** What the public shell shows above every page of a server. */

@@ -329,6 +329,8 @@ export const servers = pgTable('servers', {
 	/** the org owner's switches for the public pages; effective only with the org's allowance ($lib/features) */
 	publicStatus: boolean('public_status').notNull().default(false),
 	publicLeaderboards: boolean('public_leaderboards').notNull().default(false),
+	/** the public status page also shows the last kills (needs the feed and the status page on) */
+	publicKills: boolean('public_kills').notNull().default(false),
 	createdBy: text('created_by'),
 	createdAt: ts('created_at').notNull().defaultNow(),
 	updatedAt: ts('updated_at').notNull().defaultNow()
