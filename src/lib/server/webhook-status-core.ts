@@ -12,6 +12,7 @@ import { mapArtCandidates } from '$lib/map-art';
 import { RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 import { scoreCapOf } from '$lib/match';
 import type { StatusStyle } from '$lib/status-styles';
+import type { FeatureSet } from '$lib/features';
 import type { DiscordPayload, Embed, EmbedField } from './webhook-delivery';
 
 export interface StatusServer {
@@ -27,6 +28,61 @@ export interface StatusOptions {
 	now: number;
 	/** banner unless told otherwise; see $lib/status-styles */
 	style?: StatusStyle;
+	/** the title points at the first; the rest follow as a line under the body; none = no link */
+	links?: CardLink[];
+}
+
+export interface CardLink {
+	label: string;
+	url: string;
+}
+/** The webhook's three switches for what the card links to. */
+export interface LinkFlags {
+	linkStatus: boolean;
+	linkLeaderboard: boolean;
+	linkPanel: boolean;
+}
+
+/** Seconds between edits of one card: the floor, the ceiling and what a new webhook gets. */
+export const STATUS_INTERVAL = { min: 30, max: 300, default: 60 } as const;
+
+/** A requested interval as seconds inside the bounds; anything unreadable is the default. */
+export function clampInterval(v: unknown): number {
+	if (v === undefined || v === null || v === '') return STATUS_INTERVAL.default;
+	const n = Number(v);
+	if (!Number.isFinite(n)) return STATUS_INTERVAL.default;
+	return Math.min(STATUS_INTERVAL.max, Math.max(STATUS_INTERVAL.min, Math.round(n)));
+}
+
+/**
+ * The links a card carries, in order: a public page only while it is on for the server (a
+ * link into the sign-in wall helps nobody), the panel whenever asked for.
+ */
+export function cardLinks(
+	origin: string,
+	serverId: string,
+	flags: LinkFlags,
+	features: FeatureSet
+): CardLink[] {
+	const id = encodeURIComponent(serverId);
+	const out: CardLink[] = [];
+	if (flags.linkStatus && features.status)
+		out.push({ label: 'Live status', url: `${origin}/s/${id}` });
+	if (flags.linkLeaderboard && features.leaderboards)
+		out.push({ label: 'Leaderboard', url: `${origin}/s/${id}/leaderboard` });
+	if (flags.linkPanel) out.push({ label: 'Panel', url: `${origin}/server/${id}` });
+	return out;
+}
+
+/** The title points at the first link; the others join the body as a last line. */
+function applyLinks(e: Embed, links: CardLink[]): Embed {
+	const { url: _url, ...rest } = e;
+	void _url;
+	const more = links.slice(1);
+	if (!more.length) return links.length ? { ...rest, url: links[0].url } : rest;
+	const line = more.map((l) => `[${l.label}](${l.url})`).join(' · ');
+	const body = clip(e.description ?? '', LIMITS.description - line.length - 1);
+	return { ...rest, url: links[0].url, description: body ? `${body}\n${line}` : line };
 }
 
 /** Discord's limits: per field value, per description, and across one message. */
@@ -172,7 +228,8 @@ export function embedLength(e: Embed): number {
 
 /** Trims the longest field, a line at a time, until the whole embed fits one message. */
 export function fitEmbed(e: Embed): Embed {
-	let fields = e.fields ?? [];
+	if (!e.fields) return e;
+	let fields = e.fields;
 	while (embedLength({ ...e, fields }) > LIMITS.message) {
 		const longest = fields.reduce((a, f) => (f.value.length > a.value.length ? f : a), fields[0]);
 		if (!longest || longest.value.length < 40) break;
@@ -188,10 +245,13 @@ export function buildStatusEmbed(
 	server: StatusServer,
 	live: LiveView | null
 ): Embed {
+	return fitEmbed(applyLinks(buildBody(opts, server, live), opts.links ?? []));
+}
+
+function buildBody(opts: StatusOptions, server: StatusServer, live: LiveView | null): Embed {
 	const https = opts.origin.startsWith('https://');
 	const base: Embed = {
 		title: clip(server.name, 200),
-		url: `${opts.origin}/server/${server.id}`,
 		description: '',
 		color: COLORS.empty,
 		timestamp: new Date(opts.now).toISOString(),
@@ -385,6 +445,10 @@ export function statusMessage(
 ): StatusMessage {
 	return {
 		payload: { content: '', embeds: [buildStatusEmbed(opts, server, live)] },
-		key: JSON.stringify([opts.style ?? 'banner', substance(server, live, opts.now)])
+		key: JSON.stringify([
+			opts.style ?? 'banner',
+			(opts.links ?? []).map((l) => l.url),
+			substance(server, live, opts.now)
+		])
 	};
 }

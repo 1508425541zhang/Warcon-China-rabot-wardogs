@@ -13,6 +13,7 @@
 	import { capabilitySummary, type Capability } from '$lib/capabilities';
 	import type { ApiKeyView, InviteView, OrgMemberView, WebhookView } from '$lib/types';
 	import { STATUS_STYLE_LABELS, STATUS_STYLES, type StatusStyle } from '$lib/status-styles';
+	import CardOptions from '$lib/components/CardOptions.svelte';
 	import { FEATURE_LABELS, PUBLIC_FEATURES, allowed } from '$lib/features';
 	import type { PageProps } from './$types';
 
@@ -47,6 +48,10 @@
 				events: Record<string, boolean>;
 				status: boolean;
 				style: StatusStyle;
+				interval: number;
+				linkStatus: boolean;
+				linkLeaderboard: boolean;
+				linkPanel: boolean;
 				allServers: boolean;
 				servers: Record<string, boolean>;
 		  }
@@ -229,6 +234,10 @@
 			events,
 			status: w?.statusEnabled ?? false,
 			style: w?.statusStyle ?? 'banner',
+			interval: w?.statusIntervalS ?? 60,
+			linkStatus: w?.linkStatus ?? true,
+			linkLeaderboard: w?.linkLeaderboard ?? true,
+			linkPanel: w?.linkPanel ?? false,
 			allServers: !w?.serverIds,
 			servers
 		};
@@ -243,6 +252,10 @@
 				.map(([k]) => k),
 			statusEnabled: d.status,
 			statusStyle: d.style,
+			statusIntervalS: d.interval,
+			linkStatus: d.linkStatus,
+			linkLeaderboard: d.linkLeaderboard,
+			linkPanel: d.linkPanel,
 			serverIds: d.allServers
 				? null
 				: Object.entries(d.servers)
@@ -862,6 +875,14 @@
 								>{/each}
 						</select></label
 					>
+					<div class="mt-2 space-y-3">
+						<CardOptions
+							bind:interval={d.interval}
+							bind:linkStatus={d.linkStatus}
+							bind:linkLeaderboard={d.linkLeaderboard}
+							bind:linkPanel={d.linkPanel}
+						/>
+					</div>
 				{/if}
 				<p class="note mt-1">
 					One card per server below, edited in place by the worker: players online, map, a score bar

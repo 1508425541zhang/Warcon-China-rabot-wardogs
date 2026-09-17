@@ -3,7 +3,9 @@
 	// and the form that connects another. A channel connected here is a webhook restricted to this
 	// server carrying only those two things; the org page lists it with the rest and is where the
 	// audit mirror (bans, kicks, sign-ins) is set up. Each row is a line of text with one Edit
-	// button; changing, testing, pausing and disconnecting a channel happen in its dialog.
+	// button; changing, testing, pausing and disconnecting a channel happen in its dialog. The
+	// public pages the cards link to are switched on here too, so a channel, its card and the
+	// pages it points at are set up in one place.
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage } from '$lib/api';
 	import { fmtTime } from '$lib/format';
@@ -13,29 +15,41 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import type { WebhookView } from '$lib/types';
 	import type { StatusStyle } from '$lib/status-styles';
+	import { effectiveFeatures, featureState, FEATURE_LABELS, PUBLIC_FEATURES } from '$lib/features';
 	import ChannelFields from './ChannelFields.svelte';
 	import type { PageProps } from './$types';
 
 	type Carry = 'card' | 'teamkills' | 'both';
+	type CardSettings = {
+		style: StatusStyle;
+		interval: number;
+		linkStatus: boolean;
+		linkLeaderboard: boolean;
+		linkPanel: boolean;
+	};
 
 	let { data }: PageProps = $props();
 	let orgPage = $derived(`/orgs/${encodeURIComponent(data.server.orgId)}`);
 	let orgPath = $derived(`/api${orgPage}`);
+	let features = $derived(effectiveFeatures(data.server, data.server));
 	let label = $state('');
 	let url = $state('');
-	let style = $state<StatusStyle>('banner');
-	/** what the new channel is for; the card style only matters when a card is part of it */
+	/** what the new channel is for; the card settings only matter when a card is part of it */
 	let carry = $state<Carry>('card');
+	let card = $state<CardSettings>({
+		style: 'banner',
+		interval: 60,
+		linkStatus: true,
+		linkLeaderboard: true,
+		linkPanel: false
+	});
 	let wantCard = $derived(carry !== 'teamkills');
 	let wantTeamKills = $derived(carry !== 'card');
 	let busy = $state(false);
 	/** the channel whose dialog is open, with the settings as edited so far */
-	let editing = $state<{
-		w: WebhookView;
-		label: string;
-		carry: Carry;
-		style: StatusStyle;
-	} | null>(null);
+	let editing = $state<{ w: WebhookView; label: string; carry: Carry; card: CardSettings } | null>(
+		null
+	);
 
 	async function run(fn: () => Promise<unknown>, done: string): Promise<boolean> {
 		busy = true;
@@ -51,6 +65,13 @@
 			busy = false;
 		}
 	}
+	const cardBody = (c: CardSettings) => ({
+		statusStyle: c.style,
+		statusIntervalS: c.interval,
+		linkStatus: c.linkStatus,
+		linkLeaderboard: c.linkLeaderboard,
+		linkPanel: c.linkPanel
+	});
 	async function add() {
 		await run(
 			() =>
@@ -59,7 +80,7 @@
 					url: url.trim(),
 					events: wantTeamKills ? ['teamkills'] : [],
 					statusEnabled: wantCard,
-					statusStyle: style,
+					...cardBody(card),
 					serverIds: [data.server.id]
 				}),
 			wantCard
@@ -72,7 +93,7 @@
 	/** What a channel carries, in words: "Status card (banner) and team kills". */
 	const carries = (w: WebhookView): string => {
 		const parts: string[] = [];
-		if (w.statusEnabled) parts.push(`status card (${w.statusStyle})`);
+		if (w.statusEnabled) parts.push(`status card (${w.statusStyle}, every ${w.statusIntervalS} s)`);
 		if (w.events.includes('teamkills')) parts.push('team kills');
 		const mirrored = w.events.filter((e) => e !== 'teamkills').length;
 		if (mirrored) parts.push(`${mirrored} kind${mirrored === 1 ? '' : 's'} of admin events`);
@@ -82,22 +103,53 @@
 				: (parts[0] ?? 'nothing');
 		return text.charAt(0).toUpperCase() + text.slice(1);
 	};
+	/** The links a card carries right now, given the pages that are on. */
+	const linksOf = (w: WebhookView): string => {
+		const on = [
+			w.linkStatus && features.status ? 'live status' : '',
+			w.linkLeaderboard && features.leaderboards ? 'leaderboard' : '',
+			w.linkPanel ? 'panel' : ''
+		].filter(Boolean);
+		return on.length ? `links to ${on.join(', ')}` : 'no links';
+	};
 	const carryOf = (w: WebhookView): Carry =>
 		w.statusEnabled ? (w.events.includes('teamkills') ? 'both' : 'card') : 'teamkills';
 	function openEdit(w: WebhookView) {
-		editing = { w, label: w.label, carry: carryOf(w), style: w.statusStyle };
+		editing = {
+			w,
+			label: w.label,
+			carry: carryOf(w),
+			card: {
+				style: w.statusStyle,
+				interval: w.statusIntervalS,
+				linkStatus: w.linkStatus,
+				linkLeaderboard: w.linkLeaderboard,
+				linkPanel: w.linkPanel
+			}
+		};
 	}
 	/** Sends only what changed; a channel edited here carries nothing but the card and team kills. */
 	async function save() {
 		const e = editing;
 		if (!e) return;
-		const card = e.carry !== 'teamkills';
+		const wantsCard = e.carry !== 'teamkills';
 		const teamKills = e.carry !== 'card';
 		const body: Record<string, unknown> = {};
 		const name = e.label.trim();
 		if (name && name !== e.w.label) body.label = name;
-		if (card !== e.w.statusEnabled) body.statusEnabled = card;
-		if (card && e.style !== e.w.statusStyle) body.statusStyle = e.style;
+		if (wantsCard !== e.w.statusEnabled) body.statusEnabled = wantsCard;
+		if (wantsCard) {
+			const now = cardBody(e.card);
+			const was = cardBody({
+				style: e.w.statusStyle,
+				interval: e.w.statusIntervalS,
+				linkStatus: e.w.linkStatus,
+				linkLeaderboard: e.w.linkLeaderboard,
+				linkPanel: e.w.linkPanel
+			});
+			for (const k of Object.keys(now) as (keyof typeof now)[])
+				if (now[k] !== was[k]) body[k] = now[k];
+		}
 		if (teamKills !== e.w.events.includes('teamkills'))
 			body.events = teamKills ? ['teamkills'] : [];
 		if (!Object.keys(body).length) {
@@ -148,6 +200,18 @@
 	/** A channel this page can manage: this server only, carrying nothing but the card and team kills. */
 	const ownHere = (w: WebhookView) =>
 		w.serverIds?.length === 1 && w.events.every((e) => e === 'teamkills');
+
+	// --- the public pages the cards link to ---
+	const FEATURE_KEY = { status: 'publicStatus', leaderboards: 'publicLeaderboards' } as const;
+	const FEATURE_PATH = { status: '', leaderboards: '/leaderboard' } as const;
+	const setPublic = (feature: 'status' | 'leaderboards', on: boolean) =>
+		run(
+			() =>
+				api('PATCH', `/api/servers/${encodeURIComponent(data.server.id)}`, {
+					[FEATURE_KEY[feature]]: on
+				}),
+			on ? `${FEATURE_LABELS[feature]} is on.` : `${FEATURE_LABELS[feature]} is off.`
+		);
 </script>
 
 <div class="panel">
@@ -185,7 +249,8 @@
 					</div>
 					<div class="truncate font-mono text-[11px] text-mist-600">{w.urlHint}</div>
 					<div class="text-[12px] text-mist-400">
-						{carries(w)}
+						{carries(w)}{#if w.statusEnabled}
+							· {linksOf(w)}{/if}
 						{#if !w.serverIds}· every server in the organisation{:else if w.serverIds.length > 1}·
 							this and {w.serverIds.length - 1} other server{w.serverIds.length === 2
 								? ''
@@ -241,7 +306,16 @@
 					/></label
 				>
 			</div>
-			<ChannelFields name="carry" bind:carry bind:style />
+			<ChannelFields
+				name="carry"
+				bind:carry
+				bind:style={card.style}
+				bind:interval={card.interval}
+				bind:linkStatus={card.linkStatus}
+				bind:linkLeaderboard={card.linkLeaderboard}
+				bind:linkPanel={card.linkPanel}
+				{features}
+			/>
 			<p class="note">
 				In Discord, open the channel's settings → Integrations → Webhooks → New Webhook, copy its
 				URL and paste it here. The URL is stored encrypted and never shown again. Pictures need the
@@ -253,6 +327,43 @@
 		</form>
 	{/if}
 </div>
+
+{#if data.server.manager}
+	<div class="mt-4 panel">
+		<span class="label-sm">Public pages</span>
+		<p class="mb-3 text-[13px] text-mist-400">
+			What a card can link to without a sign-in. Each page is open to anyone with the address once
+			the site owner has allowed it for {data.server.orgName} and you switch it on here.
+		</p>
+		{#each PUBLIC_FEATURES as feature (feature)}
+			{@const st = featureState(data.server, data.server, feature)}
+			<div class="kv items-center">
+				<label class="flex items-center gap-2 text-[13px] {st.allowed ? '' : 'opacity-50'}">
+					<input
+						type="checkbox"
+						checked={st.wanted}
+						disabled={busy || !st.allowed}
+						onchange={(e) => setPublic(feature, e.currentTarget.checked)}
+					/>
+					{FEATURE_LABELS[feature]}
+				</label>
+				<span class="text-right text-[12.5px] text-mist-400">
+					{#if st.reason}{st.reason}{:else if st.on}<a
+							href="/s/{encodeURIComponent(data.server.id)}{FEATURE_PATH[feature]}"
+							class="text-accent hover:underline">/s/{data.server.id}{FEATURE_PATH[feature]}</a
+						>{:else}off{/if}
+				</span>
+			</div>
+		{/each}
+		<p class="note">
+			The public status page shows the map, scores, player count, join code and who is on with kills
+			and deaths; leaderboards show names and stats and open a career page per player. Neither shows
+			SteamIDs, pings, cash or anything about the panel. A public JSON copy of each page sits under <code
+				class="chip">/api/public/servers/{data.server.id}</code
+			>.
+		</p>
+	</div>
+{/if}
 
 {#if editing}
 	{@const e = editing}
@@ -272,7 +383,16 @@
 					maxlength="60"
 				/></label
 			>
-			<ChannelFields name="edit-carry" bind:carry={e.carry} bind:style={e.style} />
+			<ChannelFields
+				name="edit-carry"
+				bind:carry={e.carry}
+				bind:style={e.card.style}
+				bind:interval={e.card.interval}
+				bind:linkStatus={e.card.linkStatus}
+				bind:linkLeaderboard={e.card.linkLeaderboard}
+				bind:linkPanel={e.card.linkPanel}
+				{features}
+			/>
 			<div class="flex flex-wrap items-center gap-2 pt-2">
 				{#if e.w.statusEnabled}
 					<button
