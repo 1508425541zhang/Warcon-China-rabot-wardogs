@@ -333,7 +333,7 @@
 		<span class="label-sm">Public pages</span>
 		<p class="mb-3 text-[13px] text-mist-400">
 			What a card can link to without a sign-in. Each page is open to anyone with the address once
-			the site owner has allowed it for {data.server.orgName} and you switch it on here.
+			you switch it on here; the site owner can close them for {data.server.orgName}.
 		</p>
 		{#each PUBLIC_FEATURES as feature (feature)}
 			{@const st = featureState(data.server, data.server, feature)}

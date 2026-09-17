@@ -12,7 +12,7 @@ const allowAll = { allowPublicStatus: true, allowPublicLeaderboards: true };
 const wantAll = { publicStatus: true, publicLeaderboards: true };
 
 describe('effectiveFeatures', () => {
-	test('nothing is public by default, whatever the server asks for', () => {
+	test('nothing is public without the allowance, whatever the server asks for', () => {
 		expect(effectiveFeatures(NO_ALLOWANCES, NO_SWITCHES)).toEqual({
 			status: false,
 			leaderboards: false

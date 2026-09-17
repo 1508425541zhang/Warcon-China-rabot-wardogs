@@ -1,5 +1,6 @@
-// Which public surfaces a server actually has. Each one needs two switches: the site owner allows
-// it for the organisation, and an org owner turns it on for the server. This is the one place
+// Which public surfaces a server actually has. Each one needs two switches: the site owner has
+// not withdrawn it for the organisation (allowed by default), and an org owner has turned it on
+// for the server. This is the one place
 // that combines them; public routes, the Discord card links and the server dialog all ask here,
 // never a raw column. Client-safe, so the dialog can grey a switch out with the same reason.
 
@@ -29,7 +30,7 @@ export const NO_ALLOWANCES: OrgAllowances = {
 };
 export const NO_SWITCHES: ServerSwitches = { publicStatus: false, publicLeaderboards: false };
 
-export const NOT_ALLOWED = 'Not allowed for this organisation by the site owner.';
+export const NOT_ALLOWED = 'Closed for this organisation by the site owner.';
 
 export const allowed = (org: OrgAllowances, feature: PublicFeature): boolean =>
 	feature === 'status' ? org.allowPublicStatus : org.allowPublicLeaderboards;

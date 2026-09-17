@@ -560,8 +560,8 @@
 						</label>
 					{/each}
 					<p class="note">
-						An allowance lets the org's owners open the page per server; withdrawing it closes every
-						such page at once. Nothing is public until you allow it here.
+						Allowed by default: the org's owners open each page per server. Unticking one closes
+						every such page in this organisation at once.
 					</p>
 				</div>
 				<div class="mt-3 border-t border-white/8 pt-3">
@@ -594,15 +594,14 @@
 			<span class="label-sm">Public pages</span>
 			{#if anyAllowed}
 				<p class="mb-3 text-[13px] text-mist-400">
-					The site owner allows {PUBLIC_FEATURES.filter((f) => allowed(data.org, f))
+					This organisation may open a {PUBLIC_FEATURES.filter((f) => allowed(data.org, f))
 						.map((f) => FEATURE_LABELS[f].toLowerCase())
-						.join(' and ')} for this organisation. Switch each on per server from the server's
-					<b>Discord</b> tab or its edit dialog.
+						.join(' and ')}. Switch each on per server from the server's <b>Discord</b> tab or its edit
+					dialog.
 				</p>
 			{:else}
 				<p class="mb-3 text-[13px] text-mist-400">
-					Nothing is public for this organisation. Ask the site owner to allow a public status page
-					or public leaderboards; the switches are then on each server's <b>Discord</b> tab.
+					The site owner has closed the public pages for this organisation.
 				</p>
 			{/if}
 			<label class="block"
