@@ -12,6 +12,7 @@ import { applyTriggerUpdates, enqueueIntents, wakeDelivery } from './outbox';
 import { LostOwnership, withOwnedTransaction } from './leadership';
 import { memoryOf } from './observe';
 import { publicMessage } from './http';
+import { notifyTeamKills } from './webhook-delivery';
 import { isDemoServer } from './env';
 import { drainMockFeed } from './mockgame';
 import { ingestBatch } from './feed';
@@ -27,6 +28,8 @@ export async function onKillsIngested(
 	emit({ type: 'kills', serverId, kills });
 	const teamKills = kills.filter((k) => k.teamKill && k.killer);
 	if (!teamKills.length) return;
+	const m = memoryOf(serverId);
+	void notifyTeamKills(env, serverId, m?.status?.serverName || m?.server.name || '', teamKills);
 	try {
 		await actOnTeamKills(env, serverId, teamKills);
 	} catch (err) {

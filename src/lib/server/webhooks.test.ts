@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { validateWebhookUrl } from './webhooks';
-import { buildEmbed, classify } from './webhook-delivery';
+import { buildEmbed, buildTeamKillEmbed, classify } from './webhook-delivery';
 
 const token = 'a'.repeat(68);
 
@@ -83,5 +83,30 @@ describe('buildEmbed', () => {
 		});
 		expect(e.description).toContain('Outcome: **denied** (403)');
 		expect(e.color).toBe(0x8a8a90);
+	});
+});
+
+describe('buildTeamKillEmbed', () => {
+	test('names both players, the weapon, the distance and the server', () => {
+		const e = buildTeamKillEmbed('Warcon', 'TLR #1', {
+			eventId: 'x',
+			ts: '2026-09-16T20:00:00.000Z',
+			map: 'Kavkazi',
+			eventTime: 12,
+			killer: { steamId: '76561198000000001', name: 'Alpha', faction: 'Valkyra' },
+			victim: { steamId: '76561198000000002', name: 'Bravo', faction: 'Valkyra' },
+			cause: 'Id.Item.AK74M',
+			distanceM: 39.6,
+			headshot: true,
+			suicide: false,
+			teamKill: true,
+			tags: []
+		});
+		expect(e.title).toBe('Team kill');
+		expect(e.description).toBe(
+			'**Alpha** → **Bravo** (Valkyra)\nAK-74M · 40 m · headshot\nServer: TLR #1 · Kavkazi'
+		);
+		expect(e.timestamp).toBe('2026-09-16T20:00:00.000Z');
+		expect(e.footer?.text).toBe('Warcon');
 	});
 });
