@@ -3,6 +3,7 @@
 	// range, playtime floor), one page of ranked rows with sortable headers, and the pager. The
 	// board itself comes from the caller, which reloads it whenever `onchange` hands back a query.
 	import SortHeader from '$lib/components/SortHeader.svelte';
+	import { fmtCash } from '$lib/cash';
 	import { fmtMinutes, fmtNum, fmtTime, fmtAgo } from '$lib/format';
 	import {
 		BOARD_RANGES,
@@ -152,7 +153,7 @@
 					<td class="num">{r.matches}</td>
 					<td class="num whitespace-nowrap">{r.wins}-{r.losses}-{r.draws}</td>
 					<td class="num">{pct(winRate(r.wins, r.losses, r.draws))}</td>
-					<td class="num">{fmtNum(r.cash)}</td>
+					<td class="num">{fmtCash(r.cash)}</td>
 					<td class="whitespace-nowrap text-mist-400">{seen(r.lastSeen)}</td>
 				</tr>
 			{:else}
