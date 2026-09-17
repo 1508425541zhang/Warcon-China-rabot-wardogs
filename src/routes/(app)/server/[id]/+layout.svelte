@@ -13,6 +13,7 @@
 	const TABS = [
 		['', 'Overview'],
 		['/players', 'Players'],
+		['/kills', 'Kills'],
 		['/bans', 'Bans'],
 		['/slots', 'Reserved slots'],
 		['/rotation', 'Map rotation'],
