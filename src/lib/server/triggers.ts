@@ -64,6 +64,7 @@ import {
 	type WelcomeConfig
 } from './trigger-rules';
 import { fmtUptime, RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
+import { DEFAULT_SCORE_CAP, scoreCapOf } from '$lib/match';
 import { settings } from './settings';
 
 export * from './trigger-rules';
@@ -293,7 +294,8 @@ const vars = (ctx: TickContext, p?: Player, previous = '') => ({
 	server: ctx.status.serverName || ctx.server.name,
 	map: ctx.status.map,
 	players: ctx.status.playerCount,
-	max: ctx.status.maxPlayers
+	max: ctx.status.maxPlayers,
+	cap: scoreCapOf(ctx.status)
 });
 
 // Enabled triggers per server, cached briefly: the worker asks on every observation.
@@ -1108,7 +1110,8 @@ export async function dryRun(
 				server: server.name,
 				map: e.map,
 				players: e.count,
-				max: '…'
+				max: '…',
+				cap: DEFAULT_SCORE_CAP
 			}))
 				push(new Date(e.ts), `broadcast (${e.count} on): ${message}`);
 		result.notes.push(

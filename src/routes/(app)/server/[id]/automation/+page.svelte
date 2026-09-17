@@ -1088,6 +1088,7 @@
 							'faction',
 							'score',
 							'scores',
+							'cap',
 							'previous',
 							'map',
 							'server',

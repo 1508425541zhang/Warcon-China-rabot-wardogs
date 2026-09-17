@@ -374,3 +374,24 @@ describe('uptime', () => {
 		expect(k(opts.now, startedAt)).not.toBe(k(opts.now, '2026-09-13T11:00:00Z'));
 	});
 });
+
+describe('score cap on live builds', () => {
+	test('a status without a cap uses the game default for the line and the bars', () => {
+		const e = buildStatusEmbed(
+			{ ...opts, origin: 'http://localhost:5173' },
+			server,
+			live({
+				status: {
+					...status,
+					scoreCap: null,
+					scores: [
+						{ name: 'Valkyra', colorHex: '#D86060', score: 50 },
+						{ name: 'Lonestar', colorHex: '#5B95D8', score: 0 }
+					]
+				}
+			})
+		);
+		expect(e.description).toContain('First to 100');
+		expect(e.description).toContain('🟥🟥🟥🟥🟥⬛⬛⬛⬛⬛ **50** Valkyra');
+	});
+});
