@@ -126,6 +126,7 @@
 		messages: string;
 		everyMinutes: number;
 		minPlayers: number;
+		maxPlayers: number | '';
 		afterMinutes: number;
 		cooldownMinutes: number;
 		vacBans: boolean;
@@ -185,6 +186,7 @@
 				: 'Join our Discord for events and support.\nNo team-killing. Admins are watching.',
 			everyMinutes: n('everyMinutes', 15),
 			minPlayers: n('minPlayers', 1),
+			maxPlayers: typeof c.maxPlayers === 'number' ? c.maxPlayers : '',
 			afterMinutes: n('afterMinutes', 20),
 			cooldownMinutes: n('cooldownMinutes', 30),
 			vacBans: b('vacBans', true),
@@ -235,7 +237,8 @@
 				return {
 					messages: f.messages.split('\n'),
 					everyMinutes: Number(f.everyMinutes),
-					minPlayers: Number(f.minPlayers)
+					minPlayers: Number(f.minPlayers),
+					maxPlayers: f.maxPlayers === '' ? null : Number(f.maxPlayers)
 				};
 			case 'empty_reset':
 				return {
@@ -330,7 +333,7 @@
 			case 'faction_change':
 				return `"${c.message}"`;
 			case 'broadcast':
-				return `${(c.messages as string[]).length} message${(c.messages as string[]).length === 1 ? '' : 's'} every ${c.everyMinutes} min · at least ${c.minPlayers} on`;
+				return `${(c.messages as string[]).length} message${(c.messages as string[]).length === 1 ? '' : 's'} every ${c.everyMinutes} min · ${typeof c.maxPlayers === 'number' ? `${c.minPlayers} to ${c.maxPlayers}` : `at least ${c.minPlayers}`} on`;
 			case 'empty_reset':
 				return `to ${mapLabel(data.catalog, String(c.map))} after ${c.afterMinutes} min empty`;
 			case 'risk_kick': {
@@ -564,6 +567,15 @@
 							min="0"
 							max="1000"
 							bind:value={f.minPlayers}
+						/></label
+					>
+					<label class="block"
+						><span class="field-label">And at most (players, blank for no ceiling)</span><input
+							class="input"
+							type="number"
+							min="0"
+							max="1000"
+							bind:value={f.maxPlayers}
 						/></label
 					>
 				</div>

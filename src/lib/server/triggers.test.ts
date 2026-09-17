@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+	broadcastWanted,
 	factionChangeTargets,
 	onTarget,
 	renderTemplate,
@@ -30,12 +31,24 @@ describe('validateConfig', () => {
 			everyMinutes: '15',
 			minPlayers: -3
 		});
-		expect(c).toEqual({ messages: ['a', 'b'], everyMinutes: 15, minPlayers: 0 });
+		expect(c).toEqual({ messages: ['a', 'b'], everyMinutes: 15, minPlayers: 0, maxPlayers: null });
 		expect(() => validateConfig('broadcast', { messages: [], everyMinutes: 5 })).toThrow(
 			'at least one'
 		);
 		expect(() => validateConfig('broadcast', { messages: ['a'], everyMinutes: 0 })).toThrow(
 			'1-1440'
+		);
+	});
+	test('broadcast takes an optional player ceiling that cannot sit below the floor', () => {
+		const base = { messages: ['a'], everyMinutes: 5 };
+		expect(validateConfig('broadcast', { ...base, minPlayers: 2, maxPlayers: '' })).toMatchObject({
+			maxPlayers: null
+		});
+		expect(validateConfig('broadcast', { ...base, minPlayers: 2, maxPlayers: '20' })).toMatchObject(
+			{ minPlayers: 2, maxPlayers: 20 }
+		);
+		expect(() => validateConfig('broadcast', { ...base, minPlayers: 5, maxPlayers: 4 })).toThrow(
+			'ceiling'
 		);
 	});
 	test('empty_reset needs a map and a wait', () => {
@@ -74,6 +87,19 @@ describe('validateConfig', () => {
 		const c = validateConfig('risk_kick', { vacBans: true }) as RiskKickConfig;
 		expect(c.spareReserved).toBe(true);
 		expect(c.reason).toContain('requirements');
+	});
+});
+
+describe('broadcastWanted', () => {
+	test('a floor alone, a band, and rules saved before the ceiling existed', () => {
+		expect(broadcastWanted({ minPlayers: 3, maxPlayers: null }, 2)).toBe(false);
+		expect(broadcastWanted({ minPlayers: 3, maxPlayers: null }, 60)).toBe(true);
+		expect(broadcastWanted({ minPlayers: 0, maxPlayers: 20 }, 0)).toBe(true);
+		expect(broadcastWanted({ minPlayers: 0, maxPlayers: 20 }, 20)).toBe(true);
+		expect(broadcastWanted({ minPlayers: 0, maxPlayers: 20 }, 21)).toBe(false);
+		expect(broadcastWanted({ minPlayers: 1 } as { minPlayers: number; maxPlayers: null }, 40)).toBe(
+			true
+		);
 	});
 });
 
