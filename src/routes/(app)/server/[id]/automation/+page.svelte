@@ -555,7 +555,7 @@
 					.join(' · ')
 					.concat(' · per session');
 			case 'seed_reward':
-				return `${c.minutes} min with ${c.lowAt} or fewer on${c.untilFull === false ? '' : `, staying until ${typeof c.fullAt === 'number' ? `${c.fullAt}+ on` : 'it fills'}`}, within ${c.windowDays} day${c.windowDays === 1 ? '' : 's'} · slot for ${c.slotDays} day${c.slotDays === 1 ? '' : 's'}${c.message ? ' · whispers' : ''}`;
+				return `${c.minutes} min with ${c.lowAt} or fewer on${c.untilFull === false ? '' : `, staying until ${typeof c.fullAt === 'number' ? `${c.fullAt}+ on` : 'it fills'}`}, within ${c.windowDays} day${c.windowDays === 1 ? '' : 's'} · slot for ${c.slotDays} day${c.slotDays === 1 ? '' : 's'}${c.message ? ' · with a whisper' : ''}`;
 		}
 	}
 </script>
@@ -566,10 +566,9 @@
 />
 
 <p class="mb-4 text-[13px] text-mist-400">
-	Rules the worker evaluates on every observation{data.server.demo ? ' of the demo server' : ''}: a
-	join is acted on within a couple of seconds. Every action is queued, delivered, and recorded below
-	and in the audit trail as <span class="chip">trigger</span>. Dry-run a rule against the last 24
-	hours before it touches anyone.
+	Rules act on {data.server.demo ? 'the demo server' : 'this server'} as things happen: a join, a kill,
+	a quiet hour. Every action is recorded below and in the audit trail as
+	<span class="chip">trigger</span>.
 </p>
 
 <div class="mb-3 flex flex-wrap items-start gap-3">
@@ -749,9 +748,27 @@
 			</div>
 		</div>
 	{:else}
-		<div class="panel text-center text-mist-600">
-			No triggers yet.{#if admin}
-				Add a rule to start.{/if}
+		<div class="flex flex-col items-center gap-3 panel py-7 text-center">
+			{#if admin && !onlyFailing}
+				<p class="text-mist-100">Most servers start with these two.</p>
+				<div class="flex flex-wrap justify-center gap-2">
+					<button type="button" class="btn btn-primary" onclick={() => open('welcome')}
+						>+ Welcome whisper</button
+					>
+					<button type="button" class="btn" onclick={() => open('broadcast')}
+						>+ Scheduled broadcast</button
+					>
+				</div>
+				<p class="max-w-[52ch] text-[12.5px] text-mist-600">
+					Or add any rule: {KINDS.filter((k) => k.kind !== 'welcome' && k.kind !== 'broadcast')
+						.map((k) => k.label)
+						.join(' · ')}.
+				</p>
+			{:else if onlyFailing}
+				<p class="text-mist-600">No rule is failing.</p>
+			{:else}
+				<p class="text-mist-600">No rules on this server yet.</p>
+			{/if}
 		</div>
 	{/each}
 </div>
@@ -1276,69 +1293,75 @@
 	</Modal>
 {/if}
 
-<div class="mt-4 scroll-mt-4 panel" bind:this={actionsPanel}>
-	<div class="mb-3 flex flex-wrap items-center gap-2">
-		<span class="label-sm mb-0">Recent actions</span>
-		<span class="text-[12.5px] text-mist-600"
-			>what the rules did, newest first · <b>unknown</b> means sent with no answer, never retried on its
-			own</span
-		>
-		<div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
-			<select
-				class="input w-auto pr-[30px] {ruleFilter ? 'border-accent' : ''}"
-				aria-label="Only this rule"
-				bind:value={ruleFilter}
-			>
-				<option value="">All rules</option>
-				{#each ruleNames as name (name)}<option value={name}>{name}</option>{/each}
-			</select>
-			<select
-				class="input w-auto pr-[30px] {stateFilter ? 'border-accent' : ''}"
-				aria-label="Only this state"
-				bind:value={stateFilter}
-			>
-				<option value="">Any state</option>
-				{#each STATES as s (s)}<option value={s}>{s}</option>{/each}
-			</select>
-			<input
-				class="input w-full sm:w-52"
-				type="search"
-				placeholder="Filter by action, target, result…"
-				aria-label="Filter recent actions"
-				bind:value={deliverySearch}
-			/>
+{#if data.triggers.length || deliveries.length}
+	<div class="mt-4 scroll-mt-4 panel" bind:this={actionsPanel}>
+		<div class="mb-3 flex flex-wrap items-center gap-2">
+			<span class="label-sm mb-0">Recent actions</span>
+			<span class="text-[12.5px] text-mist-600">what the rules did, newest first</span>
+			<div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
+				<select
+					class="input w-auto pr-[30px] {ruleFilter ? 'border-accent' : ''}"
+					aria-label="Only this rule"
+					bind:value={ruleFilter}
+				>
+					<option value="">All rules</option>
+					{#each ruleNames as name (name)}<option value={name}>{name}</option>{/each}
+				</select>
+				<select
+					class="input w-auto pr-[30px] {stateFilter ? 'border-accent' : ''}"
+					aria-label="Only this state"
+					bind:value={stateFilter}
+				>
+					<option value="">Any state</option>
+					{#each STATES as s (s)}<option value={s}>{s}</option>{/each}
+				</select>
+				<input
+					class="input w-full sm:w-52"
+					type="search"
+					placeholder="Filter by action, target, result…"
+					aria-label="Filter recent actions"
+					bind:value={deliverySearch}
+				/>
+			</div>
+		</div>
+		<div class="table-wrap">
+			<table>
+				<thead>
+					<tr>
+						<SortHeader sort={deliverySort} key="when">When</SortHeader>
+						<SortHeader sort={deliverySort} key="rule">Rule</SortHeader>
+						<SortHeader sort={deliverySort} key="action">Action</SortHeader>
+						<SortHeader sort={deliverySort} key="target">Target</SortHeader>
+						<SortHeader sort={deliverySort} key="state">State</SortHeader>
+						<SortHeader sort={deliverySort} key="result">Result</SortHeader>
+					</tr>
+				</thead>
+				<tbody>
+					{#each deliveryRows as d (d.id)}
+						<tr>
+							<td class="whitespace-nowrap">{fmtTime(d.createdAt)}</td>
+							<td>{d.triggerName}</td>
+							<td class="font-mono text-[12px]">{d.action}</td>
+							<td class="font-mono text-[12px]">{d.target}</td>
+							<td
+								><Badge
+									tone={stateTone(d.state)}
+									title={d.state === 'unknown'
+										? 'Sent, no answer from the game. Not retried.'
+										: undefined}>{d.state}</Badge
+								></td
+							>
+							<td class="text-mist-400">{d.outcome}</td>
+						</tr>
+					{:else}
+						<tr
+							><td colspan="6" class="py-6 text-center text-mist-600"
+								>{deliveries.length ? 'Nothing matches.' : 'No actions yet.'}</td
+							></tr
+						>
+					{/each}
+				</tbody>
+			</table>
 		</div>
 	</div>
-	<div class="table-wrap">
-		<table>
-			<thead>
-				<tr>
-					<SortHeader sort={deliverySort} key="when">When</SortHeader>
-					<SortHeader sort={deliverySort} key="rule">Rule</SortHeader>
-					<SortHeader sort={deliverySort} key="action">Action</SortHeader>
-					<SortHeader sort={deliverySort} key="target">Target</SortHeader>
-					<SortHeader sort={deliverySort} key="state">State</SortHeader>
-					<SortHeader sort={deliverySort} key="result">Result</SortHeader>
-				</tr>
-			</thead>
-			<tbody>
-				{#each deliveryRows as d (d.id)}
-					<tr>
-						<td class="whitespace-nowrap">{fmtTime(d.createdAt)}</td>
-						<td>{d.triggerName}</td>
-						<td class="font-mono text-[12px]">{d.action}</td>
-						<td class="font-mono text-[12px]">{d.target}</td>
-						<td><Badge tone={stateTone(d.state)}>{d.state}</Badge></td>
-						<td class="text-mist-400">{d.outcome}</td>
-					</tr>
-				{:else}
-					<tr
-						><td colspan="6" class="py-6 text-center text-mist-600"
-							>{deliveries.length ? 'Nothing matches.' : 'No actions yet.'}</td
-						></tr
-					>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-</div>
+{/if}
