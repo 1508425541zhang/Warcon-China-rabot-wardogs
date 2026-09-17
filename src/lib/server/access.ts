@@ -376,6 +376,7 @@ export type ServerSummary = {
 	demo: boolean;
 	publicStatus: boolean;
 	publicLeaderboards: boolean;
+	publicKills: boolean;
 	allowPublicStatus: boolean;
 	allowPublicLeaderboards: boolean;
 };
@@ -402,6 +403,7 @@ export function shapeServer(
 		demo: isDemoServer(env, s),
 		publicStatus: s.publicStatus,
 		publicLeaderboards: s.publicLeaderboards,
+		publicKills: s.publicKills,
 		allowPublicStatus: org.allowPublicStatus,
 		allowPublicLeaderboards: org.allowPublicLeaderboards
 	};

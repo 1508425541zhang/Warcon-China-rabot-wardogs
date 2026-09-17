@@ -62,6 +62,8 @@ export interface ServerInfo {
 	/** the org owner's switches for the public pages; see $lib/features for what is actually on */
 	publicStatus: boolean;
 	publicLeaderboards: boolean;
+	/** the public status page also carries the last kills */
+	publicKills: boolean;
 	/** what the site owner allows this server's organisation */
 	allowPublicStatus: boolean;
 	allowPublicLeaderboards: boolean;

@@ -1,11 +1,13 @@
 <script lang="ts">
-	// The public live page: map, mode, scores, player count, join code and who is on, polled from
-	// the public JSON every twenty seconds while the tab is visible. One stack on a phone; from
-	// the desktop breakpoint the roster sits beside the map and scores so it all fits one screen.
+	// The public live page: map, mode, player count, join code, each team's players under its
+	// score and, when the server shows it, the last kills, polled from the public JSON every twenty
+	// seconds while the tab is visible. One stack on a phone; from the desktop breakpoint the teams
+	// sit beside the map so it all fits one screen.
 	import { api } from '$lib/api';
 	import { poll } from '$lib/poll';
 	import { fmtAgo, fmtDuration, fmtNum, mapName, prettify, expSetLabel } from '$lib/format';
 	import { scoreCapOf } from '$lib/match';
+	import { causeLabel } from '$lib/causes';
 	import { toast } from '$lib/toast.svelte';
 	import MapArt from '$lib/components/MapArt.svelte';
 	import Pulse from '$lib/components/Pulse.svelte';
@@ -73,6 +75,10 @@
 	let pct = $derived(
 		view.maxPlayers ? Math.min(100, Math.round((view.players / view.maxPlayers) * 100)) : 0
 	);
+	const colorOf = (faction: string | null) =>
+		view.scores.find((f) => f.name === faction)?.colorHex || 'inherit';
+	const causeText = (k: NonNullable<PublicStatus['kills']>[number]) =>
+		causeLabel(k.cause) || (k.tags.includes('Falling') ? 'Fall' : '—');
 	async function copy(text: string) {
 		try {
 			await navigator.clipboard.writeText(text);
@@ -230,9 +236,47 @@
 			{:else}
 				<div class="table-wrap py-6 text-center text-mist-600">Nobody on right now.</div>
 			{/if}
-			<div class="mt-3 text-[12px] text-mist-600">
-				{#if view.observedAt}Updated {fmtAgo(view.observedAt, now)}.{/if}
+		{/if}
+
+		{#if view.kills}
+			<div class="mt-3 table-wrap">
+				<table class="feed">
+					<thead>
+						<tr
+							><th>Killer</th><th>Victim</th><th>With</th><th class="num">Range</th><th>When</th
+							></tr
+						>
+					</thead>
+					<tbody>
+						{#each view.kills as k (k.eventId)}
+							<tr>
+								<td>
+									{#if k.killer}
+										<span style="color:{colorOf(k.killer.faction)}">{k.killer.name}</span>
+									{:else}<span class="text-mist-600">—</span>{/if}
+								</td>
+								<td>
+									<span style="color:{colorOf(k.victim.faction)}">{k.victim.name}</span>
+									{#if k.teamKill}<span class="chip">team kill</span>{/if}
+									{#if k.suicide}<span class="chip">suicide</span>{/if}
+									{#if k.headshot}<span class="chip">headshot</span>{/if}
+								</td>
+								<td class="text-mist-400">{causeText(k)}</td>
+								<td class="num text-mist-400"
+									>{k.distanceM === null ? '—' : `${Math.round(k.distanceM)} m`}</td
+								>
+								<td class="whitespace-nowrap text-mist-400">{fmtAgo(k.ts, now)}</td>
+							</tr>
+						{:else}
+							<tr><td colspan="5" class="py-4 text-center text-mist-600">No kills yet.</td></tr>
+						{/each}
+					</tbody>
+				</table>
 			</div>
+		{/if}
+
+		{#if view.ok && view.observedAt}
+			<div class="mt-3 text-[12px] text-mist-600">Updated {fmtAgo(view.observedAt, now)}.</div>
 		{/if}
 	</div>
 </div>
@@ -242,7 +286,11 @@
 	table.team :is(th, td) {
 		padding-inline: 12px;
 	}
-	table.team td {
+	table.team td,
+	table.feed td {
 		padding-block: 6px;
+	}
+	table.feed :is(th, td) {
+		padding-inline: 12px;
 	}
 </style>

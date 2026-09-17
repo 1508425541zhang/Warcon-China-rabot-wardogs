@@ -25,13 +25,11 @@
 	const address = (feature: PublicFeature) =>
 		`${data.origin}/s/${encodeURIComponent(data.server.id)}${PATH[feature]}`;
 
-	async function setPublic(feature: PublicFeature, on: boolean) {
+	async function patch(body: Record<string, boolean>, done: string) {
 		busy = true;
 		try {
-			await api('PATCH', `/api/servers/${encodeURIComponent(data.server.id)}`, {
-				[KEY[feature]]: on
-			});
-			toast(`${FEATURE_LABELS[feature]} is ${on ? 'on' : 'off'}.`, 'ok');
+			await api('PATCH', `/api/servers/${encodeURIComponent(data.server.id)}`, body);
+			toast(done, 'ok');
 			await invalidateAll();
 		} catch (err) {
 			toast(errorMessage(err), 'err');
@@ -39,6 +37,13 @@
 			busy = false;
 		}
 	}
+	const setPublic = (feature: PublicFeature, on: boolean) =>
+		patch({ [KEY[feature]]: on }, `${FEATURE_LABELS[feature]} is ${on ? 'on' : 'off'}.`);
+	const setKills = (on: boolean) =>
+		patch(
+			{ publicKills: on },
+			on ? 'The status page shows the kill feed.' : 'The status page no longer shows the kill feed.'
+		);
 	async function copy(text: string) {
 		try {
 			await navigator.clipboard.writeText(text);
@@ -93,6 +98,21 @@
 							>
 						</div>
 						{#if !st.on}<p class="note">Answers 404 until switched on.</p>{/if}
+					{/if}
+					{#if feature === 'status' && !st.reason}
+						<label class="mt-3 flex items-center gap-2 text-[13.5px]">
+							<input
+								type="checkbox"
+								checked={data.server.publicKills}
+								disabled={busy}
+								onchange={(e) => setKills(e.currentTarget.checked)}
+							/>
+							<span>Show the kill feed on it</span>
+						</label>
+						<p class="mt-1 pl-6 text-[12.5px] text-mist-400">
+							The last twenty kills with weapon and distance, names only. Needs the kill feed on the
+							Kills tab.
+						</p>
 					{/if}
 				</div>
 			</div>

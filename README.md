@@ -488,8 +488,9 @@ dialog carries the same switches); nothing is public until then.
 The site owner can **close** either page for a whole organisation from the org's page, next to
 the server limit, which shuts every such page in it at once.
 
-- **Live status** at `/s/<server id>`: map, mode, scores, player count, join code and who is on
-  with kills and deaths, refreshed every twenty seconds.
+- **Live status** at `/s/<server id>`: map, mode, player count, join code and each team's players
+  under its score with kills and deaths, refreshed every twenty seconds. A second switch under it
+  adds the last twenty kills from the [kill feed](#kill-feed) (weapon, distance, names only).
 - **Leaderboards and careers** at `/s/<server id>/leaderboard` and `/s/<server id>/players/<SteamID>`:
   the same board and career as the panel, over this server or the organisation's servers whose
   leaderboards are public too.
@@ -742,7 +743,7 @@ GET/POST /api/orgs/:id/roles {name,capabilities[]}  PATCH/DELETE .../:roleId {na
 GET/POST /api/orgs/:id/keys {label,capabilities[],serverIds[]|null,expiresDays}  DELETE .../:keyId   (POST returns the token once)
 GET/POST /api/orgs/:id/invites {label,orgRole,serverRoleId,expiresDays,maxUses}  DELETE /api/orgs/:id/invites/:inviteId
 GET/POST /api/users  PATCH/DELETE /api/users/:id  PUT /api/users/:id/grants {grants:[{serverId,roleId}]}
-GET/POST /api/servers {orgId,...}  PATCH/DELETE /api/servers/:id  POST /api/servers/:id/test   (PATCH also {publicStatus, publicLeaderboards}, org owners, within the site owner's allowance)
+GET/POST /api/servers {orgId,...}  PATCH/DELETE /api/servers/:id  POST /api/servers/:id/test   (PATCH also {publicStatus, publicLeaderboards, publicKills}, org owners, within the site owner's allowance)
 GET/PUT /api/servers/:id/grants {grants:[{userId,roleId}]}   GET /api/servers/:id/summary
 GET|POST /api/servers/:id/rcon/:action   (GET for reads with query params, POST JSON for mutations)
 GET  /api/servers/:id/analytics?range=24h|7d|30d       includes `combat` from the kill feed when the server has one

@@ -28,17 +28,26 @@ export interface TargetFields {
 	allowPrivate?: boolean;
 	publicStatus?: boolean;
 	publicLeaderboards?: boolean;
+	publicKills?: boolean;
 }
 
+export type PublicSwitchKey = 'publicStatus' | 'publicLeaderboards' | 'publicKills';
+export const PUBLIC_SWITCH_KEYS: readonly PublicSwitchKey[] = [
+	'publicStatus',
+	'publicLeaderboards',
+	'publicKills'
+];
+
 /**
- * The public-page switches an org owner may set. Turning one on needs the site owner's
- * allowance for the organisation; turning off never does, so a page can always be closed.
+ * The public-page switches an org owner may set. Turning a page on needs the site owner's
+ * allowance for the organisation; turning off never does, so a page can always be closed. The
+ * kill feed switch is part of the status page and needs no allowance of its own.
  */
 export function publicSwitches(
 	org: Pick<OrgRow, 'allowPublicStatus' | 'allowPublicLeaderboards'>,
 	body: Record<string, unknown>
-): Pick<TargetFields, 'publicStatus' | 'publicLeaderboards'> {
-	const out: Pick<TargetFields, 'publicStatus' | 'publicLeaderboards'> = {};
+): Pick<TargetFields, PublicSwitchKey> {
+	const out: Pick<TargetFields, PublicSwitchKey> = {};
 	const read = (key: 'publicStatus' | 'publicLeaderboards', feature: PublicFeature) => {
 		if (body[key] === undefined) return;
 		const on = !!body[key];
@@ -48,6 +57,7 @@ export function publicSwitches(
 	};
 	read('publicStatus', 'status');
 	read('publicLeaderboards', 'leaderboards');
+	if (body.publicKills !== undefined) out.publicKills = !!body.publicKills;
 	return out;
 }
 
@@ -169,6 +179,7 @@ export async function createServer(
 			sortOrder: t.sortOrder || 0,
 			publicStatus: pub.publicStatus ?? false,
 			publicLeaderboards: pub.publicLeaderboards ?? false,
+			publicKills: pub.publicKills ?? false,
 			createdBy: actor.id
 		});
 		await ensureServerLists(tx, id, orgId);
@@ -209,7 +220,7 @@ export async function updateServer(
 		)
 	);
 	const set: Partial<typeof servers.$inferInsert> = { ...t };
-	if (body.publicStatus !== undefined || body.publicLeaderboards !== undefined) {
+	if (PUBLIC_SWITCH_KEYS.some((k) => body[k] !== undefined)) {
 		const org = await getOrg(env, server.orgId);
 		if (!org) throw new ApiError(404, 'Organisation not found.', 'not_found');
 		Object.assign(set, publicSwitches(org, body));
@@ -230,6 +241,7 @@ export async function updateServer(
 			...t,
 			publicStatus: set.publicStatus,
 			publicLeaderboards: set.publicLeaderboards,
+			publicKills: set.publicKills,
 			credentialRotated: !!body.password
 		}
 	});
