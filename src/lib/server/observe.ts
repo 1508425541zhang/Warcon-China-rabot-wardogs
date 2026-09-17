@@ -22,6 +22,7 @@ import {
 	invalidateTriggers,
 	needsRiskInputs,
 	riskInputs,
+	seedLowAt,
 	type TickContext
 } from './triggers';
 import { applyTriggerUpdates, enqueueIntents, wakeDelivery } from './outbox';
@@ -473,6 +474,13 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 			? await riskInputs(env, server, joined)
 			: { signals: new Map(), profiles: new Map() };
 
+	// Seed time: while a seeding rule is on and the server is at or under its threshold, everyone
+	// still on earns the time since the previous look at the list, on the same terms as a join is
+	// trusted (a recent look, so they were on throughout).
+	const lowAt = seedLowAt(rows);
+	if (players && lowAt !== null && joinsTrusted && players.length <= lowAt)
+		for (const { session } of diff.stayed) session.seedMs += gapMs;
+
 	const s = settings();
 	const heartbeatDue = started - m.presence.heartbeatAt >= s.sessionHeartbeatMs;
 	const liveKey = liveKeyOf(m);
@@ -506,6 +514,11 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 						factioned,
 						firstVisit,
 						reserved: m.reserved,
+						reservedLoaded: m.listsAt > 0,
+						seedMs:
+							lowAt === null
+								? new Map()
+								: new Map([...m.presence.open.values()].map((s) => [s.steamId, s.seedMs])),
 						signals: risk.signals,
 						profiles: risk.profiles,
 						startedAt: m.startedAt,

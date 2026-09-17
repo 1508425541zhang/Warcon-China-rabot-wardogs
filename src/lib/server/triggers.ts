@@ -6,11 +6,12 @@
 //   empty_reset  send an empty server back to a chosen map after N minutes
 //   risk_kick    kick joiners who match Steam / ban-list rules (see risk.ts)
 //   team_kill    whisper or kick a player over team kills the kill feed reports (feed-events.ts)
+//   seed_reward  hand players who stay through a low population a reserved slot on the org list
 // The worker evaluates them on every observation and writes the actions they want to the outbox
 // (outbox.ts delivers, and every delivery lands in the audit trail as category "trigger"). A dry
 // run replays the last 24 hours from the samples and sessions tables so a rule can be checked
 // before it touches anyone.
-import { and, asc, desc, eq, gte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, or, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { ApiError, int, newId, str } from './http';
 import { writeAudit } from './audit';
@@ -29,6 +30,8 @@ import { getProfiles, steamEnabled } from './steam';
 import { localSignals, orgServers, type LocalSignals } from './players';
 import { gateway } from './gateway';
 import type { SessionUser } from './access';
+import type { ServerAccess } from './access-resolve';
+import { CAPABILITY_INFO } from '$lib/capabilities';
 import type { DryRunResult, Player, Status, TriggerKind, TriggerView } from '$lib/types';
 import {
 	broadcastWanted,
@@ -48,11 +51,15 @@ import {
 	type FactionPick,
 	type RestartNoticeConfig,
 	type RestartNoticeState,
+	lowStretches,
+	seedReplay,
 	type RiskKickConfig,
+	type SeedRewardConfig,
 	type TeamKillConfig,
 	type WelcomeConfig
 } from './trigger-rules';
 import { fmtUptime, RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
+import { settings } from './settings';
 
 export * from './trigger-rules';
 
@@ -91,17 +98,46 @@ async function triggerOf(env: Env, serverId: string, id: string): Promise<Trigge
 	return row;
 }
 
+/**
+ * A rule that writes outside the server needs the capability an admin would need to do it by
+ * hand: the Seeding reward puts players on the organisation's reserved list.
+ */
+function requireRuleCaps(kind: TriggerKind, server: ServerRow, access: ServerAccess): void {
+	if (kind !== 'seed_reward' || access.caps.has('lists.edit')) return;
+	throw new ApiError(
+		403,
+		`A ${TRIGGER_LABELS[kind]} rule edits the organisation's reserved-slot list, which needs '${CAPABILITY_INFO['lists.edit'].label}' on ${server.name}; your role '${access.roleName}' does not include it.`,
+		'forbidden'
+	);
+}
+
 export async function createTrigger(
 	env: Env,
 	req: Request,
 	user: SessionUser,
 	server: ServerRow,
+	access: ServerAccess,
 	body: Record<string, unknown>
 ): Promise<TriggerView> {
 	if (!isTriggerKind(body.kind)) throw new ApiError(400, 'Unknown trigger kind.');
 	const kind = body.kind;
+	requireRuleCaps(kind, server, access);
 	const config = validateConfig(kind, body.config);
 	const name = str(body.name, 60) || TRIGGER_LABELS[kind];
+	// Seed time is one count per server, taken against one threshold, so one rule holds it.
+	if (kind === 'seed_reward') {
+		const [other] = await env.db
+			.select({ name: triggers.name })
+			.from(triggers)
+			.where(and(eq(triggers.serverId, server.id), eq(triggers.kind, 'seed_reward')))
+			.limit(1);
+		if (other)
+			throw new ApiError(
+				409,
+				`This server already has a ${TRIGGER_LABELS[kind]} rule ("${other.name}"); edit that one instead.`,
+				'duplicate'
+			);
+	}
 	const [row] = await env.db
 		.insert(triggers)
 		.values({
@@ -134,10 +170,12 @@ export async function updateTrigger(
 	req: Request,
 	user: SessionUser,
 	server: ServerRow,
+	access: ServerAccess,
 	id: string,
 	body: Record<string, unknown>
 ): Promise<TriggerView> {
 	const row = await triggerOf(env, server.id, id);
+	requireRuleCaps(row.kind, server, access);
 	const set: Partial<typeof triggers.$inferInsert> = {};
 	if (body.name !== undefined) set.name = str(body.name, 60) || row.name;
 	if (body.enabled !== undefined) set.enabled = !!body.enabled;
@@ -203,6 +241,10 @@ export interface TickContext {
 	firstVisit: Set<string>;
 	/** SteamIDs with a reserved slot */
 	reserved: Set<string>;
+	/** false until the worker has read the server's reserved list since it started */
+	reservedLoaded: boolean;
+	/** seed time so far of the open sessions, by SteamID (empty while no seeding rule is on) */
+	seedMs: Map<string, number>;
 	/** pre-fetched for risk rules: the panel's own signals and Steam profiles of the joiners */
 	signals: Map<string, LocalSignals>;
 	profiles: Map<string, SteamProfileRow>;
@@ -304,6 +346,9 @@ export async function evaluateTriggers(
 					break;
 				case 'team_kill':
 					// Acted on as kills arrive (feed-events.ts), not per observation.
+					break;
+				case 'seed_reward':
+					await evalSeedReward(env, ctx, row, row.config as SeedRewardConfig, out);
 					break;
 			}
 		} catch (err) {
@@ -537,6 +582,102 @@ function evalRestartNotice(
 		lastResult: `Sending: ${message}`,
 		state: hit.state
 	});
+}
+
+// A seeding rule adds up seed time once a minute per server while the server is low, not per
+// observation: the open sessions from memory, the closed ones in the window from the database.
+// Above the threshold nobody is earning, so nothing is checked; the fleet's busy servers cost
+// nothing here.
+const SEED_CHECK_MS = 60_000;
+const seedState = new Map<string, { checkedAt: number; low: boolean }>();
+
+const dateOf = (d: Date) => d.toISOString().slice(0, 10);
+
+async function evalSeedReward(
+	env: Env,
+	ctx: TickContext,
+	row: TriggerRow,
+	cfg: SeedRewardConfig,
+	out: Evaluation
+) {
+	// Not before the reserved list is known: a player reserved on this server alone must not be
+	// handed an org-wide entry because the worker has not read the list yet.
+	if (!ctx.reservedLoaded) return;
+	const now = ctx.ts.getTime();
+	const state = seedState.get(row.id) ?? { checkedAt: 0, low: false };
+	const low = ctx.players.length <= cfg.lowAt;
+	// Every minute while low, once more as the count climbs out of the band (for whoever crossed
+	// the target since the last check), and not at all otherwise.
+	const due = low ? now - state.checkedAt >= SEED_CHECK_MS : state.low;
+	seedState.set(row.id, { checkedAt: due ? now : state.checkedAt, low });
+	if (!due) return;
+	const candidates = ctx.players.filter((p) => !ctx.reserved.has(p.steamId));
+	if (!candidates.length) return;
+	const from = new Date(now - cfg.windowDays * 86400_000);
+	const closed = await env.db
+		.select({ steamId: playerSessions.steamId, seconds: sql<number>`SUM(seed_seconds)::int` })
+		.from(playerSessions)
+		.where(
+			and(
+				eq(playerSessions.serverId, ctx.server.id),
+				inArray(
+					playerSessions.steamId,
+					candidates.map((p) => p.steamId)
+				),
+				isNotNull(playerSessions.leftAt),
+				gte(playerSessions.lastSeen, from)
+			)
+		)
+		.groupBy(playerSessions.steamId);
+	const earlier = new Map(closed.map((r) => [r.steamId, r.seconds]));
+	// The whisper names this date; the entry's own expiry is set when the grant is delivered.
+	const expiresAt = new Date(now + cfg.slotDays * 86400_000);
+	let n = 0;
+	let last = '';
+	for (const p of candidates) {
+		const seconds =
+			(earlier.get(p.steamId) ?? 0) + Math.floor((ctx.seedMs.get(p.steamId) ?? 0) / 1000);
+		if (seconds < cfg.minutes * 60) continue;
+		const minutes = Math.floor(seconds / 60);
+		const reason = `Seeded ${ctx.server.name}: ${minutes} min with ${cfg.lowAt} or fewer on`;
+		out.intents.push({
+			trigger: row,
+			action: 'seed_reward',
+			params: { steamId: p.steamId, name: p.name, reason, slotDays: cfg.slotDays },
+			target: p.steamId,
+			okMessage: `Reserved a slot for ${p.name}.`,
+			detail: { name: p.name, minutes, slotDays: cfg.slotDays },
+			// The slot was earned; it is granted even if the player leaves before delivery.
+			steamId: null,
+			dedupeKey: key(row, p.steamId, now)
+		});
+		if (cfg.message) {
+			const message = renderTemplate(cfg.message, {
+				...vars(ctx, p),
+				minutes,
+				until: dateOf(expiresAt),
+				days: cfg.slotDays
+			});
+			out.intents.push({
+				trigger: row,
+				action: 'whisper',
+				params: { steamId: p.steamId, message },
+				target: p.steamId,
+				okMessage: `Whispered ${p.name}.`,
+				detail: { name: p.name },
+				steamId: p.steamId,
+				dedupeKey: key(row, p.steamId, 'whisper', now)
+			});
+		}
+		n++;
+		last = p.name;
+	}
+	if (n)
+		out.updates.push({
+			id: row.id,
+			lastFiredAt: ctx.ts,
+			lastResult: `Reserving a slot for ${n === 1 ? last : `${n} players`}`
+		});
 }
 
 /** The risk inputs a risk_kick rule needs for these joiners (DB and Steam; call before the transaction). */
@@ -821,6 +962,74 @@ export async function dryRun(
 		.orderBy(asc(samples.ts));
 	if (!rows.length) {
 		result.notes.push('No samples in the last 24 hours; the poller may be off or the server new.');
+		return result;
+	}
+	if (kind === 'seed_reward') {
+		const c = cfg as SeedRewardConfig;
+		// A sample is written at least every sampleMs while the worker is up; a longer gap is
+		// time nobody was watching, and the live rule would not have credited it either.
+		const stretches = lowStretches(
+			rows.map((r) => ({ ts: r.ts.getTime(), ok: r.ok, count: r.count ?? 0 })),
+			c.lowAt,
+			to.getTime(),
+			2 * settings().sampleMs + 1000
+		);
+		const sessions = await env.db
+			.select({
+				steamId: playerSessions.steamId,
+				name: playerSessions.name,
+				joinedAt: playerSessions.joinedAt,
+				leftAt: playerSessions.leftAt
+			})
+			.from(playerSessions)
+			.where(and(eq(playerSessions.serverId, server.id), gte(playerSessions.lastSeen, from)))
+			.orderBy(asc(playerSessions.joinedAt))
+			.limit(5000);
+		if (sessions.length === 5000)
+			result.notes.push(
+				'Only the first 5000 sessions of the window were replayed; later ones are not shown.'
+			);
+		const totals = seedReplay(
+			stretches,
+			sessions.map((s) => ({
+				steamId: s.steamId,
+				joinedAt: s.joinedAt.getTime(),
+				leftAt: s.leftAt ? s.leftAt.getTime() : null
+			})),
+			c.minutes * 60,
+			to.getTime()
+		);
+		let reserved = new Set<string>();
+		if (readReserved) {
+			try {
+				reserved = new Set(await readReserved());
+			} catch {
+				result.notes.push('Could not read the reserved slots; nobody was skipped for one.');
+			}
+		}
+		const names = new Map(sessions.map((s) => [s.steamId, s.name]));
+		const crossed = [...totals]
+			.filter(([, t]) => t.crossedAt !== null)
+			.sort((a, b) => a[1].crossedAt! - b[1].crossedAt!);
+		let held = 0;
+		for (const [steamId, t] of crossed) {
+			if (reserved.has(steamId)) {
+				held++;
+				continue;
+			}
+			const at = new Date(t.crossedAt!);
+			push(
+				at,
+				`reserve ${names.get(steamId)} (${steamId}) until ${dateOf(new Date(at.getTime() + c.slotDays * 86400_000))}: ${Math.floor(t.seconds / 60)} min with ${c.lowAt} or fewer on`
+			);
+		}
+		const lowMinutes = Math.round(stretches.reduce((n, l) => n + (l.to - l.from), 0) / 60_000);
+		result.notes.push(
+			`The server was at or under ${c.lowAt} players for ${lowMinutes} min of the window; ${totals.size} player${totals.size === 1 ? '' : 's'} earned seed time${held ? `, ${held} of those who reached ${c.minutes} min already hold a reserved slot and would be skipped` : ''}.`
+		);
+		result.notes.push(
+			`Replayed over the last 24 hours only; the live rule adds up seed time over ${c.windowDays} day${c.windowDays === 1 ? '' : 's'}, so it can also fire for players this replay does not show.`
+		);
 		return result;
 	}
 	if (kind === 'broadcast') {

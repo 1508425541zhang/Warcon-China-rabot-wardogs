@@ -13,13 +13,13 @@ export const GET = route(async (event) => {
 export const POST = route(async (event) => {
 	const env = getEnv();
 	const user = requireUser(event.locals);
-	const { server } = await requireServerCap(
+	const { server, access } = await requireServerCap(
 		env,
 		event.locals,
 		param(event, 'id'),
 		'automation.manage'
 	);
 	const body = await readJson(event.request);
-	const trigger = await createTrigger(env, event.request, user, server, body);
+	const trigger = await createTrigger(env, event.request, user, server, access, body);
 	return apiJson({ ok: true, trigger }, 201);
 });

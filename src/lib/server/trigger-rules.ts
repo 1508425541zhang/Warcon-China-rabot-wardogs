@@ -14,7 +14,8 @@ export const TRIGGER_KINDS: TriggerKind[] = [
 	'empty_reset',
 	'risk_kick',
 	'restart_notice',
-	'team_kill'
+	'team_kill',
+	'seed_reward'
 ];
 export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	welcome: 'Welcome whisper',
@@ -23,7 +24,8 @@ export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	empty_reset: 'Empty-server map reset',
 	risk_kick: 'Kick on connect risk',
 	restart_notice: 'Restart notice',
-	team_kill: 'Team kill limit'
+	team_kill: 'Team kill limit',
+	seed_reward: 'Seeding reward'
 };
 
 export interface WelcomeConfig {
@@ -87,6 +89,18 @@ export interface TeamKillConfig {
 	kickAt: number;
 	kickReason: string;
 }
+/**
+ * A reserved slot for players who stay while the server is low: time on with at most `lowAt`
+ * players counts as seed time, and `minutes` of it within `windowDays` earns a slot on the
+ * organisation's reserved list for `slotDays`. `message` is whispered on the grant ('' for none).
+ */
+export interface SeedRewardConfig {
+	lowAt: number;
+	minutes: number;
+	windowDays: number;
+	slotDays: number;
+	message: string;
+}
 export type TriggerConfig =
 	| WelcomeConfig
 	| FactionChangeConfig
@@ -94,7 +108,8 @@ export type TriggerConfig =
 	| EmptyResetConfig
 	| RiskKickConfig
 	| RestartNoticeConfig
-	| TeamKillConfig;
+	| TeamKillConfig
+	| SeedRewardConfig;
 
 const MAX_MESSAGE = 200;
 
@@ -208,7 +223,111 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 				kickReason: str(c.kickReason, MAX_MESSAGE) || 'Team killing ({count} this session).'
 			};
 		}
+		case 'seed_reward': {
+			const minutes = int(c.minutes, 0, 0, 90 * 1440);
+			if (!minutes) throw new ApiError(400, 'Set how many minutes of seeding earn the slot.');
+			const windowDays = int(c.windowDays, 7, 1, 90);
+			if (minutes > windowDays * 1440)
+				throw new ApiError(
+					400,
+					'The seed time needed cannot exceed the window it is counted over.'
+				);
+			return {
+				lowAt: int(c.lowAt, 20, 1, 1000),
+				minutes,
+				windowDays,
+				slotDays: int(c.slotDays, 7, 1, 365),
+				message: str(c.message, MAX_MESSAGE)
+			};
+		}
 	}
+}
+
+/** A stretch of time the server spent at or under the seeding threshold (ms since the epoch). */
+export interface LowStretch {
+	from: number;
+	to: number;
+}
+
+/**
+ * The low stretches in a run of samples: each sample holds until the next one (the last until
+ * `to`) but for at most `maxHoldMs`, since a longer gap means the worker was not watching, and
+ * neighbouring low samples merge into one stretch. A failed sample is not low.
+ */
+export function lowStretches(
+	rows: { ts: number; ok: boolean; count: number }[],
+	lowAt: number,
+	to: number,
+	maxHoldMs = Infinity
+): LowStretch[] {
+	const out: LowStretch[] = [];
+	for (let i = 0; i < rows.length; i++) {
+		const r = rows[i];
+		if (!r.ok || r.count > lowAt) continue;
+		const end = Math.min(to, i + 1 < rows.length ? rows[i + 1].ts : to, r.ts + maxHoldMs);
+		if (end <= r.ts) continue;
+		const last = out[out.length - 1];
+		if (last && last.to >= r.ts) last.to = end;
+		else out.push({ from: r.ts, to: end });
+	}
+	return out;
+}
+
+export interface SeedSession {
+	steamId: string;
+	joinedAt: number;
+	/** null while still on */
+	leftAt: number | null;
+}
+
+export interface SeedTotal {
+	seconds: number;
+	/** when the player's seed time reached the target, or null if it never did */
+	crossedAt: number | null;
+}
+
+/** Seed time per player from how their sessions overlap the low stretches; `to` closes open sessions. */
+export function seedReplay(
+	stretches: LowStretch[],
+	sessions: SeedSession[],
+	targetSeconds: number,
+	to: number
+): Map<string, SeedTotal> {
+	const spans = new Map<string, { from: number; to: number }[]>();
+	for (const s of sessions) {
+		const end = s.leftAt ?? to;
+		for (const l of stretches) {
+			const from = Math.max(s.joinedAt, l.from);
+			const until = Math.min(end, l.to);
+			if (until <= from) continue;
+			(spans.get(s.steamId) ?? spans.set(s.steamId, []).get(s.steamId)!).push({ from, to: until });
+		}
+	}
+	const out = new Map<string, SeedTotal>();
+	for (const [steamId, list] of spans) {
+		list.sort((a, b) => a.from - b.from);
+		let ms = 0;
+		let crossedAt: number | null = null;
+		for (const span of list) {
+			const before = ms;
+			ms += span.to - span.from;
+			if (crossedAt === null && ms >= targetSeconds * 1000)
+				crossedAt = span.from + (targetSeconds * 1000 - before);
+		}
+		out.set(steamId, { seconds: Math.floor(ms / 1000), crossedAt });
+	}
+	return out;
+}
+
+/** The highest low-population threshold among the enabled seeding rules, or null when there is none. */
+export function seedLowAt(rows: { kind: string; config: unknown }[]): number | null {
+	let out: number | null = null;
+	for (const r of rows) {
+		if (r.kind !== 'seed_reward') continue;
+		const lowAt = (r.config as SeedRewardConfig).lowAt;
+		if (out === null || lowAt > out) out = lowAt;
+	}
+	return out;
 }
 
 /** Whether a scheduled broadcast goes out with this many players on. */

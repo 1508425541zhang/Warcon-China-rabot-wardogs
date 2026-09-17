@@ -5,7 +5,10 @@ import {
 	onTarget,
 	renderTemplate,
 	restartNoticeStage,
+	lowStretches,
 	riskKickVerdict,
+	seedLowAt,
+	seedReplay,
 	teamKillStage,
 	validateConfig,
 	welcomeTargets
@@ -92,6 +95,102 @@ describe('validateConfig', () => {
 			kickAtLevel: 'medium'
 		});
 		expect(() => validateConfig('risk_kick', { kickAtLevel: 'low' })).toThrow('at least one rule');
+	});
+	test('seed_reward needs a seed time that fits its window, and fills in the rest', () => {
+		expect(() => validateConfig('seed_reward', {})).toThrow('minutes');
+		expect(() => validateConfig('seed_reward', { minutes: 60 * 24 * 8, windowDays: 7 })).toThrow(
+			'window'
+		);
+		expect(validateConfig('seed_reward', { minutes: '45' })).toEqual({
+			lowAt: 20,
+			minutes: 45,
+			windowDays: 7,
+			slotDays: 7,
+			message: ''
+		});
+		expect(
+			validateConfig('seed_reward', {
+				lowAt: 0,
+				minutes: 30,
+				windowDays: 200,
+				slotDays: 0,
+				message: ' thanks {name} '
+			})
+		).toEqual({ lowAt: 1, minutes: 30, windowDays: 90, slotDays: 1, message: 'thanks {name}' });
+	});
+});
+
+describe('seedLowAt', () => {
+	test('is the highest threshold among the seeding rules, or null without one', () => {
+		expect(seedLowAt([])).toBeNull();
+		expect(seedLowAt([{ kind: 'welcome', config: { lowAt: 5 } }])).toBeNull();
+		expect(
+			seedLowAt([
+				{ kind: 'seed_reward', config: { lowAt: 10 } },
+				{ kind: 'seed_reward', config: { lowAt: 1 } },
+				{ kind: 'broadcast', config: {} }
+			])
+		).toBe(10);
+		expect(seedLowAt([{ kind: 'seed_reward', config: { lowAt: 1 } }])).toBe(1);
+	});
+});
+
+describe('seed replay', () => {
+	const M = 60_000;
+	test('lowStretches merges neighbouring low samples and ends the last one at the window end', () => {
+		const rows = [
+			{ ts: 0, ok: true, count: 3 },
+			{ ts: 10 * M, ok: true, count: 5 },
+			{ ts: 20 * M, ok: true, count: 25 },
+			{ ts: 30 * M, ok: false, count: 0 },
+			{ ts: 40 * M, ok: true, count: 20 }
+		];
+		expect(lowStretches(rows, 20, 50 * M)).toEqual([
+			{ from: 0, to: 20 * M },
+			{ from: 40 * M, to: 50 * M }
+		]);
+		expect(lowStretches(rows, 4, 50 * M)).toEqual([{ from: 0, to: 10 * M }]);
+		expect(lowStretches([], 20, 50 * M)).toEqual([]);
+		// a sample holds for at most the cap: the worker was away for the rest of the gap
+		expect(lowStretches(rows, 20, 50 * M, 3 * M)).toEqual([
+			{ from: 0, to: 3 * M },
+			{ from: 10 * M, to: 13 * M },
+			{ from: 40 * M, to: 43 * M }
+		]);
+	});
+	test('seedReplay adds up each player’s overlap with the low stretches and dates the crossing', () => {
+		const stretches = [
+			{ from: 0, to: 30 * M },
+			{ from: 60 * M, to: 90 * M }
+		];
+		const totals = seedReplay(
+			stretches,
+			[
+				// on throughout: 60 min low, crosses 45 min at 15 min into the second stretch
+				{ steamId: 'a', joinedAt: -5 * M, leftAt: null },
+				// two sessions: 20 min then 10 min, crosses 30 min at the end of the second
+				{ steamId: 'b', joinedAt: 10 * M, leftAt: 40 * M },
+				{ steamId: 'b', joinedAt: 80 * M, leftAt: null },
+				// only on while the server was busy
+				{ steamId: 'c', joinedAt: 30 * M, leftAt: 60 * M }
+			],
+			45 * 60,
+			100 * M
+		);
+		expect(totals.get('a')).toEqual({ seconds: 3600, crossedAt: 75 * M });
+		expect(totals.get('b')).toEqual({ seconds: 1800, crossedAt: null });
+		expect(totals.has('c')).toBe(false);
+		expect(
+			seedReplay(
+				stretches,
+				[{ steamId: 'b', joinedAt: 10 * M, leftAt: 40 * M }],
+				10 * 60,
+				100 * M
+			).get('b')
+		).toEqual({
+			seconds: 1200,
+			crossedAt: 20 * M
+		});
 	});
 });
 

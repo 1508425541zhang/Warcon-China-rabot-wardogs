@@ -379,6 +379,57 @@ async function touch(db: DbLike, listId: string): Promise<void> {
 	await db.update(lists).set({ updatedAt: new Date() }).where(eq(lists.id, listId));
 }
 
+interface NewEntry {
+	steamId: string;
+	reason: string;
+	expiresAt: Date | null;
+	addedBy: string | null;
+	addedByName: string;
+}
+
+/** Inserts an active entry; `added` is false when the player is already on the list. */
+async function insertEntry(
+	env: Env,
+	list: ListRow,
+	entry: NewEntry
+): Promise<{ id: string; added: boolean }> {
+	const id = newId();
+	return env.db.transaction(async (tx) => {
+		// Serialise adds to one list so two writers cannot race past the duplicate check; the
+		// partial unique index on (list_id, steam_id) where removed_at is null is the backstop.
+		await tx.execute(sql`SELECT 1 FROM ${lists} WHERE ${lists.id} = ${list.id} FOR UPDATE`);
+		const [dup] = await tx
+			.select({ id: listEntries.id })
+			.from(listEntries)
+			.where(
+				and(
+					eq(listEntries.listId, list.id),
+					eq(listEntries.steamId, entry.steamId),
+					isNull(listEntries.removedAt)
+				)
+			)
+			.limit(1);
+		if (dup) return { id: dup.id, added: false };
+		await tx.insert(listEntries).values({ id, listId: list.id, ...entry });
+		await touch(tx, list.id);
+		return { id, added: true };
+	});
+}
+
+/**
+ * An entry a rule adds (the Seeding reward): no request, no signed-in actor; the caller records
+ * the outcome. `added` is false when the player already holds an active entry.
+ */
+export async function grantEntry(
+	env: Env,
+	org: OrgRow,
+	kind: Kind,
+	entry: { steamId: string; reason: string; expiresAt: Date | null; addedByName: string }
+): Promise<{ id: string; added: boolean }> {
+	const list = await listOf(env, org.id, kind);
+	return insertEntry(env, list, { ...entry, addedBy: null });
+}
+
 export async function addEntry(
 	env: Env,
 	req: Request,
@@ -391,35 +442,15 @@ export async function addEntry(
 	const reason = str(body.reason, 200);
 	const expiresAt = parseExpiry(body.expiresAt);
 	const list = await listOf(env, org.id, kind);
-	const id = newId();
-	await env.db.transaction(async (tx) => {
-		// Serialise adds to one list so two admins cannot race past the duplicate check; the
-		// partial unique index on (list_id, steam_id) where removed_at is null is the backstop.
-		await tx.execute(sql`SELECT 1 FROM ${lists} WHERE ${lists.id} = ${list.id} FOR UPDATE`);
-		const [dup] = await tx
-			.select({ id: listEntries.id })
-			.from(listEntries)
-			.where(
-				and(
-					eq(listEntries.listId, list.id),
-					eq(listEntries.steamId, steamId),
-					isNull(listEntries.removedAt)
-				)
-			)
-			.limit(1);
-		if (dup)
-			throw new ApiError(409, `${steamId} is already on the ${KIND_LABEL[kind]}.`, 'duplicate');
-		await tx.insert(listEntries).values({
-			id,
-			listId: list.id,
-			steamId,
-			reason,
-			expiresAt,
-			addedBy: actor.id,
-			addedByName: actor.username
-		});
-		await touch(tx, list.id);
+	const { id, added } = await insertEntry(env, list, {
+		steamId,
+		reason,
+		expiresAt,
+		addedBy: actor.id,
+		addedByName: actor.username
 	});
+	if (!added)
+		throw new ApiError(409, `${steamId} is already on the ${KIND_LABEL[kind]}.`, 'duplicate');
 	await writeAudit(env, req, {
 		actor,
 		orgId: org.id,

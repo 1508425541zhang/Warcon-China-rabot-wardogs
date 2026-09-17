@@ -7,7 +7,7 @@ import { deleteTrigger, updateTrigger } from '$lib/server/triggers';
 export const PATCH = route(async (event) => {
 	const env = getEnv();
 	const user = requireUser(event.locals);
-	const { server } = await requireServerCap(
+	const { server, access } = await requireServerCap(
 		env,
 		event.locals,
 		param(event, 'id'),
@@ -19,6 +19,7 @@ export const PATCH = route(async (event) => {
 		event.request,
 		user,
 		server,
+		access,
 		param(event, 'triggerId'),
 		body
 	);
