@@ -379,8 +379,8 @@ joiner then.
 WARDOGS can push every kill to an HTTP endpoint: with `[WDServerFeed] Url` and `Token` set in
 `ServerSettings.ini`, the game process POSTs each kill (killer, victim, weapon or vehicle,
 distance, headshot and other context) a second or two after it happens. Warcon is that endpoint.
-On the server's **Configuration** tab an org owner turns the feed on, which mints a token, then
-**Write to config document** sets both keys and applies; the game reads them at its next restart
+On the server's **Configuration** tab an org owner clicks **Configure**: Warcon mints a token,
+writes both keys into the config document and applies; the game reads them at its next restart
 (its own twelve-hour one, or a manual restart). The card shows when the last batch arrived, so a
 config that did not take is visible.
 
