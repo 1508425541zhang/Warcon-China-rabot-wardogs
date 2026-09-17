@@ -1,4 +1,5 @@
-// The server's kill feed as stored: newest first, paged by `before` (an ISO timestamp), narrowed
+// The server's kill feed as stored: newest first, paged by `before` (an ISO timestamp) with
+// `beforeTime` (that row's match-clock seconds, so a batch sharing a receipt time pages cleanly), narrowed
 // by the filter in $lib/kills (killer, victim, player, cause, kind, minM), plus whether a feed is
 // set up and when its last batch arrived. `count=1` adds how many kills match over the whole
 // history, which the Kills tab wants once per filter and the Overview panel never. Live updates
@@ -14,9 +15,13 @@ export const GET = route(async (event) => {
 	const env = getEnv();
 	const { server } = await requireServerCap(env, event.locals, param(event, 'id'), 'server.view');
 	const raw = event.url.searchParams.get('before');
-	const before = raw ? new Date(raw) : null;
-	if (before && Number.isNaN(before.getTime()))
-		throw new ApiError(400, 'before must be an ISO timestamp.');
+	const ts = raw ? new Date(raw) : null;
+	if (ts && Number.isNaN(ts.getTime())) throw new ApiError(400, 'before must be an ISO timestamp.');
+	const rawTime = event.url.searchParams.get('beforeTime');
+	const eventTime = rawTime !== null && rawTime !== '' ? Number(rawTime) : null;
+	if (eventTime !== null && !Number.isFinite(eventTime))
+		throw new ApiError(400, 'beforeTime must be a number.');
+	const before = ts ? { ts, eventTime } : null;
 	const limit = int(event.url.searchParams.get('limit'), 50, 1, 200);
 	const filter = parseKillFilter(event.url.searchParams);
 	const [setup, kills, total] = await Promise.all([
