@@ -8,6 +8,7 @@
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
+	import CareerPanel from '$lib/components/CareerPanel.svelte';
 	import { describeSync, STATE_TONE } from '$lib/lists';
 	import SortHeader from '$lib/components/SortHeader.svelte';
 	import { TableSort } from '$lib/table.svelte';
@@ -388,6 +389,22 @@
 				{/if}
 			</div>
 		{/if}
+
+		<div class="panel">
+			<div class="mb-3 flex items-center gap-2">
+				<span class="label-sm mb-0!">Career</span>
+				<a
+					href="/server/{encodeURIComponent(id)}/leaderboard"
+					class="ml-auto text-[12px] text-accent hover:underline">Leaderboards →</a
+				>
+			</div>
+			<CareerPanel
+				career={data.career}
+				serverName={data.server.name}
+				orgName={data.server.orgName}
+				multiServer={data.multiServer}
+			/>
+		</div>
 
 		<div class="panel">
 			<span class="label-sm">Admin actions on this player</span>

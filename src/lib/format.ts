@@ -65,6 +65,10 @@ export function fmtAgo(value: string | number | Date, now = Date.now()): string 
 	return `${fmtSpan(ms)} ago`;
 }
 
+/** Minutes of playtime in the unit that reads best: "45 min", "2.5 h". */
+export const fmtMinutes = (m: number): string =>
+	m >= 90 ? `${(m / 60).toFixed(1)} h` : `${Math.round(m)} min`;
+
 export const fmtNum = (n: number | null | undefined): string =>
 	n === null || n === undefined ? '—' : Number(n).toLocaleString();
 
