@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	activeEntries,
+	desiredOf,
 	isAlreadyApplied,
 	isGone,
 	isUnreachable,
@@ -181,4 +182,20 @@ test('isUnreachable: outages and rate limiting both stop the run; ordinary refus
 	expect(isUnreachable({ status: 429, code: 'rate_limited', message: 'slow down' })).toBe(true);
 	expect(isUnreachable({ status: 409, code: 'already_reserved', message: 'already' })).toBe(false);
 	expect(isUnreachable({ status: 400, message: 'bad id' })).toBe(false);
+});
+
+describe('desiredOf', () => {
+	test("a player on the org list and the server's own list is wanted once, from the org list", () => {
+		const want = desiredOf([
+			{ kind: 'reserve', steamId: '1', reason: 'donor here', listId: 'srv', serverId: 's1' },
+			{ kind: 'reserve', steamId: '1', reason: 'donor', listId: 'org', serverId: null },
+			{ kind: 'reserve', steamId: '2', reason: '', listId: 'srv', serverId: 's1' },
+			{ kind: 'ban', steamId: '3', reason: 'cheating', listId: 'bans', serverId: null }
+		]);
+		expect(want.reserved).toEqual([
+			{ steamId: '1', listId: 'org', member: false },
+			{ steamId: '2', listId: 'srv', member: false }
+		]);
+		expect(want.bans).toEqual([{ steamId: '3', reason: 'cheating', listId: 'bans' }]);
+	});
 });

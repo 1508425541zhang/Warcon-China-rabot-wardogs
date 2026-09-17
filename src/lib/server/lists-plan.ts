@@ -49,6 +49,40 @@ export interface DesiredBan {
 	listId: string;
 }
 
+/** An active entry with the list it is on, as desiredOf takes it. */
+export interface DesiredEntry {
+	kind: Kind;
+	steamId: string;
+	reason: string;
+	listId: string;
+	/** the list's server, when the list belongs to one server; null for an org list */
+	serverId: string | null;
+}
+
+/**
+ * The bans and reserved slots a server's lists want on it, one per player and kind: a player on
+ * both the org list and the server's own list is wanted once, from the org list, so removing the
+ * org entry leaves the server's entry in force (the next sync re-attributes the slot to it).
+ */
+export function desiredOf(rows: DesiredEntry[]): {
+	bans: DesiredBan[];
+	reserved: DesiredReserve[];
+} {
+	const bans = new Map<string, DesiredBan>();
+	const reserved = new Map<string, DesiredReserve>();
+	const ordered = [...rows].sort(
+		(a, b) => Number(a.serverId !== null) - Number(b.serverId !== null)
+	);
+	for (const r of ordered) {
+		if (r.kind === 'ban') {
+			if (!bans.has(r.steamId))
+				bans.set(r.steamId, { steamId: r.steamId, reason: r.reason, listId: r.listId });
+		} else if (!reserved.has(r.steamId))
+			reserved.set(r.steamId, { steamId: r.steamId, listId: r.listId, member: false });
+	}
+	return { bans: [...bans.values()], reserved: [...reserved.values()] };
+}
+
 export interface DesiredReserve {
 	steamId: string;
 	listId: string;

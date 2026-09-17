@@ -681,7 +681,10 @@ export const webhooks = pgTable(
 
 // ---- Organisation lists: bans and reserved slots kept in the panel and pushed to every server --
 
-/** A ban list or reserved-slot list an org owns. Servers subscribe through server_lists. */
+/**
+ * A ban list or reserved-slot list an org owns. Servers subscribe through server_lists: every org
+ * list to every org server, and a server's own list (server_id set) to that server alone.
+ */
 export const lists = pgTable(
 	'lists',
 	{
@@ -689,6 +692,8 @@ export const lists = pgTable(
 		orgId: text('org_id')
 			.notNull()
 			.references(() => organizations.id, { onDelete: 'cascade' }),
+		/** set on a list that belongs to one server (its own reserved slots); null for the org's */
+		serverId: text('server_id').references(() => servers.id, { onDelete: 'cascade' }),
 		kind: text('kind', { enum: ['ban', 'reserve'] }).notNull(),
 		name: text('name').notNull().default('Default'),
 		/** reserved for sharing between orgs; unused for now */
@@ -697,7 +702,14 @@ export const lists = pgTable(
 		createdAt: ts('created_at').notNull().defaultNow(),
 		updatedAt: ts('updated_at').notNull().defaultNow()
 	},
-	(t) => [uniqueIndex('lists_org_kind_name_uidx').on(t.orgId, t.kind, t.name)]
+	(t) => [
+		uniqueIndex('lists_org_kind_name_uidx')
+			.on(t.orgId, t.kind, t.name)
+			.where(sql`${t.serverId} is null`),
+		uniqueIndex('lists_server_kind_uidx')
+			.on(t.serverId, t.kind)
+			.where(sql`${t.serverId} is not null`)
+	]
 );
 
 /** One player on a list. Removal is soft so history and audit stay intact; re-adding inserts a new row. */
@@ -729,7 +741,7 @@ export const listEntries = pgTable(
 	]
 );
 
-/** Which lists apply to which server (every org list to every org server, today). */
+/** Which lists apply to which server: every org list to every org server, a server's own to itself. */
 export const serverLists = pgTable(
 	'server_lists',
 	{
