@@ -166,7 +166,7 @@
 			case 'team_kill':
 				return data.feed
 					? ''
-					: 'Needs the kill feed, which is off on this server. Turn it on under Configuration.';
+					: 'Needs the kill feed, which is off on this server. Turn it on under Config.';
 			case 'risk_kick':
 				return data.steam
 					? ''

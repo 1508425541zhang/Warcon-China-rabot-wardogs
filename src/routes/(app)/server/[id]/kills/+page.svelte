@@ -232,7 +232,7 @@
 								An org owner turns it on under
 								<a
 									href="/server/{encodeURIComponent(id)}/config"
-									class="text-accent hover:underline">Configuration</a
+									class="text-accent hover:underline">Config</a
 								>.{:else if filtered}Nothing matches.{:else}No kills received yet. They appear here
 								as the game posts them.{/if}
 						</td></tr
