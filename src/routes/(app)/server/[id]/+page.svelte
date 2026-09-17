@@ -522,6 +522,10 @@
 		<div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
 			<span class="label-sm mb-0">Kill feed</span>
 			<span class="text-[12px] text-mist-600">from the game's own feed · newest first</span>
+			<a
+				href="/server/{encodeURIComponent(id)}/kills"
+				class="text-[12.5px] text-accent hover:underline">All kills, with filters →</a
+			>
 			<span
 				class="ml-auto text-[12.5px] {feedAgeS !== null && feedAgeS > 900 && players.length
 					? 'text-warn'

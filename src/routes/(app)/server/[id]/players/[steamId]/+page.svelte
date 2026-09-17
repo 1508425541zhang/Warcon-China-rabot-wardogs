@@ -288,6 +288,12 @@
 				<span class="label-sm">Combat</span>
 				<p class="mb-3 text-[12.5px] text-mist-600">
 					From the game's kill feed, across the organisation's servers you can see.
+					<a
+						href="/server/{encodeURIComponent(data.server.id)}/kills?player={encodeURIComponent(
+							d.steamId
+						)}"
+						class="text-accent hover:underline">Every kill and death on this server →</a
+					>
 				</p>
 				<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
 					{#each [['Kills', fmtNum(d.combat.kills)], ['Deaths', fmtNum(d.combat.deaths)], ['K/D', kd(d.combat.kills, d.combat.deaths)], ['Headshots', `${d.combat.headshots} · ${pct(d.combat.headshots, d.combat.kills)}`], ['Team kills', String(d.combat.teamKills)], ['Team killed', String(d.combat.teamKilled)], ['Suicides', String(d.combat.suicides)], ['Distance', d.combat.avgDistanceM === null ? '—' : `${d.combat.avgDistanceM} m avg · ${d.combat.longestM} m best`]] as [label, value] (label)}
