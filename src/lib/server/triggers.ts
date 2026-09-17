@@ -653,7 +653,7 @@ async function evalSeedReward(
 	const now = ctx.ts.getTime();
 	const state = seedState.get(row.id) ?? { checkedAt: 0, low: false, full: false };
 	const low = ctx.players.length <= cfg.lowAt;
-	const full = ctx.players.length >= (cfg.fullAt ?? ctx.status.maxPlayers);
+	const full = ctx.players.length >= (cfg.fullAt ?? (ctx.status.maxPlayers || Infinity));
 	// Every minute while low (returning players may already hold enough banked time); once when
 	// the seed time banks, which is the moment the server fills, or, when every low minute
 	// counts, as the count climbs out of the band; and not at all otherwise.

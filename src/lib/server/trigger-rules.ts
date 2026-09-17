@@ -311,12 +311,13 @@ export function lowStretches(
 	return out;
 }
 
-/** The moments the server was filled: samples with the count at or over the rule's fill line. */
+/** The moments the server was filled: samples with the count at or over the rule's fill line, or
+ * the limit the server reported; a sample without a limit is never full. */
 export function fullMoments(
 	rows: { ts: number; ok: boolean; count: number; max: number }[],
 	fullAt: number | null
 ): number[] {
-	return rows.filter((r) => r.ok && r.count >= (fullAt ?? r.max)).map((r) => r.ts);
+	return rows.filter((r) => r.ok && r.count >= (fullAt ?? (r.max || Infinity))).map((r) => r.ts);
 }
 
 export interface SeedSession {

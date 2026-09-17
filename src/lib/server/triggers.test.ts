@@ -202,6 +202,19 @@ describe('seed replay', () => {
 		expect(fullMoments(rows, null)).toEqual([45 * M]);
 		expect(fullMoments(rows, 25)).toEqual([20 * M, 45 * M]);
 		expect(fullMoments(rows, 40)).toEqual([]);
+		// no limit reported: never full on its own
+		expect(
+			fullMoments(
+				rows.map((r) => ({ ...r, max: 0 })),
+				null
+			)
+		).toEqual([]);
+		expect(
+			fullMoments(
+				rows.map((r) => ({ ...r, max: 0 })),
+				25
+			)
+		).toEqual([20 * M, 45 * M]);
 	});
 	test('seedReplay banks pending low time at a full moment for players still on', () => {
 		const stretches = [
