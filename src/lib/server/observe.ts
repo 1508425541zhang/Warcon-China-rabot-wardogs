@@ -22,7 +22,10 @@ import {
 	invalidateTriggers,
 	needsRiskInputs,
 	riskInputs,
+	matchBoundary,
 	seedRule,
+	type MatchEnd,
+	type MatchLook,
 	type TickContext
 } from './triggers';
 import { applyTriggerUpdates, enqueueIntents, wakeDelivery } from './outbox';
@@ -79,8 +82,8 @@ export interface ServerMemory {
 	players: Player[];
 	playersAt: number;
 	presence: Presence;
-	lastMatchSeconds: number | null;
-	lastScores: unknown;
+	/** the previous look at the match (map, scores, clock); null until one is remembered */
+	lastMatch: MatchLook | null;
 	reserved: Set<string>;
 	listsAt: number;
 	syncAt: number;
@@ -143,8 +146,7 @@ export function memoryFor(server: ServerRow, org: OrgRow): ServerMemory {
 			players: [],
 			playersAt: 0,
 			presence: newPresence(),
-			lastMatchSeconds: null,
-			lastScores: null,
+			lastMatch: null,
 			reserved: new Set(),
 			listsAt: 0,
 			syncAt: 0,
@@ -292,8 +294,7 @@ async function refreshUptime(client: WardogsClient, m: ServerMemory, now: number
 export function forgetRemembered(): void {
 	for (const m of registry.values()) {
 		m.presence = newPresence();
-		m.lastMatchSeconds = null;
-		m.lastScores = null;
+		m.lastMatch = null;
 		m.liveKey = '';
 		m.sampleKey = '';
 		m.listsAt = 0;
@@ -442,6 +443,17 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 		m.playersAt = started;
 	}
 	m.tier = tierOf(m, started);
+	// The match boundary is read from memory before anything is written, so the rules and the
+	// match bookkeeping below see the same answer; memory then follows the observation.
+	const look: MatchLook | null = status
+		? {
+				map: status.map,
+				scores: status.scores.map((f) => ({ name: f.name, score: f.score })),
+				matchSeconds: status.matchSeconds ?? null
+			}
+		: null;
+	const matchEnd = look && !wasOffline ? matchBoundary(m.lastMatch, look) : null;
+	if (look) m.lastMatch = look;
 	if (hadFailed || started - m.identity.checkedAt >= IDENTITY_TTL_MS)
 		await refreshIdentity(client, m, started);
 	if (status) await refreshUptime(client, m, started);
@@ -584,9 +596,9 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	if (intents) wakeDelivery();
 
 	// Housekeeping, each part on its own, and only while this process still owns the worker.
-	if (status)
+	if (look)
 		await stage('match', m, () =>
-			withOwnedTransaction(env, (tx) => reconcileMatch(tx, m, ts, status!))
+			withOwnedTransaction(env, (tx) => reconcileMatch(tx, m, ts, look, matchEnd))
 		);
 	if (isOwner()) await stage('lists', m, () => keepLists(env, m, client, started, ts));
 	if (diff.joined.length && steamEnabled(env))
@@ -636,7 +648,7 @@ async function observationFailed(
 				// Close every open session once; a rollback below reloads the map so this retries.
 				if (!m.presence.loaded) await loadPresence(tx, m.server.id, m.presence);
 				if (m.presence.open.size) await closeAllSessions(tx, m.presence);
-				m.lastMatchSeconds = null;
+				m.lastMatch = null;
 			}
 			if (sampleDue)
 				await tx.insert(samples).values({
@@ -730,45 +742,44 @@ async function reconcileMatch(
 	db: DbOrTx,
 	m: ServerMemory,
 	ts: Date,
-	status: Status
+	look: MatchLook,
+	ended: MatchEnd | null
 ): Promise<void> {
 	const serverId = m.server.id;
-	const scores = status.scores.map((f) => ({ name: f.name, score: f.score }));
 	const [current] = await db
 		.select({ id: matches.id, map: matches.map, peakPlayers: matches.peakPlayers })
 		.from(matches)
 		.where(and(eq(matches.serverId, serverId), isNull(matches.endedAt)))
 		.orderBy(desc(matches.id))
 		.limit(1);
-	const secs = status.matchSeconds ?? null;
-	// A new match: the map changed, or the clock went backwards (restart / rotation advance).
-	const restarted = secs !== null && m.lastMatchSeconds !== null && secs < m.lastMatchSeconds - 30;
-	const mapChanged = !!current && current.map !== status.map;
-	if (current && (restarted || mapChanged)) {
-		const last = (m.lastScores as { name: string; score: number }[] | null) ?? scores;
-		const winner = [...last].sort((a, b) => b.score - a.score)[0]?.name ?? null;
+	// A boundary seen in memory closes the open row. After a worker start there is no previous
+	// look, so a row left open on another map is closed with the scores seen now, as before.
+	const end =
+		ended ??
+		(current && current.map !== look.map
+			? matchBoundary({ map: current.map ?? '', scores: look.scores, matchSeconds: null }, look)
+			: null);
+	if (current && end) {
 		await db
 			.update(matches)
-			.set({ endedAt: ts, finalScores: last, winner })
+			.set({ endedAt: ts, finalScores: end.scores, winner: end.winner })
 			.where(eq(matches.id, current.id));
 	}
-	if (!current || restarted || mapChanged) {
+	if (!current || end) {
+		const secs = look.matchSeconds;
 		const startedAt = secs !== null ? new Date(ts.getTime() - secs * 1000) : ts;
 		await db.insert(matches).values({
 			serverId,
 			startedAt,
-			map: status.map,
-			experiences: status.experiences.join('+'),
-			lighting: status.lighting,
-			peakPlayers: status.playerCount
+			map: look.map,
+			experiences: m.status!.experiences.join('+'),
+			lighting: m.status!.lighting,
+			peakPlayers: m.status!.playerCount
 		});
-	} else if (status.playerCount > current.peakPlayers) {
+	} else if (m.status!.playerCount > current.peakPlayers) {
 		await db
 			.update(matches)
-			.set({ peakPlayers: status.playerCount })
+			.set({ peakPlayers: m.status!.playerCount })
 			.where(eq(matches.id, current.id));
 	}
-	// Only once every write above is in: a rollback must not advance what we remember.
-	m.lastMatchSeconds = secs;
-	m.lastScores = scores;
 }

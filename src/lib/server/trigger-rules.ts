@@ -448,6 +448,50 @@ export function restartNoticeStage(
 	return { stage: 'lead', minutes: Math.max(1, Math.round(w.untilDueMs / 60_000)), state };
 }
 
+/** One look at a server's match, as far as the status shows it. */
+export interface MatchLook {
+	map: string;
+	scores: { name: string; score: number }[];
+	/** the match clock; live builds send none */
+	matchSeconds: number | null;
+}
+
+/** The match a boundary closed: its final scores and who led them. */
+export interface MatchEnd {
+	map: string;
+	scores: { name: string; score: number }[];
+	/** the leader, when it scored; null for a tie or a match nobody scored in */
+	winner: string | null;
+	/** the leader, or every faction tied at the top; empty when nobody scored */
+	leaders: string[];
+}
+
+/**
+ * The match that ended between two looks, or null while it is the same match. A boundary is a
+ * map change, the match clock going backwards, or the total score falling: KOTH scores only rise
+ * during a round, so a lower total is a reset, and "lower" rather than "zero" also catches a look
+ * that lands a tick into the next round with the scores already moving. No previous look (the
+ * first after a start or an outage) is never a boundary.
+ */
+export function matchBoundary(prev: MatchLook | null, next: MatchLook): MatchEnd | null {
+	if (!prev) return null;
+	const total = (l: MatchLook) => l.scores.reduce((n, f) => n + f.score, 0);
+	const clockBack =
+		prev.matchSeconds !== null &&
+		next.matchSeconds !== null &&
+		next.matchSeconds < prev.matchSeconds - 30;
+	if (prev.map === next.map && !clockBack && total(next) >= total(prev)) return null;
+	const scores = [...prev.scores].sort((a, b) => b.score - a.score);
+	const top = scores[0]?.score ?? 0;
+	const leaders = top > 0 ? scores.filter((f) => f.score === top).map((f) => f.name) : [];
+	return {
+		map: prev.map,
+		scores,
+		winner: leaders.length === 1 ? leaders[0] : null,
+		leaders
+	};
+}
+
 /** A player who has a faction now and did not have this one at the last look. */
 export interface FactionPick<P> {
 	player: P;
