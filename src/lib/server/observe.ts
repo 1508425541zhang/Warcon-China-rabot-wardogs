@@ -22,7 +22,7 @@ import {
 	invalidateTriggers,
 	needsRiskInputs,
 	riskInputs,
-	seedLowAt,
+	seedRule,
 	type TickContext
 } from './triggers';
 import { applyTriggerUpdates, enqueueIntents, wakeDelivery } from './outbox';
@@ -475,11 +475,23 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 			: { signals: new Map(), profiles: new Map() };
 
 	// Seed time: while a seeding rule is on and the server is at or under its threshold, everyone
-	// still on earns the time since the previous look at the list, on the same terms as a join is
-	// trusted (a recent look, so they were on throughout).
-	const lowAt = seedLowAt(rows);
-	if (players && lowAt !== null && joinsTrusted && players.length <= lowAt)
-		for (const { session } of diff.stayed) session.seedMs += gapMs;
+	// still on earns the time since the previous look at the list (on the same terms as a join is
+	// trusted: a recent look, so they were on throughout), held as pending. It banks the moment
+	// the count climbs past the threshold with the player still on; leaving first forfeits it, so
+	// sitting on an empty server that never fills earns nothing.
+	const seed = seedRule(rows);
+	if (players && seed) {
+		if (players.length <= seed.lowAt) {
+			if (joinsTrusted)
+				for (const { session } of diff.stayed)
+					if (seed.untilFull) session.pendingSeedMs += gapMs;
+					else session.seedMs += gapMs;
+		} else
+			for (const { session } of diff.stayed) {
+				session.seedMs += session.pendingSeedMs;
+				session.pendingSeedMs = 0;
+			}
+	}
 
 	const s = settings();
 	const heartbeatDue = started - m.presence.heartbeatAt >= s.sessionHeartbeatMs;
@@ -516,7 +528,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 						reserved: m.reserved,
 						reservedLoaded: m.listsAt > 0,
 						seedMs:
-							lowAt === null
+							seed === null
 								? new Map()
 								: new Map([...m.presence.open.values()].map((s) => [s.steamId, s.seedMs])),
 						signals: risk.signals,

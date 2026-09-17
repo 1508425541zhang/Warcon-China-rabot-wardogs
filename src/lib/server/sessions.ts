@@ -15,8 +15,11 @@ export interface OpenSession {
 	kills: number;
 	deaths: number;
 	cash: number;
-	/** time on with the player count at or under the seeding threshold (observe.ts adds it up) */
+	/** seed time banked: time on with the player count at or under the seeding threshold, counted
+	 *  once the server climbed past the threshold with the player still on (observe.ts) */
 	seedMs: number;
+	/** seed time of the current low stretch, not yet banked; dropped if the player leaves first */
+	pendingSeedMs: number;
 	joinedAt: number;
 	lastSeen: number;
 	/** what the database currently holds for last_seen */
@@ -58,6 +61,7 @@ export async function loadPresence(
 			deaths: r.deaths,
 			cash: r.cash,
 			seedMs: r.seedSeconds * 1000,
+			pendingSeedMs: 0,
 			joinedAt: r.joinedAt.getTime(),
 			lastSeen: r.lastSeen.getTime(),
 			writtenAt: r.lastSeen.getTime(),
@@ -181,6 +185,7 @@ export async function persistPresence(
 				deaths: p.deaths,
 				cash: p.cash,
 				seedMs: 0,
+				pendingSeedMs: 0,
 				joinedAt: now,
 				lastSeen: now,
 				writtenAt: now,
