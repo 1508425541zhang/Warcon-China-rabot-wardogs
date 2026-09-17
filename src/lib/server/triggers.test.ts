@@ -86,7 +86,12 @@ describe('validateConfig', () => {
 		expect(() => validateConfig('risk_kick', {})).toThrow('at least one rule');
 		const c = validateConfig('risk_kick', { vacBans: true }) as RiskKickConfig;
 		expect(c.spareReserved).toBe(true);
+		expect(c.kickAtLevel).toBeNull();
 		expect(c.reason).toContain('requirements');
+		expect(validateConfig('risk_kick', { kickAtLevel: 'medium' })).toMatchObject({
+			kickAtLevel: 'medium'
+		});
+		expect(() => validateConfig('risk_kick', { kickAtLevel: 'low' })).toThrow('at least one rule');
 	});
 });
 
@@ -153,6 +158,7 @@ describe('riskKickVerdict', () => {
 		privateProfiles: false,
 		bannedElsewhere: true,
 		watchlist: true,
+		kickAtLevel: null,
 		spareReserved: true,
 		reason: 'no'
 	};
@@ -211,6 +217,54 @@ describe('riskKickVerdict', () => {
 		expect(riskKickVerdict(cfg, { ...base, steamEnabled: false, profile: null })).toBeNull();
 		expect(
 			riskKickVerdict(cfg, { ...base, profile: { ...profile, error: 'Not found on Steam.' } })
+		).toBeNull();
+	});
+	test('the risk level catches combinations no single rule covers', () => {
+		const none: RiskKickConfig = {
+			...cfg,
+			vacBans: false,
+			minAccountDays: 0,
+			bannedElsewhere: false,
+			watchlist: false
+		};
+		// an 8-day-old account (20) with a lookalike name (20) is medium, not high
+		const lookalike = {
+			...base,
+			resembles: [{ name: 'Nomad', steamId: '76561198000000009', serverName: 'EU #2' }]
+		};
+		expect(riskKickVerdict({ ...none, kickAtLevel: 'high' }, lookalike)).toBeNull();
+		expect(riskKickVerdict({ ...none, kickAtLevel: 'medium' }, lookalike)).toMatch(
+			/^medium risk \(40\): Steam account is 8 days old; Name resembles banned Nomad/
+		);
+		// a clean, old account is low and passes either setting
+		const old = { ...base, profile: { ...profile, accountCreatedAt: new Date('2020-01-01') } };
+		expect(riskKickVerdict({ ...none, kickAtLevel: 'medium' }, old)).toBeNull();
+		// the checklist still answers first with its own wording
+		expect(
+			riskKickVerdict(
+				{ ...cfg, kickAtLevel: 'high' },
+				{ ...base, profile: { ...profile, vacBans: 1 } }
+			)
+		).toBe('1 VAC ban on record');
+	});
+	test('the risk level works from local signals alone and says when Steam was not checked', () => {
+		const v = riskKickVerdict(
+			{ ...cfg, bannedElsewhere: false, kickAtLevel: 'high' },
+			{ ...base, steamEnabled: false, profile: null, bannedOn: [{ serverName: 'x', reason: 'tk' }] }
+		);
+		expect(v).toBe('high risk (60): Banned on x: tk [Steam not checked]');
+		expect(
+			riskKickVerdict(
+				{ ...cfg, kickAtLevel: 'high' },
+				{
+					...base,
+					steamEnabled: false,
+					profile: null,
+					watched: null,
+					reserved: true,
+					bannedOn: [{ serverName: 'x', reason: '' }]
+				}
+			)
 		).toBeNull();
 	});
 });
