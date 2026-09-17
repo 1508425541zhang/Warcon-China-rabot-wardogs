@@ -362,7 +362,7 @@ export async function entriesView(
 
 const MAX_EXPIRY_MS = 10 * 365.25 * 86400_000;
 
-/** An optional ISO timestamp for a ban to lift itself; at least ten seconds out, at most ten years. */
+/** An optional ISO timestamp for an entry to lift itself; at least ten seconds out, at most ten years. */
 export function parseExpiry(v: unknown, now = Date.now()): Date | null {
 	const text = str(v, 40);
 	if (!text) return null;
@@ -389,7 +389,7 @@ export async function addEntry(
 ): Promise<{ entry: ListEntryView; sync: ListSyncSummary }> {
 	const steamId = requireSteamId(body.steamId);
 	const reason = str(body.reason, 200);
-	const expiresAt = kind === 'ban' ? parseExpiry(body.expiresAt) : null;
+	const expiresAt = parseExpiry(body.expiresAt);
 	const list = await listOf(env, org.id, kind);
 	const id = newId();
 	await env.db.transaction(async (tx) => {
@@ -428,9 +428,9 @@ export async function addEntry(
 		target: steamId,
 		outcome: 'ok',
 		message:
-			kind === 'ban'
-				? `Banned across ${org.name}${reason ? `: ${reason}` : ''}${expiresAt ? ` (until ${expiresAt.toISOString()})` : ''}`
-				: `Reserved slot across ${org.name}${reason ? `: ${reason}` : ''}`,
+			(kind === 'ban' ? `Banned across ${org.name}` : `Reserved slot across ${org.name}`) +
+			(reason ? `: ${reason}` : '') +
+			(expiresAt ? ` (until ${expiresAt.toISOString()})` : ''),
 		detail: {
 			orgId: org.id,
 			org: org.name,
