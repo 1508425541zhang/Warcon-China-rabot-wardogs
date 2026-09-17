@@ -2,16 +2,21 @@
 	// This server's Discord channels: the ones that carry its live status card or its team kills,
 	// and the form that connects another. A channel connected here is a webhook restricted to this
 	// server carrying only those two things; the org page lists it with the rest and is where the
-	// audit mirror (bans, kicks, sign-ins) is set up.
+	// audit mirror (bans, kicks, sign-ins) is set up. Each row is a line of text with one Edit
+	// button; changing, testing, pausing and disconnecting a channel happen in its dialog.
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage } from '$lib/api';
 	import { fmtTime } from '$lib/format';
 	import { toast } from '$lib/toast.svelte';
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import type { WebhookView } from '$lib/types';
-	import { STATUS_STYLE_LABELS, STATUS_STYLES, type StatusStyle } from '$lib/status-styles';
+	import type { StatusStyle } from '$lib/status-styles';
+	import ChannelFields from './ChannelFields.svelte';
 	import type { PageProps } from './$types';
+
+	type Carry = 'card' | 'teamkills' | 'both';
 
 	let { data }: PageProps = $props();
 	let orgPage = $derived(`/orgs/${encodeURIComponent(data.server.orgId)}`);
@@ -20,19 +25,28 @@
 	let url = $state('');
 	let style = $state<StatusStyle>('banner');
 	/** what the new channel is for; the card style only matters when a card is part of it */
-	let carry = $state<'card' | 'teamkills' | 'both'>('card');
+	let carry = $state<Carry>('card');
 	let wantCard = $derived(carry !== 'teamkills');
 	let wantTeamKills = $derived(carry !== 'card');
 	let busy = $state(false);
+	/** the channel whose dialog is open, with the settings as edited so far */
+	let editing = $state<{
+		w: WebhookView;
+		label: string;
+		carry: Carry;
+		style: StatusStyle;
+	} | null>(null);
 
-	async function run(fn: () => Promise<unknown>, done: string) {
+	async function run(fn: () => Promise<unknown>, done: string): Promise<boolean> {
 		busy = true;
 		try {
 			await fn();
 			toast(done, 'ok');
 			await invalidateAll();
+			return true;
 		} catch (err) {
 			toast(errorMessage(err), 'err');
+			return false;
 		} finally {
 			busy = false;
 		}
@@ -55,30 +69,48 @@
 		label = '';
 		url = '';
 	}
-	/** what a channel carries, in words */
-	const carries = (w: WebhookView): string[] => {
-		const out: string[] = [];
-		if (w.statusEnabled) out.push(`status card (${w.statusStyle})`);
-		if (w.events.includes('teamkills')) out.push('team kills');
+	/** What a channel carries, in words: "Status card (banner) and team kills". */
+	const carries = (w: WebhookView): string => {
+		const parts: string[] = [];
+		if (w.statusEnabled) parts.push(`status card (${w.statusStyle})`);
+		if (w.events.includes('teamkills')) parts.push('team kills');
 		const mirrored = w.events.filter((e) => e !== 'teamkills').length;
-		if (mirrored) out.push(`${mirrored} kind${mirrored === 1 ? '' : 's'} of admin events`);
-		return out;
+		if (mirrored) parts.push(`${mirrored} kind${mirrored === 1 ? '' : 's'} of admin events`);
+		const text =
+			parts.length > 1
+				? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+				: (parts[0] ?? 'nothing');
+		return text.charAt(0).toUpperCase() + text.slice(1);
 	};
-	function toggleTeamKills(w: WebhookView) {
-		const on = !w.events.includes('teamkills');
-		void run(
-			() =>
-				api('PATCH', `${orgPath}/webhooks/${w.id}`, {
-					events: on ? [...w.events, 'teamkills'] : w.events.filter((e) => e !== 'teamkills')
-				}),
-			on ? 'Team kills will be posted to this channel.' : 'Team kills stop going to this channel.'
-		);
+	const carryOf = (w: WebhookView): Carry =>
+		w.statusEnabled ? (w.events.includes('teamkills') ? 'both' : 'card') : 'teamkills';
+	function openEdit(w: WebhookView) {
+		editing = { w, label: w.label, carry: carryOf(w), style: w.statusStyle };
 	}
-	function toggleCard(w: WebhookView) {
-		void run(
-			() => api('PATCH', `${orgPath}/webhooks/${w.id}`, { statusEnabled: !w.statusEnabled }),
-			w.statusEnabled ? 'Card removed from the channel.' : 'Card on its way; pin it once it lands.'
+	/** Sends only what changed; a channel edited here carries nothing but the card and team kills. */
+	async function save() {
+		const e = editing;
+		if (!e) return;
+		const card = e.carry !== 'teamkills';
+		const teamKills = e.carry !== 'card';
+		const body: Record<string, unknown> = {};
+		const name = e.label.trim();
+		if (name && name !== e.w.label) body.label = name;
+		if (card !== e.w.statusEnabled) body.statusEnabled = card;
+		if (card && e.style !== e.w.statusStyle) body.statusStyle = e.style;
+		if (teamKills !== e.w.events.includes('teamkills'))
+			body.events = teamKills ? ['teamkills'] : [];
+		if (!Object.keys(body).length) {
+			editing = null;
+			return;
+		}
+		const ok = await run(
+			() => api('PATCH', `${orgPath}/webhooks/${e.w.id}`, body),
+			body.statusEnabled === true
+				? 'Channel updated. The card is on its way; pin it in Discord once it lands.'
+				: 'Channel updated.'
 		);
+		if (ok) editing = null;
 	}
 	function testCard(w: WebhookView) {
 		void run(
@@ -93,14 +125,8 @@
 			: /rate limit/i.test(error)
 				? 'Discord is rate limiting the channel; Warcon backs off and retries.'
 				: 'Warcon retries every minute.';
-	function setStyle(w: WebhookView, statusStyle: string) {
-		void run(
-			() => api('PATCH', `${orgPath}/webhooks/${w.id}`, { statusStyle }),
-			'Style changed. The card updates within a minute.'
-		);
-	}
-	function toggle(w: WebhookView) {
-		void run(
+	async function toggle(w: WebhookView) {
+		const ok = await run(
 			() => api('PATCH', `${orgPath}/webhooks/${w.id}`, { enabled: !w.enabled }),
 			w.enabled
 				? w.statusEnabled
@@ -110,8 +136,11 @@
 					? 'Channel enabled. The card is on its way; pin it once it lands.'
 					: 'Channel enabled.'
 		);
+		if (ok) editing = null;
 	}
 	async function remove(w: WebhookView) {
+		// One dialog at a time: the confirmation replaces the edit dialog rather than stacking on it.
+		editing = null;
 		if (!(await confirmDialog(`Disconnect ${w.label}?`, { okLabel: 'Disconnect', danger: true })))
 			return;
 		await run(() => api('DELETE', `${orgPath}/webhooks/${w.id}`), 'Channel disconnected.');
@@ -156,52 +185,24 @@
 					</div>
 					<div class="truncate font-mono text-[11px] text-mist-600">{w.urlHint}</div>
 					<div class="text-[12px] text-mist-400">
-						Carries {carries(w).join(', ') || 'nothing'} ·
-						{#if !w.serverIds}every server in the organisation{:else if w.serverIds.length > 1}this
-							and {w.serverIds.length - 1} other server{w.serverIds.length === 2
+						{carries(w)}
+						{#if !w.serverIds}· every server in the organisation{:else if w.serverIds.length > 1}·
+							this and {w.serverIds.length - 1} other server{w.serverIds.length === 2
 								? ''
-								: 's'}{:else}this server only{/if}
-						{#if !ownHere(w)}· set up on the org page{/if}
+								: 's'}{/if}
 						{#if w.lastError}<div class="text-danger">{w.lastError}</div>
 							<div>{hintFor(w.lastError)}</div>{:else if w.statusSentAt}· updated {fmtTime(
 								w.statusSentAt
 							)}{/if}
 					</div>
 				</div>
-				<span class="inline-flex shrink-0 flex-wrap justify-end gap-1.5">
-					{#if w.statusEnabled}
-						<button class="btn btn-sm" onclick={() => testCard(w)} disabled={busy || !w.enabled}
-							>Test card</button
-						>
-					{/if}
-					{#if ownHere(w)}
-						<button class="btn btn-sm" onclick={() => toggleCard(w)} disabled={busy}
-							>{w.statusEnabled ? 'Card: on' : 'Card: off'}</button
-						>
-						<button class="btn btn-sm" onclick={() => toggleTeamKills(w)} disabled={busy}
-							>{w.events.includes('teamkills') ? 'Team kills: on' : 'Team kills: off'}</button
-						>
-						{#if w.statusEnabled}
-							<select
-								class="input w-36"
-								value={w.statusStyle}
-								disabled={busy}
-								aria-label="Card style"
-								onchange={(e) => setStyle(w, e.currentTarget.value)}
-							>
-								{#each STATUS_STYLES as st (st)}<option value={st}>{st}</option>{/each}
-							</select>
-						{/if}
-						<button class="btn btn-sm" onclick={() => toggle(w)} disabled={busy}
-							>{w.enabled ? 'Pause' : 'Enable'}</button
-						>
-						<button class="btn btn-sm btn-danger" onclick={() => remove(w)} disabled={busy}
-							>Disconnect</button
-						>
-					{:else}
-						<a class="btn btn-sm" href={orgPage}>Edit on the org page</a>
-					{/if}
-				</span>
+				{#if ownHere(w)}
+					<button class="btn btn-sm shrink-0" onclick={() => openEdit(w)} disabled={busy}
+						>Edit</button
+					>
+				{:else}
+					<a class="btn btn-sm shrink-0 btn-ghost" href={orgPage}>Edit on the org page</a>
+				{/if}
 			</div>
 		{:else}
 			<p class="mb-3 text-[13px] text-mist-600">
@@ -240,35 +241,7 @@
 					/></label
 				>
 			</div>
-			<div>
-				<span class="field-label">What goes in this channel</span>
-				<div class="flex flex-wrap gap-x-6 gap-y-2">
-					<label class="flex items-center gap-2 text-[13px]"
-						><input type="radio" name="carry" value="card" bind:group={carry} /> The live status card</label
-					>
-					<label class="flex items-center gap-2 text-[13px]"
-						><input type="radio" name="carry" value="teamkills" bind:group={carry} /> Team kills</label
-					>
-					<label class="flex items-center gap-2 text-[13px]"
-						><input type="radio" name="carry" value="both" bind:group={carry} /> Both</label
-					>
-				</div>
-			</div>
-			{#if wantCard}
-				<label class="block sm:w-60"
-					><span class="field-label">Card style</span><select
-						id="discord-style"
-						class="input"
-						bind:value={style}
-					>
-						{#each STATUS_STYLES as st (st)}<option value={st}>{st}</option>{/each}
-					</select></label
-				>
-				<p class="note">{STATUS_STYLE_LABELS[style]}</p>
-			{/if}
-			{#if wantTeamKills}<p class="note">
-					One message per team kill, as the kill feed reports it (set up on the Configuration tab).
-				</p>{/if}
+			<ChannelFields name="carry" bind:carry bind:style />
 			<p class="note">
 				In Discord, open the channel's settings → Integrations → Webhooks → New Webhook, copy its
 				URL and paste it here. The URL is stored encrypted and never shown again. Pictures need the
@@ -280,3 +253,45 @@
 		</form>
 	{/if}
 </div>
+
+{#if editing}
+	{@const e = editing}
+	<Modal title="Edit {e.w.label}" onclose={() => (editing = null)}>
+		<form
+			class="space-y-3"
+			onsubmit={(ev) => {
+				ev.preventDefault();
+				void save();
+			}}
+		>
+			<label class="block"
+				><span class="field-label">Label</span><input
+					class="input"
+					type="text"
+					bind:value={e.label}
+					maxlength="60"
+				/></label
+			>
+			<ChannelFields name="edit-carry" bind:carry={e.carry} bind:style={e.style} />
+			<div class="flex flex-wrap items-center gap-2 pt-2">
+				{#if e.w.statusEnabled}
+					<button
+						type="button"
+						class="btn"
+						onclick={() => testCard(e.w)}
+						disabled={busy || !e.w.enabled}>Test card</button
+					>
+				{/if}
+				<button type="button" class="btn" onclick={() => toggle(e.w)} disabled={busy}
+					>{e.w.enabled ? 'Pause' : 'Enable'}</button
+				>
+				<span class="ml-auto inline-flex gap-2">
+					<button type="button" class="btn btn-danger" onclick={() => remove(e.w)} disabled={busy}
+						>Disconnect</button
+					>
+					<button type="submit" class="btn btn-primary" disabled={busy}>Save</button>
+				</span>
+			</div>
+		</form>
+	</Modal>
+{/if}
