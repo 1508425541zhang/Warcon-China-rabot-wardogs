@@ -11,6 +11,22 @@ A self-hostable, multi-server RCON panel for **WARDOGS** dedicated servers. Bun,
 Postgres/TimescaleDB, deployed with Docker Compose. Run it beside your game server, on any VPS, or
 on a container host, with the database wherever you like.
 
+It is for anyone who runs a WARDOGS server: a clan with one box, a community with a dozen, or a
+host with hundreds. Everybody on the team gets their own login instead of the RCON password, the
+panel keeps the history the game throws away, and the worker can act on what it sees. Pick your
+way in:
+
+- **Just want to run it?** [docs/getting-started.md](docs/getting-started.md) is the plain-language
+  walkthrough: Docker, one `.env` file, done. [Deploy with Docker](#deploy-with-docker) below has
+  the detail.
+- **Want a look first?** Every install comes with a built-in demo server, so you can click around
+  the whole panel before pointing it at a real one.
+- **Want to hack on it?** [Local development](#local-development) gets you running in a few
+  minutes and [Contributing](#contributing) says what a change needs. Questions and half-formed
+  ideas are welcome in the issues.
+
+What is in the box:
+
 - **Multiple servers** in one panel, each with its own encrypted RCON password.
 - **Organisations and invite links**: each clan or community is an organisation with its own
   servers, owners and members. An owner pastes an invite link into their Discord; whoever opens it
@@ -368,7 +384,7 @@ rule that fired, and can be mirrored to Discord.
 | Empty-server map reset | After the server has been empty for N minutes on a different map or mode, sets the chosen map as next and ends the match (or requests it directly when there is no rotation).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Kick on connect risk   | Kicks joiners who match rules: VAC ban, game ban, Steam account younger than N days (optionally private profiles too), banned on another server in the org, or on the watchlist; or whose advisory risk score is high (or medium or worse), as the players table shows it. Reserved-slot players can be spared.                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Team kill limit        | Whispers a player from N team kills in their current session, and kicks them at M. Needs the [kill feed](#kill-feed); acted on as each kill arrives, not per poll.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Match broadcast        | Announces the result when a match ends and the map as the next one starts, either message optional, with at least N players on. A match ends when the map changes or the faction scores fall back to zero (a faction reached the cap, or an admin ended the round; live builds send no score cap or match clock), so `{faction}` is whoever led at that moment, tied factions named together. Placeholders `{faction}` `{score}` `{scores}` `{previous}` `{map}` `{server}` `{players}` `{max}`. Sent one poll after the round ends.                                                                                                                                                                                                                                                        |
+| Match broadcast        | Announces the result when a match ends and the map as the next one starts, either message optional, with at least N players on. A match ends when the map changes or the faction scores fall back to zero (a faction reached the cap, or an admin ended the round; live builds send no score cap or match clock, so Warcon assumes the game's default of 100), so `{faction}` is whoever led at that moment, tied factions named together. Placeholders `{faction}` `{score}` `{scores}` `{cap}` `{previous}` `{map}` `{server}` `{players}` `{max}`. Sent one poll after the round ends.                                                                                                                                                                                                   |
 | Seeding reward         | Time a player spends on with at most N players counts as seed time, by default banked only once the server has filled (a count the rule sets, else the limit the server reports) with the player still on, so staying until the threshold and leaving, or a few minutes on an empty server, earns nothing (a switch on the rule counts every low minute instead); M minutes of it over the sessions that ended in the last D days puts them on the organisation's reserved-slot list for E days, with an optional whisper. The seeded server applies it at once and the other org servers at their next sync; it lapses on its own and can be earned again; players who already hold a slot are skipped. Seed time is kept on each session, so the dossier history and the dry run show it. |
 
 **Dry run** replays the last 24 hours of the server's own history (joins, player counts, empty
@@ -558,6 +574,37 @@ The schema is defined in [src/lib/server/db/schema.ts](src/lib/server/db/schema.
 it, run `bun run db:generate` to write a new migration into `drizzle/`; the app applies pending
 migrations at startup. Add a server with host `demo`, port `1`, password `demo` to use the mock game
 server.
+
+## Contributing
+
+Issues, questions and pull requests are all welcome, and none of them needs to be polished. A
+report that says "this looked wrong on my server" with a screenshot is useful. A small fix with a
+test is more welcome than a large rewrite; open an issue first if you are planning something big,
+so nobody builds the same thing twice.
+
+What a change needs before it is merged:
+
+- It works, and where the code is testable it has a test. Tests sit next to the code as
+  `*.test.ts` and run with `bun test`.
+- CI passes: `bun run lint` (Prettier), `bun run check` (svelte-check), `bun test` and
+  `bun run build`, the same four steps [ci.yml](.github/workflows/ci.yml) runs.
+- The commit message says what behaviour changed, in plain words. Small whole commits are easier
+  to review than one large one.
+- It keeps data: analytics roll up rather than get pruned, and history stays.
+- It considers per-server cost. A hosted install runs hundreds of servers on one worker, so a query
+  per server per observation is hundreds of queries a second; servers a feature does not apply to
+  should cost nothing.
+
+Use whatever tools help you write it, including AI assistants; you do not need to declare which.
+The change is what gets reviewed: does it work, is it tested, does the message say what it does.
+You are the author of what you submit, so understand it and be ready to answer questions about it.
+Warcon takes the same position the Linux kernel does, put plainly by Linus Torvalds in
+[July 2026](https://lore.kernel.org/linux-media/CAHk-=wi4zC+Ze8e+p3tMv8TtG_80KzsZ1syL9anBtmEh5Z40vg@mail.gmail.com/):
+AI is a tool like any other, contributions are judged on technical merit, and arguing against
+other people using it is not a conversation this project will have.
+
+The protocol notes in [docs/wardogs-api.md](docs/wardogs-api.md) describe what the game server
+exposes; anything not in there is unknown to Warcon as well.
 
 ## Layout
 

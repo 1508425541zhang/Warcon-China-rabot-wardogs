@@ -10,6 +10,7 @@ import type { FactionScore, LiveView, Player } from '$lib/types';
 import { factionColor, fmtDuration, isMod, mapName, prettify, zoneLabel } from '$lib/format';
 import { mapArtCandidates } from '$lib/map-art';
 import { RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
+import { scoreCapOf } from '$lib/match';
 import type { StatusStyle } from '$lib/status-styles';
 import type { DiscordPayload, Embed, EmbedField } from './webhook-delivery';
 
@@ -251,9 +252,10 @@ export function buildStatusEmbed(
 	]
 		.filter(Boolean)
 		.join(' · ');
-	const scale = s.scoreCap || Math.max(1, ...s.scores.map((f) => f.score));
+	// Live builds send no cap; the game's default keeps the bars on the same scale as the overview.
+	const cap = scoreCapOf(s);
 	const scoreRows = ranked.map(({ f, i }) => {
-		const n = Math.min(SCORE_BAR, Math.max(0, Math.round((f.score / scale) * SCORE_BAR)));
+		const n = Math.min(SCORE_BAR, Math.max(0, Math.round((f.score / cap) * SCORE_BAR)));
 		return `${bar(n, SCORE_BAR, squareFor(f.colorHex, f.name, i), '⬛')} **${f.score}** ${escapeMarkdown(f.name)}`;
 	});
 	const scoreLine = ranked
@@ -263,10 +265,7 @@ export function buildStatusEmbed(
 		.join(' · ');
 	// Cap and clock belong to a match, which the scores say exists.
 	const match = s.scores.length
-		? [
-				s.scoreCap ? `First to ${s.scoreCap}` : null,
-				s.matchSeconds === null ? null : `${fmtDuration(s.matchSeconds)} played`
-			]
+		? [`First to ${cap}`, s.matchSeconds === null ? null : `${fmtDuration(s.matchSeconds)} played`]
 				.filter(Boolean)
 				.join(' · ')
 		: '';

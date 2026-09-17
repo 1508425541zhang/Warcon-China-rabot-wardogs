@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { scoreCapOf } from '$lib/match';
 	import { rconGet, rconPost, errorMessage } from '$lib/api';
 	import { poll } from '$lib/poll';
 	import { watchLive, type KillsNotice } from '$lib/live';
@@ -188,9 +189,7 @@
 		};
 	});
 
-	// Live builds send no scoreCap and there is no setting for it; the engine's cap is 100.
-	const DEFAULT_SCORE_CAP = 100;
-	let scoreScale = $derived(status?.scoreCap || DEFAULT_SCORE_CAP);
+	let scoreScale = $derived(scoreCapOf(status));
 	let next = $derived(
 		rotation && rotation.enabled && rotation.nextIndex >= 0
 			? rotation.entries[rotation.nextIndex]
@@ -292,7 +291,10 @@
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Score cap</span><span>{status.scoreCap ?? '—'}</span>
+				<span class="text-mist-400">Score cap</span><span
+					>{scoreScale}{#if status.scoreCap === null}
+						<span class="text-mist-600">(game default)</span>{/if}</span
+				>
 			</div>
 			<div class="kv">
 				<span class="text-mist-400">Rotation</span>
