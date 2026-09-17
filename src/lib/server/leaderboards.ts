@@ -1,5 +1,5 @@
 // Leaderboards and careers, read at page load from what the worker already writes: kills and
-// deaths from the kill feed (killer and victim columns), playtime and cash from player_sessions,
+// deaths from the kill feed (killer and victim columns), playtime, seed time and cash from player_sessions,
 // and matches from the sessions that overlap a matches row. Nothing is precomputed. The queries
 // ride the existing indexes: kills (server_id, ts), player_sessions (server_id, last_seen) and
 // (steam_id, joined_at), matches (server_id, started_at).
@@ -45,7 +45,7 @@ const base = (ids: string[], from: Date) => sql`
 	sess AS (
 		SELECT steam_id,
 		       SUM(EXTRACT(EPOCH FROM (COALESCE(left_at, now()) - GREATEST(joined_at, ${from}::timestamptz)))) / 60 AS minutes,
-		       SUM(cash) AS cash, MAX(last_seen) AS last_seen
+		       SUM(seed_seconds) / 60.0 AS seed_minutes, SUM(cash) AS cash, MAX(last_seen) AS last_seen
 		  FROM player_sessions WHERE server_id IN ${ids} AND last_seen >= ${from}
 		 GROUP BY steam_id),
 	kl AS (
@@ -68,7 +68,8 @@ const base = (ids: string[], from: Date) => sql`
 		  FROM pairs GROUP BY steam_id),
 	base AS (
 		SELECT steam_id,
-		       COALESCE(sess.minutes, 0) AS minutes, COALESCE(sess.cash, 0) AS cash, sess.last_seen,
+		       COALESCE(sess.minutes, 0) AS minutes, COALESCE(sess.seed_minutes, 0) AS seed_minutes,
+		       COALESCE(sess.cash, 0) AS cash, sess.last_seen,
 		       COALESCE(kl.kills, 0) AS kills, COALESCE(kl.headshots, 0) AS headshots,
 		       COALESCE(kl.team_kills, 0) AS team_kills,
 		       COALESCE(dt.deaths, 0) AS deaths, COALESCE(dt.suicides, 0) AS suicides,
@@ -119,6 +120,7 @@ const METRIC_SQL: Record<BoardMetric, ReturnType<typeof sql>> = {
 	kd: sql`CASE WHEN deaths > 0 THEN kills::float / deaths WHEN kills > 0 THEN kills::float ELSE NULL END`,
 	perHour: sql`CASE WHEN minutes > 0 THEN kills::float / (minutes / 60) ELSE NULL END`,
 	playtime: sql`minutes`,
+	seeded: sql`seed_minutes`,
 	matches: sql`matches`,
 	wins: sql`wins`,
 	winRate: sql`CASE WHEN wins + losses + draws > 0 THEN wins::float / (wins + losses + draws) ELSE NULL END`,
@@ -129,6 +131,7 @@ interface BaseRow extends Record<string, unknown> {
 	steamId: string;
 	name: string | null;
 	minutes: string;
+	seedMinutes: string;
 	cash: string;
 	lastSeen: Date | null;
 	kills: string;
@@ -168,7 +171,7 @@ export async function loadBoard(env: Env, ids: string[], q: BoardQuery): Promise
 				 WHERE minutes >= ${q.minMinutes}
 				 ORDER BY ${METRIC_SQL[q.sort]} ${order}, kills DESC, steam_id
 				 LIMIT ${BOARD_PAGE} OFFSET ${offset})
-			SELECT r.steam_id AS "steamId", r.minutes, r.cash, r.last_seen AS "lastSeen",
+			SELECT r.steam_id AS "steamId", r.minutes, r.seed_minutes AS "seedMinutes", r.cash, r.last_seen AS "lastSeen",
 			       r.kills, r.headshots, r.team_kills AS "teamKills", r.deaths, r.suicides,
 			       r.matches, r.wins, r.losses, r.draws, r.total,
 			       (SELECT name FROM player_sessions ps WHERE ps.steam_id = r.steam_id AND ps.server_id IN ${ids}
@@ -191,6 +194,7 @@ const shapeRow = (r: BaseRow, rank: number): BoardRow => ({
 	steamId: r.steamId,
 	name: r.name || r.steamId,
 	minutes: Math.round(num(r.minutes)),
+	seedMinutes: Math.round(num(r.seedMinutes)),
 	kills: num(r.kills),
 	deaths: num(r.deaths),
 	headshots: num(r.headshots),

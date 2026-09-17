@@ -6,7 +6,16 @@
 export type BoardRange = '7d' | '30d' | '90d' | 'all';
 export type BoardScope = 'server' | 'org';
 export type BoardMetric =
-	'kills' | 'deaths' | 'kd' | 'perHour' | 'playtime' | 'matches' | 'wins' | 'winRate' | 'cash';
+	| 'kills'
+	| 'deaths'
+	| 'kd'
+	| 'perHour'
+	| 'playtime'
+	| 'seeded'
+	| 'matches'
+	| 'wins'
+	| 'winRate'
+	| 'cash';
 export type SortDir = 'asc' | 'desc';
 
 export const BOARD_RANGES: { key: BoardRange; label: string; ms: number | null }[] = [
@@ -21,6 +30,7 @@ export const BOARD_METRICS: { key: BoardMetric; label: string }[] = [
 	{ key: 'kd', label: 'K/D' },
 	{ key: 'perHour', label: 'Kills per hour' },
 	{ key: 'playtime', label: 'Playtime' },
+	{ key: 'seeded', label: 'Seed time' },
 	{ key: 'matches', label: 'Matches' },
 	{ key: 'wins', label: 'Wins' },
 	{ key: 'winRate', label: 'Win rate' },
@@ -63,6 +73,8 @@ export interface BoardRow {
 	/** the name last seen with, or the id when no session has one */
 	name: string;
 	minutes: number;
+	/** minutes on with the server low, as the Seeding reward counts them (0 without a rule) */
+	seedMinutes: number;
 	kills: number;
 	deaths: number;
 	headshots: number;
@@ -207,6 +219,8 @@ export function metricValue(row: BoardRow, metric: BoardMetric): number | null {
 			return perHour(row.kills, row.minutes);
 		case 'playtime':
 			return row.minutes;
+		case 'seeded':
+			return row.seedMinutes;
 		case 'matches':
 			return row.matches;
 		case 'wins':
