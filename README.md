@@ -421,8 +421,10 @@ The feed identifies its server by the token alone (the body's `serverId` changes
 reboot), so each server has its own. The token is stored encrypted, like the RCON password, and
 shown to org owners only. `POST /api/ingest/events` is the one `/api` route that takes neither a
 session nor an API key, and it is exempt from the CSRF header for the same reason a bearer is.
-Configs written by earlier versions hold `Url=<origin>/api/feed/events`; the game's posts to that
-path plus its own suffix are served by the same handler, so they keep working unchanged.
+Configs written by earlier versions hold `Url=<origin>/api/feed/events`, which the game turns into
+a path Warcon does not serve. Click **Configure** again (the game reads the new `Url` at its next
+restart), or have the proxy in front of the panel redirect `/api/feed/events/api/ingest/events` to
+`/api/ingest/events` until then.
 
 ### Discord webhooks
 
