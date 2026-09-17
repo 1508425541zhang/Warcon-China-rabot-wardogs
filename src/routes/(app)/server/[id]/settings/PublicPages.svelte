@@ -1,15 +1,16 @@
 <script lang="ts">
-	// The server's public pages: a live status page and a leaderboard with career pages, each open
-	// to anyone with the address once switched on here (the site owner can close them for the
-	// organisation). Org owners only, like the server dialog that carries the same switches.
+	// The server's public pages (a section of the Settings tab): a live status page and a
+	// leaderboard with career pages, each open to anyone with the address once switched on here
+	// (the site owner can close them for the organisation). Org owners only, like the server
+	// dialog that carries the same switches.
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage } from '$lib/api';
 	import { toast } from '$lib/toast.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import { featureState, FEATURE_LABELS, PUBLIC_FEATURES, type PublicFeature } from '$lib/features';
-	import type { PageProps } from './$types';
+	import type { ServerInfo } from '$lib/types';
 
-	let { data }: PageProps = $props();
+	let { data }: { data: { server: ServerInfo; origin: string } } = $props();
 	let busy = $state(false);
 	let orgPage = $derived(`/orgs/${encodeURIComponent(data.server.orgId)}`);
 
@@ -97,11 +98,8 @@
 			</div>
 		{/each}
 		<p class="note">
-			A Discord status card can link to these pages: pick the links on the <a
-				href="/server/{encodeURIComponent(data.server.id)}/discord"
-				class="text-accent hover:underline">Discord</a
-			>
-			tab. The organisation's Discord invite, shown as a button on every public page, is set on the
+			A Discord status card can link to these pages: pick the links on the channel above. The
+			organisation's Discord invite, shown as a button on every public page, is set on the
 			<a href={orgPage} class="text-accent hover:underline">org page</a>.
 		</p>
 	{/if}

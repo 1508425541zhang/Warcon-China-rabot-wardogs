@@ -51,5 +51,5 @@
 	<CardOptions bind:interval bind:linkStatus bind:linkLeaderboard bind:linkPanel {features} />
 {/if}
 {#if carry !== 'card'}<p class="note">
-		One message per team kill, as the kill feed reports it (set up on the Configuration tab).
+		One message per team kill, as the kill feed reports it (set up on the Config tab).
 	</p>{/if}

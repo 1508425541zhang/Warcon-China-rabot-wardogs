@@ -1,5 +1,5 @@
 <script lang="ts">
-	// How often a status card is edited and what it links to. The server's Discord tab and the
+	// How often a status card is edited and what it links to. The server's Settings tab and the
 	// org page's webhook dialog share these fields so both ask in the same words.
 	import type { FeatureSet } from '$lib/features';
 
@@ -53,7 +53,7 @@
 	</div>
 	<p class="note">
 		The title opens the first link, the rest sit under the card. A public link goes out only while
-		that page is on for the server (its Public tab), so a card never sends people to the sign-in
+		that page is on for the server (under Public pages), so a card never sends people to the sign-in
 		wall. Edits wait at least the refresh interval, longer when many servers share one webhook.
 	</p>
 </div>

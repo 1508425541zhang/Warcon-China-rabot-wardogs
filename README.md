@@ -431,12 +431,12 @@ organisation's overview an owner adds channel webhooks (in Discord: channel sett
 Integrations → Webhooks → copy URL) and chooses what to mirror: bans (including org list changes), other game commands, trigger
 actions, player notes and watchlist changes, management changes, sign-ins, team kills from the
 [kill feed](#kill-feed); for every server or a subset. A separate team-kill channel is a second
-webhook with only that box ticked; the server's **Discord** tab connects one in a click. Events are batched into one message per burst, IP addresses are never sent, and the URL
+webhook with only that box ticked; the server's **Settings** tab connects one in a click. Events are batched into one message per burst, IP addresses are never sent, and the URL
 (which lets anyone post to the channel) is stored encrypted with `ENCRYPTION_KEY` and never shown
 again. **Test** posts a message right away; delivery failures show on the org page.
 
 A webhook can also keep a **live status card** for each server it covers (tick _Keep status
-cards in the channel_ on the org page, or open the server's **Discord** tab, paste a webhook and
+cards in the channel_ on the org page, or open the server's **Settings** tab, paste a webhook and
 tick the card, team kills, or both; pin what it posts). Three card styles: **banner** (the default) with the wide map art and a
 column of players per faction, **compact** with a map thumbnail, faction counts and the top
 three, and **scoreboard** with one ranked table across the factions. The worker edits each card
@@ -457,8 +457,8 @@ on top) and which **links** its cards carry: the server's public status page, it
 leaderboard, and the panel. The card's title opens the first link and the rest sit on a line
 under the body. A public link goes out only while that page is on for the server (see
 [Public pages](#public-pages)), so a card never sends people to the sign-in wall; the panel link
-is off by default, for staff channels. The server's **Discord** tab has these controls next to
-the card style; the pages themselves are switched on under the server's **Public** tab.
+is off by default, for staff channels. The server's **Settings** tab has these controls next to
+the card style, with the public page switches under them.
 
 ### Leaderboards and careers
 
@@ -481,7 +481,7 @@ nothing is precomputed.
 ### Public pages
 
 Two pages of a server can be opened to anyone with the address. An org owner **switches each on**
-per server on the server's **Public** tab, which shows the addresses to copy (the server's edit
+per server on the server's **Settings** tab, which shows the addresses to copy (the server's edit
 dialog carries the same switches); nothing is public until then.
 The site owner can **close** either page for a whole organisation from the org's page, next to
 the server limit, which shuts every such page in it at once.
@@ -718,7 +718,7 @@ src/lib/config-doc.ts / config-fields.ts   ServerSettings.ini parser and line-le
 src/lib/components/            Modal, MapPicker, PopulationChart, CashChart, ConfigForm, Toasts, badges…
 src/routes/(auth)/             /sign-in (+ /verify), /setup, /join/[token], /recover (form actions)     src/routes/sign-out
 src/routes/api/passkeys/       WebAuthn ceremonies relayed to Better Auth; src/routes/auth/steam/ the Steam callback
-src/routes/(app)/              dashboard, /server/[id]/{,players,players/[steamId],bans,rotation,config,automation,analytics,leaderboard,log,discord,public}, /audit, /orgs, /orgs/[id]/{,bans,reserved}, /users, /servers, /account
+src/routes/(app)/              dashboard, /server/[id]/{,players,players/[steamId],bans,rotation,config,automation,analytics,leaderboard,log,settings}, /audit, /orgs, /orgs/[id]/{,bans,reserved}, /users, /servers, /account
 src/routes/(public)/           /s/[id]{,/leaderboard,/players/[steamId]}: the public pages, no session
 src/routes/api/                JSON API (below)
 docs/wardogs-api.md            the reverse-engineered game-server API
