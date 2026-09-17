@@ -401,8 +401,8 @@ session nor an API key, and it is exempt from the CSRF header for the same reaso
 
 On the organisation's overview an owner can add Discord channel webhooks (in Discord: channel settings →
 Integrations → Webhooks → copy URL) and choose what to mirror: bans (including org list changes), other game commands, trigger
-actions, player notes and watchlist changes, management changes, sign-ins; for every server or a
-subset. Events are batched into one message per burst, IP addresses are never sent, and the URL
+actions, player notes and watchlist changes, management changes, sign-ins, team kills from the
+[kill feed](#kill-feed); for every server or a subset. Events are batched into one message per burst, IP addresses are never sent, and the URL
 (which lets anyone post to the channel) is stored encrypted with `ENCRYPTION_KEY` and never shown
 again. **Test** posts a message right away; delivery failures show on the org page.
 

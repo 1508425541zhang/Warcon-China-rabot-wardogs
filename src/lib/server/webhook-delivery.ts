@@ -6,6 +6,8 @@ import { and, eq, inArray } from 'drizzle-orm';
 import type { Env } from './env';
 import { decryptSecret } from './crypto';
 import { servers, webhooks, type AuditRow, type WebhookRow } from './db/schema';
+import { causeLabel } from '$lib/causes';
+import type { KillView } from '$lib/types';
 
 export const WEBHOOK_EVENTS = [
 	'bans',
@@ -13,7 +15,8 @@ export const WEBHOOK_EVENTS = [
 	'triggers',
 	'players',
 	'management',
-	'auth'
+	'auth',
+	'teamkills'
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 export const WEBHOOK_EVENT_LABELS: Record<WebhookEvent, string> = {
@@ -22,7 +25,8 @@ export const WEBHOOK_EVENT_LABELS: Record<WebhookEvent, string> = {
 	triggers: 'Automation (trigger actions)',
 	players: 'Player notes and watchlist changes',
 	management: 'Servers, members, invite links, accounts',
-	auth: 'Sign-ins and sign-in failures'
+	auth: 'Sign-ins and sign-in failures',
+	teamkills: 'Team kills (from the kill feed)'
 };
 
 /** Which event class an audit row belongs to. */
@@ -134,6 +138,7 @@ const ACTION_TITLES: Record<string, string> = {
 	'trigger.empty_reset': 'Trigger · empty-server map reset',
 	'trigger.risk_kick': 'Trigger · risk kick',
 	'trigger.restart_notice': 'Trigger · restart notice',
+	'trigger.team_kill': 'Trigger · team kill limit',
 	'player.note': 'Player note',
 	'player.watch': 'Watchlist',
 	'list.add': 'Org list · added',
@@ -162,6 +167,32 @@ export function buildEmbed(appName: string, row: AuditRow): Embed {
 		description: clip(lines.join('\n'), 2000),
 		color: COLORS[row.outcome] ?? COLORS.denied,
 		timestamp: row.ts.toISOString(),
+		footer: { text: appName }
+	};
+}
+
+const TEAM_KILL_COLOR = 0xe0a83a;
+
+/** One team kill from the feed as an embed: who, whom, with what, how far. */
+export function buildTeamKillEmbed(appName: string, serverName: string, k: KillView): Embed {
+	const cause = causeLabel(k.cause);
+	const how = [
+		cause,
+		k.distanceM === null ? '' : `${Math.round(k.distanceM)} m`,
+		k.headshot ? 'headshot' : ''
+	]
+		.filter(Boolean)
+		.join(' · ');
+	const lines = [
+		`**${clip(k.killer?.name ?? '?', 60)}** → **${clip(k.victim.name, 60)}**${k.killer?.faction ? ` (${clip(k.killer.faction, 30)})` : ''}`,
+		how,
+		`Server: ${clip(serverName, 80)}${k.map ? ` · ${clip(k.map, 40)}` : ''}`
+	].filter(Boolean);
+	return {
+		title: 'Team kill',
+		description: clip(lines.join('\n'), 2000),
+		color: TEAM_KILL_COLOR,
+		timestamp: k.ts,
 		footer: { text: appName }
 	};
 }
@@ -383,6 +414,33 @@ export async function notifyWebhooks(env: Env, row: AuditRow): Promise<void> {
 		}
 	} catch (err) {
 		console.error('[warcon] webhook notify', err);
+	}
+}
+
+/** Fans team kills from one feed batch out to the org's webhooks that mirror them. Never throws. */
+export async function notifyTeamKills(
+	env: Env,
+	serverId: string,
+	serverName: string,
+	kills: KillView[]
+): Promise<void> {
+	try {
+		const teamKills = kills.filter((k) => k.teamKill);
+		if (!teamKills.length) return;
+		const orgId = await orgOfServer(env, serverId);
+		if (!orgId) return;
+		const hooks = (await enabledWebhooks(env, orgId)).filter((hook) => {
+			if (!((hook.events as string[]) || []).includes('teamkills')) return false;
+			const only = hook.serverIds as string[] | null;
+			return !only || !only.length || only.includes(serverId);
+		});
+		if (!hooks.length) return;
+		for (const k of teamKills) {
+			const embed = buildTeamKillEmbed(env.APP_NAME || 'Warcon', serverName, k);
+			for (const hook of hooks) enqueue(env, hook, embed);
+		}
+	} catch (err) {
+		console.error('[warcon] webhook team kills', err);
 	}
 }
 
