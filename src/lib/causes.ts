@@ -6,6 +6,13 @@ export type CauseKind = 'weapon' | 'vehicle weapon' | 'vehicle' | 'buildable' | 
 
 const LABELS: Record<string, string> = {
 	'Id.Item.AK74M': 'AK-74M',
+	'Id.Item.WEPN_029': 'Galil',
+	'Id.Item.M4': 'M4',
+	'Id.Item.M500': 'M500',
+	'Id.Item.MP43': 'MP43',
+	'Id.Item.SKS': 'SKS',
+	'Id.Item.SVDM': 'SVDM',
+	'Id.Item.KH2002': 'KH2002',
 	'Id.Item.TAR21': 'TAR-21',
 	'Id.Item.A91': 'A-91',
 	'Id.Item.SV98': 'SV-98',
@@ -42,14 +49,28 @@ export function causeKind(cause: string | null | undefined): CauseKind {
 	return 'weapon';
 }
 
-/** `WEPN_029` → `WEPN 029`, `MountedMachineGuns` → `Mounted machine guns`. */
+/** `WEPN_035` → `WEPN 035`, `MountedMachineGuns` → `Mounted machine guns`: a codename keeps its capitals. */
 function pretty(segment: string): string {
-	const spaced = segment
+	const words = segment
 		.replace(/_/g, ' ')
 		.replace(/([a-z])([A-Z])/g, '$1 $2')
 		.replace(/([A-Za-z])(\d)/g, '$1 $2')
-		.trim();
-	return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
+		.trim()
+		.split(/\s+/);
+	return words
+		.map((w, i) => {
+			if (/^[A-Z0-9]+$/.test(w) && /[A-Z]{2}/.test(w)) return w;
+			const lower = w.toLowerCase();
+			return i === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower;
+		})
+		.join(' ');
+}
+
+/** Every cause named above, for a filter's choices: label first so a list reads alphabetically. */
+export function knownCauses(): { cause: string; label: string }[] {
+	return Object.entries(LABELS)
+		.map(([cause, label]) => ({ cause, label }))
+		.sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /** A display name for the tag: the known ones by name, the rest from their meaningful segments. */
