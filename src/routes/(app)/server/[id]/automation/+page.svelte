@@ -485,11 +485,20 @@
 			!(await confirmDialog(`Delete the trigger "${t.name}"?`, { okLabel: 'Delete', danger: true }))
 		)
 			return;
-		await run(() => api('DELETE', `${path}/${t.id}`), 'Trigger deleted.');
+		if (await run(() => api('DELETE', `${path}/${t.id}`), 'Trigger deleted.'))
+			if (dryFor === t.id) dry = null;
 	}
-	async function dryRun(kind: TriggerKind, cfg: Record<string, unknown>, key: string) {
+	/** The result panel is titled with the rule it was run for; 'form' keys a run from the editor. */
+	let dryTitle = $state('');
+	async function dryRun(
+		kind: TriggerKind,
+		cfg: Record<string, unknown>,
+		key: string,
+		title: string
+	) {
 		dryBusy = true;
 		dryFor = key;
+		dryTitle = title;
 		try {
 			dry = (await api<{ result: DryRunResult }>('POST', `${path}/dry-run`, { kind, config: cfg }))
 				.result;
@@ -498,6 +507,17 @@
 		} finally {
 			dryBusy = false;
 		}
+	}
+
+	/** A dry run's lines with repeats folded: a broadcast replayed 96 times is one line, ×96. */
+	function grouped(items: DryRunResult['items']): { at: string; text: string; n: number }[] {
+		const out: { at: string; text: string; n: number }[] = [];
+		for (const it of items) {
+			const last = out[out.length - 1];
+			if (last && last.text === it.text) last.n++;
+			else out.push({ at: it.at, text: it.text, n: 1 });
+		}
+		return out;
 	}
 
 	/** The rule as one sentence; the list shows it, and the editor shows it live as "Reads as". */
@@ -625,6 +645,13 @@
 	{/if}
 </div>
 
+<!-- A dry run from a row opens here, above the list, so the rows never change height. -->
+{#if dry && dryFor !== 'form' && !form}
+	<div class="mb-3 rounded-ctl border border-l-2 border-black border-l-accent bg-ink-900 p-3">
+		{@render dryResult(dry, dryTitle)}
+	</div>
+{/if}
+
 <div class="space-y-2">
 	{#each rows as t (t.id)}
 		{@const h = health.get(t.id)}
@@ -697,7 +724,7 @@
 							class="menu-item"
 							role="menuitem"
 							disabled={dryBusy}
-							onclick={() => dryRun(t.kind, t.config, t.id)}
+							onclick={() => dryRun(t.kind, t.config, t.id, t.name)}
 							>{t.kind === 'restart_notice' ? 'Preview next cycle' : 'Dry run, last 24 h'}</button
 						>
 						<button type="button" class="menu-item" role="menuitem" onclick={() => open(t.kind, t)}
@@ -720,11 +747,6 @@
 					</RowMenu>
 				{/if}
 			</div>
-			{#if dry && dryFor === t.id && !form}
-				<div class="mt-3 rounded-ctl border border-black bg-ink-950 p-3">
-					{@render dryResult(dry)}
-				</div>
-			{/if}
 		</div>
 	{:else}
 		<div class="panel text-center text-mist-600">
@@ -748,30 +770,40 @@
 	</div>
 {/snippet}
 
-{#snippet dryResult(r: DryRunResult)}
-	<div class="mb-2 flex flex-wrap items-center gap-2 text-[13px]">
+{#snippet dryResult(r: DryRunResult, title: string)}
+	<div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+		<span class="caps text-accent"
+			>{r.kind === 'restart_notice' ? 'Next cycle' : 'Dry run'} · {title}</span
+		>
 		{#if r.kind === 'restart_notice'}
-			<b>Next cycle:</b>
 			<span
 				><b class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b> broadcast{r.fires === 1
 					? ''
 					: 's'}</span
 			>
 		{:else}
-			<b>Dry run, last 24 h:</b>
 			<span
-				>would have fired <b class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b>
+				>Replayed the last 24 h on this server: would have fired <b
+					class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b
+				>
 				time{r.fires === 1 ? '' : 's'}</span
 			>
 		{/if}
-		<button type="button" class="ml-auto btn btn-sm btn-ghost" onclick={() => (dry = null)}
-			>✕</button
+		<button
+			type="button"
+			class="ml-auto btn btn-sm btn-ghost"
+			aria-label="Close the dry run"
+			onclick={() => (dry = null)}>✕</button
 		>
 	</div>
 	{#if r.items.length}
 		<ul class="max-h-56 space-y-0.5 overflow-y-auto font-mono text-[12px]">
-			{#each r.items as it, i (i)}
-				<li><span class="text-mist-600">{fmtTime(it.at)}</span> {it.text}</li>
+			{#each grouped(r.items) as it, i (i)}
+				<li>
+					<span class="text-mist-600">{fmtTime(it.at)}</span>
+					{it.text}
+					{#if it.n > 1}<span class="text-mist-600">×{it.n}</span>{/if}
+				</li>
 			{/each}
 			{#if r.fires > r.items.length}<li class="text-mist-600">
 					… and {r.fires - r.items.length} more
@@ -801,406 +833,423 @@
 		>
 			<p class="-mt-2 text-[13px] text-mist-400">{blurb(f.kind)}</p>
 			{#if needs(f.kind)}<p class="note mb-0 text-warn">{needs(f.kind)}</p>{/if}
-			<div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
-				<label class="block"
-					><span class="field-label">Name</span><input
-						class="input"
-						type="text"
-						name="name"
-						bind:value={f.name}
-						maxlength="60"
-						required
-					/></label
-				>
-				<label class="flex items-end gap-2 pb-2.5 text-[13px]"
-					><input type="checkbox" bind:checked={f.enabled} /> Enabled</label
-				>
-			</div>
+			<!-- Hidden, not unmounted, while the dry run shows: the map picker keeps its choice. -->
+			<div class="space-y-3" class:hidden={dry && dryFor === 'form'}>
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+					<label class="block"
+						><span class="field-label">Name</span><input
+							class="input"
+							type="text"
+							name="name"
+							bind:value={f.name}
+							maxlength="60"
+							required
+						/></label
+					>
+					<label class="flex items-end gap-2 pb-2.5 text-[13px]"
+						><input type="checkbox" bind:checked={f.enabled} /> Enabled</label
+					>
+				</div>
 
-			{#if f.kind === 'welcome'}
-				<fieldset class="space-y-2">
-					<legend class="field-label">Whisper</legend>
-					<input class="input" type="text" bind:value={f.message} maxlength="200" required />
-					{@render placeholders(['name', 'faction', 'server', 'map', 'players', 'max'])}
-				</fieldset>
-				<fieldset class="space-y-1.5 text-[13px]">
-					<legend class="field-label">When</legend>
-					<label class="flex items-center gap-2"
-						><input type="checkbox" bind:checked={f.afterFaction} /> Wait until the player has picked
-						a faction</label
-					>
-					<label class="flex items-center gap-2"
-						><input type="checkbox" bind:checked={f.onlyFirstVisit} /> Only on a player's first visit
-						to this server</label
-					>
-				</fieldset>
-				<p class="note">Sent as a whisper, so only that player sees it.</p>
-			{:else if f.kind === 'faction_change'}
-				<fieldset class="space-y-2">
-					<legend class="field-label">Whisper</legend>
-					<input class="input" type="text" bind:value={f.message} maxlength="200" required />
-					{@render placeholders(['name', 'faction', 'previous', 'server', 'map', 'players', 'max'])}
-				</fieldset>
-				<p class="note">
-					Fires when a player moves from one faction to another, not on their first pick after
-					joining.
-				</p>
-			{:else if f.kind === 'broadcast'}
-				<fieldset class="space-y-2">
-					<legend class="field-label">Messages, one per line, sent in turn</legend>
-					<textarea class="min-h-[100px] input" bind:value={f.messages} required></textarea>
-					{@render placeholders(['server', 'map', 'players', 'max'])}
-				</fieldset>
-				<fieldset class="space-y-2">
-					<legend class="field-label">When</legend>
-					<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-						Every
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="1"
-							max="1440"
-							bind:value={f.everyMinutes}
-							aria-label="Every, minutes"
-							required
-						/>
-						min, with at least
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="0"
-							max="1000"
-							bind:value={f.minPlayers}
-							aria-label="At least, players"
-						/>
-						and at most
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="0"
-							max="1000"
-							bind:value={f.maxPlayers}
-							aria-label="At most, players"
-							placeholder="any"
-						/>
-						players on
-					</div>
-				</fieldset>
-				<p class="note">
-					Blank for no ceiling; a fill-the-server message can stop once it has. Broadcasts are
-					limited to 200 characters.
-				</p>
-			{:else if f.kind === 'empty_reset'}
-				<fieldset class="space-y-2">
-					<legend class="field-label">Reset to</legend>
-					<MapPicker bind:this={picker} serverId={id} catalog={data.catalog} />
-				</fieldset>
-				<fieldset class="space-y-2">
-					<legend class="field-label">When</legend>
-					<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-						After the server has been empty for
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="1"
-							max="1440"
-							bind:value={f.afterMinutes}
-							aria-label="After empty for, minutes"
-							required
-						/>
-						min, at most once every
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="1"
-							max="1440"
-							bind:value={f.cooldownMinutes}
-							aria-label="Cooldown between resets, minutes"
-						/>
-						min
-					</div>
-				</fieldset>
-				<p class="note">
-					Fires when nobody has been on for that long and the server is on a different map or mode.
-					With a rotation the target is set as next and the match ended; without one the map is
-					requested directly.
-				</p>
-			{:else if f.kind === 'restart_notice'}
-				<fieldset class="space-y-2">
-					<legend class="field-label">Heads-up, before the window opens</legend>
-					<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-						Send
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="0"
-							max="719"
-							bind:value={f.leadMinutes}
-							aria-label="Heads-up, minutes before"
-						/>
-						min before <span class="text-mist-600">(0 turns the heads-up off)</span>
-					</div>
-					<input
-						class="input"
-						type="text"
-						bind:value={f.leadMessage}
-						maxlength="200"
-						aria-label="Heads-up message"
-						disabled={!Number(f.leadMinutes)}
-					/>
-				</fieldset>
-				<fieldset class="space-y-2">
-					<legend class="field-label">Once the window is open</legend>
-					<input
-						class="input"
-						type="text"
-						bind:value={f.message}
-						maxlength="200"
-						aria-label="Message once the window is open"
-						required
-					/>
-					<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-						Repeat every
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="0"
-							max="1440"
-							bind:value={f.repeatMinutes}
-							aria-label="Repeat every, minutes"
-						/>
-						min while the round runs on <span class="text-mist-600">(0 sends it once)</span>
-					</div>
-				</fieldset>
-				<fieldset class="space-y-2">
-					<legend class="field-label">Only with at least</legend>
-					<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="0"
-							max="1000"
-							bind:value={f.minPlayers}
-							aria-label="At least, players"
-						/>
-						players on
-					</div>
-				</fieldset>
-				{@render placeholders(['minutes', 'uptime', 'server', 'map', 'players', 'max'])}
-				<p class="note">
-					The game restarts twelve hours after it started, once the round then in progress ends.
-				</p>
-			{:else if f.kind === 'risk_kick'}
-				<fieldset class="space-y-1.5 text-[13px]">
-					<legend class="field-label">Kick when the player is</legend>
-					<label class="flex items-center gap-2"
-						><input type="checkbox" bind:checked={f.bannedElsewhere} /> banned on another server in this
-						organisation</label
-					>
-					<label class="flex items-center gap-2"
-						><input type="checkbox" bind:checked={f.watchlist} /> on the watchlist</label
-					>
-					<div
-						class="grid grid-cols-1 gap-x-4 gap-y-1.5 border-t border-black pt-2 sm:grid-cols-[1fr_auto] {data.steam
-							? ''
-							: 'text-mist-600'}"
-					>
-						<div class="space-y-1.5">
-							<label class="flex items-center gap-2"
-								><input type="checkbox" bind:checked={f.vacBans} disabled={!data.steam} /> VAC banned</label
-							>
-							<label class="flex items-center gap-2"
-								><input type="checkbox" bind:checked={f.gameBans} disabled={!data.steam} /> game banned</label
-							>
-							<div class="flex flex-wrap items-center gap-2">
-								under
-								<input
-									class="input w-20 text-right"
-									type="number"
-									min="0"
-									max="3650"
-									bind:value={f.minAccountDays}
-									aria-label="Steam account younger than, days"
-									disabled={!data.steam}
-								/>
-								days old <span class="text-mist-600">(0 turns it off)</span>
-							</div>
-							<label class="flex items-center gap-2 pl-5"
-								><input
-									type="checkbox"
-									bind:checked={f.privateProfiles}
-									disabled={!data.steam || !f.minAccountDays}
-								/> and treat private profiles, whose age is unknown, as too young</label
-							>
+				{#if f.kind === 'welcome'}
+					<fieldset class="space-y-2">
+						<legend class="field-label">Whisper</legend>
+						<input class="input" type="text" bind:value={f.message} maxlength="200" required />
+						{@render placeholders(['name', 'faction', 'server', 'map', 'players', 'max'])}
+					</fieldset>
+					<fieldset class="space-y-1.5 text-[13px]">
+						<legend class="field-label">When</legend>
+						<label class="flex items-center gap-2"
+							><input type="checkbox" bind:checked={f.afterFaction} /> Wait until the player has picked
+							a faction</label
+						>
+						<label class="flex items-center gap-2"
+							><input type="checkbox" bind:checked={f.onlyFirstVisit} /> Only on a player's first visit
+							to this server</label
+						>
+					</fieldset>
+					<p class="note">Sent as a whisper, so only that player sees it.</p>
+				{:else if f.kind === 'faction_change'}
+					<fieldset class="space-y-2">
+						<legend class="field-label">Whisper</legend>
+						<input class="input" type="text" bind:value={f.message} maxlength="200" required />
+						{@render placeholders([
+							'name',
+							'faction',
+							'previous',
+							'server',
+							'map',
+							'players',
+							'max'
+						])}
+					</fieldset>
+					<p class="note">
+						Fires when a player moves from one faction to another, not on their first pick after
+						joining.
+					</p>
+				{:else if f.kind === 'broadcast'}
+					<fieldset class="space-y-2">
+						<legend class="field-label">Messages, one per line, sent in turn</legend>
+						<textarea class="min-h-[100px] input" bind:value={f.messages} required></textarea>
+						{@render placeholders(['server', 'map', 'players', 'max'])}
+					</fieldset>
+					<fieldset class="space-y-2">
+						<legend class="field-label">When</legend>
+						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
+							Every
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="1"
+								max="1440"
+								bind:value={f.everyMinutes}
+								aria-label="Every, minutes"
+								required
+							/>
+							min, with at least
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="0"
+								max="1000"
+								bind:value={f.minPlayers}
+								aria-label="At least, players"
+							/>
+							and at most
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="0"
+								max="1000"
+								bind:value={f.maxPlayers}
+								aria-label="At most, players"
+								placeholder="any"
+							/>
+							players on
 						</div>
-						<p class="max-w-[22ch] text-[12px] text-mist-600 sm:border-l sm:border-ink-700 sm:pl-3">
-							From Steam, fetched when a player first appears and refreshed daily.
-						</p>
-					</div>
-					<label class="flex flex-wrap items-center gap-2 border-t border-black pt-2"
-						>at advisory risk level
-						<select class="input w-auto pr-[30px]" bind:value={f.kickAtLevel}>
-							<option value="">off</option>
-							<option value="high">high</option>
-							<option value="medium">medium or high</option>
-						</select>
-						as the players table shows it</label
-					>
-				</fieldset>
-				<fieldset class="space-y-1.5 text-[13px]">
-					<legend class="field-label">Never kick</legend>
-					<label class="flex items-center gap-2"
-						><input type="checkbox" bind:checked={f.spareReserved} /> players with a reserved slot</label
-					>
-				</fieldset>
-				<fieldset class="space-y-2">
-					<legend class="field-label">Kick reason, shown to the player</legend>
-					<input class="input" type="text" bind:value={f.reason} maxlength="200" />
-				</fieldset>
-				<p class="note">Kicks land in the audit trail with the rule that matched.</p>
-			{:else if f.kind === 'team_kill'}
-				<fieldset class="space-y-2">
-					<legend class="field-label">Whisper</legend>
-					<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-						From
+					</fieldset>
+					<p class="note">
+						Blank for no ceiling; a fill-the-server message can stop once it has. Broadcasts are
+						limited to 200 characters.
+					</p>
+				{:else if f.kind === 'empty_reset'}
+					<fieldset class="space-y-2">
+						<legend class="field-label">Reset to</legend>
+						<MapPicker bind:this={picker} serverId={id} catalog={data.catalog} />
+					</fieldset>
+					<fieldset class="space-y-2">
+						<legend class="field-label">When</legend>
+						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
+							After the server has been empty for
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="1"
+								max="1440"
+								bind:value={f.afterMinutes}
+								aria-label="After empty for, minutes"
+								required
+							/>
+							min, at most once every
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="1"
+								max="1440"
+								bind:value={f.cooldownMinutes}
+								aria-label="Cooldown between resets, minutes"
+							/>
+							min
+						</div>
+					</fieldset>
+					<p class="note">
+						Fires when nobody has been on for that long and the server is on a different map or
+						mode. With a rotation the target is set as next and the match ended; without one the map
+						is requested directly.
+					</p>
+				{:else if f.kind === 'restart_notice'}
+					<fieldset class="space-y-2">
+						<legend class="field-label">Heads-up, before the window opens</legend>
+						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
+							Send
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="0"
+								max="719"
+								bind:value={f.leadMinutes}
+								aria-label="Heads-up, minutes before"
+							/>
+							min before <span class="text-mist-600">(0 turns the heads-up off)</span>
+						</div>
 						<input
-							class="input w-20 text-right"
-							type="number"
-							min="0"
-							max="100"
-							bind:value={f.warnAt}
-							aria-label="Whisper from, team kills"
+							class="input"
+							type="text"
+							bind:value={f.leadMessage}
+							maxlength="200"
+							aria-label="Heads-up message"
+							disabled={!Number(f.leadMinutes)}
 						/>
-						team kills, on every one after <span class="text-mist-600">(0 turns it off)</span>
-					</div>
-					<input
-						class="input"
-						type="text"
-						bind:value={f.warnMessage}
-						maxlength="200"
-						aria-label="Whisper"
-						disabled={!Number(f.warnAt)}
-					/>
-					{@render placeholders(['name', 'victim', 'count', 'server', 'map'])}
-				</fieldset>
-				<fieldset class="space-y-2">
-					<legend class="field-label">Kick</legend>
-					<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-						At
+					</fieldset>
+					<fieldset class="space-y-2">
+						<legend class="field-label">Once the window is open</legend>
 						<input
-							class="input w-20 text-right"
-							type="number"
-							min="0"
-							max="100"
-							bind:value={f.kickAt}
-							aria-label="Kick at, team kills"
-						/>
-						team kills <span class="text-mist-600">(0 turns it off)</span>
-					</div>
-					<input
-						class="input"
-						type="text"
-						bind:value={f.kickReason}
-						maxlength="200"
-						aria-label="Kick reason"
-						disabled={!Number(f.kickAt)}
-					/>
-				</fieldset>
-				<p class="note">
-					Team kills come from the game's kill feed and are counted per player within their current
-					session.
-				</p>
-			{:else if f.kind === 'seed_reward'}
-				<fieldset class="space-y-1.5 text-[13px]">
-					<legend class="field-label">Counts as seeding</legend>
-					<div class="flex flex-wrap items-center gap-2">
-						Being on with at most
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="1"
-							max="1000"
-							bind:value={f.lowAt}
-							aria-label="Counts as seeding: at most, players on"
+							class="input"
+							type="text"
+							bind:value={f.message}
+							maxlength="200"
+							aria-label="Message once the window is open"
 							required
 						/>
-						players on
-					</div>
-					<label class="flex items-center gap-2"
-						><input type="checkbox" bind:checked={f.untilFull} /> and only once the server has filled
-						with the player still on</label
-					>
-					<div class="flex flex-wrap items-center gap-2 pl-5 {f.untilFull ? '' : 'text-mist-600'}">
-						Filled means at least
+						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
+							Repeat every
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="0"
+								max="1440"
+								bind:value={f.repeatMinutes}
+								aria-label="Repeat every, minutes"
+							/>
+							min while the round runs on <span class="text-mist-600">(0 sends it once)</span>
+						</div>
+					</fieldset>
+					<fieldset class="space-y-2">
+						<legend class="field-label">Only with at least</legend>
+						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="0"
+								max="1000"
+								bind:value={f.minPlayers}
+								aria-label="At least, players"
+							/>
+							players on
+						</div>
+					</fieldset>
+					{@render placeholders(['minutes', 'uptime', 'server', 'map', 'players', 'max'])}
+					<p class="note">
+						The game restarts twelve hours after it started, once the round then in progress ends.
+					</p>
+				{:else if f.kind === 'risk_kick'}
+					<fieldset class="space-y-1.5 text-[13px]">
+						<legend class="field-label">Kick when the player is</legend>
+						<label class="flex items-center gap-2"
+							><input type="checkbox" bind:checked={f.bannedElsewhere} /> banned on another server in
+							this organisation</label
+						>
+						<label class="flex items-center gap-2"
+							><input type="checkbox" bind:checked={f.watchlist} /> on the watchlist</label
+						>
+						<div
+							class="grid grid-cols-1 gap-x-4 gap-y-1.5 border-t border-black pt-2 sm:grid-cols-[1fr_auto] {data.steam
+								? ''
+								: 'text-mist-600'}"
+						>
+							<div class="space-y-1.5">
+								<label class="flex items-center gap-2"
+									><input type="checkbox" bind:checked={f.vacBans} disabled={!data.steam} /> VAC banned</label
+								>
+								<label class="flex items-center gap-2"
+									><input type="checkbox" bind:checked={f.gameBans} disabled={!data.steam} /> game banned</label
+								>
+								<div class="flex flex-wrap items-center gap-2">
+									under
+									<input
+										class="input w-20 text-right"
+										type="number"
+										min="0"
+										max="3650"
+										bind:value={f.minAccountDays}
+										aria-label="Steam account younger than, days"
+										disabled={!data.steam}
+									/>
+									days old <span class="text-mist-600">(0 turns it off)</span>
+								</div>
+								<label class="flex items-center gap-2 pl-5"
+									><input
+										type="checkbox"
+										bind:checked={f.privateProfiles}
+										disabled={!data.steam || !f.minAccountDays}
+									/> and treat private profiles, whose age is unknown, as too young</label
+								>
+							</div>
+							<p
+								class="max-w-[22ch] text-[12px] text-mist-600 sm:border-l sm:border-ink-700 sm:pl-3"
+							>
+								From Steam, fetched when a player first appears and refreshed daily.
+							</p>
+						</div>
+						<label class="flex flex-wrap items-center gap-2 border-t border-black pt-2"
+							>at advisory risk level
+							<select class="input w-auto pr-[30px]" bind:value={f.kickAtLevel}>
+								<option value="">off</option>
+								<option value="high">high</option>
+								<option value="medium">medium or high</option>
+							</select>
+							as the players table shows it</label
+						>
+					</fieldset>
+					<fieldset class="space-y-1.5 text-[13px]">
+						<legend class="field-label">Never kick</legend>
+						<label class="flex items-center gap-2"
+							><input type="checkbox" bind:checked={f.spareReserved} /> players with a reserved slot</label
+						>
+					</fieldset>
+					<fieldset class="space-y-2">
+						<legend class="field-label">Kick reason, shown to the player</legend>
+						<input class="input" type="text" bind:value={f.reason} maxlength="200" />
+					</fieldset>
+					<p class="note">Kicks land in the audit trail with the rule that matched.</p>
+				{:else if f.kind === 'team_kill'}
+					<fieldset class="space-y-2">
+						<legend class="field-label">Whisper</legend>
+						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
+							From
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="0"
+								max="100"
+								bind:value={f.warnAt}
+								aria-label="Whisper from, team kills"
+							/>
+							team kills, on every one after <span class="text-mist-600">(0 turns it off)</span>
+						</div>
 						<input
-							class="input w-20 text-right"
-							type="number"
-							min="1"
-							max="1000"
-							bind:value={f.fullAt}
-							aria-label="Filled means at least, players"
-							placeholder="limit"
-							disabled={!f.untilFull}
+							class="input"
+							type="text"
+							bind:value={f.warnMessage}
+							maxlength="200"
+							aria-label="Whisper"
+							disabled={!Number(f.warnAt)}
 						/>
-						players <span class="text-mist-600">(blank for the server's own limit)</span>
-					</div>
-				</fieldset>
-				<fieldset class="space-y-1.5 text-[13px]">
-					<legend class="field-label">Reward</legend>
-					<div class="flex flex-wrap items-center gap-2">
+						{@render placeholders(['name', 'victim', 'count', 'server', 'map'])}
+					</fieldset>
+					<fieldset class="space-y-2">
+						<legend class="field-label">Kick</legend>
+						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
+							At
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="0"
+								max="100"
+								bind:value={f.kickAt}
+								aria-label="Kick at, team kills"
+							/>
+							team kills <span class="text-mist-600">(0 turns it off)</span>
+						</div>
 						<input
-							class="input w-24 text-right"
-							type="number"
-							min="1"
-							max="129600"
-							bind:value={f.minutes}
-							aria-label="Seed time needed, minutes"
-							required
+							class="input"
+							type="text"
+							bind:value={f.kickReason}
+							maxlength="200"
+							aria-label="Kick reason"
+							disabled={!Number(f.kickAt)}
 						/>
-						min of seed time within the last
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="1"
-							max="90"
-							bind:value={f.windowDays}
-							aria-label="Counted over the last, days"
-							required
-						/>
-						days earns a reserved slot for
-						<input
-							class="input w-20 text-right"
-							type="number"
-							min="1"
-							max="365"
-							bind:value={f.slotDays}
-							aria-label="Reserved slot lasts, days"
-							required
-						/>
-						days
-					</div>
-				</fieldset>
-				<fieldset class="space-y-2">
-					<legend class="field-label">Whisper on the grant, blank for none</legend>
-					<input class="input" type="text" bind:value={f.message} maxlength="200" />
-					{@render placeholders(['name', 'server', 'minutes', 'until', 'days', 'players', 'max'])}
-				</fieldset>
-				<p class="note">
-					With the box ticked, seed time stays pending until the server has filled with the player
-					still on; leave before that and it is forfeited. Unticked, every low minute counts as it
-					passes. The slot goes on the organisation's reserved-slot list: this server applies it at
-					once, the other servers at their next sync, and it can be earned again once it lapses.
-					Players who already hold a reserved slot are skipped.
-				</p>
-			{/if}
+					</fieldset>
+					<p class="note">
+						Team kills come from the game's kill feed and are counted per player within their
+						current session.
+					</p>
+				{:else if f.kind === 'seed_reward'}
+					<fieldset class="space-y-1.5 text-[13px]">
+						<legend class="field-label">Counts as seeding</legend>
+						<div class="flex flex-wrap items-center gap-2">
+							Being on with at most
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="1"
+								max="1000"
+								bind:value={f.lowAt}
+								aria-label="Counts as seeding: at most, players on"
+								required
+							/>
+							players on
+						</div>
+						<label class="flex items-center gap-2"
+							><input type="checkbox" bind:checked={f.untilFull} /> and only once the server has filled
+							with the player still on</label
+						>
+						<div
+							class="flex flex-wrap items-center gap-2 pl-5 {f.untilFull ? '' : 'text-mist-600'}"
+						>
+							Filled means at least
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="1"
+								max="1000"
+								bind:value={f.fullAt}
+								aria-label="Filled means at least, players"
+								placeholder="limit"
+								disabled={!f.untilFull}
+							/>
+							players <span class="text-mist-600">(blank for the server's own limit)</span>
+						</div>
+					</fieldset>
+					<fieldset class="space-y-1.5 text-[13px]">
+						<legend class="field-label">Reward</legend>
+						<div class="flex flex-wrap items-center gap-2">
+							<input
+								class="input w-24 text-right"
+								type="number"
+								min="1"
+								max="129600"
+								bind:value={f.minutes}
+								aria-label="Seed time needed, minutes"
+								required
+							/>
+							min of seed time within the last
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="1"
+								max="90"
+								bind:value={f.windowDays}
+								aria-label="Counted over the last, days"
+								required
+							/>
+							days earns a reserved slot for
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="1"
+								max="365"
+								bind:value={f.slotDays}
+								aria-label="Reserved slot lasts, days"
+								required
+							/>
+							days
+						</div>
+					</fieldset>
+					<fieldset class="space-y-2">
+						<legend class="field-label">Whisper on the grant, blank for none</legend>
+						<input class="input" type="text" bind:value={f.message} maxlength="200" />
+						{@render placeholders(['name', 'server', 'minutes', 'until', 'days', 'players', 'max'])}
+					</fieldset>
+					<p class="note">
+						With the box ticked, seed time stays pending until the server has filled with the player
+						still on; leave before that and it is forfeited. Unticked, every low minute counts as it
+						passes. The slot goes on the organisation's reserved-slot list: this server applies it
+						at once, the other servers at their next sync, and it can be earned again once it
+						lapses. Players who already hold a reserved slot are skipped.
+					</p>
+				{/if}
 
-			<div class="rounded-ctl border border-black bg-ink-950 px-3 py-2 text-[13px]">
-				<span class="mr-2 caps text-accent">Reads as</span>
-				<span class="text-mist-100">{describe(f.kind, config(f))}</span>
+				<div class="rounded-ctl border border-black bg-ink-950 px-3 py-2 text-[13px]">
+					<span class="mr-2 caps text-accent">Reads as</span>
+					<span class="text-mist-100">{describe(f.kind, config(f))}</span>
+				</div>
 			</div>
 
 			{#if dry && dryFor === 'form'}
-				<div class="rounded-ctl border border-black bg-ink-950 p-3">{@render dryResult(dry)}</div>
+				<div class="rounded-ctl border border-black bg-ink-950 p-3">
+					{@render dryResult(dry, f.name)}
+				</div>
 			{/if}
 
 			<div class="flex flex-wrap justify-end gap-2 pt-2">
@@ -1208,12 +1257,15 @@
 					type="button"
 					class="mr-auto btn"
 					disabled={dryBusy}
-					onclick={() => dryRun(f.kind, config(f), 'form')}
+					onclick={() =>
+						dry && dryFor === 'form' ? (dry = null) : dryRun(f.kind, config(f), 'form', f.name)}
 					>{dryBusy
 						? 'Working…'
-						: f.kind === 'restart_notice'
-							? 'Preview next cycle'
-							: 'Dry run, last 24 h'}</button
+						: dry && dryFor === 'form'
+							? 'Back to the form'
+							: f.kind === 'restart_notice'
+								? 'Preview next cycle'
+								: 'Dry run, last 24 h'}</button
 				>
 				<button type="button" class="btn" data-close onclick={() => (form = null)}>Cancel</button>
 				<button type="submit" class="btn btn-primary" disabled={busy}
