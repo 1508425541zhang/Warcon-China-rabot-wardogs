@@ -290,10 +290,22 @@ const likeEscape = (s: string): string => s.replace(/[\\%_]/g, '\\$&');
 const sideIs = (needle: string, steamId: AnyPgColumn, name: AnyPgColumn) =>
 	STEAM_RE.test(needle) ? eq(steamId, needle) : ilike(name, `%${likeEscape(needle)}%`);
 
+/** A page boundary: the last row shown, as (ts, eventTime); eventTime null means ts alone. */
+export interface KillsBefore {
+	ts: Date;
+	eventTime: number | null;
+}
+
 /** The rows of one server the filter asks for, older than `before` when given. */
-function killWhere(serverId: string, before: Date | null, f: KillFilter): SQL {
+function killWhere(serverId: string, before: KillsBefore | null, f: KillFilter): SQL {
 	const conds: (SQL | undefined)[] = [eq(kills.serverId, serverId)];
-	if (before) conds.push(lt(kills.ts, before));
+	// A batch's kills share a receipt time, so a page boundary is the pair the feed sorts by.
+	if (before)
+		conds.push(
+			before.eventTime === null
+				? lt(kills.ts, before.ts)
+				: sql`(${kills.ts}, ${kills.eventTime}) < (${before.ts}, ${before.eventTime})`
+		);
 	if (f.killer) conds.push(sideIs(f.killer, kills.killerSteamId, kills.killerName));
 	if (f.victim) conds.push(sideIs(f.victim, kills.victimSteamId, kills.victimName));
 	if (f.player)
@@ -335,7 +347,7 @@ function killWhere(serverId: string, before: Date | null, f: KillFilter): SQL {
 export async function recentKills(
 	env: Env,
 	serverId: string,
-	before: Date | null,
+	before: KillsBefore | null,
 	limit: number,
 	filter: KillFilter
 ): Promise<KillView[]> {
