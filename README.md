@@ -481,10 +481,10 @@ nothing is precomputed.
 
 ### Public pages
 
-Two pages of a server can be opened to anyone with the address, each behind two switches: the
-site owner **allows** it for the organisation (on the org's page, next to the server limit), and
-an org owner **switches it on** for the server (in the server's edit dialog, or on its Discord
-tab). Nothing is public until both are set, and withdrawing an allowance closes the pages at once.
+Two pages of a server can be opened to anyone with the address. An org owner **switches each on**
+per server (in the server's edit dialog, or on its Discord tab); nothing is public until then.
+The site owner can **close** either page for a whole organisation from the org's page, next to
+the server limit, which shuts every such page in it at once.
 
 - **Live status** at `/s/<server id>`: map, mode, scores, player count, join code and who is on
   with kills and deaths, refreshed every twenty seconds.
@@ -530,9 +530,9 @@ The Orgs page shows every organisation with its creator, member and server count
 limit, and status. From there (or from an org's own page) the site owner can raise or lower an
 org's server limit and **suspend** it: members lose access to its servers, owners cannot add
 servers or mint links, and invite links stop working, until it is restored. Deleting an org removes
-its servers from the panel; the accounts stay. The org's page is also where the site owner
-**allows** the [public pages](#public-pages) (status page, leaderboards and careers) for that
-organisation; existing organisations start with nothing allowed.
+its servers from the panel; the accounts stay. The org's page is also where the site owner can
+**close** the [public pages](#public-pages) (status page, leaderboards and careers) for that
+organisation; they are allowed for every organisation unless closed there.
 
 ### Bots and API keys
 

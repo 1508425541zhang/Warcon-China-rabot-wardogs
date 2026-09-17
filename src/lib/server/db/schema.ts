@@ -188,11 +188,12 @@ export const organizations = pgTable('organizations', {
 	/** members who set a SteamID on their account get a reserved slot on every org server */
 	membersReserved: boolean('members_reserved').notNull().default(false),
 	/**
-	 * Site-owner allowances: what this org's owners may switch on per server. Each public surface
-	 * needs the allowance and the server's own switch; $lib/features computes the effective set.
+	 * Site-owner allowances: what this org's owners may switch on per server, allowed unless the
+	 * site owner withdraws it. Each public surface needs the allowance and the server's own
+	 * switch; $lib/features computes the effective set.
 	 */
-	allowPublicStatus: boolean('allow_public_status').notNull().default(false),
-	allowPublicLeaderboards: boolean('allow_public_leaderboards').notNull().default(false),
+	allowPublicStatus: boolean('allow_public_status').notNull().default(true),
+	allowPublicLeaderboards: boolean('allow_public_leaderboards').notNull().default(true),
 	/** a discord.gg or discord.com/invite link, shown as a button on the org's public pages; '' = none */
 	discordInviteUrl: text('discord_invite_url').notNull().default(''),
 	createdAt: ts('created_at').notNull().defaultNow(),
