@@ -517,7 +517,8 @@
 						<Badge tone="accent">reserved slot</Badge>
 						<span class="min-w-0 flex-1 truncate text-mist-400"
 							>{r.reason || 'org-wide'}{#if r.member}
-								· member{/if}</span
+								· member{/if}{#if r.expiresAt}
+								· until {fmtTime(r.expiresAt)}{/if}</span
 						>
 						<span class="inline-flex flex-wrap gap-1">
 							{#each r.servers as s (s.serverId)}
