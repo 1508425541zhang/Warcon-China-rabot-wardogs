@@ -57,12 +57,16 @@
 		score: number | null;
 		players: PublicStatus['roster'];
 	};
-	// One column per faction in scoreboard order, its players under its score; factions only the
-	// roster names (no score yet) follow. Players without a faction are listed in one row below.
+	// One column per faction on the scoreboard, in its order, with its players under its score.
+	// Anyone whose faction is not on the scoreboard (none, or the game's holding team, "White")
+	// is unassigned and listed in one row below. Without a scoreboard, the roster's own factions
+	// are the teams.
+	const isTeam = (faction: string | null): faction is string =>
+		!!faction && (!view.scores.length || view.scores.some((f) => f.name === faction));
 	let teams = $derived.by((): Team[] => {
 		const out: Team[] = view.scores.map((f) => ({ ...f, players: [] }));
 		for (const p of view.roster) {
-			if (!p.faction) continue;
+			if (!isTeam(p.faction)) continue;
 			let t = out.find((x) => x.name === p.faction);
 			if (!t) {
 				t = { name: p.faction, colorHex: null, score: null, players: [] };
@@ -72,7 +76,7 @@
 		}
 		return out;
 	});
-	let unassigned = $derived(view.roster.filter((p) => !p.faction).map((p) => p.name));
+	let unassigned = $derived(view.roster.filter((p) => !isTeam(p.faction)).map((p) => p.name));
 	let pct = $derived(
 		view.maxPlayers ? Math.min(100, Math.round((view.players / view.maxPlayers) * 100)) : 0
 	);
