@@ -91,12 +91,16 @@ export interface TeamKillConfig {
 	kickAt: number;
 	kickReason: string;
 }
+/** Where a Seeding reward's slot goes: this server's own list, or the organisation's (every server). */
+export type SeedScope = 'server' | 'org';
 /**
  * A reserved slot for players who stay while the server is low: time on with at most `lowAt`
- * players counts as seed time, and `minutes` of it within `windowDays` earns a slot on the
- * organisation's reserved list for `slotDays`. `message` is whispered on the grant ('' for none).
+ * players counts as seed time, and `minutes` of it within `windowDays` earns a slot for
+ * `slotDays`, on this server alone or across the organisation. `message` is whispered on the
+ * grant ('' for none). Rules saved before `scope` existed have none and hand out org-wide slots.
  */
 export interface SeedRewardConfig {
+	scope?: SeedScope;
 	lowAt: number;
 	/** count seed time only once the server has filled with the player still on */
 	untilFull: boolean;
@@ -259,6 +263,7 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 			if (fullAt !== null && fullAt <= lowAt)
 				throw new ApiError(400, 'Filled must be more players than the seeding threshold.');
 			return {
+				scope: c.scope === 'server' ? 'server' : 'org',
 				lowAt,
 				untilFull: c.untilFull === undefined ? true : !!c.untilFull,
 				fullAt,

@@ -17,8 +17,8 @@ import { isOwner, LostOwnership, withOwnedTransaction } from './leadership';
 import { settings } from './settings';
 import { recordDelivery, type Intent, type TriggerUpdate } from './triggers';
 import { memoryOf } from './observe';
-import { grantEntry, listOf } from './lists';
-import { getOrg, getServer, type OrgRow } from './access';
+import { grantEntry, listOf, serverListOf } from './lists';
+import { getOrg, getServer } from './access';
 import { gateway } from './gateway';
 import type { OutboxView } from '$lib/types';
 
@@ -192,23 +192,35 @@ async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 }
 
 /**
- * A Seeding reward is a panel action, not a game request: the player goes on the organisation's
- * reserved list for the rule's number of days from now. The seeded server is nudged to sync at
- * once; the org's other servers pick the entry up on their own next sync, as they would an
- * expiry, so a burst of grants is never a burst of fan-outs across the org. Earned slots do not
- * go stale, so the age cut-off does not apply, and the grant needs no server memory (the roster
- * may still be loading after a start).
+ * A Seeding reward is a panel action, not a game request: the player goes on the server's own
+ * reserved list, or the organisation's, for the rule's number of days from now. The seeded
+ * server is nudged to sync at once; with an org-wide slot the org's other servers pick the entry
+ * up on their own next sync, as they would an expiry, so a burst of grants is never a burst of
+ * fan-outs across the org. Earned slots do not go stale, so the age cut-off does not apply, and
+ * the grant needs no server memory (the roster may still be loading after a start).
  */
 async function deliverSeedReward(env: Env, row: OutboxRow): Promise<void> {
-	const p = row.params as { steamId: string; name: string; reason: string; slotDays: number };
+	const p = row.params as {
+		steamId: string;
+		name: string;
+		reason: string;
+		slotDays: number;
+		/** missing on rows from before the rule had a scope: those went org-wide */
+		scope?: 'server' | 'org';
+	};
 	stats.inFlight++;
 	try {
 		if (!isOwner()) throw new LostOwnership();
 		const m = memoryOf(row.serverId);
-		const org = m?.org ?? (await orgOfServer(env, row.serverId));
-		if (!org) return await finish(env, row, 'skipped', 'Server no longer exists.');
+		const server = m?.server ?? (await getServer(env, row.serverId));
+		const org = m?.org ?? (server ? await getOrg(env, server.orgId) : null);
+		if (!server || !org) return await finish(env, row, 'skipped', 'Server no longer exists.');
+		const here = p.scope === 'server';
+		const list = here
+			? await serverListOf(env, server, 'reserve')
+			: await listOf(env, org.id, 'reserve');
 		const expiresAt = new Date(Date.now() + p.slotDays * 86400_000);
-		const { added } = await grantEntry(env, await listOf(env, org.id, 'reserve'), {
+		const { added } = await grantEntry(env, list, {
 			steamId: p.steamId,
 			reason: p.reason,
 			expiresAt,
@@ -222,7 +234,7 @@ async function deliverSeedReward(env: Env, row: OutboxRow): Promise<void> {
 				env,
 				row,
 				'skipped',
-				`${p.steamId} already has a reserved slot in ${org.name}.`
+				`${p.steamId} already has a reserved slot ${here ? `on ${server.name}` : `in ${org.name}`}.`
 			);
 		if (m) {
 			m.syncAt = 0;
@@ -240,11 +252,6 @@ async function deliverSeedReward(env: Env, row: OutboxRow): Promise<void> {
 	} finally {
 		stats.inFlight--;
 	}
-}
-
-async function orgOfServer(env: Env, serverId: string): Promise<OrgRow | null> {
-	const server = await getServer(env, serverId);
-	return server ? getOrg(env, server.orgId) : null;
 }
 
 const messageOf = (r: unknown): string =>

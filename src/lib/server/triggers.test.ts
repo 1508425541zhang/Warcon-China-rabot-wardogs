@@ -112,6 +112,7 @@ describe('validateConfig', () => {
 			fullAt: 90
 		});
 		expect(validateConfig('seed_reward', { minutes: '45' })).toEqual({
+			scope: 'org',
 			lowAt: 20,
 			untilFull: true,
 			fullAt: null,
@@ -130,6 +131,7 @@ describe('validateConfig', () => {
 				message: ' thanks {name} '
 			})
 		).toEqual({
+			scope: 'org',
 			lowAt: 1,
 			untilFull: false,
 			fullAt: null,
@@ -137,6 +139,17 @@ describe('validateConfig', () => {
 			windowDays: 90,
 			slotDays: 1,
 			message: 'thanks {name}'
+		});
+	});
+	test('seed_reward keeps a slot on this server only when asked, org-wide otherwise', () => {
+		expect(validateConfig('seed_reward', { minutes: 60, scope: 'server' })).toMatchObject({
+			scope: 'server'
+		});
+		expect(validateConfig('seed_reward', { minutes: 60, scope: 'org' })).toMatchObject({
+			scope: 'org'
+		});
+		expect(validateConfig('seed_reward', { minutes: 60, scope: 'everywhere' })).toMatchObject({
+			scope: 'org'
 		});
 	});
 });
