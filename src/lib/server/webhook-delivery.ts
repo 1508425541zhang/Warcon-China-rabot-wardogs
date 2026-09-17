@@ -139,6 +139,7 @@ const ACTION_TITLES: Record<string, string> = {
 	'trigger.risk_kick': 'Trigger · risk kick',
 	'trigger.restart_notice': 'Trigger · restart notice',
 	'trigger.team_kill': 'Trigger · team kill limit',
+	'trigger.match_broadcast': 'Trigger · match broadcast',
 	'player.note': 'Player note',
 	'player.watch': 'Watchlist',
 	'list.add': 'Org list · added',
