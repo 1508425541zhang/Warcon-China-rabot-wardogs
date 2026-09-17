@@ -48,11 +48,31 @@
 	let leader = $derived(
 		view.scores.length ? [...view.scores].sort((a, b) => b.score - a.score)[0].name : null
 	);
+	type Team = {
+		name: string;
+		colorHex: string | null;
+		score: number | null;
+		players: PublicStatus['roster'];
+	};
+	// One column per faction in scoreboard order, its players under its score; factions only the
+	// roster names (no score yet) follow, and players without a faction come last.
+	let teams = $derived.by((): Team[] => {
+		const out: Team[] = view.scores.map((f) => ({ ...f, players: [] }));
+		const unassigned: Team = { name: 'No team yet', colorHex: null, score: null, players: [] };
+		for (const p of view.roster) {
+			let t = p.faction ? out.find((x) => x.name === p.faction) : unassigned;
+			if (!t) {
+				t = { name: p.faction!, colorHex: null, score: null, players: [] };
+				out.push(t);
+			}
+			t.players.push(p);
+		}
+		if (unassigned.players.length) out.push(unassigned);
+		return out;
+	});
 	let pct = $derived(
 		view.maxPlayers ? Math.min(100, Math.round((view.players / view.maxPlayers) * 100)) : 0
 	);
-	const colorOf = (faction: string | null) =>
-		view.scores.find((f) => f.name === faction)?.colorHex || '#5E5E66';
 	async function copy(text: string) {
 		try {
 			await navigator.clipboard.writeText(text);
@@ -116,40 +136,6 @@
 			</div>
 		{/if}
 
-		{#if view.scores.length}
-			<div
-				class="mt-3 grid gap-2"
-				style="grid-template-columns: repeat({view.scores.length}, minmax(0, 1fr))"
-			>
-				{#each view.scores as f (f.name)}
-					<div class="panel px-3 py-3">
-						<div class="truncate caps" style="color:{f.colorHex || 'inherit'}">{f.name}</div>
-						<div
-							class="mt-0.5 font-display text-3xl leading-none font-semibold tabular {f.name ===
-							leader
-								? 'text-mist-100'
-								: 'text-mist-400'}"
-						>
-							{fmtNum(f.score)}
-						</div>
-						<div class="mt-2 progress">
-							<span
-								class="progress-bar"
-								style="width:{Math.min(
-									100,
-									Math.round((f.score / cap) * 100)
-								)}%; background:{f.colorHex || 'var(--color-accent)'}"
-							></span>
-						</div>
-					</div>
-				{/each}
-			</div>
-			<div class="mt-1.5 text-[12px] text-mist-600">
-				First to {cap}{#if view.matchSeconds !== null}
-					· {fmtDuration(view.matchSeconds)} played{/if}
-			</div>
-		{/if}
-
 		<div class="mt-3 panel py-4">
 			<div class="flex items-baseline justify-between gap-3">
 				<span class="caps text-mist-400">Players</span>
@@ -183,41 +169,80 @@
 
 	<div>
 		{#if view.ok}
-			<div class="table-wrap">
-				<table>
-					<thead>
-						<tr><th>Player</th><th>Faction</th><th class="num">K</th><th class="num">D</th></tr>
-					</thead>
-					<tbody>
-						<!-- unkeyed: names are not unique -->
-						{#each view.roster as p}
-							<tr>
-								<td class="max-w-[220px] truncate">{p.name}</td>
-								<td>
-									{#if p.faction}
-										<span class="inline-flex items-center gap-1.5">
-											<span
-												class="inline-block h-2.5 w-2.5 rounded-full"
-												style="background:{colorOf(p.faction)}"
-											></span>{p.faction}
-										</span>
-									{:else}<span class="text-mist-600">unassigned</span>{/if}
-								</td>
-								<td class="num">{p.kills}</td>
-								<td class="num">{p.deaths}</td>
-							</tr>
-						{:else}
-							<tr
-								><td colspan="4" class="py-6 text-center text-mist-600">Nobody on right now.</td
-								></tr
-							>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+			{#if teams.length}
+				<div
+					class="grid grid-cols-1 gap-3 sm:grid-cols-[repeat(var(--teams),minmax(0,1fr))]"
+					style="--teams:{teams.length}"
+				>
+					{#each teams as t (t.name)}
+						<div class="table-wrap">
+							<div class="border-b border-black bg-ink-900 px-3 py-3">
+								<div class="flex items-baseline justify-between gap-2">
+									<span class="truncate caps" style="color:{t.colorHex || 'inherit'}">{t.name}</span
+									>
+									{#if t.score !== null}
+										<span
+											class="font-display text-2xl leading-none font-semibold tabular {t.name ===
+											leader
+												? 'text-mist-100'
+												: 'text-mist-400'}">{fmtNum(t.score)}</span
+										>
+									{/if}
+								</div>
+								{#if t.score !== null}
+									<div class="mt-2 progress">
+										<span
+											class="progress-bar"
+											style="width:{Math.min(
+												100,
+												Math.round((t.score / cap) * 100)
+											)}%; background:{t.colorHex || 'var(--color-accent)'}"
+										></span>
+									</div>
+								{/if}
+							</div>
+							<table class="team">
+								<thead>
+									<tr><th>Player</th><th class="num">K</th><th class="num">D</th></tr>
+								</thead>
+								<tbody>
+									<!-- unkeyed: names are not unique -->
+									{#each t.players as p}
+										<tr>
+											<td class="max-w-[220px] truncate">{p.name}</td>
+											<td class="num">{p.kills}</td>
+											<td class="num">{p.deaths}</td>
+										</tr>
+									{:else}
+										<tr><td colspan="3" class="py-4 text-center text-mist-600">Nobody yet.</td></tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/each}
+				</div>
+				{#if view.scores.length}
+					<div class="mt-1.5 text-[12px] text-mist-600">
+						First to {cap}{#if view.matchSeconds !== null}
+							· {fmtDuration(view.matchSeconds)} played{/if}
+					</div>
+				{/if}
+			{:else}
+				<div class="table-wrap py-6 text-center text-mist-600">Nobody on right now.</div>
+			{/if}
 			<div class="mt-3 text-[12px] text-mist-600">
 				{#if view.observedAt}Updated {fmtAgo(view.observedAt, now)}.{/if}
 			</div>
 		{/if}
 	</div>
 </div>
+
+<style>
+	/* Three team tables side by side leave little room: tighter cells than the console's tables. */
+	table.team :is(th, td) {
+		padding-inline: 12px;
+	}
+	table.team td {
+		padding-block: 6px;
+	}
+</style>
