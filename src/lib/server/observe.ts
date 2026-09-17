@@ -477,20 +477,21 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	// Seed time: while a seeding rule is on and the server is at or under its threshold, everyone
 	// still on earns the time since the previous look at the list (on the same terms as a join is
 	// trusted: a recent look, so they were on throughout), held as pending. It banks the moment
-	// the count climbs past the threshold with the player still on; leaving first forfeits it, so
-	// sitting on an empty server that never fills earns nothing.
+	// the server is filled (the rule's line, else the limit the server reports) with the player
+	// still on; leaving first forfeits it, so sitting on an empty server that never fills earns
+	// nothing. In between, pending waits.
 	const seed = seedRule(rows);
 	if (players && seed) {
-		if (players.length <= seed.lowAt) {
-			if (joinsTrusted)
-				for (const { session } of diff.stayed)
-					if (seed.untilFull) session.pendingSeedMs += gapMs;
-					else session.seedMs += gapMs;
-		} else
+		const fullAt = seed.fullAt ?? m.status?.maxPlayers ?? Infinity;
+		if (players.length >= fullAt)
 			for (const { session } of diff.stayed) {
 				session.seedMs += session.pendingSeedMs;
 				session.pendingSeedMs = 0;
 			}
+		else if (players.length <= seed.lowAt && joinsTrusted)
+			for (const { session } of diff.stayed)
+				if (seed.untilFull) session.pendingSeedMs += gapMs;
+				else session.seedMs += gapMs;
 	}
 
 	const s = settings();

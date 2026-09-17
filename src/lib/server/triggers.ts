@@ -51,6 +51,7 @@ import {
 	type FactionPick,
 	type RestartNoticeConfig,
 	type RestartNoticeState,
+	fullMoments,
 	lowStretches,
 	seedReplay,
 	type RiskKickConfig,
@@ -589,7 +590,7 @@ function evalRestartNotice(
 // Above the threshold nobody is earning, so nothing is checked; the fleet's busy servers cost
 // nothing here.
 const SEED_CHECK_MS = 60_000;
-const seedState = new Map<string, { checkedAt: number; low: boolean }>();
+const seedState = new Map<string, { checkedAt: number; low: boolean; full: boolean }>();
 
 const dateOf = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -604,12 +605,18 @@ async function evalSeedReward(
 	// handed an org-wide entry because the worker has not read the list yet.
 	if (!ctx.reservedLoaded) return;
 	const now = ctx.ts.getTime();
-	const state = seedState.get(row.id) ?? { checkedAt: 0, low: false };
+	const state = seedState.get(row.id) ?? { checkedAt: 0, low: false, full: false };
 	const low = ctx.players.length <= cfg.lowAt;
-	// Every minute while low, once more as the count climbs out of the band (for whoever crossed
-	// the target since the last check), and not at all otherwise.
-	const due = low ? now - state.checkedAt >= SEED_CHECK_MS : state.low;
-	seedState.set(row.id, { checkedAt: due ? now : state.checkedAt, low });
+	const full = ctx.players.length >= (cfg.fullAt ?? ctx.status.maxPlayers);
+	// Every minute while low (returning players may already hold enough banked time); once when
+	// the seed time banks, which is the moment the server fills, or, when every low minute
+	// counts, as the count climbs out of the band; and not at all otherwise.
+	const due = low
+		? now - state.checkedAt >= SEED_CHECK_MS
+		: cfg.untilFull
+			? full && !state.full
+			: state.low;
+	seedState.set(row.id, { checkedAt: due ? now : state.checkedAt, low, full });
 	if (!due) return;
 	const candidates = ctx.players.filter((p) => !ctx.reserved.has(p.steamId));
 	if (!candidates.length) return;
@@ -954,6 +961,7 @@ export async function dryRun(
 			ts: samples.ts,
 			ok: samples.ok,
 			count: samples.playerCount,
+			max: samples.maxPlayers,
 			map: samples.map,
 			experiences: samples.experiences
 		})
@@ -989,8 +997,13 @@ export async function dryRun(
 			result.notes.push(
 				'Only the first 5000 sessions of the window were replayed; later ones are not shown.'
 			);
+		const fulls = fullMoments(
+			rows.map((r) => ({ ts: r.ts.getTime(), ok: r.ok, count: r.count ?? 0, max: r.max ?? 0 })),
+			c.fullAt
+		);
 		const totals = seedReplay(
 			stretches,
+			fulls,
 			sessions.map((s) => ({
 				steamId: s.steamId,
 				joinedAt: s.joinedAt.getTime(),
