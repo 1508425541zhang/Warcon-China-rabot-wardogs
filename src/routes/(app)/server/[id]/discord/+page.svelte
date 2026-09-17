@@ -129,9 +129,8 @@
 	</p>
 	{#if data.owner && !data.https}
 		<div class="callout mb-3 border-warn/30 bg-warn/12">
-			<b>Cards will go out without pictures.</b> Discord only fetches map art and icons over https,
-			and this panel is on {new URL(location.href).protocol.replace(':', '')}. Everything else on
-			the card works.
+			<b>Cards will go out without pictures.</b> Discord only fetches map art and icons over https, and
+			this panel is not on https. Everything else on the card works.
 		</div>
 	{/if}
 	{#if !data.owner}
