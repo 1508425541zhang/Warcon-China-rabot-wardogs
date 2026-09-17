@@ -111,6 +111,12 @@
 			label: 'Team kill limit',
 			blurb:
 				'Whisper a player over team kills, and kick them past a limit. Needs the kill feed (Configuration tab).'
+		},
+		{
+			kind: 'seed_reward',
+			label: 'Seeding reward',
+			blurb:
+				'Hand players who stay while the server is low a reserved slot on the organisation’s list for a while.'
 		}
 	];
 	const label = (kind: TriggerKind) => KINDS.find((k) => k.kind === kind)?.label ?? kind;
@@ -145,6 +151,10 @@
 		warnMessage: string;
 		kickAt: number;
 		kickReason: string;
+		lowAt: number;
+		minutes: number;
+		windowDays: number;
+		slotDays: number;
 	}
 	let form = $state<Form | null>(null);
 	let picker = $state<MapPicker>();
@@ -178,7 +188,9 @@
 					? 'You are now fighting for {faction}, {name}.'
 					: kind === 'restart_notice'
 						? 'Scheduled restart: the server restarts when this round ends. Rejoin in a minute or two.'
-						: 'Welcome to {server}, {name}! Read the rules with /rules.'
+						: kind === 'seed_reward'
+							? 'Thanks for seeding {server}, {name}: you have a reserved slot until {until}.'
+							: 'Welcome to {server}, {name}! Read the rules with /rules.'
 			),
 			onlyFirstVisit: b('onlyFirstVisit', false),
 			afterFaction: b('afterFaction', false),
@@ -211,7 +223,11 @@
 				'Careful, {name}: that was a team kill ({count} this session).'
 			),
 			kickAt: n('kickAt', 4),
-			kickReason: s('kickReason', 'Team killing ({count} this session).')
+			kickReason: s('kickReason', 'Team killing ({count} this session).'),
+			lowAt: n('lowAt', 20),
+			minutes: n('minutes', 60),
+			windowDays: n('windowDays', 7),
+			slotDays: n('slotDays', 7)
 		};
 		dry = null;
 		pendingSel =
@@ -274,6 +290,14 @@
 					warnMessage: f.warnMessage,
 					kickAt: Number(f.kickAt),
 					kickReason: f.kickReason
+				};
+			case 'seed_reward':
+				return {
+					lowAt: Number(f.lowAt),
+					minutes: Number(f.minutes),
+					windowDays: Number(f.windowDays),
+					slotDays: Number(f.slotDays),
+					message: f.message
 				};
 		}
 	}
@@ -361,6 +385,8 @@
 					.filter(Boolean)
 					.join(' · ')
 					.concat(' · per session');
+			case 'seed_reward':
+				return `${c.minutes} min with ${c.lowAt} or fewer on, within ${c.windowDays} day${c.windowDays === 1 ? '' : 's'} · slot for ${c.slotDays} day${c.slotDays === 1 ? '' : 's'}${c.message ? ' · whispers' : ''}`;
 		}
 	}
 </script>
@@ -787,6 +813,68 @@
 					>
 					<span class="chip">{'{victim}'}</span> <span class="chip">{'{count}'}</span>
 					<span class="chip">{'{server}'}</span> <span class="chip">{'{map}'}</span>.
+				</p>
+			{:else if f.kind === 'seed_reward'}
+				<div class="grid grid-cols-2 gap-3">
+					<label class="block"
+						><span class="field-label">Counts as seeding: at most (players on)</span><input
+							class="input"
+							type="number"
+							min="1"
+							max="1000"
+							bind:value={f.lowAt}
+							required
+						/></label
+					>
+					<label class="block"
+						><span class="field-label">Seed time needed (minutes)</span><input
+							class="input"
+							type="number"
+							min="1"
+							max="129600"
+							bind:value={f.minutes}
+							required
+						/></label
+					>
+					<label class="block"
+						><span class="field-label">Counted over the last (days)</span><input
+							class="input"
+							type="number"
+							min="1"
+							max="90"
+							bind:value={f.windowDays}
+							required
+						/></label
+					>
+					<label class="block"
+						><span class="field-label">Reserved slot lasts (days)</span><input
+							class="input"
+							type="number"
+							min="1"
+							max="365"
+							bind:value={f.slotDays}
+							required
+						/></label
+					>
+				</div>
+				<label class="block"
+					><span class="field-label">Whisper on the grant (blank for none)</span><input
+						class="input"
+						type="text"
+						bind:value={f.message}
+						maxlength="200"
+					/></label
+				>
+				<p class="note">
+					Every minute a player is on with that many or fewer players counts as seed time. When it
+					reaches the target within the window, the player goes on the organisation's reserved-slot
+					list with that expiry: this server applies it at once, the organisation's other servers at
+					their next sync, and it can be earned again once it lapses. Players who already hold a
+					reserved slot are skipped. Placeholders: <span class="chip">{'{name}'}</span>
+					<span class="chip">{'{server}'}</span>
+					<span class="chip">{'{minutes}'}</span> <span class="chip">{'{until}'}</span>
+					<span class="chip">{'{days}'}</span> <span class="chip">{'{players}'}</span>
+					<span class="chip">{'{max}'}</span>.
 				</p>
 			{/if}
 

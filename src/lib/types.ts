@@ -448,7 +448,8 @@ export type TriggerKind =
 	| 'empty_reset'
 	| 'risk_kick'
 	| 'restart_notice'
-	| 'team_kill';
+	| 'team_kill'
+	| 'seed_reward';
 
 export interface TriggerView {
 	id: string;

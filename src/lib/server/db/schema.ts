@@ -428,7 +428,10 @@ export const playerSessions = pgTable(
 		leftAt: ts('left_at'),
 		kills: integer('kills').notNull().default(0),
 		deaths: integer('deaths').notNull().default(0),
-		cash: integer('cash').notNull().default(0)
+		cash: integer('cash').notNull().default(0),
+		/** seconds of this session spent with the player count at or under the server's seeding
+		 *  threshold (0 while no seeding rule is on); what a Seeding reward rule adds up */
+		seedSeconds: integer('seed_seconds').notNull().default(0)
 	},
 	(t) => [
 		index('player_sessions_open_idx').on(t.serverId, t.leftAt),
@@ -597,7 +600,8 @@ export const triggers = pgTable(
 				'empty_reset',
 				'risk_kick',
 				'restart_notice',
-				'team_kill'
+				'team_kill',
+				'seed_reward'
 			]
 		}).notNull(),
 		name: text('name').notNull(),

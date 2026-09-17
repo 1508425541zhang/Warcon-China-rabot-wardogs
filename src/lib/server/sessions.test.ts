@@ -19,6 +19,7 @@ const open = (steamId: string): OpenSession => ({
 	kills: 0,
 	deaths: 0,
 	cash: 0,
+	seedMs: 0,
 	joinedAt: 1000,
 	lastSeen: 2000,
 	writtenAt: 2000,

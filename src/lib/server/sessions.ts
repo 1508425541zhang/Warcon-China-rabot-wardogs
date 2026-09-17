@@ -15,6 +15,8 @@ export interface OpenSession {
 	kills: number;
 	deaths: number;
 	cash: number;
+	/** time on with the player count at or under the seeding threshold (observe.ts adds it up) */
+	seedMs: number;
 	joinedAt: number;
 	lastSeen: number;
 	/** what the database currently holds for last_seen */
@@ -55,6 +57,7 @@ export async function loadPresence(
 			kills: r.kills,
 			deaths: r.deaths,
 			cash: r.cash,
+			seedMs: r.seedSeconds * 1000,
 			joinedAt: r.joinedAt.getTime(),
 			lastSeen: r.lastSeen.getTime(),
 			writtenAt: r.lastSeen.getTime(),
@@ -132,7 +135,8 @@ export async function persistPresence(
 	if (diff.left.length) {
 		await db.execute(sql`
 			UPDATE player_sessions AS s SET left_at = v.left_at, last_seen = v.left_at,
-			       name = v.name, faction = v.faction, kills = v.kills, deaths = v.deaths, cash = v.cash
+			       name = v.name, faction = v.faction, kills = v.kills, deaths = v.deaths, cash = v.cash,
+			       seed_seconds = v.seed_seconds
 			  FROM jsonb_to_recordset(${json(
 					diff.left.map((s) => ({
 						id: s.id,
@@ -141,9 +145,10 @@ export async function persistPresence(
 						faction: s.faction,
 						kills: s.kills,
 						deaths: s.deaths,
-						cash: s.cash
+						cash: s.cash,
+						seed_seconds: Math.round(s.seedMs / 1000)
 					}))
-				)}) AS v(id bigint, left_at timestamptz, name text, faction text, kills int, deaths int, cash int)
+				)}) AS v(id bigint, left_at timestamptz, name text, faction text, kills int, deaths int, cash int, seed_seconds int)
 			 WHERE s.id = v.id AND s.left_at IS NULL`);
 		for (const s of diff.left) presence.open.delete(s.steamId);
 	}
@@ -175,6 +180,7 @@ export async function persistPresence(
 				kills: p.kills,
 				deaths: p.deaths,
 				cash: p.cash,
+				seedMs: 0,
 				joinedAt: now,
 				lastSeen: now,
 				writtenAt: now,
@@ -195,7 +201,8 @@ export async function persistPresence(
 	if (heartbeatDue && diff.stayed.length) {
 		await db.execute(sql`
 			UPDATE player_sessions AS s SET last_seen = v.last_seen,
-			       name = v.name, faction = v.faction, kills = v.kills, deaths = v.deaths, cash = v.cash
+			       name = v.name, faction = v.faction, kills = v.kills, deaths = v.deaths, cash = v.cash,
+			       seed_seconds = v.seed_seconds
 			  FROM jsonb_to_recordset(${json(
 					diff.stayed.map(({ session: s }) => ({
 						id: s.id,
@@ -204,9 +211,10 @@ export async function persistPresence(
 						faction: s.faction,
 						kills: s.kills,
 						deaths: s.deaths,
-						cash: s.cash
+						cash: s.cash,
+						seed_seconds: Math.round(s.seedMs / 1000)
 					}))
-				)}) AS v(id bigint, last_seen timestamptz, name text, faction text, kills int, deaths int, cash int)
+				)}) AS v(id bigint, last_seen timestamptz, name text, faction text, kills int, deaths int, cash int, seed_seconds int)
 			 WHERE s.id = v.id AND s.left_at IS NULL`);
 		for (const { session: s } of diff.stayed) s.writtenAt = now;
 		presence.heartbeatAt = now;
