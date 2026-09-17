@@ -384,11 +384,14 @@ writes both keys into the config document and applies; the game reads them at it
 (its own twelve-hour one, or a manual restart). The card shows when the last batch arrived, so a
 config that did not take is visible.
 
-What the feed adds: a live kill feed on the server's Overview tab, a **Combat** section on
-Analytics (kills per bucket, weapons, longest kills, top killers with headshot share and team
-kills), a Combat card on every player dossier (weapons, most-killed, nemeses, recent kills and
-deaths), and the team-kill trigger. Team kills are inferred: the feed carries no factions, so
-Warcon uses the factions it observed for both players at that moment. Kills are history and are
+What the feed adds: a live kill feed on the server's Overview tab, a **Kills** tab with the whole
+history (filter by killer, victim, either side, weapon or vehicle, kind of kill and minimum
+distance, with a count, older pages and new kills arriving live; the filter lives in the URL, so a
+view can be shared), a **Combat** section on Analytics (kills per bucket, weapons, longest kills,
+top killers with headshot share and team kills), a Combat card on every player dossier (weapons,
+most-killed, nemeses, recent kills and deaths), and the team-kill trigger. Team kills are
+inferred: the feed carries no factions, so Warcon uses the factions it observed for both players
+at that moment. Kills are history and are
 never pruned (a TimescaleDB hypertable with compression where the extension is installed). The
 demo server feeds itself once its feed is turned on.
 
@@ -625,7 +628,8 @@ GET/POST /api/servers {orgId,...}  PATCH/DELETE /api/servers/:id  POST /api/serv
 GET/PUT /api/servers/:id/grants {grants:[{userId,roleId}]}   GET /api/servers/:id/summary
 GET|POST /api/servers/:id/rcon/:action   (GET for reads with query params, POST JSON for mutations)
 GET  /api/servers/:id/analytics?range=24h|7d|30d       includes `combat` from the kill feed when the server has one
-GET  /api/servers/:id/kills?before=<iso>&limit=50       the stored kill feed, newest first; `kills` frames on /api/live/events carry new ones
+GET  /api/servers/:id/kills?before=<iso>&beforeTime=<s>&limit=50&count=1   the stored kill feed, newest first; `count=1` adds the total; `kills` frames on /api/live/events carry new ones
+     &killer=&victim=&player=&cause=&kind=&minM=            filters: a SteamID exactly, else part of a name; the raw cause tag; kind headshot|teamKill|suicide|vehicle|environment; metres at least
 GET/POST/DELETE /api/servers/:id/feed                   the kill feed setup: token and URL (POST mints or replaces, owners only)
 POST /api/feed/events                                   where the game posts (Authorization: Bearer wkf_…); not a panel route
 GET  /api/servers/:id/cash?since=<iso>                  cash-in-play samples since a moment (24 h at most), seeds the dashboard chart
