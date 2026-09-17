@@ -491,10 +491,10 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	// trusted: a recent look, so they were on throughout), held as pending. It banks the moment
 	// the server is filled (the rule's line, else the limit the server reports) with the player
 	// still on; leaving first forfeits it, so sitting on an empty server that never fills earns
-	// nothing. In between, pending waits.
+	// nothing. In between, pending waits. A server that reports no limit never fills on its own.
 	const seed = seedRule(rows);
 	if (players && seed) {
-		const fullAt = seed.fullAt ?? m.status?.maxPlayers ?? Infinity;
+		const fullAt = seed.fullAt ?? (m.status?.maxPlayers || Infinity);
 		if (players.length >= fullAt)
 			for (const { session } of diff.stayed) {
 				session.seedMs += session.pendingSeedMs;
