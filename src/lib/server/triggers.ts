@@ -6,7 +6,8 @@
 //   empty_reset  send an empty server back to a chosen map after N minutes
 //   risk_kick    kick joiners who match Steam / ban-list rules (see risk.ts)
 //   team_kill    whisper or kick a player over team kills the kill feed reports (feed-events.ts)
-//   seed_reward  hand players who stay through a low population a reserved slot on the org list
+//   seed_reward  hand players who stay through a low population a reserved slot, on this server
+//                or across the org
 // The worker evaluates them on every observation and writes the actions they want to the outbox
 // (outbox.ts delivers, and every delivery lands in the audit trail as category "trigger"). A dry
 // run replays the last 24 hours from the samples and sessions tables so a rule can be checked
@@ -105,14 +106,22 @@ async function triggerOf(env: Env, serverId: string, id: string): Promise<Trigge
 }
 
 /**
- * A rule that writes outside the server needs the capability an admin would need to do it by
- * hand: the Seeding reward puts players on the organisation's reserved list.
+ * A rule that hands out something needs the capability an admin would need to do it by hand:
+ * the Seeding reward reserves slots on this server, or on the organisation's list.
  */
-function requireRuleCaps(kind: TriggerKind, server: ServerRow, access: ServerAccess): void {
-	if (kind !== 'seed_reward' || access.caps.has('lists.edit')) return;
+function requireRuleCaps(
+	kind: TriggerKind,
+	config: unknown,
+	server: ServerRow,
+	access: ServerAccess
+): void {
+	if (kind !== 'seed_reward') return;
+	const orgWide = (config as SeedRewardConfig).scope !== 'server';
+	const cap = orgWide ? 'lists.edit' : 'slots.manage';
+	if (access.caps.has(cap)) return;
 	throw new ApiError(
 		403,
-		`A ${TRIGGER_LABELS[kind]} rule edits the organisation's reserved-slot list, which needs '${CAPABILITY_INFO['lists.edit'].label}' on ${server.name}; your role '${access.roleName}' does not include it.`,
+		`A ${TRIGGER_LABELS[kind]} rule ${orgWide ? "edits the organisation's reserved-slot list" : 'reserves slots on this server'}, which needs '${CAPABILITY_INFO[cap].label}' on ${server.name}; your role '${access.roleName}' does not include it.`,
 		'forbidden'
 	);
 }
@@ -127,8 +136,8 @@ export async function createTrigger(
 ): Promise<TriggerView> {
 	if (!isTriggerKind(body.kind)) throw new ApiError(400, 'Unknown trigger kind.');
 	const kind = body.kind;
-	requireRuleCaps(kind, server, access);
 	const config = validateConfig(kind, body.config);
+	requireRuleCaps(kind, config, server, access);
 	const name = str(body.name, 60) || TRIGGER_LABELS[kind];
 	// Seed time is one count per server, taken against one threshold, so one rule holds it.
 	if (kind === 'seed_reward') {
@@ -181,11 +190,11 @@ export async function updateTrigger(
 	body: Record<string, unknown>
 ): Promise<TriggerView> {
 	const row = await triggerOf(env, server.id, id);
-	requireRuleCaps(row.kind, server, access);
 	const set: Partial<typeof triggers.$inferInsert> = {};
 	if (body.name !== undefined) set.name = str(body.name, 60) || row.name;
 	if (body.enabled !== undefined) set.enabled = !!body.enabled;
 	if (body.config !== undefined) set.config = validateConfig(row.kind, body.config);
+	requireRuleCaps(row.kind, set.config ?? row.config, server, access);
 	if (!Object.keys(set).length) throw new ApiError(400, 'Nothing to update.');
 	set.updatedAt = new Date();
 	const [updated] = await env.db
@@ -696,7 +705,13 @@ async function evalSeedReward(
 		out.intents.push({
 			trigger: row,
 			action: 'seed_reward',
-			params: { steamId: p.steamId, name: p.name, reason, slotDays: cfg.slotDays },
+			params: {
+				steamId: p.steamId,
+				name: p.name,
+				reason,
+				slotDays: cfg.slotDays,
+				scope: cfg.scope === 'server' ? 'server' : 'org'
+			},
 			target: p.steamId,
 			okMessage: `Reserved a slot for ${p.name}.`,
 			detail: { name: p.name, minutes, slotDays: cfg.slotDays },
@@ -1081,7 +1096,7 @@ export async function dryRun(
 			const at = new Date(t.crossedAt!);
 			push(
 				at,
-				`reserve ${names.get(steamId)} (${steamId}) until ${dateOf(new Date(at.getTime() + c.slotDays * 86400_000))}: ${Math.floor(t.seconds / 60)} min with ${c.lowAt} or fewer on`
+				`reserve ${names.get(steamId)} (${steamId}) ${c.scope === 'server' ? 'here' : 'across the organisation'} until ${dateOf(new Date(at.getTime() + c.slotDays * 86400_000))}: ${Math.floor(t.seconds / 60)} min with ${c.lowAt} or fewer on`
 			);
 		}
 		const lowMinutes = Math.round(stretches.reduce((n, l) => n + (l.to - l.from), 0) / 60_000);
