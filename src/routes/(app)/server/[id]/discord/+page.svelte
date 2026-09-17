@@ -19,8 +19,10 @@
 	let label = $state('');
 	let url = $state('');
 	let style = $state<StatusStyle>('banner');
-	let wantCard = $state(true);
-	let wantTeamKills = $state(false);
+	/** what the new channel is for; the card style only matters when a card is part of it */
+	let carry = $state<'card' | 'teamkills' | 'both'>('card');
+	let wantCard = $derived(carry !== 'teamkills');
+	let wantTeamKills = $derived(carry !== 'card');
 	let busy = $state(false);
 
 	async function run(fn: () => Promise<unknown>, done: string) {
@@ -36,7 +38,6 @@
 		}
 	}
 	async function add() {
-		if (!wantCard && !wantTeamKills) return;
 		await run(
 			() =>
 				api('POST', `${orgPath}/webhooks`, {
@@ -234,23 +235,34 @@
 					/></label
 				>
 			</div>
-			<div class="flex flex-wrap items-center gap-x-6 gap-y-2">
-				<span class="field-label mb-0">This channel carries</span>
-				<label class="flex items-center gap-2 text-[13px]"
-					><input type="checkbox" bind:checked={wantCard} /> Live status card</label
-				>
-				<label class="flex items-center gap-2 text-[13px]"
-					><input type="checkbox" bind:checked={wantTeamKills} /> Team kills</label
-				>
-				{#if wantCard}
-					<select id="discord-style" class="input w-40" bind:value={style} aria-label="Card style">
-						{#each STATUS_STYLES as st (st)}<option value={st}>{st}</option>{/each}
-					</select>
-				{/if}
+			<div>
+				<span class="field-label">What goes in this channel</span>
+				<div class="flex flex-wrap gap-x-6 gap-y-2">
+					<label class="flex items-center gap-2 text-[13px]"
+						><input type="radio" name="carry" value="card" bind:group={carry} /> The live status card</label
+					>
+					<label class="flex items-center gap-2 text-[13px]"
+						><input type="radio" name="carry" value="teamkills" bind:group={carry} /> Team kills</label
+					>
+					<label class="flex items-center gap-2 text-[13px]"
+						><input type="radio" name="carry" value="both" bind:group={carry} /> Both</label
+					>
+				</div>
 			</div>
-			{#if wantCard}<p class="note">{STATUS_STYLE_LABELS[style]}</p>{/if}
+			{#if wantCard}
+				<label class="block sm:w-60"
+					><span class="field-label">Card style</span><select
+						id="discord-style"
+						class="input"
+						bind:value={style}
+					>
+						{#each STATUS_STYLES as st (st)}<option value={st}>{st}</option>{/each}
+					</select></label
+				>
+				<p class="note">{STATUS_STYLE_LABELS[style]}</p>
+			{/if}
 			{#if wantTeamKills}<p class="note">
-					Team kills need the kill feed, set up on the Configuration tab.
+					One message per team kill, as the kill feed reports it (set up on the Configuration tab).
 				</p>{/if}
 			<p class="note">
 				In Discord, open the channel's settings → Integrations → Webhooks → New Webhook, copy its
@@ -258,11 +270,7 @@
 				panel to be reachable over https.
 			</p>
 			<div class="flex justify-end">
-				<button
-					type="submit"
-					class="btn btn-primary"
-					disabled={busy || (!wantCard && !wantTeamKills)}>Connect channel</button
-				>
+				<button type="submit" class="btn btn-primary" disabled={busy}>Connect channel</button>
 			</div>
 		</form>
 	{/if}
