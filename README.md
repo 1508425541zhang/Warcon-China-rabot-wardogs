@@ -319,7 +319,7 @@ the list has been applied on each server, and the form that hands out a slot eve
 Players tab or a dossier and choose _every server in the organisation_ (the default, when you may
 edit the org list) or _this server only_. Org owners and
 anyone whose role on one of the org's servers includes _Org lists_ can edit the lists; a ban can carry a reason and
-an expiry, a reserved slot a note.
+an expiry, a reserved slot a note and an expiry.
 
 Each entry shows where it stands on every server: **applied** by the panel, **pending** the next
 sync, **failed** (hover for the server's answer), or **local**. Local means the player was already
@@ -334,8 +334,9 @@ promoted the same way (owners), or added to the org list while this server's own
 (list editors). Every dossier shows the player's standing on the org lists and lets an editor ban
 or unban org-wide, or hand out and withdraw a reserved slot, without leaving the page.
 
-A ban with an **expiry** is lifted by the panel when the time comes: the entry moves to the list's
-history as expired and the next sync removes it from every server the panel applied it to. With
+A ban or reserved slot with an **expiry** is lifted by the panel when the time comes: the entry
+moves to the list's history as expired and the next sync removes it from every server the panel
+applied it to. With
 **Members get a reserved slot** on (an owner's switch on the Reserved slots tab), every member of
 the organisation who linked a SteamID on their Account page is reserved a slot on all its servers,
 skipped while the org has them banned.
