@@ -8,6 +8,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import MapPicker from '$lib/components/MapPicker.svelte';
+	import RowMenu from '$lib/components/RowMenu.svelte';
 	import SortHeader from '$lib/components/SortHeader.svelte';
 	import { TableSort, matches } from '$lib/table.svelte';
 	import { watchLive } from '$lib/live';
@@ -74,52 +75,91 @@
 					? 'warn'
 					: 'err';
 
-	const KINDS: { kind: TriggerKind; label: string; blurb: string }[] = [
+	// The kinds, grouped by what they act on for the Add menu. `needs` is what a kind must have
+	// before it can run here, shown in the menu and at the top of its editor; '' when it can.
+	type Group = 'Messages' | 'Players' | 'Server';
+	const KINDS: { kind: TriggerKind; group: Group; label: string; blurb: string }[] = [
 		{
 			kind: 'welcome',
+			group: 'Messages',
 			label: 'Welcome whisper',
-			blurb: 'Send a private message to players as they join or once they pick a faction.'
+			blurb: 'Whisper players as they join, or once they pick a faction.'
 		},
 		{
 			kind: 'faction_change',
+			group: 'Messages',
 			label: 'Faction change whisper',
-			blurb: 'Send a private message to players who switch from one faction to another.'
+			blurb: 'Whisper players who switch sides.'
 		},
 		{
 			kind: 'broadcast',
+			group: 'Messages',
 			label: 'Scheduled broadcast',
 			blurb: 'Rotate through messages every few minutes while people are on.'
 		},
 		{
-			kind: 'empty_reset',
-			label: 'Empty-server map reset',
-			blurb: 'Send an empty server back to a chosen map after a while.'
+			kind: 'restart_notice',
+			group: 'Messages',
+			label: 'Restart notice',
+			blurb: 'Warn players before the twelve-hour restart and tell them when it lands.'
 		},
 		{
 			kind: 'risk_kick',
+			group: 'Players',
 			label: 'Kick on connect risk',
-			blurb: 'Kick joiners with VAC bans, brand-new accounts, or bans elsewhere in the org.'
-		},
-		{
-			kind: 'restart_notice',
-			label: 'Restart notice',
-			blurb:
-				'Warn players before the game’s twelve-hour restart, and tell them once it will happen at the end of the round.'
+			blurb: 'Kick joiners the panel already distrusts, before they get a slot.'
 		},
 		{
 			kind: 'team_kill',
+			group: 'Players',
 			label: 'Team kill limit',
-			blurb:
-				'Whisper a player over team kills, and kick them past a limit. Needs the kill feed (Configuration tab).'
+			blurb: 'Whisper a player about team kills and kick them past a limit.'
 		},
 		{
 			kind: 'seed_reward',
+			group: 'Players',
 			label: 'Seeding reward',
-			blurb:
-				'Hand players who stay while the server is low a reserved slot on the organisation’s list for a while.'
+			blurb: 'Give players who stay while the server is quiet a reserved slot.'
+		},
+		{
+			kind: 'empty_reset',
+			group: 'Server',
+			label: 'Empty-server map reset',
+			blurb: 'Put an empty server back on a chosen map after a while.'
 		}
 	];
+	const GROUPS: Group[] = ['Messages', 'Players', 'Server'];
 	const label = (kind: TriggerKind) => KINDS.find((k) => k.kind === kind)?.label ?? kind;
+	const blurb = (kind: TriggerKind) => KINDS.find((k) => k.kind === kind)?.blurb ?? '';
+	/** Why a kind cannot run on this server yet, or '' when it can. */
+	let needs = $derived((kind: TriggerKind): string => {
+		switch (kind) {
+			case 'team_kill':
+				return data.feed
+					? ''
+					: 'Needs the kill feed, which is off on this server. Turn it on under Configuration.';
+			case 'risk_kick':
+				return data.steam
+					? ''
+					: 'Steam lookup is off on this panel, so only the ban-list and watchlist rows can run.';
+			case 'seed_reward':
+				return can(data.server.caps, 'lists.edit')
+					? ''
+					: 'Saving needs the Org lists capability as well as Automation.';
+			default:
+				return '';
+		}
+	});
+	/** A kind that lacks what it needs stays in the menu, greyed, with the reason in a few words. */
+	const short = (kind: TriggerKind): string =>
+		kind === 'team_kill' ? 'needs the kill feed' : kind === 'risk_kick' ? 'needs a Steam key' : '';
+	let addOpen = $state(false);
+	let summary = $derived.by(() => {
+		const n = data.triggers.length;
+		if (!n) return 'No rules on this server yet';
+		const on = data.triggers.filter((t) => t.enabled).length;
+		return `${n} rule${n === 1 ? '' : 's'} · ${on} on`;
+	});
 
 	interface Form {
 		id: string | null;
@@ -174,15 +214,16 @@
 		}
 	});
 
-	function open(kind: TriggerKind, t?: TriggerView) {
+	/** The editor for a new rule of a kind, an existing rule, or a copy of one (`copy`). */
+	function open(kind: TriggerKind, t?: TriggerView, copy = false) {
 		const c = (t?.config ?? {}) as Record<string, unknown>;
 		const s = (k: string, d: string) => (typeof c[k] === 'string' ? (c[k] as string) : d);
 		const n = (k: string, d: number) => (typeof c[k] === 'number' ? (c[k] as number) : d);
 		const b = (k: string, d: boolean) => (typeof c[k] === 'boolean' ? (c[k] as boolean) : d);
 		form = {
-			id: t?.id ?? null,
+			id: copy ? null : (t?.id ?? null),
 			kind,
-			name: t?.name ?? label(kind),
+			name: t ? (copy ? `${t.name} (copy)` : t.name) : label(kind),
 			enabled: t?.enabled ?? true,
 			message: s(
 				'message',
@@ -397,68 +438,140 @@
 	}
 </script>
 
-<div class="mb-4 flex flex-wrap items-center gap-2">
-	<p class="text-[13px] text-mist-400">
-		Rules the worker evaluates on every observation{data.server.demo ? ' of the demo server' : ''}:
-		a join is acted on within a couple of seconds. Every action is queued, delivered, and recorded
-		below and in the audit trail as
-		<span class="chip">trigger</span>. Dry-run a rule against the last 24 hours before it touches
-		anyone.
-	</p>
-</div>
+<svelte:window
+	onclick={() => (addOpen = false)}
+	onkeydown={(e) => e.key === 'Escape' && (addOpen = false)}
+/>
 
-{#if admin}
-	<div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-		{#each KINDS as k (k.kind)}
+<p class="mb-4 text-[13px] text-mist-400">
+	Rules the worker evaluates on every observation{data.server.demo ? ' of the demo server' : ''}: a
+	join is acted on within a couple of seconds. Every action is queued, delivered, and recorded below
+	and in the audit trail as <span class="chip">trigger</span>. Dry-run a rule against the last 24
+	hours before it touches anyone.
+</p>
+
+<div class="mb-3 flex flex-wrap items-start gap-3">
+	<div class="min-w-0 grow">
+		<span class="label-sm mb-0">Rules</span>
+		<div class="mt-0.5 text-[12.5px] text-mist-400">{summary}</div>
+	</div>
+	{#if admin}
+		<div class="relative">
 			<button
 				type="button"
-				class="cursor-pointer panel text-left transition hover:border-accent/60"
-				onclick={() => open(k.kind)}
+				class="btn gap-1.5 pr-2.5"
+				aria-haspopup="menu"
+				aria-expanded={addOpen}
+				onclick={(e) => {
+					e.stopPropagation();
+					addOpen = !addOpen;
+				}}
 			>
-				<div class="caps text-accent">+ {k.label}</div>
-				<div class="mt-1 text-[13px] text-mist-400">{k.blurb}</div>
+				Add rule <span class="text-[10px] text-mist-600">▼</span>
 			</button>
-		{/each}
-	</div>
-{/if}
+			{#if addOpen}
+				<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
+				<div
+					class="absolute top-[calc(100%+6px)] right-0 z-40 min-w-[270px] rise rounded-card border border-black bg-ink-900 p-1 shadow-pop"
+					role="menu"
+					tabindex="-1"
+					onclick={(e) => e.stopPropagation()}
+				>
+					{#each GROUPS as g (g)}
+						<div class="px-3 pt-2 pb-1 caps text-mist-600">{g}</div>
+						{#each KINDS.filter((k) => k.group === g) as k (k.kind)}
+							<button
+								type="button"
+								class="menu-item {needs(k.kind) ? 'text-mist-600!' : ''}"
+								role="menuitem"
+								title={k.blurb}
+								onclick={() => {
+									addOpen = false;
+									open(k.kind);
+								}}
+							>
+								<span>{k.label}</span>
+								{#if needs(k.kind) && short(k.kind)}
+									<span class="ml-auto text-[11px] text-mist-600">{short(k.kind)}</span>
+								{/if}
+							</button>
+						{/each}
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
+</div>
 
-<div class="space-y-3">
+<div class="space-y-2">
 	{#each data.triggers as t (t.id)}
-		<div class="panel {t.enabled ? '' : 'opacity-70'}">
-			<div class="flex flex-wrap items-start gap-3">
-				<label class="mt-0.5 inline-flex items-center gap-2">
-					<input
-						type="checkbox"
-						checked={t.enabled}
-						disabled={!admin || busy}
-						onchange={() => toggle(t)}
-					/>
-				</label>
+		<div class="panel py-3.5 {t.enabled ? '' : 'opacity-60'}">
+			<div class="flex items-start gap-3">
+				<button
+					type="button"
+					role="switch"
+					aria-checked={t.enabled}
+					aria-label="{t.name}: {t.enabled ? 'on' : 'off'}"
+					class="mt-1 h-[18px] w-8 shrink-0 cursor-pointer rounded-full border border-black transition disabled:cursor-not-allowed {t.enabled
+						? 'bg-accent'
+						: 'bg-ink-700'}"
+					disabled={!admin || busy}
+					onclick={() => toggle(t)}
+				>
+					<span
+						class="block h-3 w-3 rounded-full bg-ink-950 transition-transform {t.enabled
+							? 'translate-x-[15px]'
+							: 'translate-x-[2px]'}"
+					></span>
+				</button>
 				<div class="min-w-0 flex-1">
-					<div class="flex flex-wrap items-center gap-2">
-						<span class="font-semibold">{t.name}</span>
-						<Badge tone={t.enabled ? 'ok' : ''}>{t.enabled ? 'on' : 'off'}</Badge>
-						<Badge tone="info">{label(t.kind)}</Badge>
+					<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+						{#if admin}
+							<button
+								type="button"
+								class="cursor-pointer text-left font-semibold hover:text-white"
+								onclick={() => open(t.kind, t)}>{t.name}</button
+							>
+						{:else}
+							<span class="font-semibold">{t.name}</span>
+						{/if}
+						<span class="chip">{label(t.kind)}</span>
 					</div>
-					<div class="mt-1 text-[13px] text-mist-400">{describe(t)}</div>
-					<div class="mt-1 text-[12px] text-mist-600">
+					<div class="mt-0.5 line-clamp-2 text-[13px] text-mist-400">{describe(t)}</div>
+					<div class="mt-0.5 text-[12px] text-mist-600">
 						{#if t.lastFiredAt}Last fired {fmtTime(t.lastFiredAt)} · {t.lastResult}{:else if t.lastResult}{t.lastResult}{:else}Never
-							fired.{/if}
+							fired{/if}
 						{#if t.fireCount}· {t.fireCount} action{t.fireCount === 1 ? '' : 's'} so far{/if}
 					</div>
 				</div>
 				{#if admin}
-					<span class="inline-flex flex-wrap gap-1.5">
+					<RowMenu label="Actions for {t.name}">
 						<button
-							class="btn btn-sm"
+							type="button"
+							class="menu-item"
+							role="menuitem"
 							disabled={dryBusy}
-							onclick={() => dryRun(t.kind, t.config, t.id)}>Dry run</button
+							onclick={() => dryRun(t.kind, t.config, t.id)}
+							>{t.kind === 'restart_notice' ? 'Preview next cycle' : 'Dry run, last 24 h'}</button
 						>
-						<button class="btn btn-sm" onclick={() => open(t.kind, t)}>Edit</button>
-						<button class="btn btn-sm btn-danger" disabled={busy} onclick={() => remove(t)}
-							>Delete</button
+						<button type="button" class="menu-item" role="menuitem" onclick={() => open(t.kind, t)}
+							>Edit</button
 						>
-					</span>
+						<button
+							type="button"
+							class="menu-item"
+							role="menuitem"
+							onclick={() => open(t.kind, t, true)}>Duplicate</button
+						>
+						<hr class="my-1 border-black" />
+						<button
+							type="button"
+							class="menu-item text-danger!"
+							role="menuitem"
+							disabled={busy}
+							onclick={() => remove(t)}>Delete</button
+						>
+					</RowMenu>
 				{/if}
 			</div>
 			{#if dry && dryFor === t.id && !form}
@@ -470,7 +583,7 @@
 	{:else}
 		<div class="panel text-center text-mist-600">
 			No triggers yet.{#if admin}
-				Pick one above to start.{/if}
+				Add a rule to start.{/if}
 		</div>
 	{/each}
 </div>
@@ -522,6 +635,8 @@
 				save();
 			}}
 		>
+			<p class="-mt-2 text-[13px] text-mist-400">{blurb(f.kind)}</p>
+			{#if needs(f.kind)}<p class="note mb-0 text-warn">{needs(f.kind)}</p>{/if}
 			<div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
 				<label class="block"
 					><span class="field-label">Name</span><input
@@ -762,11 +877,7 @@
 						maxlength="200"
 					/></label
 				>
-				{#if !data.steam}
-					<p class="note text-warn">
-						Steam lookup is off (STEAM_API_KEY), so only the ban-list and watchlist rules can run.
-					</p>
-				{:else}
+				{#if data.steam}
 					<p class="note">
 						Steam data is fetched when a player first appears and refreshed daily. Kicks land in the
 						audit trail with the rule that matched.
