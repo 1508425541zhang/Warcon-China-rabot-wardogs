@@ -1,7 +1,22 @@
 // The kill feed on the database side: each server's feed token, which batch belongs to which
 // server, and how a batch becomes rows in `kills`. Inbound data from the game process, so it runs
 // on the web role and writes Postgres directly; the worker's lane is for requests Warcon makes.
-import { and, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
+import {
+	and,
+	count,
+	desc,
+	eq,
+	gt,
+	gte,
+	ilike,
+	inArray,
+	isNull,
+	lt,
+	or,
+	sql,
+	type SQL
+} from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Env } from './env';
 import { decryptSecret, encryptSecret } from './crypto';
@@ -17,6 +32,7 @@ import {
 	type ServerRow
 } from './db/schema';
 import type { KillView } from '$lib/types';
+import { VEHICLE_TAGS, type KillFilter } from '$lib/kills';
 import type { SessionUser } from './access';
 import { FEED_TOKEN_PREFIX, isTeamKill, parseBatch, type ParsedKill } from './feed-core';
 
@@ -267,22 +283,76 @@ export async function ingestBatch(
 	return { accepted: fresh.length, skipped: batch.skipped, duplicates, kills: written };
 }
 
-/** The newest `limit` kills on a server, older than `before` when given; newest first. */
+const STEAM_RE = /^\d{17}$/;
+const likeEscape = (s: string): string => s.replace(/[\\%_]/g, '\\$&');
+
+/** One side of a kill: a SteamID exactly, else part of the name. Mirrors sideMatches in $lib/kills. */
+const sideIs = (needle: string, steamId: AnyPgColumn, name: AnyPgColumn) =>
+	STEAM_RE.test(needle) ? eq(steamId, needle) : ilike(name, `%${likeEscape(needle)}%`);
+
+/** The rows of one server the filter asks for, older than `before` when given. */
+function killWhere(serverId: string, before: Date | null, f: KillFilter): SQL {
+	const conds: (SQL | undefined)[] = [eq(kills.serverId, serverId)];
+	if (before) conds.push(lt(kills.ts, before));
+	if (f.killer) conds.push(sideIs(f.killer, kills.killerSteamId, kills.killerName));
+	if (f.victim) conds.push(sideIs(f.victim, kills.victimSteamId, kills.victimName));
+	if (f.player)
+		conds.push(
+			or(
+				sideIs(f.player, kills.killerSteamId, kills.killerName),
+				sideIs(f.player, kills.victimSteamId, kills.victimName)
+			)
+		);
+	if (f.cause) conds.push(eq(kills.cause, f.cause));
+	if (f.minM !== null) conds.push(gte(kills.distanceM, f.minM));
+	switch (f.kind) {
+		case 'headshot':
+			conds.push(eq(kills.headshot, true));
+			break;
+		case 'teamKill':
+			conds.push(eq(kills.teamKill, true));
+			break;
+		case 'suicide':
+			conds.push(eq(kills.suicide, true));
+			break;
+		case 'environment':
+			conds.push(isNull(kills.killerSteamId));
+			break;
+		case 'vehicle':
+			conds.push(
+				or(
+					ilike(kills.cause, 'Vehicle.%'),
+					ilike(kills.cause, 'Id.Vehicle.%'),
+					sql`${kills.tags} ?| ${sql.raw(`ARRAY[${VEHICLE_TAGS.map((t) => `'${t}'`).join(',')}]`)}`
+				)
+			);
+			break;
+	}
+	return and(...conds)!;
+}
+
+/** The newest `limit` kills on a server the filter asks for, older than `before` when given. */
 export async function recentKills(
 	env: Env,
 	serverId: string,
 	before: Date | null,
-	limit: number
+	limit: number,
+	filter: KillFilter
 ): Promise<KillView[]> {
 	const rows = await env.db
 		.select()
 		.from(kills)
-		.where(
-			before
-				? and(eq(kills.serverId, serverId), lt(kills.ts, before))
-				: eq(kills.serverId, serverId)
-		)
+		.where(killWhere(serverId, before, filter))
 		.orderBy(desc(kills.ts), desc(kills.eventTime))
 		.limit(limit);
 	return rows.map(killView);
+}
+
+/** How many kills on the server the filter asks for, over the whole history. */
+export async function countKills(env: Env, serverId: string, filter: KillFilter): Promise<number> {
+	const [row] = await env.db
+		.select({ n: count() })
+		.from(kills)
+		.where(killWhere(serverId, null, filter));
+	return row?.n ?? 0;
 }
