@@ -448,8 +448,56 @@ server shows red with the error and when it was last seen. Edits go out when som
 at least 30 seconds apart (longer when many servers share one webhook), plus a refresh every five
 minutes, inside Discord's webhook limit. A card someone deleted from the channel is posted again;
 pausing the webhook, switching the option off or changing the URL removes the cards, and a server
-the webhook stops covering loses its card. Server links, map art and the icon point back at the
-panel and need `ORIGIN` to be https for the pictures to show.
+the webhook stops covering loses its card. Map art and the icon need `ORIGIN` to be https for the
+pictures to show.
+
+Each webhook sets how often its cards are edited (**refresh**, 30 seconds to 5 minutes, one
+minute by default; the spacing that keeps a shared webhook under Discord's limit still applies
+on top) and which **links** its cards carry: the server's public status page, its public
+leaderboard, and the panel. The card's title opens the first link and the rest sit on a line
+under the body. A public link goes out only while that page is on for the server (see
+[Public pages](#public-pages)), so a card never sends people to the sign-in wall; the panel link
+is off by default, for staff channels. The server's **Discord** tab has these controls next to
+the card style, with the switches for the public pages they point at, so connecting a channel,
+choosing a style, a cadence and the links, and opening the pages all happen in one place.
+
+### Leaderboards and careers
+
+Every server page has a **Leaderboards** tab: a board over this server or every server of the
+organisation you can see, ranked by kills, deaths, K/D, kills per hour of playtime, playtime,
+matches played, wins, win rate or cash, over 7, 30 or 90 days or all time, paged, with sortable
+headers. A **playtime floor** (an hour by default) keeps a ten-minute visit off the top of the
+K/D board. Kills, deaths, headshots, team kills and suicides come from the [kill feed](#kill-feed)
+(killer and victim), never from the game's own counters; playtime and cash from player sessions;
+a match is counted when a session overlapped it, and the result (win, loss, draw) is read from
+the match's winner and final scores against the faction of the player's last session in it. A
+match with no winner and nobody scoring has no result. Names link to the dossier.
+
+Each dossier has a **Career** section: rank on the all-time kills board for this server and the
+organisation, the current win or loss streak, matches with wins, losses and draws, a table per
+map and per faction (matches, wins, K/D), and the last ten matches with map, faction, result,
+kills and deaths. Everything is read at page load from the tables the worker already writes;
+nothing is precomputed.
+
+### Public pages
+
+Two pages of a server can be opened to anyone with the address, each behind two switches: the
+site owner **allows** it for the organisation (on the org's page, next to the server limit), and
+an org owner **switches it on** for the server (in the server's edit dialog, or on its Discord
+tab). Nothing is public until both are set, and withdrawing an allowance closes the pages at once.
+
+- **Live status** at `/s/<server id>`: map, mode, scores, player count, join code and who is on
+  with kills and deaths, refreshed every twenty seconds.
+- **Leaderboards and careers** at `/s/<server id>/leaderboard` and `/s/<server id>/players/<SteamID>`:
+  the same board and career as the panel, over this server or the organisation's servers whose
+  leaderboards are public too.
+
+Public pages show in-game names, never SteamIDs, pings, cash, the build or the panel's own
+error text (an unreachable server says only that it could not be reached), and read Steam
+personas from the cache only. A page that is off answers 404, so a closed page looks like no
+page. An org owner can set the organisation's **Discord invite** link (discord.gg or
+discord.com/invite), shown as a button on its public pages. Each page has a JSON twin under
+`/api/public/servers/<id>`, rate limited per address and cacheable for a few seconds.
 
 ### Accounts and personal data
 
@@ -482,7 +530,9 @@ The Orgs page shows every organisation with its creator, member and server count
 limit, and status. From there (or from an org's own page) the site owner can raise or lower an
 org's server limit and **suspend** it: members lose access to its servers, owners cannot add
 servers or mint links, and invite links stop working, until it is restored. Deleting an org removes
-its servers from the panel; the accounts stay.
+its servers from the panel; the accounts stay. The org's page is also where the site owner
+**allows** the [public pages](#public-pages) (status page, leaderboards and careers) for that
+organisation; existing organisations start with nothing allowed.
 
 ### Bots and API keys
 
@@ -654,6 +704,9 @@ src/lib/server/live.ts / events.ts / interest.ts   live snapshot rows, the in-pr
 src/lib/server/gateway.ts      the web↔worker seam; gateway-local.ts (same process), gateway-remote.ts + relay.ts (HTTP)
 src/lib/server/settings.ts     owner-editable runtime settings (site_settings): keys, bounds, hot reload
 src/lib/server/players.ts      dossiers, notes, watchlist, per-player marks (risk) for the players table
+src/lib/leaderboard.ts / server/leaderboards.ts   board and career maths (pure) / the queries over kills, sessions and matches
+src/lib/features.ts            which public pages a server has: the site owner's allowance and the server's switch (pure)
+src/lib/server/public.ts       the public surface: 404 gates, the public status shape, per-address limits
 src/lib/server/steam.ts        Steam Web API lookups cached in steam_profiles
 src/lib/server/risk.ts         advisory risk score and name resemblance (pure)
 src/lib/server/trigger-rules.ts / triggers.ts   trigger settings and verdicts (pure) / evaluation into intents, dry runs
@@ -665,7 +718,8 @@ src/lib/config-doc.ts / config-fields.ts   ServerSettings.ini parser and line-le
 src/lib/components/            Modal, MapPicker, PopulationChart, CashChart, ConfigForm, Toasts, badges…
 src/routes/(auth)/             /sign-in (+ /verify), /setup, /join/[token], /recover (form actions)     src/routes/sign-out
 src/routes/api/passkeys/       WebAuthn ceremonies relayed to Better Auth; src/routes/auth/steam/ the Steam callback
-src/routes/(app)/              dashboard, /server/[id]/{,players,players/[steamId],bans,rotation,config,automation,analytics,log}, /audit, /orgs, /orgs/[id]/{,bans,reserved}, /users, /servers, /account
+src/routes/(app)/              dashboard, /server/[id]/{,players,players/[steamId],bans,rotation,config,automation,analytics,leaderboard,log}, /audit, /orgs, /orgs/[id]/{,bans,reserved}, /users, /servers, /account
+src/routes/(public)/           /s/[id]{,/leaderboard,/players/[steamId]}: the public pages, no session
 src/routes/api/                JSON API (below)
 docs/wardogs-api.md            the reverse-engineered game-server API
 ```
@@ -680,13 +734,13 @@ which call Better Auth server-side behind the login lockout and the audit trail.
 own `/api/auth/*` routes only the OAuth callback is reachable over HTTP; everything else answers 404.
 
 ```
-GET/POST /api/orgs  PATCH/DELETE /api/orgs/:id   PATCH {name} | {membersReserved} | site owner: {serverLimit, suspended, reason}
+GET/POST /api/orgs  PATCH/DELETE /api/orgs/:id   PATCH {name} | {discordInviteUrl} | {membersReserved} | site owner: {serverLimit, suspended, reason, allowPublicStatus, allowPublicLeaderboards}
 GET  /api/orgs/:id/members  PATCH/DELETE /api/orgs/:id/members/:userId {role}  PUT .../:userId/grants {grants:[{serverId,roleId}]}
 GET/POST /api/orgs/:id/roles {name,capabilities[]}  PATCH/DELETE .../:roleId {name?,capabilities?}  POST .../:roleId/reset
 GET/POST /api/orgs/:id/keys {label,capabilities[],serverIds[]|null,expiresDays}  DELETE .../:keyId   (POST returns the token once)
 GET/POST /api/orgs/:id/invites {label,orgRole,serverRoleId,expiresDays,maxUses}  DELETE /api/orgs/:id/invites/:inviteId
 GET/POST /api/users  PATCH/DELETE /api/users/:id  PUT /api/users/:id/grants {grants:[{serverId,roleId}]}
-GET/POST /api/servers {orgId,...}  PATCH/DELETE /api/servers/:id  POST /api/servers/:id/test
+GET/POST /api/servers {orgId,...}  PATCH/DELETE /api/servers/:id  POST /api/servers/:id/test   (PATCH also {publicStatus, publicLeaderboards}, org owners, within the site owner's allowance)
 GET/PUT /api/servers/:id/grants {grants:[{userId,roleId}]}   GET /api/servers/:id/summary
 GET|POST /api/servers/:id/rcon/:action   (GET for reads with query params, POST JSON for mutations)
 GET  /api/servers/:id/analytics?range=24h|7d|30d       includes `combat` from the kill feed when the server has one
@@ -696,10 +750,12 @@ GET/POST/DELETE /api/servers/:id/feed                   the kill feed setup: tok
 POST /api/ingest/events                                 where the game posts: [WDServerFeed] Url is the origin, the game adds this path (Authorization: Bearer wkf_…); not a panel route
 GET  /api/servers/:id/cash?since=<iso>                  cash-in-play samples since a moment (24 h at most), seeds the dashboard chart
 GET  /api/servers/:id/players/marks?ids=a,b&names=…     watchlist / first-visit / risk per connected player
-GET  /api/servers/:id/players/:steamId                  dossier   POST .../steam (refresh Steam data)
+GET  /api/servers/:id/players/:steamId                  dossier   POST .../steam (refresh Steam data)   GET .../career   rank, streak, results by map and faction, the last ten matches
+GET  /api/servers/:id/leaderboard?scope=server|org&range=7d|30d|90d|all&sort=kills|deaths|kd|perHour|playtime|matches|wins|winRate|cash&dir=desc|asc&page=1&minMinutes=60
 POST /api/servers/:id/players/:steamId/notes {body}     DELETE .../notes/:noteId   PUT .../watch {watched,reason}
 GET/POST /api/servers/:id/triggers {kind,name,enabled,config}   PATCH/DELETE .../:triggerId   POST .../dry-run {kind,config}
-GET/POST /api/orgs/:id/webhooks {label,url,events,serverIds,enabled}   PATCH/DELETE .../:webhookId   POST .../:webhookId/test
+GET/POST /api/orgs/:id/webhooks {label,url,events,serverIds,enabled,statusEnabled,statusStyle,statusIntervalS,linkStatus,linkLeaderboard,linkPanel}   PATCH/DELETE .../:webhookId   POST .../:webhookId/test
+GET  /api/public/servers/:id   .../leaderboard (same query as above)   .../players/:steamId      the public pages' JSON: no session, 404 while the page is off, limited per address
 GET  /api/orgs/:id/lists                                 the org's ban and reserved-slot lists, and the caller's role on them
 GET/POST /api/orgs/:id/lists/:kind/entries {steamId,reason,expiresAt}   DELETE .../entries/:steamId   (kind = ban | reserve; ?includeRemoved=1)
 POST /api/orgs/:id/lists/sync                            push the lists to every org server now
