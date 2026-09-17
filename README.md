@@ -399,16 +399,18 @@ session nor an API key, and it is exempt from the CSRF header for the same reaso
 
 ### Discord webhooks
 
-On the organisation's overview an owner can add Discord channel webhooks (in Discord: channel settings →
-Integrations → Webhooks → copy URL) and choose what to mirror: bans (including org list changes), other game commands, trigger
+A webhook is one Discord channel, and each one carries what is ticked for it. On the
+organisation's overview an owner adds channel webhooks (in Discord: channel settings →
+Integrations → Webhooks → copy URL) and chooses what to mirror: bans (including org list changes), other game commands, trigger
 actions, player notes and watchlist changes, management changes, sign-ins, team kills from the
-[kill feed](#kill-feed); for every server or a subset. Events are batched into one message per burst, IP addresses are never sent, and the URL
+[kill feed](#kill-feed); for every server or a subset. A separate team-kill channel is a second
+webhook with only that box ticked; the server's **Discord** tab connects one in a click. Events are batched into one message per burst, IP addresses are never sent, and the URL
 (which lets anyone post to the channel) is stored encrypted with `ENCRYPTION_KEY` and never shown
 again. **Test** posts a message right away; delivery failures show on the org page.
 
 A webhook can also keep a **live status card** for each server it covers (tick _Keep status
-cards in the channel_ on the org page, or open the server's **Discord** tab and paste a webhook
-there; pin what it posts). Three card styles: **banner** (the default) with the wide map art and a
+cards in the channel_ on the org page, or open the server's **Discord** tab, paste a webhook and
+tick the card, team kills, or both; pin what it posts). Three card styles: **banner** (the default) with the wide map art and a
 column of players per faction, **compact** with a map thumbnail, faction counts and the top
 three, and **scoreboard** with one ranked table across the factions. The worker edits each card
 in place; the banner shows: players online out of the slots
