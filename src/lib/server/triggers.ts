@@ -475,6 +475,7 @@ function evalRiskKick(
 			steamEnabled: steamEnabled(env),
 			bannedOn: l?.bannedOn ?? [],
 			watched: l?.watched ?? null,
+			resembles: l?.resembles ?? [],
 			reserved: ctx.reserved.has(p.steamId),
 			now: ctx.ts
 		});
@@ -700,6 +701,7 @@ export async function dryRun(
 				steamEnabled: steamEnabled(env),
 				bannedOn: l?.bannedOn ?? [],
 				watched: l?.watched ?? null,
+				resembles: l?.resembles ?? [],
 				reserved: reserved.has(p.steamId),
 				now: to
 			});

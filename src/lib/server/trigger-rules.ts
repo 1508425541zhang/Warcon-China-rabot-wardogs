@@ -2,7 +2,7 @@
 // kick-on-connect verdict. No database, no game server, so it is unit-testable on its own;
 // triggers.ts holds the engine that runs these against live ticks.
 import { ApiError, int, str } from './http';
-import { accountAgeDays } from './risk';
+import { accountAgeDays, assessRisk, type RiskLevel } from './risk';
 import { RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 import type { SteamProfileRow } from './db/schema';
 import type { TriggerKind } from '$lib/types';
@@ -59,6 +59,8 @@ export interface RiskKickConfig {
 	privateProfiles: boolean;
 	bannedElsewhere: boolean;
 	watchlist: boolean;
+	/** also kick at this advisory risk level or worse (the score the players table shows); null is off */
+	kickAtLevel: Exclude<RiskLevel, 'low'> | null;
 	spareReserved: boolean;
 	reason: string;
 }
@@ -159,6 +161,7 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 				privateProfiles: !!c.privateProfiles,
 				bannedElsewhere: !!c.bannedElsewhere,
 				watchlist: !!c.watchlist,
+				kickAtLevel: c.kickAtLevel === 'high' || c.kickAtLevel === 'medium' ? c.kickAtLevel : null,
 				spareReserved: c.spareReserved === undefined ? true : !!c.spareReserved,
 				reason:
 					str(c.reason, MAX_MESSAGE) || 'Your account does not meet this server’s requirements.'
@@ -168,7 +171,8 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 				!cfg.gameBans &&
 				!cfg.minAccountDays &&
 				!cfg.bannedElsewhere &&
-				!cfg.watchlist
+				!cfg.watchlist &&
+				!cfg.kickAtLevel
 			)
 				throw new ApiError(400, 'Turn on at least one rule.');
 			return cfg;
@@ -305,6 +309,8 @@ export interface RiskKickSignals {
 	steamEnabled: boolean;
 	bannedOn: { serverName: string; reason: string }[];
 	watched: { reason: string } | null;
+	/** banned players whose last known name looks like this one; only the risk level uses it */
+	resembles?: { name: string; steamId: string; serverName: string }[];
 	reserved: boolean;
 	now?: Date;
 }
@@ -329,6 +335,25 @@ export function riskKickVerdict(cfg: RiskKickConfig, s: RiskKickSignals): string
 			} else if (age < cfg.minAccountDays) {
 				return `Steam account only ${age} day${age === 1 ? '' : 's'} old (minimum ${cfg.minAccountDays})`;
 			}
+		}
+	}
+	if (cfg.kickAtLevel) {
+		const risk = assessRisk({
+			profile: s.profile,
+			steamEnabled: s.steamEnabled,
+			watched: s.watched,
+			bannedOn: s.bannedOn,
+			resembles: s.resembles ?? [],
+			now: s.now
+		});
+		const bad = risk.level === 'high' || (cfg.kickAtLevel === 'medium' && risk.level === 'medium');
+		if (bad) {
+			const why = [...risk.reasons]
+				.sort((a, b) => b.weight - a.weight)
+				.slice(0, 3)
+				.map((r) => r.text)
+				.join('; ');
+			return `${risk.level} risk (${risk.score}): ${why}${risk.steamChecked ? '' : ' [Steam not checked]'}`;
 		}
 	}
 	return null;
