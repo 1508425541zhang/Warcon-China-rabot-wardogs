@@ -37,13 +37,36 @@
 		state: { by: (d) => d.state },
 		result: { by: (d) => d.outcome }
 	});
+	/** Narrow the table to one rule (by name, so a deleted rule's rows still group) or one state. */
+	let ruleFilter = $state('');
+	let stateFilter = $state<'' | OutboxView['state']>('');
+	const STATES: OutboxView['state'][] = [
+		'delivered',
+		'failed',
+		'skipped',
+		'unknown',
+		'pending',
+		'sending'
+	];
+	let ruleNames = $derived([...new Set(deliveries.map((d) => d.triggerName))].sort());
 	let deliveryRows = $derived(
 		deliverySort.sorted(
-			deliveries.filter((d) =>
-				matches(deliverySearch, d.triggerName, d.action, d.target, d.state, d.outcome)
+			deliveries.filter(
+				(d) =>
+					(!ruleFilter || d.triggerName === ruleFilter) &&
+					(!stateFilter || d.state === stateFilter) &&
+					matches(deliverySearch, d.triggerName, d.action, d.target, d.state, d.outcome)
 			)
 		)
 	);
+	let actionsPanel = $state<HTMLElement>();
+	/** From a failing rule's row to its deliveries: set the rule filter and bring the table up. */
+	function seeActions(t: TriggerView) {
+		ruleFilter = t.name;
+		stateFilter = '';
+		deliverySearch = '';
+		actionsPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
 	let deliveriesTimer: ReturnType<typeof setTimeout> | undefined;
 	async function refreshDeliveries() {
 		try {
@@ -624,6 +647,9 @@
 								>{h.outcome}</span
 							>
 							· <span title={fmtTime(h.latest)}>{fmtAgo(h.latest, now)}</span>
+							<button type="button" class="ml-1 btn btn-sm" onclick={() => seeActions(t)}
+								>See actions</button
+							>
 						{:else if !t.enabled}
 							Off · {#if t.lastFiredAt}last fired <span title={fmtTime(t.lastFiredAt)}
 									>{fmtAgo(t.lastFiredAt, now)}</span
@@ -1136,20 +1162,38 @@
 	</Modal>
 {/if}
 
-<div class="mt-4 panel">
+<div class="mt-4 scroll-mt-4 panel" bind:this={actionsPanel}>
 	<div class="mb-3 flex flex-wrap items-center gap-2">
 		<span class="label-sm mb-0">Recent actions</span>
 		<span class="text-[12.5px] text-mist-600"
 			>what the rules did, newest first · <b>unknown</b> means sent with no answer, never retried on its
 			own</span
 		>
-		<input
-			class="input w-full sm:ml-auto sm:w-64"
-			type="search"
-			placeholder="Filter by rule, action, target, state…"
-			aria-label="Filter recent actions"
-			bind:value={deliverySearch}
-		/>
+		<div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
+			<select
+				class="input w-auto pr-[30px] {ruleFilter ? 'border-accent' : ''}"
+				aria-label="Only this rule"
+				bind:value={ruleFilter}
+			>
+				<option value="">All rules</option>
+				{#each ruleNames as name (name)}<option value={name}>{name}</option>{/each}
+			</select>
+			<select
+				class="input w-auto pr-[30px] {stateFilter ? 'border-accent' : ''}"
+				aria-label="Only this state"
+				bind:value={stateFilter}
+			>
+				<option value="">Any state</option>
+				{#each STATES as s (s)}<option value={s}>{s}</option>{/each}
+			</select>
+			<input
+				class="input w-full sm:w-52"
+				type="search"
+				placeholder="Filter by action, target, result…"
+				aria-label="Filter recent actions"
+				bind:value={deliverySearch}
+			/>
+		</div>
 	</div>
 	<div class="table-wrap">
 		<table>
