@@ -8,8 +8,8 @@ import {
 	publicOrgServers,
 	requirePublicServer
 } from '$lib/server/public';
-import { loadCareer } from '$lib/server/leaderboards';
-import { lastNameOf } from '$lib/server/leaderboards';
+import { loadCareer, lastNameOf } from '$lib/server/leaderboards';
+import { combatSummary } from '$lib/server/players';
 import { cachedProfiles } from '$lib/server/steam';
 import { ApiError } from '$lib/server/http';
 
@@ -21,7 +21,7 @@ export const load: PageServerLoad = (event) =>
 		if (!/^\d{17}$/.test(steamId)) throw new ApiError(404, 'Not found.', 'not_found');
 		const orgServers = await publicOrgServers(env, ps.org, 'leaderboards');
 		const ids = orgServers.map((s) => s.id);
-		const [career, name, profiles] = await Promise.all([
+		const [career, name, profiles, combat] = await Promise.all([
 			loadCareer(env, {
 				serverId: ps.server.id,
 				ids,
@@ -29,12 +29,14 @@ export const load: PageServerLoad = (event) =>
 				steamId
 			}),
 			lastNameOf(env, ids, steamId),
-			cachedProfiles(env, [steamId])
+			cachedProfiles(env, [steamId]),
+			combatSummary(env, ids, steamId)
 		]);
 		if (!name) throw new ApiError(404, 'Not found.', 'not_found');
 		const steam = profiles.get(steamId);
 		return {
 			career,
+			combat,
 			player: { steamId, name, avatar: steam?.avatar ?? '' },
 			multiServer: orgServers.length > 1,
 			heading: publicHeading(ps)

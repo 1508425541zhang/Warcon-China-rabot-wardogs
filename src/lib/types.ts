@@ -392,7 +392,8 @@ export interface DossierSession {
 	cash: number;
 }
 
-export interface PlayerCombat {
+/** A player's kill-feed record across some servers: what the dossier and a public career show. */
+export interface CombatSummary {
 	kills: number;
 	deaths: number;
 	headshots: number;
@@ -405,6 +406,8 @@ export interface PlayerCombat {
 	causes: { cause: string; kills: number }[];
 	victims: { steamId: string; name: string; kills: number }[];
 	nemeses: { steamId: string; name: string; deaths: number }[];
+}
+export interface PlayerCombat extends CombatSummary {
 	/** the last kills and deaths involving the player, newest first */
 	recent: (KillView & { serverId: string; serverName: string })[];
 }

@@ -9,6 +9,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
 	import CareerPanel from '$lib/components/CareerPanel.svelte';
+	import CombatSummary from '$lib/components/CombatSummary.svelte';
 	import { describeSync, STATE_TONE } from '$lib/lists';
 	import SortHeader from '$lib/components/SortHeader.svelte';
 	import { TableSort } from '$lib/table.svelte';
@@ -50,9 +51,6 @@
 		cash: { by: (s) => s.cash, dir: 'desc' }
 	});
 	let recent = $derived(sessionSort.sorted(d.recent));
-	let maxCause = $derived(Math.max(1, ...(d.combat?.causes.map((c) => c.kills) ?? [])));
-	const pct = (part: number, whole: number) =>
-		whole ? `${Math.round((part / whole) * 100)}%` : '—';
 	const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour12: false });
 
 	/** remove the player from an org list (unban across the org, or withdraw the reserved slot) */
@@ -299,55 +297,10 @@
 						class="text-accent hover:underline">Every kill and death on this server →</a
 					>
 				</p>
-				<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-					{#each [['Kills', fmtNum(d.combat.kills)], ['Deaths', fmtNum(d.combat.deaths)], ['K/D', kd(d.combat.kills, d.combat.deaths)], ['Headshots', `${d.combat.headshots} · ${pct(d.combat.headshots, d.combat.kills)}`], ['Team kills', String(d.combat.teamKills)], ['Team killed', String(d.combat.teamKilled)], ['Suicides', String(d.combat.suicides)], ['Distance', d.combat.avgDistanceM === null ? '—' : `${d.combat.avgDistanceM} m avg · ${d.combat.longestM} m best`]] as [label, value] (label)}
-						<div class="rounded-ctl border border-black bg-ink-950 px-3.5 py-3">
-							<div class="caps text-mist-400">{label}</div>
-							<div class="mt-1 font-display text-xl font-semibold tabular">{value}</div>
-						</div>
-					{/each}
-				</div>
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-					<div>
-						<span class="field-label">Weapons</span>
-						{#each d.combat.causes as c (c.cause)}
-							<div class="mb-2">
-								<div class="mb-0.5 flex justify-between text-[13px]">
-									<span>{causeLabel(c.cause)}</span><span class="font-mono text-mist-400 tabular"
-										>{c.kills}</span
-									>
-								</div>
-								<div class="progress">
-									<span class="progress-bar" style="width:{(c.kills / maxCause) * 100}%"></span>
-								</div>
-							</div>
-						{:else}<div class="text-[13px] text-mist-600">No kills yet.</div>{/each}
-					</div>
-					<div>
-						<span class="field-label">Most killed</span>
-						{#each d.combat.victims as v (v.steamId)}
-							<div class="flex justify-between text-[13px]">
-								<a
-									href="/server/{encodeURIComponent(id)}/players/{v.steamId}"
-									class="hover:text-accent hover:underline">{v.name}</a
-								>
-								<span class="font-mono text-mist-400 tabular">{v.kills}</span>
-							</div>
-						{:else}<div class="text-[13px] text-mist-600">Nobody yet.</div>{/each}
-					</div>
-					<div>
-						<span class="field-label">Nemeses</span>
-						{#each d.combat.nemeses as n (n.steamId)}
-							<div class="flex justify-between text-[13px]">
-								<a
-									href="/server/{encodeURIComponent(id)}/players/{n.steamId}"
-									class="hover:text-accent hover:underline">{n.name}</a
-								>
-								<span class="font-mono text-mist-400 tabular">{n.deaths}</span>
-							</div>
-						{:else}<div class="text-[13px] text-mist-600">Nobody yet.</div>{/each}
-					</div>
-				</div>
+				<CombatSummary
+					combat={d.combat}
+					hrefFor={(steamId) => `/server/${encodeURIComponent(id)}/players/${steamId}`}
+				/>
 				{#if d.combat.recent.length}
 					<span class="mt-4 field-label">Recent kills and deaths</span>
 					<div class="max-h-[320px] table-wrap">
