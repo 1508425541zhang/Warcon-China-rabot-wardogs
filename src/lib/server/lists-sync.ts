@@ -1,7 +1,8 @@
-// The org-list sync: pushes each org's ban and reserved-slot lists to its game servers. The
-// worker runs it on a schedule inside its observations (planning against the snapshot it keeps in
-// server_bans and server_reserved, and re-reading the server before it changes anything); the API
-// runs it right after an admin edits a list, so the toast can say where the change landed.
+// The list sync: pushes each org's ban and reserved-slot lists, and each server's own reserved
+// slots, to its game servers. The worker runs it on a schedule inside its observations (planning
+// against the snapshot it keeps in server_bans and server_reserved, and re-reading the server
+// before it changes anything); the API runs it right after an admin edits a list, so the toast
+// can say where the change landed.
 //
 // Rules of the road: the panel adds what the lists want and removes only what it added itself
 // (server_list_state). Every game call is idempotent in the panel's reading of it ("already
@@ -32,6 +33,7 @@ import {
 } from './db/schema';
 import {
 	activeEntries,
+	desiredOf,
 	isAlreadyApplied,
 	isGone,
 	isUnreachable,
@@ -102,21 +104,16 @@ export async function desiredFor(
 	now = new Date()
 ): Promise<PlanInput['desired']> {
 	const rows = await env.db
-		.select({ e: listEntries, kind: lists.kind })
+		.select({ e: listEntries, kind: lists.kind, listServerId: lists.serverId })
 		.from(serverLists)
 		.innerJoin(lists, eq(lists.id, serverLists.listId))
 		.innerJoin(listEntries, eq(listEntries.listId, lists.id))
 		.where(and(eq(serverLists.serverId, server.id), isNull(listEntries.removedAt)));
 	const active = activeEntries(
-		rows.map((r) => ({ ...r.e, kind: r.kind })),
+		rows.map((r) => ({ ...r.e, kind: r.kind, serverId: r.listServerId })),
 		now
 	);
-	const bans = active
-		.filter((r) => r.kind === 'ban')
-		.map((r) => ({ steamId: r.steamId, reason: r.reason, listId: r.listId }));
-	const reserved = active
-		.filter((r) => r.kind === 'reserve')
-		.map((r) => ({ steamId: r.steamId, listId: r.listId, member: false }));
+	const { bans, reserved } = desiredOf(active);
 	if (org.membersReserved) {
 		// Members who set a SteamID get a slot from the org's reserve list, unless the org has
 		// banned them.
@@ -124,7 +121,9 @@ export async function desiredFor(
 			.select({ id: lists.id })
 			.from(serverLists)
 			.innerJoin(lists, eq(lists.id, serverLists.listId))
-			.where(and(eq(serverLists.serverId, server.id), eq(lists.kind, 'reserve')))
+			.where(
+				and(eq(serverLists.serverId, server.id), eq(lists.kind, 'reserve'), isNull(lists.serverId))
+			)
 			.limit(1);
 		if (reserveList) {
 			const banned = new Set(bans.map((b) => b.steamId));

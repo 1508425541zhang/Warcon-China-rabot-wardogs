@@ -604,10 +604,14 @@ export interface ReservedSlotState {
 	managed: boolean;
 	/** last name seen on the org's servers, else the Steam persona, else null */
 	name: string | null;
-	/** the note on the org list entry, if any */
+	/** the note on the list entry, if any */
 	note: string;
 	/** a slot the org hands its members, not an entry someone added */
 	member: boolean;
+	/** the list a managed slot comes from: the organisation's, or this server's own */
+	scope: 'org' | 'server';
+	/** when the panel lifts the slot; null for a permanent one (or one not managed) */
+	expiresAt: string | null;
 }
 
 /** Per-server view of which bans and reserved slots the org lists manage; for the players page. */

@@ -17,7 +17,7 @@ import { isOwner, LostOwnership, withOwnedTransaction } from './leadership';
 import { settings } from './settings';
 import { recordDelivery, type Intent, type TriggerUpdate } from './triggers';
 import { memoryOf } from './observe';
-import { grantEntry } from './lists';
+import { grantEntry, listOf } from './lists';
 import { getOrg, getServer, type OrgRow } from './access';
 import { gateway } from './gateway';
 import type { OutboxView } from '$lib/types';
@@ -208,7 +208,7 @@ async function deliverSeedReward(env: Env, row: OutboxRow): Promise<void> {
 		const org = m?.org ?? (await orgOfServer(env, row.serverId));
 		if (!org) return await finish(env, row, 'skipped', 'Server no longer exists.');
 		const expiresAt = new Date(Date.now() + p.slotDays * 86400_000);
-		const { added } = await grantEntry(env, org, 'reserve', {
+		const { added } = await grantEntry(env, await listOf(env, org.id, 'reserve'), {
 			steamId: p.steamId,
 			reason: p.reason,
 			expiresAt,

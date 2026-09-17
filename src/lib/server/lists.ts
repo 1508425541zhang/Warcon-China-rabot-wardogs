@@ -1,11 +1,12 @@
 // Organisation lists: the ban list and reserved-slot list an org keeps in the panel and pushes to
-// every server it runs. This module owns the records, their validation and the views; the
-// per-server sync (what to add or remove on a game server) is in lists-sync.ts.
+// every server it runs, and each server's own reserved-slot list, which only that server takes.
+// This module owns the records, their validation and the views; the per-server sync (what to add
+// or remove on a game server) is in lists-sync.ts.
 //
 // Entries are never hard-deleted: removal stamps removed_at so history and the audit trail stay
-// intact, and re-adding inserts a fresh row. Every org has exactly one list per kind today; the
-// lists table and server_lists join exist so a later "subscribe to another org's list" is new rows,
-// not a schema change.
+// intact, and re-adding inserts a fresh row. Every org has exactly one list per kind and every
+// server one reserved-slot list of its own; the lists table and server_lists join exist so a
+// later "subscribe to another org's list" is new rows, not a schema change.
 import { and, asc, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { ApiError, newId, str } from './http';
@@ -34,6 +35,7 @@ import type {
 	ListEntryView,
 	ListKind,
 	ListServerStateView,
+	ListSyncServer,
 	ListSyncSummary,
 	OrgListsView,
 	ReservedSlotState,
@@ -71,26 +73,58 @@ export async function ensureOrgLists(
 		.onConflictDoNothing();
 }
 
-/** Subscribes a server to every list of its org (createServer runs this in its transaction). */
+/**
+ * Subscribes a server to every list of its org and gives it a reserved-slot list of its own
+ * (createServer runs this in its transaction; serverListOf repairs older servers).
+ */
 export async function ensureServerLists(
 	db: DbLike,
 	serverId: string,
 	orgId: string
 ): Promise<void> {
-	const rows = await db.select({ id: lists.id }).from(lists).where(eq(lists.orgId, orgId));
+	const rows = await db
+		.select({ id: lists.id })
+		.from(lists)
+		.where(and(eq(lists.orgId, orgId), isNull(lists.serverId)));
 	if (rows.length)
 		await db
 			.insert(serverLists)
 			.values(rows.map((l) => ({ serverId, listId: l.id })))
 			.onConflictDoNothing();
+	await ensureServerOwnList(db, serverId, orgId, 'reserve');
 }
 
+async function ensureServerOwnList(
+	db: DbLike,
+	serverId: string,
+	orgId: string,
+	kind: Kind
+): Promise<ListRow> {
+	const load = () =>
+		db
+			.select()
+			.from(lists)
+			.where(and(eq(lists.serverId, serverId), eq(lists.kind, kind)))
+			.limit(1);
+	let [row] = await load();
+	if (!row) {
+		await db
+			.insert(lists)
+			.values({ id: newId(), orgId, serverId, kind, name: 'Server' })
+			.onConflictDoNothing();
+		[row] = await load();
+	}
+	await db.insert(serverLists).values({ serverId, listId: row.id }).onConflictDoNothing();
+	return row;
+}
+
+/** The org's own lists, one per kind; the servers' lists are not among them. */
 export async function orgLists(env: Env, orgId: string): Promise<ListRow[]> {
 	const load = () =>
 		env.db
 			.select()
 			.from(lists)
-			.where(eq(lists.orgId, orgId))
+			.where(and(eq(lists.orgId, orgId), isNull(lists.serverId)))
 			.orderBy(asc(lists.kind), asc(lists.name));
 	let rows = await load();
 	if (LIST_KINDS.some((k) => !rows.some((l) => l.kind === k))) {
@@ -109,6 +143,15 @@ export async function listOf(env: Env, orgId: string, kind: Kind): Promise<ListR
 	const row = (await orgLists(env, orgId)).find((l) => l.kind === kind);
 	if (!row) throw new ApiError(500, `The organisation has no ${KIND_LABEL[kind]}.`);
 	return row;
+}
+
+/** A server's own list of a kind, which only that server takes; created on first use. */
+export async function serverListOf(
+	env: Env,
+	server: Pick<ServerRow, 'id' | 'orgId'>,
+	kind: Kind
+): Promise<ListRow> {
+	return ensureServerOwnList(env.db, server.id, server.orgId, kind);
 }
 
 interface ServerRef {
@@ -417,16 +460,15 @@ async function insertEntry(
 }
 
 /**
- * An entry a rule adds (the Seeding reward): no request, no signed-in actor; the caller records
- * the outcome. `added` is false when the player already holds an active entry.
+ * An entry a rule adds (the Seeding reward) to an org list or a server's own: no request, no
+ * signed-in actor; the caller records the outcome. `added` is false when the player already
+ * holds an active entry on that list.
  */
 export async function grantEntry(
 	env: Env,
-	org: OrgRow,
-	kind: Kind,
+	list: ListRow,
 	entry: { steamId: string; reason: string; expiresAt: Date | null; addedByName: string }
 ): Promise<{ id: string; added: boolean }> {
-	const list = await listOf(env, org.id, kind);
 	return insertEntry(env, list, { ...entry, addedBy: null });
 }
 
@@ -516,6 +558,104 @@ export async function removeEntry(
 		detail: { orgId: org.id, org: org.name, kind, listId: list.id, entryId: row.id }
 	});
 	const sync = await gateway().syncOrg(env, org);
+	return { sync };
+}
+
+// ---- a server's own reserved slots -------------------------------------------------------------
+
+/**
+ * Reserves a slot on one server through its own list: the panel applies it to the server now and
+ * lifts it at the expiry, unlike a slot written straight to the server, which it never touches.
+ */
+export async function addServerEntry(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	server: ServerRow,
+	org: OrgRow,
+	body: Record<string, unknown>
+): Promise<{ sync: ListSyncServer }> {
+	const steamId = requireSteamId(body.steamId);
+	const reason = str(body.reason, 200);
+	const expiresAt = parseExpiry(body.expiresAt);
+	const list = await serverListOf(env, server, 'reserve');
+	const { added } = await insertEntry(env, list, {
+		steamId,
+		reason,
+		expiresAt,
+		addedBy: actor.id,
+		addedByName: actor.username
+	});
+	if (!added)
+		throw new ApiError(
+			409,
+			`${steamId} already holds a reserved slot on ${server.name}.`,
+			'duplicate'
+		);
+	await writeAudit(env, req, {
+		actor,
+		server: { id: server.id, name: server.name },
+		orgId: server.orgId,
+		category: 'server',
+		action: 'list.add',
+		target: steamId,
+		outcome: 'ok',
+		message:
+			`Reserved slot on ${server.name}` +
+			(reason ? `: ${reason}` : '') +
+			(expiresAt ? ` (until ${expiresAt.toISOString()})` : ''),
+		detail: { kind: 'reserve', listId: list.id, reason, expiresAt: iso(expiresAt) }
+	});
+	const sync = await gateway().syncServer(env, server, org, 15_000);
+	return { sync };
+}
+
+/** Withdraws a slot the server's own list holds; the sync takes it off the server. */
+export async function removeServerEntry(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	server: ServerRow,
+	org: OrgRow,
+	steamIdIn: unknown
+): Promise<{ sync: ListSyncServer }> {
+	const steamId = requireSteamId(steamIdIn);
+	const list = await serverListOf(env, server, 'reserve');
+	const [row] = await env.db
+		.update(listEntries)
+		.set({
+			removedAt: new Date(),
+			removedBy: actor.id,
+			removedByName: actor.username,
+			removal: 'manual'
+		})
+		.where(
+			and(
+				eq(listEntries.listId, list.id),
+				eq(listEntries.steamId, steamId),
+				isNull(listEntries.removedAt)
+			)
+		)
+		.returning({ id: listEntries.id });
+	if (!row)
+		throw new ApiError(
+			404,
+			`${steamId} holds no reserved slot of ${server.name}'s own.`,
+			'not_found'
+		);
+	await touch(env.db, list.id);
+	await writeAudit(env, req, {
+		actor,
+		server: { id: server.id, name: server.name },
+		orgId: server.orgId,
+		category: 'server',
+		action: 'list.remove',
+		target: steamId,
+		outcome: 'ok',
+		message: `Reserved slot withdrawn on ${server.name}`,
+		detail: { kind: 'reserve', listId: list.id, entryId: row.id }
+	});
+	const sync = await gateway().syncServer(env, server, org, 15_000);
 	return { sync };
 }
 
@@ -710,7 +850,9 @@ export async function serverListsState(
 		managed,
 		name: null,
 		note: '',
-		member: false
+		member: false,
+		scope: 'org',
+		expiresAt: null
 	});
 	for (const b of bans) out.bans[b.steamId] = { state: 'local', managed: false };
 	for (const r of reserved) out.reserved[r.steamId] = slot('local', false);
@@ -726,11 +868,13 @@ export async function serverListsState(
 		const s = (out.reserved[d.steamId] ??= slot('pending', true));
 		s.member = d.member;
 	}
-	// what the page shows for each slot: the player's name and the note on the org entry
+	// what the page shows for each slot: the player's name, and the note, expiry and list the
+	// entry is on (the org's, or this server's own; an org entry wins when a player is on both)
 	const slotIds = Object.keys(out.reserved);
 	if (slotIds.length) {
 		const listIds = [...new Set(desired.reserved.map((d) => d.listId))];
-		const [names, notes] = await Promise.all([
+		const own = await serverListOf(env, server, 'reserve');
+		const [names, entries] = await Promise.all([
 			namesFor(
 				env,
 				(await orgServerRefs(env, server.orgId)).map((s) => s.id),
@@ -738,7 +882,12 @@ export async function serverListsState(
 			),
 			listIds.length
 				? env.db
-						.select({ steamId: listEntries.steamId, reason: listEntries.reason })
+						.select({
+							listId: listEntries.listId,
+							steamId: listEntries.steamId,
+							reason: listEntries.reason,
+							expiresAt: listEntries.expiresAt
+						})
 						.from(listEntries)
 						.where(
 							and(
@@ -750,7 +899,14 @@ export async function serverListsState(
 				: []
 		]);
 		for (const [steamId, name] of names) out.reserved[steamId].name = name;
-		for (const n of notes) if (n.reason) out.reserved[n.steamId].note = n.reason;
+		const sourceOf = new Map(desired.reserved.map((d) => [d.steamId, d.listId]));
+		for (const e of entries) {
+			if (sourceOf.get(e.steamId) !== e.listId) continue;
+			const s = out.reserved[e.steamId];
+			s.note = e.reason;
+			s.expiresAt = iso(e.expiresAt);
+			if (e.listId === own.id) s.scope = 'server';
+		}
 	}
 	return out;
 }
