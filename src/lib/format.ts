@@ -35,6 +35,36 @@ export const fmtDuration = (sec: number | null | undefined): string => {
 	return `${hh}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
 };
 
+/** A span of time in its coarsest readable unit: "40 s", "12 min", "3 h", "2 days". */
+export function fmtSpan(ms: number): string {
+	const s = Math.max(0, Math.round(ms / 1000));
+	if (s < 60) return `${s} s`;
+	const m = Math.round(s / 60);
+	if (m < 60) return `${m} min`;
+	const h = Math.round(m / 60);
+	if (h < 36) return `${h} h`;
+	const d = Math.round(h / 24);
+	return `${d} day${d === 1 ? '' : 's'}`;
+}
+
+/**
+ * How long ago a moment was, for status lines that are read at a glance: "just now", "2 min ago",
+ * "4 h ago", "3 days ago"; past a month the date itself, since "47 days ago" is not read.
+ */
+export function fmtAgo(value: string | number | Date, now = Date.now()): string {
+	const t = new Date(value).getTime();
+	if (Number.isNaN(t)) return String(value);
+	const ms = Math.max(0, now - t);
+	if (ms < 45_000) return 'just now';
+	if (ms > 31 * 86400_000)
+		return new Date(t).toLocaleDateString(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: '2-digit'
+		});
+	return `${fmtSpan(ms)} ago`;
+}
+
 export const fmtNum = (n: number | null | undefined): string =>
 	n === null || n === undefined ? '—' : Number(n).toLocaleString();
 
