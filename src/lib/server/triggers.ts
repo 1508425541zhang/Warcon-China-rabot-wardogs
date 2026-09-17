@@ -955,7 +955,7 @@ export async function dryRun(
 			.where(eq(servers.id, server.id));
 		if (!feed?.configured)
 			result.notes.push(
-				'This server has no kill feed set up (Configuration tab), so the rule cannot see any team kills.'
+				'This server has no kill feed set up (Config tab), so the rule cannot see any team kills.'
 			);
 		result.notes.push(
 			`${rows.length} team kill${rows.length === 1 ? '' : 's'} in the window, counted per killer within their session.`

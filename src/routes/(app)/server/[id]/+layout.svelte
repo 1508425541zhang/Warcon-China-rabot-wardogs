@@ -17,7 +17,7 @@
 		['/bans', 'Bans'],
 		['/slots', 'Reserved slots'],
 		['/rotation', 'Map rotation'],
-		['/config', 'Configuration'],
+		['/config', 'Config'],
 		['/automation', 'Automation'],
 		['/analytics', 'Analytics'],
 		['/leaderboard', 'Leaderboards'],

@@ -122,7 +122,7 @@ async function actOnTeamKills(env: Env, serverId: string, teamKills: KillView[])
 
 /**
  * The demo server's kills, fed through the same path as a real server's once its feed is turned
- * on (Configuration tab): the mock has no process of its own to post from, so the worker drains
+ * on (Config tab): the mock has no process of its own to post from, so the worker drains
  * its queue after each observation.
  */
 export async function feedDemoKills(env: Env, server: ServerRow): Promise<void> {
