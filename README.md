@@ -493,7 +493,8 @@ the server limit, which shuts every such page in it at once.
   adds the last twenty kills from the [kill feed](#kill-feed) (weapon, distance, names only).
 - **Leaderboards and careers** at `/s/<server id>/leaderboard` and `/s/<server id>/players/<SteamID>`:
   the same board and career as the panel, over this server or the organisation's servers whose
-  leaderboards are public too.
+  leaderboards are public too, with the player's kill-feed record (headshots, longest shot,
+  weapons, most killed, nemeses). While this is on, names on the live page open the career.
 
 Public pages show in-game names, never SteamIDs, pings, cash, the build or the panel's own
 error text (an unreachable server says only that it could not be reached), and read Steam

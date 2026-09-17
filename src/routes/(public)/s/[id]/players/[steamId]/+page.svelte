@@ -1,7 +1,9 @@
 <script lang="ts">
-	// A public career: the same panel the dossier shows, under the player's name and the cached
-	// Steam avatar (never fetched for a public viewer).
+	// A public career: the same panel the dossier shows, with the kill-feed record between the
+	// rank tiles and the tables, under the player's name and the cached Steam avatar (never
+	// fetched for a public viewer).
 	import CareerPanel from '$lib/components/CareerPanel.svelte';
+	import CombatSummary from '$lib/components/CombatSummary.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -32,6 +34,12 @@
 			serverName={data.heading.name}
 			orgName={data.heading.orgName}
 			multiServer={data.multiServer}
-		/>
+		>
+			{#if data.combat}
+				<span class="field-label">Combat</span>
+				<CombatSummary combat={data.combat} hrefFor={(steamId) => `${base}/players/${steamId}`} />
+				<div class="mb-4"></div>
+			{/if}
+		</CareerPanel>
 	</div>
 </div>

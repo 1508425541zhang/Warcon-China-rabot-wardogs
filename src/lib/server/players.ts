@@ -17,7 +17,14 @@ import { orgListMembership } from './lists';
 import { kills, playerMarks, playerNotes, playerSessions, serverBans, servers } from './db/schema';
 import { getProfiles, isSteamId, steamEnabled, type SteamProfileRow } from './steam';
 import { accountAgeDays, assessRisk, namesResemble, type Risk } from './risk';
-import type { DossierView, PlayerCombat, PlayerMark, PlayerNoteView, SteamView } from '$lib/types';
+import type {
+	DossierView,
+	PlayerCombat,
+	PlayerMark,
+	PlayerNoteView,
+	SteamView,
+	CombatSummary
+} from '$lib/types';
 import { killView } from './feed';
 
 export { requireSteamId } from './steam';
@@ -500,6 +507,38 @@ async function playerCombat(
 	nameOf: Map<string, string>,
 	steamId: string
 ): Promise<PlayerCombat | null> {
+	const summary = await combatSummary(env, serverIds, steamId);
+	if (!summary) return null;
+	const recent = await env.db
+		.select()
+		.from(kills)
+		.where(
+			and(
+				inArray(kills.serverId, serverIds),
+				or(eq(kills.killerSteamId, steamId), eq(kills.victimSteamId, steamId))
+			)
+		)
+		.orderBy(desc(kills.ts))
+		.limit(25);
+	return {
+		...summary,
+		recent: recent.map((r) => ({
+			...killView(r),
+			serverId: r.serverId,
+			serverName: nameOf.get(r.serverId) || r.serverId
+		}))
+	};
+}
+
+/**
+ * The totals, weapons, most-killed and nemeses without the recent rows: the public career page
+ * shows exactly this. Null when none of the servers has a feed and the player is in no kill.
+ */
+export async function combatSummary(
+	env: Env,
+	serverIds: string[],
+	steamId: string
+): Promise<CombatSummary | null> {
 	if (!serverIds.length) return null;
 	const db = env.db;
 	const [feed] = await db
@@ -527,7 +566,7 @@ async function playerCombat(
 		  FROM kills WHERE server_id IN ${serverIds}
 		   AND (killer_steam_id = ${steamId} OR victim_steam_id = ${steamId})`);
 	if (!num(feed?.n) && !num(t?.kills) && !num(t?.deaths)) return null;
-	const [causes, victims, nemeses, recent] = await Promise.all([
+	const [causes, victims, nemeses] = await Promise.all([
 		db.execute<{ cause: string; kills: string }>(sql`
 			SELECT cause, COUNT(*) AS kills FROM kills
 			 WHERE server_id IN ${serverIds} AND killer_steam_id = ${steamId} AND NOT suicide AND cause IS NOT NULL
@@ -539,18 +578,7 @@ async function playerCombat(
 		db.execute<{ steamId: string; name: string; deaths: string }>(sql`
 			SELECT killer_steam_id AS "steamId", MAX(killer_name) AS name, COUNT(*) AS deaths FROM kills
 			 WHERE server_id IN ${serverIds} AND victim_steam_id = ${steamId} AND killer_steam_id IS NOT NULL AND NOT suicide
-			 GROUP BY killer_steam_id ORDER BY deaths DESC LIMIT 5`),
-		db
-			.select()
-			.from(kills)
-			.where(
-				and(
-					inArray(kills.serverId, serverIds),
-					or(eq(kills.killerSteamId, steamId), eq(kills.victimSteamId, steamId))
-				)
-			)
-			.orderBy(desc(kills.ts))
-			.limit(25)
+			 GROUP BY killer_steam_id ORDER BY deaths DESC LIMIT 5`)
 	]);
 	return {
 		kills: num(t?.kills),
@@ -563,11 +591,6 @@ async function playerCombat(
 		longestM: t?.longest === null || t?.longest === undefined ? null : Math.round(num(t.longest)),
 		causes: causes.map((r) => ({ cause: r.cause, kills: num(r.kills) })),
 		victims: victims.map((r) => ({ steamId: r.steamId, name: r.name, kills: num(r.kills) })),
-		nemeses: nemeses.map((r) => ({ steamId: r.steamId, name: r.name, deaths: num(r.deaths) })),
-		recent: recent.map((r) => ({
-			...killView(r),
-			serverId: r.serverId,
-			serverName: nameOf.get(r.serverId) || r.serverId
-		}))
+		nemeses: nemeses.map((r) => ({ steamId: r.steamId, name: r.name, deaths: num(r.deaths) }))
 	};
 }

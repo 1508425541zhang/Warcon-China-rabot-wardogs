@@ -1,6 +1,7 @@
 <script lang="ts">
 	// A player's career: rank, streak, results overall, by map and by faction, and the last ten
 	// matches. Shared by the dossier's Career section and the public career page.
+	import type { Snippet } from 'svelte';
 	import { fmtNum, fmtTime, mapName } from '$lib/format';
 	import { kdRatio, type CareerView } from '$lib/leaderboard';
 
@@ -9,8 +10,16 @@
 		serverName,
 		orgName,
 		/** more than one server in the org: name the server on each match */
-		multiServer = false
-	}: { career: CareerView; serverName: string; orgName: string; multiServer?: boolean } = $props();
+		multiServer = false,
+		/** rendered between the rank tiles and the tables (the public career puts combat here) */
+		children
+	}: {
+		career: CareerView;
+		serverName: string;
+		orgName: string;
+		multiServer?: boolean;
+		children?: Snippet;
+	} = $props();
 
 	const kd = (k: number, d: number) => {
 		const v = kdRatio(k, d);
@@ -33,6 +42,7 @@
 	Rank is the all-time kills board with at least {career.rank.floorMinutes} minutes played; a dash means
 	under the floor. Matches are wins-losses-draws.
 </p>
+{#if children}{@render children()}{/if}
 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 	<div>
 		<span class="field-label">By map</span>
