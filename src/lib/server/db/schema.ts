@@ -601,7 +601,8 @@ export const triggers = pgTable(
 				'risk_kick',
 				'restart_notice',
 				'team_kill',
-				'seed_reward'
+				'seed_reward',
+				'match_broadcast'
 			]
 		}).notNull(),
 		name: text('name').notNull(),

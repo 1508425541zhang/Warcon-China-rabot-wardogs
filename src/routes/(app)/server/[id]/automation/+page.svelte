@@ -127,6 +127,12 @@
 			blurb: 'Warn players before the twelve-hour restart and tell them when it lands.'
 		},
 		{
+			kind: 'match_broadcast',
+			group: 'Messages',
+			label: 'Match broadcast',
+			blurb: 'Announce who won when a match ends, and the map as the next one starts.'
+		},
+		{
 			kind: 'risk_kick',
 			group: 'Players',
 			label: 'Kick on connect risk',
@@ -267,6 +273,8 @@
 		leadMinutes: number;
 		leadMessage: string;
 		repeatMinutes: number;
+		endMessage: string;
+		startMessage: string;
 		warnAt: number;
 		warnMessage: string;
 		kickAt: number;
@@ -361,6 +369,8 @@
 				'Scheduled restart in about {minutes} minutes, at the end of the round then in progress.'
 			),
 			repeatMinutes: n('repeatMinutes', 0),
+			endMessage: s('endMessage', 'Match over: {faction} wins on {previous} · {scores}'),
+			startMessage: s('startMessage', 'New match on {map}. Good luck!'),
 			warnAt: n('warnAt', 2),
 			warnMessage: s(
 				'warnMessage',
@@ -428,6 +438,12 @@
 					leadMinutes: Number(f.leadMinutes),
 					leadMessage: f.leadMessage,
 					repeatMinutes: Number(f.repeatMinutes),
+					minPlayers: Number(f.minPlayers)
+				};
+			case 'match_broadcast':
+				return {
+					endMessage: f.endMessage,
+					startMessage: f.startMessage,
 					minPlayers: Number(f.minPlayers)
 				};
 			case 'team_kill':
@@ -546,6 +562,14 @@
 			}
 			case 'restart_notice':
 				return `"${c.message}"${c.leadMinutes ? ` · heads-up ${c.leadMinutes} min before` : ''}${c.repeatMinutes ? ` · again every ${c.repeatMinutes} min` : ''} · at least ${c.minPlayers} on`;
+			case 'match_broadcast':
+				return [
+					c.endMessage ? `end: "${c.endMessage}"` : '',
+					c.startMessage ? `start: "${c.startMessage}"` : ''
+				]
+					.filter(Boolean)
+					.join(' · ')
+					.concat(` · at least ${c.minPlayers} on`);
 			case 'team_kill':
 				return [
 					c.warnAt ? `whisper from ${c.warnAt} team kill${c.warnAt === 1 ? '' : 's'}` : '',
@@ -1048,6 +1072,59 @@
 					{@render placeholders(['minutes', 'uptime', 'server', 'map', 'players', 'max'])}
 					<p class="note">
 						The game restarts twelve hours after it started, once the round then in progress ends.
+					</p>
+				{:else if f.kind === 'match_broadcast'}
+					<fieldset class="space-y-2">
+						<legend class="field-label">When a match ends</legend>
+						<input
+							class="input"
+							type="text"
+							bind:value={f.endMessage}
+							maxlength="200"
+							aria-label="Message when a match ends"
+							placeholder="Leave empty to say nothing"
+						/>
+						{@render placeholders([
+							'faction',
+							'score',
+							'scores',
+							'previous',
+							'map',
+							'server',
+							'players'
+						])}
+					</fieldset>
+					<fieldset class="space-y-2">
+						<legend class="field-label">As the next one starts</legend>
+						<input
+							class="input"
+							type="text"
+							bind:value={f.startMessage}
+							maxlength="200"
+							aria-label="Message as the next match starts"
+							placeholder="Leave empty to say nothing"
+						/>
+						{@render placeholders(['map', 'previous', 'server', 'players', 'max'])}
+					</fieldset>
+					<fieldset class="space-y-2">
+						<legend class="field-label">Only with at least</legend>
+						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="0"
+								max="1000"
+								bind:value={f.minPlayers}
+								aria-label="At least, players"
+							/>
+							players on
+						</div>
+					</fieldset>
+					<p class="note">
+						A match ends when the map changes or the faction scores fall back to zero, so a manual
+						end or map change counts too; {'{faction}'} is whoever led at that moment (tied factions are
+						named together). Sent one poll after the round ends, a second or two on a busy server and
+						up to half a minute on a quiet one.
 					</p>
 				{:else if f.kind === 'risk_kick'}
 					<fieldset class="space-y-1.5 text-[13px]">

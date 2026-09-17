@@ -8,6 +8,8 @@ import {
 	fullMoments,
 	lowStretches,
 	matchBoundary,
+	matchBroadcastMessages,
+	matchReplay,
 	riskKickVerdict,
 	seedRule,
 	seedReplay,
@@ -15,7 +17,7 @@ import {
 	validateConfig,
 	welcomeTargets
 } from './trigger-rules';
-import type { RiskKickConfig } from './trigger-rules';
+import type { MatchBroadcastConfig, RiskKickConfig } from './trigger-rules';
 
 describe('validateConfig', () => {
 	test('welcome needs a message and trims it to 200 characters', () => {
@@ -136,6 +138,20 @@ describe('validateConfig', () => {
 			slotDays: 1,
 			message: 'thanks {name}'
 		});
+	});
+});
+
+describe('validateConfig match_broadcast', () => {
+	test('needs at least one of the two messages and defaults the player floor', () => {
+		expect(() => validateConfig('match_broadcast', {})).toThrow(/message/);
+		expect(validateConfig('match_broadcast', { startMessage: 'Go!' })).toEqual({
+			endMessage: '',
+			startMessage: 'Go!',
+			minPlayers: 1
+		});
+		expect(
+			validateConfig('match_broadcast', { endMessage: ' {faction} won ', minPlayers: 10 })
+		).toMatchObject({ endMessage: '{faction} won', minPlayers: 10 });
 	});
 });
 
@@ -566,5 +582,78 @@ describe('matchBoundary', () => {
 		expect(tie).toMatchObject({ winner: null, leaders: ['Lonestar', 'Valkyra'] });
 		const blank = matchBoundary(look('Bakurani', [0, 0, 0]), look('Madrid', [0, 0, 0]));
 		expect(blank).toMatchObject({ winner: null, leaders: [] });
+	});
+});
+
+describe('matchBroadcastMessages', () => {
+	const cfg: MatchBroadcastConfig = {
+		endMessage: '{faction} won on {previous} with {score} ({scores})',
+		startMessage: 'Now on {map} with {players} on',
+		minPlayers: 2
+	};
+	const end = {
+		map: 'Bakurani',
+		scores: [
+			{ name: 'Valkyra', score: 1000 },
+			{ name: 'Lonestar', score: 812 },
+			{ name: 'Manticore', score: 640 }
+		],
+		winner: 'Valkyra',
+		leaders: ['Valkyra']
+	};
+	const vars = { server: 'TLR', map: 'Madrid', players: 40, max: 100 };
+	test('end message first, then start, with the result filled in', () => {
+		expect(matchBroadcastMessages(cfg, end, 40, vars)).toEqual([
+			{
+				stage: 'end',
+				message: 'Valkyra won on Bakurani with 1000 (Valkyra 1000 · Lonestar 812 · Manticore 640)'
+			},
+			{ stage: 'start', message: 'Now on Madrid with 40 on' }
+		]);
+	});
+	test('a tie names both; nobody scoring drops the end message; a blank message is skipped', () => {
+		const tie = { ...end, winner: null, leaders: ['Valkyra', 'Lonestar'] };
+		expect(matchBroadcastMessages(cfg, tie, 40, vars)[0].message).toStartWith(
+			'Valkyra and Lonestar won'
+		);
+		const blank = { ...end, winner: null, leaders: [] };
+		expect(matchBroadcastMessages(cfg, blank, 40, vars).map((m) => m.stage)).toEqual(['start']);
+		expect(
+			matchBroadcastMessages({ ...cfg, startMessage: '' }, end, 40, vars).map((m) => m.stage)
+		).toEqual(['end']);
+	});
+	test('nothing under the player floor', () => {
+		expect(matchBroadcastMessages(cfg, end, 1, vars)).toEqual([]);
+	});
+});
+
+describe('matchReplay', () => {
+	const row = (ts: number, map: string, scores: number[], ok = true, count = 30) => ({
+		ts,
+		ok,
+		map,
+		scores: ['A', 'B'].map((name, i) => ({ name, score: scores[i] ?? 0 })),
+		count
+	});
+	test('finds the resets and map changes, and skips across failures and unwatched gaps', () => {
+		const ends = matchReplay(
+			[
+				row(0, 'Bakurani', [10, 4]),
+				row(20, 'Bakurani', [900, 700]),
+				row(40, 'Bakurani', [0, 0]), // reset: A won
+				row(60, 'Bakurani', [50, 60]),
+				row(80, 'Bakurani', [0, 0], false), // failed sample
+				row(100, 'Bakurani', [0, 0]), // not compared with 60
+				row(120, 'Bakurani', [300, 100]),
+				row(400, 'Bakurani', [5, 5]), // gap too long: unwatched
+				row(420, 'Madrid', [7, 5]) // map change
+			],
+			41
+		);
+		expect(ends.map((e) => [e.ts, e.end.map, e.end.winner])).toEqual([
+			[40, 'Bakurani', 'A'],
+			[420, 'Bakurani', null]
+		]);
+		expect(ends[1].end.leaders).toEqual(['A', 'B']);
 	});
 });

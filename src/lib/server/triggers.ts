@@ -53,7 +53,11 @@ import {
 	type RestartNoticeState,
 	fullMoments,
 	lowStretches,
+	matchBroadcastMessages,
+	matchReplay,
 	seedReplay,
+	type MatchBroadcastConfig,
+	type MatchEnd,
 	type RiskKickConfig,
 	type SeedRewardConfig,
 	type TeamKillConfig,
@@ -251,6 +255,8 @@ export interface TickContext {
 	profiles: Map<string, SteamProfileRow>;
 	/** when the game process started (ms), from GET /v1/health; 0 while unknown */
 	startedAt: number;
+	/** the match that ended between the previous look and this one, or null */
+	matchEnd: MatchEnd | null;
 	ts: Date;
 }
 
@@ -350,6 +356,9 @@ export async function evaluateTriggers(
 					break;
 				case 'seed_reward':
 					await evalSeedReward(env, ctx, row, row.config as SeedRewardConfig, out);
+					break;
+				case 'match_broadcast':
+					evalMatchBroadcast(ctx, row, row.config as MatchBroadcastConfig, out);
 					break;
 			}
 		} catch (err) {
@@ -582,6 +591,41 @@ function evalRestartNotice(
 		lastFiredAt: ctx.ts,
 		lastResult: `Sending: ${message}`,
 		state: hit.state
+	});
+}
+
+// A match boundary is one tick, so the rule keeps no state: the end message then the start
+// message, each an outbox row keyed on the tick.
+function evalMatchBroadcast(
+	ctx: TickContext,
+	row: TriggerRow,
+	cfg: MatchBroadcastConfig,
+	out: Evaluation
+) {
+	if (!ctx.matchEnd) return;
+	const sends = matchBroadcastMessages(cfg, ctx.matchEnd, ctx.status.playerCount, vars(ctx));
+	if (!sends.length) return;
+	for (const { stage, message } of sends)
+		out.intents.push({
+			trigger: row,
+			action: 'broadcast',
+			params: { message },
+			target: message,
+			okMessage: 'Broadcast sent.',
+			detail: {
+				stage,
+				map: ctx.matchEnd.map,
+				winner: ctx.matchEnd.winner,
+				scores: ctx.matchEnd.scores
+			},
+			steamId: null,
+			dedupeKey: key(row, stage, ctx.ts.getTime())
+		});
+	row.lastFiredAt = ctx.ts;
+	out.updates.push({
+		id: row.id,
+		lastFiredAt: ctx.ts,
+		lastResult: `Sending: ${sends.map((s) => s.message).join(' / ')}`.slice(0, 300)
 	});
 }
 
@@ -963,7 +1007,8 @@ export async function dryRun(
 			count: samples.playerCount,
 			max: samples.maxPlayers,
 			map: samples.map,
-			experiences: samples.experiences
+			experiences: samples.experiences,
+			scores: samples.scores
 		})
 		.from(samples)
 		.where(and(eq(samples.serverId, server.id), gte(samples.ts, from)))
@@ -1043,6 +1088,33 @@ export async function dryRun(
 		);
 		result.notes.push(
 			`Replayed over the last 24 hours only; the live rule adds up seed time over ${c.windowDays} day${c.windowDays === 1 ? '' : 's'}, so it can also fire for players this replay does not show.`
+		);
+		return result;
+	}
+	if (kind === 'match_broadcast') {
+		const c = cfg as MatchBroadcastConfig;
+		const ends = matchReplay(
+			rows.map((r) => ({
+				ts: r.ts.getTime(),
+				ok: r.ok,
+				map: r.map || '',
+				scores: Array.isArray(r.scores) ? (r.scores as { name: string; score: number }[]) : [],
+				count: r.count ?? 0
+			})),
+			2 * settings().sampleMs + 1000
+		);
+		for (const e of ends)
+			for (const { message } of matchBroadcastMessages(c, e.end, e.count, {
+				server: server.name,
+				map: e.map,
+				players: e.count,
+				max: '…'
+			}))
+				push(new Date(e.ts), `broadcast (${e.count} on): ${message}`);
+		result.notes.push(
+			ends.length
+				? `${ends.length} match${ends.length === 1 ? '' : 'es'} ended in the window. Times shown are the sample that first saw the reset; live, the rule fires one poll after the round ends.`
+				: 'No match ended in the window: the map never changed and the scores never fell back.'
 		);
 		return result;
 	}

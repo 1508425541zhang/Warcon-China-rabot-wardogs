@@ -15,7 +15,8 @@ export const TRIGGER_KINDS: TriggerKind[] = [
 	'risk_kick',
 	'restart_notice',
 	'team_kill',
-	'seed_reward'
+	'seed_reward',
+	'match_broadcast'
 ];
 export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	welcome: 'Welcome whisper',
@@ -25,7 +26,8 @@ export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	risk_kick: 'Kick on connect risk',
 	restart_notice: 'Restart notice',
 	team_kill: 'Team kill limit',
-	seed_reward: 'Seeding reward'
+	seed_reward: 'Seeding reward',
+	match_broadcast: 'Match broadcast'
 };
 
 export interface WelcomeConfig {
@@ -105,6 +107,18 @@ export interface SeedRewardConfig {
 	slotDays: number;
 	message: string;
 }
+/**
+ * Announces a match ending and the next one starting. A match ends when the map changes or the
+ * faction scores fall back (a faction reached the cap, or an admin ended the round); the live
+ * builds send no score cap, so the winner is whoever led when the scores reset.
+ */
+export interface MatchBroadcastConfig {
+	/** sent for the match that ended; '' for none */
+	endMessage: string;
+	/** sent for the match now starting; '' for none */
+	startMessage: string;
+	minPlayers: number;
+}
 export type TriggerConfig =
 	| WelcomeConfig
 	| FactionChangeConfig
@@ -113,7 +127,8 @@ export type TriggerConfig =
 	| RiskKickConfig
 	| RestartNoticeConfig
 	| TeamKillConfig
-	| SeedRewardConfig;
+	| SeedRewardConfig
+	| MatchBroadcastConfig;
 
 const MAX_MESSAGE = 200;
 
@@ -252,6 +267,16 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 				slotDays: int(c.slotDays, 7, 1, 365),
 				message: str(c.message, MAX_MESSAGE)
 			};
+		}
+		case 'match_broadcast': {
+			const endMessage = str(c.endMessage, MAX_MESSAGE);
+			const startMessage = str(c.startMessage, MAX_MESSAGE);
+			if (!endMessage && !startMessage)
+				throw new ApiError(
+					400,
+					'Add a message for the match ending, the next one starting, or both.'
+				);
+			return { endMessage, startMessage, minPlayers: int(c.minPlayers, 1, 0, 1000) };
 		}
 	}
 }
@@ -490,6 +515,71 @@ export function matchBoundary(prev: MatchLook | null, next: MatchLook): MatchEnd
 		winner: leaders.length === 1 ? leaders[0] : null,
 		leaders
 	};
+}
+
+/** The placeholders a match boundary fills: the result of the match that ended. */
+export function matchVars(end: MatchEnd): Record<string, string | number> {
+	const top = end.scores[0]?.score ?? 0;
+	return {
+		faction: end.leaders.join(' and '),
+		score: top,
+		scores: end.scores.map((f) => `${f.name} ${f.score}`).join(' · '),
+		previous: end.map
+	};
+}
+
+/**
+ * What a match broadcast sends at a boundary, end message first. The end message is skipped when
+ * nobody scored (a reset from nil-all says nothing worth announcing); both need the player count.
+ */
+export function matchBroadcastMessages(
+	cfg: MatchBroadcastConfig,
+	end: MatchEnd,
+	playerCount: number,
+	vars: Record<string, string | number>
+): { stage: 'end' | 'start'; message: string }[] {
+	if (playerCount < cfg.minPlayers) return [];
+	const all = { ...vars, ...matchVars(end) };
+	const out: { stage: 'end' | 'start'; message: string }[] = [];
+	if (cfg.endMessage && end.leaders.length)
+		out.push({ stage: 'end', message: renderTemplate(cfg.endMessage, all) });
+	if (cfg.startMessage)
+		out.push({ stage: 'start', message: renderTemplate(cfg.startMessage, all) });
+	return out;
+}
+
+export interface MatchSample {
+	ts: number;
+	ok: boolean;
+	map: string;
+	scores: { name: string; score: number }[];
+	count: number;
+}
+
+/**
+ * The match boundaries in a run of samples, for the dry run: each sample is compared with the one
+ * before it, except across a failed sample or a gap longer than `maxHoldMs` (the worker was not
+ * watching, and the live rule would not have seen the boundary either).
+ */
+export function matchReplay(
+	rows: MatchSample[],
+	maxHoldMs: number
+): { ts: number; count: number; map: string; end: MatchEnd }[] {
+	const out: { ts: number; count: number; map: string; end: MatchEnd }[] = [];
+	let prev: MatchSample | null = null;
+	for (const r of rows) {
+		if (!r.ok) {
+			prev = null;
+			continue;
+		}
+		const look = { map: r.map, scores: r.scores, matchSeconds: null };
+		if (prev && r.ts - prev.ts <= maxHoldMs) {
+			const end = matchBoundary({ map: prev.map, scores: prev.scores, matchSeconds: null }, look);
+			if (end) out.push({ ts: r.ts, count: r.count, map: r.map, end });
+		}
+		prev = r;
+	}
+	return out;
 }
 
 /** A player who has a faction now and did not have this one at the last look. */
