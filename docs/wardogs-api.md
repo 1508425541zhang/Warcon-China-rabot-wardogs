@@ -155,8 +155,8 @@ explosions and most suicides. Tags seen: `Headshot`, `Penetration`, `Ricochet`, 
 `Suicide` and the constant `Local.Kill`/`Local.Death` (`Meta.PlayerKillFlag.Player.*`). No faction
 on either side. Only `killed` was seen; other types may exist. Whether the game buffers while the
 endpoint is down is not known. Warcon serves the endpoint at `POST /api/ingest/events` and writes
-`Url=<origin>` with a per-server token (README, "Kill feed"), keeps `<origin>/api/feed/events`
-plus the suffix served for configs written before the suffix was known, and keeps building the
+`Url=<origin>` with a per-server token (README, "Kill feed"); a config written before the suffix
+was known (`Url=<origin>/api/feed/events`) needs Configure again, and Warcon keeps building the
 scoreboard's kill and cash totals as before.
 
 Only `ScorePeriod`, `bEnabled` and `RotationMode` have live routes; everything else changes via the
