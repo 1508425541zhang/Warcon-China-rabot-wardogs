@@ -66,11 +66,26 @@
 			feedBusy = false;
 		}
 	}
-	const enableFeed = () =>
-		feedAction(
-			() => api('POST', feedPath),
-			'Kill feed token created. Write it to the config to start the feed.'
-		);
+	/** One click: mint the token, write both keys into the config document, apply. */
+	async function configureFeed() {
+		const writable = !readOnly;
+		feedBusy = true;
+		try {
+			feed = await api<FeedSetup>('POST', feedPath);
+		} catch (err) {
+			toast(errorMessage(err), 'err');
+			feedBusy = false;
+			return;
+		}
+		feedBusy = false;
+		if (writable) await writeFeedConfig();
+		else
+			toast(
+				'Token created. The config document cannot be written from here, so set [WDServerFeed] Url and Token on the host by hand.',
+				'ok'
+			);
+		await loadFeed();
+	}
 	async function rotateFeed() {
 		if (
 			!(await confirmDialog(
@@ -103,6 +118,8 @@
 		text = setScalarInText(text, 'WDServerFeed', 'Url', feed.url);
 		text = setScalarInText(text, 'WDServerFeed', 'Token', feed.token);
 		await runConfig('configApply');
+		if (!failure)
+			toast('Kill feed configured. The game starts posting after its next restart.', 'ok');
 	}
 	async function copyFeed(value: string, what: string) {
 		try {
@@ -347,8 +364,10 @@
 						>Turn off</button
 					>
 				{:else}
-					<button class="btn btn-sm btn-primary" disabled={feedBusy} onclick={enableFeed}
-						>Turn on</button
+					<button
+						class="btn btn-sm btn-primary"
+						disabled={feedBusy || busy || !doc}
+						onclick={configureFeed}>Configure</button
 					>
 				{/if}
 			</span>
@@ -374,12 +393,12 @@
 			</div>
 		</div>
 		<div class="mt-3 flex flex-wrap items-center gap-2">
-			<button class="btn btn-primary" disabled={readOnly || busy} onclick={writeFeedConfig}
-				>Write to config document</button
+			<button class="btn btn-sm" disabled={readOnly || busy} onclick={writeFeedConfig}
+				>Write to config again</button
 			>
 			<span class="text-[12.5px] text-mist-600"
-				>sets [WDServerFeed] Url and Token below and applies; the game reads them at its next
-				restart</span
+				>the two keys are in the document below; write them again after replacing the token, or if
+				the file was edited on the host</span
 			>
 		</div>
 	{/if}
@@ -387,9 +406,9 @@
 		With <span class="chip">[WDServerFeed]</span> set, the game posts every kill (killer, victim,
 		weapon, distance, headshot) to Warcon a second or two after it happens: the kill feed on the
 		Overview tab, combat stats on Analytics and player dossiers, and the team-kill trigger.
-		{#if feed && !feed.configured}Turn it on to get a token, write it to the config document, and
-			restart the server (or wait for the twelve-hour restart).{:else if feed && !data.server.manager}An
-			owner of the organisation holds the token.{/if}
+		{#if feed && !feed.configured}Configure writes the endpoint and a token into the config
+			document; the game reads them at its next restart (its own twelve-hour one, or a manual
+			restart).{:else if feed && !data.server.manager}An owner of the organisation holds the token.{/if}
 	</p>
 </div>
 
