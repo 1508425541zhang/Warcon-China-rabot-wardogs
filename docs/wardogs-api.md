@@ -128,9 +128,13 @@ number of `MaxPlayers` held back from public joins for them, which is why the TL
 whether the listener log `GET /v1/audit` shows is also written to disk); none is documented in the
 reference ini, and nothing on rcon.wardogs.com mentions any of the four. Warcon leaves the RCON
 block to the raw editor, as before. `WDServerFeed` (`Url` + `Token`) is a push feed the host may point anywhere: once both keys are
-set (read at startup), the game process POSTs JSON to `Url` with `Authorization: Bearer <Token>`
-and user agent `Wardogs/++Wardogs+Live-CL-501228 (http-eventloop) Linux/debian12`. Captured on
-2026-09-16 from the TLR server (3 h 26 m, 1900 posts, 2435 kills):
+set (read at startup), the game process POSTs JSON to **`Url` + `/api/ingest/events`** (the
+suffix is the game's own and is always appended; `Url` is a base, confirmed 2026-09-17 by a
+capture on the hosted panel where `Url=https://console.warcon.app/api/feed/events` produced posts
+to `/api/feed/events/api/ingest/events`) with `Authorization: Bearer <Token>` and user agent
+`Wardogs/++Wardogs+Live-CL-501228 (http-eventloop) Linux/debian12`. A quoted `Url="https://…"`
+is read correctly at startup. Captured on 2026-09-16 from the TLR server through a request bin
+set as the base (3 h 26 m, 1900 posts, 2435 kills):
 
 ```
 { "serverId": "<uuid>",          // a per-boot game instance id, not the join code from GET /v1/server-id
@@ -150,9 +154,10 @@ explosions and most suicides. Tags seen: `Headshot`, `Penetration`, `Ricochet`, 
 `VehicleExplosion`, `RoadKill`, `Falling` (all `Meta.Progression.Context.Player.KillContext.*`),
 `Suicide` and the constant `Local.Kill`/`Local.Death` (`Meta.PlayerKillFlag.Player.*`). No faction
 on either side. Only `killed` was seen; other types may exist. Whether the game buffers while the
-endpoint is down is not known. Warcon serves the endpoint at `POST /api/feed/events` with a
-per-server token (README, "Kill feed") and keeps building the scoreboard's kill and cash totals
-as before.
+endpoint is down is not known. Warcon serves the endpoint at `POST /api/ingest/events` and writes
+`Url=<origin>` with a per-server token (README, "Kill feed"), keeps `<origin>/api/feed/events`
+plus the suffix served for configs written before the suffix was known, and keeps building the
+scoreboard's kill and cash totals as before.
 
 Only `ScorePeriod`, `bEnabled` and `RotationMode` have live routes; everything else changes via the
 config document (PUT `/v1/config`) or by editing the ini and restarting.

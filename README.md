@@ -385,7 +385,8 @@ WARDOGS can push every kill to an HTTP endpoint: with `[WDServerFeed] Url` and `
 distance, headshot and other context) a second or two after it happens. Warcon is that endpoint.
 On the server's **Configuration** tab an org owner clicks **Configure**: Warcon mints a token,
 writes both keys into the config document and applies; the game reads them at its next restart
-(its own twelve-hour one, or a manual restart). The card shows when the last batch arrived, so a
+(its own twelve-hour one, or a manual restart). `Url` is the panel's origin alone: the game
+appends `/api/ingest/events` to it by itself. The card shows when the last batch arrived, so a
 config that did not take is visible.
 
 What the feed adds: a live kill feed on the server's Overview tab, a **Kills** tab with the whole
@@ -401,8 +402,10 @@ demo server feeds itself once its feed is turned on.
 
 The feed identifies its server by the token alone (the body's `serverId` changes with every
 reboot), so each server has its own. The token is stored encrypted, like the RCON password, and
-shown to org owners only. `POST /api/feed/events` is the one `/api` route that takes neither a
+shown to org owners only. `POST /api/ingest/events` is the one `/api` route that takes neither a
 session nor an API key, and it is exempt from the CSRF header for the same reason a bearer is.
+Configs written by earlier versions hold `Url=<origin>/api/feed/events`; the game's posts to that
+path plus its own suffix are served by the same handler, so they keep working unchanged.
 
 ### Discord webhooks
 
@@ -635,7 +638,7 @@ GET  /api/servers/:id/analytics?range=24h|7d|30d       includes `combat` from th
 GET  /api/servers/:id/kills?before=<iso>&beforeTime=<s>&limit=50&count=1   the stored kill feed, newest first; `count=1` adds the total; `kills` frames on /api/live/events carry new ones
      &killer=&victim=&player=&cause=&kind=&minM=            filters: a SteamID exactly, else part of a name; the raw cause tag; kind headshot|teamKill|suicide|vehicle|environment; metres at least
 GET/POST/DELETE /api/servers/:id/feed                   the kill feed setup: token and URL (POST mints or replaces, owners only)
-POST /api/feed/events                                   where the game posts (Authorization: Bearer wkf_…); not a panel route
+POST /api/ingest/events                                 where the game posts: [WDServerFeed] Url is the origin, the game adds this path (Authorization: Bearer wkf_…); not a panel route
 GET  /api/servers/:id/cash?since=<iso>                  cash-in-play samples since a moment (24 h at most), seeds the dashboard chart
 GET  /api/servers/:id/players/marks?ids=a,b&names=…     watchlist / first-visit / risk per connected player
 GET  /api/servers/:id/players/:steamId                  dossier   POST .../steam (refresh Steam data)
