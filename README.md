@@ -578,9 +578,16 @@ server.
 ## Contributing
 
 Issues, questions and pull requests are all welcome, and none of them needs to be polished. A
-report that says "this looked wrong on my server" with a screenshot is useful. A small fix with a
-test is more welcome than a large rewrite; open an issue first if you are planning something big,
-so nobody builds the same thing twice.
+report that says "this looked wrong on my server" with a screenshot is useful.
+
+**Contributing right now.** Warcon is early and moving fast: whole areas get rewritten in a week,
+and features are pulled when they turn out to be the wrong idea. That makes it a good time to shape
+it and a bad time to sit on a large branch. Feature ideas are wanted, and an issue that says what
+you run and what you wish the panel did is as valuable as code. Bug reports, small fixes and tests
+land quickly and survive rewrites. For anything bigger, open an issue first so it can be matched
+against what is already in flight. What will not happen while this is true is a rewrite held back
+to keep a pull request mergeable, so a change that lands before the code around it moves may be
+reworked afterwards. That is not a judgement on the work.
 
 What a change needs before it is merged:
 
