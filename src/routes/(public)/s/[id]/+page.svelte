@@ -16,6 +16,7 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	let base = $derived(`/s/${encodeURIComponent(data.heading.id)}`);
 	let pushed = $state<PublicStatus | null>(null);
 	let view = $derived(pushed && pushed.serverId === data.view.serverId ? pushed : data.view);
 
@@ -235,7 +236,12 @@
 								<!-- unkeyed: names are not unique -->
 								{#each t.players as p}
 									<tr>
-										<td class="max-w-[260px] truncate">{p.name}</td>
+										<td class="max-w-[260px] truncate">
+											{#if p.steamId}<a
+													href="{base}/players/{p.steamId}"
+													class="hover:text-accent hover:underline">{p.name}</a
+												>{:else}{p.name}{/if}
+										</td>
 										<td class="num">{p.kills}</td>
 										<td class="num">{p.deaths}</td>
 										<td class="num text-mist-400">{kd(p.kills, p.deaths)}</td>

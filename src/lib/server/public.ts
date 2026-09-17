@@ -74,7 +74,14 @@ export interface PublicStatus {
 	scores: { name: string; colorHex: string; score: number }[];
 	scoreCap: number | null;
 	matchSeconds: number | null;
-	roster: { name: string; faction: string | null; kills: number; deaths: number }[];
+	/** steamId is set only while the server's career pages are open: it is the link, never shown */
+	roster: {
+		name: string;
+		faction: string | null;
+		kills: number;
+		deaths: number;
+		steamId: string | null;
+	}[];
 	/** the last kills, newest first; null when the server does not show its feed publicly */
 	kills: PublicKill[] | null;
 }
@@ -126,6 +133,7 @@ export function publicStatus(
 ): PublicStatus {
 	const ok = !!live && live.ok && !!live.status;
 	const s = live?.status ?? null;
+	const linkable = ps.features.leaderboards;
 	return {
 		serverId: ps.server.id,
 		name: ps.server.name,
@@ -150,7 +158,8 @@ export function publicStatus(
 						name: String(p.name ?? ''),
 						faction: p.faction ?? null,
 						kills: Number(p.kills) || 0,
-						deaths: Number(p.deaths) || 0
+						deaths: Number(p.deaths) || 0,
+						steamId: linkable && /^\d{17}$/.test(String(p.steamId ?? '')) ? String(p.steamId) : null
 					}))
 					.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || a.name.localeCompare(b.name))
 			: [],
