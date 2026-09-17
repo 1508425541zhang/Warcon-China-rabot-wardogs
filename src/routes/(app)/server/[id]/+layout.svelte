@@ -20,6 +20,7 @@
 		['/config', 'Configuration'],
 		['/automation', 'Automation'],
 		['/analytics', 'Analytics'],
+		['/leaderboard', 'Leaderboards'],
 		['/log', 'Server log']
 	] as const;
 	// Discord webhooks are an org owner's to manage, so the tab shows for them alone.
