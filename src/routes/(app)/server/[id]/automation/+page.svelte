@@ -668,6 +668,65 @@
 					<span class="chip">{'{map}'}</span> <span class="chip">{'{players}'}</span>
 					<span class="chip">{'{max}'}</span>.
 				</p>
+			{:else if f.kind === 'risk_kick'}
+				<div class="space-y-1.5 text-[13px]">
+					<label class="flex items-center gap-2"
+						><input type="checkbox" bind:checked={f.bannedElsewhere} /> Banned on another server in this
+						organisation</label
+					>
+					<label class="flex items-center gap-2"
+						><input type="checkbox" bind:checked={f.watchlist} /> On the watchlist</label
+					>
+					<label class="flex items-center gap-2 {data.steam ? '' : 'text-mist-600'}"
+						><input type="checkbox" bind:checked={f.vacBans} disabled={!data.steam} /> Any VAC ban on
+						record</label
+					>
+					<label class="flex items-center gap-2 {data.steam ? '' : 'text-mist-600'}"
+						><input type="checkbox" bind:checked={f.gameBans} disabled={!data.steam} /> Any game ban on
+						record</label
+					>
+					<div class="flex flex-wrap items-center gap-2 {data.steam ? '' : 'text-mist-600'}">
+						Steam account younger than
+						<input
+							class="input w-20 text-right"
+							type="number"
+							min="0"
+							max="3650"
+							bind:value={f.minAccountDays}
+							disabled={!data.steam}
+						/>
+						days (0 = off)
+					</div>
+					<label class="flex items-center gap-2 pl-5 {data.steam ? '' : 'text-mist-600'}"
+						><input
+							type="checkbox"
+							bind:checked={f.privateProfiles}
+							disabled={!data.steam || !f.minAccountDays}
+						/> …and treat private profiles (age unknown) as too young</label
+					>
+					<label class="flex items-center gap-2"
+						><input type="checkbox" bind:checked={f.spareReserved} /> Never kick players with a reserved
+						slot</label
+					>
+				</div>
+				<label class="block"
+					><span class="field-label">Kick reason shown to the player</span><input
+						class="input"
+						type="text"
+						bind:value={f.reason}
+						maxlength="200"
+					/></label
+				>
+				{#if !data.steam}
+					<p class="note text-warn">
+						Steam lookup is off (STEAM_API_KEY), so only the ban-list and watchlist rules can run.
+					</p>
+				{:else}
+					<p class="note">
+						Steam data is fetched when a player first appears and refreshed daily. Kicks land in the
+						audit trail with the rule that matched.
+					</p>
+				{/if}
 			{:else if f.kind === 'team_kill'}
 				<div class="grid grid-cols-2 gap-3">
 					<label class="block"
