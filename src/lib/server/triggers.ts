@@ -2,7 +2,7 @@
 // built on what the worker already sees (joins, player counts, empty stretches) plus the Steam cache:
 //   welcome      whisper a message to players as they join (or once they have picked a faction)
 //   faction_change  whisper a message to players who switch from one faction to another
-//   broadcast    rotate through messages every N minutes while enough people are on
+//   broadcast    rotate through messages every N minutes while the player count is in its band
 //   empty_reset  send an empty server back to a chosen map after N minutes
 //   risk_kick    kick joiners who match Steam / ban-list rules (see risk.ts)
 //   team_kill    whisper or kick a player over team kills the kill feed reports (feed-events.ts)
@@ -31,6 +31,7 @@ import { gateway } from './gateway';
 import type { SessionUser } from './access';
 import type { DryRunResult, Player, Status, TriggerKind, TriggerView } from '$lib/types';
 import {
+	broadcastWanted,
 	factionChangeTargets,
 	isTriggerKind,
 	onTarget,
@@ -374,7 +375,7 @@ function evalFactionChange(
 }
 
 function evalBroadcast(ctx: TickContext, row: TriggerRow, cfg: BroadcastConfig, out: Evaluation) {
-	if (ctx.status.playerCount < cfg.minPlayers) return;
+	if (!broadcastWanted(cfg, ctx.status.playerCount)) return;
 	const due =
 		!row.lastFiredAt || ctx.ts.getTime() - row.lastFiredAt.getTime() >= cfg.everyMinutes * 60_000;
 	if (!due) return;
@@ -825,7 +826,7 @@ export async function dryRun(
 		let last: Date | null = null;
 		let index = 0;
 		for (const r of rows) {
-			if (!r.ok || (r.count ?? 0) < c.minPlayers) continue;
+			if (!r.ok || !broadcastWanted(c, r.count ?? 0)) continue;
 			if (last && r.ts.getTime() - last.getTime() < c.everyMinutes * 60_000) continue;
 			last = r.ts;
 			push(r.ts, `broadcast (${r.count} on): ${c.messages[index++ % c.messages.length]}`);

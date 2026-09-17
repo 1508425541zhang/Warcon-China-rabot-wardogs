@@ -41,6 +41,8 @@ export interface BroadcastConfig {
 	messages: string[];
 	everyMinutes: number;
 	minPlayers: number;
+	/** stop once more than this many are on; null is no ceiling */
+	maxPlayers: number | null;
 }
 export interface EmptyResetConfig {
 	map: string;
@@ -120,7 +122,14 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 			if (!messages.length) throw new ApiError(400, 'Add at least one message to broadcast.');
 			const everyMinutes = int(c.everyMinutes, 0, 0, 24 * 60);
 			if (!everyMinutes) throw new ApiError(400, 'everyMinutes must be 1-1440.');
-			return { messages, everyMinutes, minPlayers: int(c.minPlayers, 1, 0, 1000) };
+			const minPlayers = int(c.minPlayers, 1, 0, 1000);
+			const maxPlayers =
+				c.maxPlayers === null || c.maxPlayers === undefined || c.maxPlayers === ''
+					? null
+					: int(c.maxPlayers, 0, 0, 1000);
+			if (maxPlayers !== null && maxPlayers < minPlayers)
+				throw new ApiError(400, 'The player ceiling cannot be below the floor.');
+			return { messages, everyMinutes, minPlayers, maxPlayers };
 		}
 		case 'empty_reset': {
 			const map = str(c.map, 100);
@@ -196,6 +205,15 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 			};
 		}
 	}
+}
+
+/** Whether a scheduled broadcast goes out with this many players on. */
+export function broadcastWanted(
+	cfg: Pick<BroadcastConfig, 'minPlayers' | 'maxPlayers'>,
+	playerCount: number
+): boolean {
+	if (playerCount < cfg.minPlayers) return false;
+	return cfg.maxPlayers === null || cfg.maxPlayers === undefined || playerCount <= cfg.maxPlayers;
 }
 
 /** What a team-kill rule does once the killer's count this session has reached `count`. */
