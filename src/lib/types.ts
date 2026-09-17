@@ -372,6 +372,8 @@ export interface DossierSession {
 	lastSeen: string;
 	leftAt: string | null;
 	minutes: number;
+	/** minutes of this session with the player count at or under the server's seeding threshold */
+	seedMinutes: number;
 	kills: number;
 	deaths: number;
 	cash: number;

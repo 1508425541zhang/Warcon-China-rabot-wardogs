@@ -342,6 +342,7 @@ export async function dossier(
 			lastSeen: s.lastSeen.toISOString(),
 			leftAt: iso(s.leftAt),
 			minutes: Math.round(((s.leftAt ?? new Date()).getTime() - s.joinedAt.getTime()) / 60000),
+			seedMinutes: Math.round(s.seedSeconds / 60),
 			kills: s.kills,
 			deaths: s.deaths,
 			cash: s.cash

@@ -43,6 +43,7 @@
 		name: { by: (s) => s.name },
 		faction: { by: (s) => s.faction },
 		minutes: { by: (s) => s.minutes, dir: 'desc' },
+		seeded: { by: (s) => s.seedMinutes, dir: 'desc' },
 		kills: { by: (s) => s.kills, dir: 'desc' },
 		deaths: { by: (s) => s.deaths, dir: 'desc' },
 		cash: { by: (s) => s.cash, dir: 'desc' }
@@ -256,6 +257,7 @@
 							<SortHeader sort={sessionSort} key="name">Name</SortHeader>
 							<SortHeader sort={sessionSort} key="faction">Faction</SortHeader>
 							<SortHeader sort={sessionSort} key="minutes" num>Length</SortHeader>
+							<SortHeader sort={sessionSort} key="seeded" num>Seeded</SortHeader>
 							<SortHeader sort={sessionSort} key="kills" num>K</SortHeader>
 							<SortHeader sort={sessionSort} key="deaths" num>D</SortHeader>
 							<SortHeader sort={sessionSort} key="cash" num>Cash</SortHeader>
@@ -272,11 +274,12 @@
 									>{minutes(s.minutes)}{#if !s.leftAt}<Badge tone="ok" class="ml-1">live</Badge
 										>{/if}</td
 								>
+								<td class="num">{s.seedMinutes ? minutes(s.seedMinutes) : '—'}</td>
 								<td class="num">{s.kills}</td><td class="num">{s.deaths}</td>
 								<td class="num">{fmtNum(s.cash)}</td>
 							</tr>
 						{:else}
-							<tr><td colspan="8" class="py-6 text-center text-mist-600">No sessions yet.</td></tr>
+							<tr><td colspan="9" class="py-6 text-center text-mist-600">No sessions yet.</td></tr>
 						{/each}
 					</tbody>
 				</table>
