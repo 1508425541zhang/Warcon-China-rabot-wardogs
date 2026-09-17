@@ -4,8 +4,9 @@ import { getServer, orgRoleFor, requireUser } from '$lib/server/access';
 import { listWebhooks } from '$lib/server/webhooks';
 
 /**
- * The Discord channels that carry this server's status card: the org's webhooks that keep cards
- * and cover this server. Webhook URLs are org-owner territory, so everyone else sees a note.
+ * The Discord channels that carry this server's status card or its team kills: the org's
+ * webhooks that do either and cover this server. Webhook URLs are org-owner territory, so
+ * everyone else sees a note.
  */
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
@@ -19,7 +20,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		owner: true,
 		https,
 		channels: all.filter(
-			(w) => w.statusEnabled && (!w.serverIds || w.serverIds.includes(server.id))
+			(w) =>
+				(w.statusEnabled || w.events.includes('teamkills')) &&
+				(!w.serverIds || w.serverIds.includes(server.id))
 		)
 	};
 };
