@@ -102,7 +102,13 @@
 	function toggle(w: WebhookView) {
 		void run(
 			() => api('PATCH', `${orgPath}/webhooks/${w.id}`, { enabled: !w.enabled }),
-			w.enabled ? 'Card paused and removed from the channel.' : 'Card enabled.'
+			w.enabled
+				? w.statusEnabled
+					? 'Channel paused. The card is taken down and nothing is posted until you enable it again.'
+					: 'Channel paused. Nothing is posted until you enable it again.'
+				: w.statusEnabled
+					? 'Channel enabled. The card is on its way; pin it once it lands.'
+					: 'Channel enabled.'
 		);
 	}
 	async function remove(w: WebhookView) {
