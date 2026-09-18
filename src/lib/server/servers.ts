@@ -11,9 +11,9 @@ import { assertReachableTarget, normaliseHost } from './hostpolicy';
 import { getOrg, type OrgRow, type ServerRow, type SessionUser } from './access';
 import { gateway } from './gateway';
 import { GameError, WardogsClient } from './rcon';
-import { orgRoles, serverGrants, servers, user } from './db/schema';
+import { orgMembers, orgRoles, serverGrants, servers, user } from './db/schema';
 import { rolesOf } from './roles';
-import { assertCanAddServer, ensureMemberships } from './orgs';
+import { assertCanAddServer } from './orgs';
 import { ensureServerLists } from './lists';
 import { allowed, FEATURE_LABELS, NOT_ALLOWED, type PublicFeature } from '$lib/features';
 
@@ -366,10 +366,13 @@ export async function setServerGrants(
 	grants: unknown
 ) {
 	const wanted = Array.isArray(grants) ? (grants as { userId?: unknown; roleId?: unknown }[]) : [];
+	// Members of the server's org only: people join through an invite link (or the site owner's
+	// Users page), never by an owner naming their account id here.
 	const [users, roles] = await Promise.all([
 		env.db
-			.select({ id: user.id })
-			.from(user)
+			.select({ id: orgMembers.userId })
+			.from(orgMembers)
+			.where(eq(orgMembers.orgId, server.orgId))
 			.then((rows) => new Set(rows.map((u) => u.id))),
 		rolesOf(env, server.orgId)
 	]);
@@ -392,10 +395,6 @@ export async function setServerGrants(
 					grantedBy: actor.id
 				}))
 			);
-		await ensureMemberships(
-			tx,
-			applied.map((a) => ({ orgId: server.orgId, userId: a.userId }))
-		);
 	});
 	await writeAudit(env, req, {
 		actor,
