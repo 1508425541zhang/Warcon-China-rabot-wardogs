@@ -74,15 +74,29 @@ export async function loadPresence(
 export interface PresenceDiff {
 	joined: Player[];
 	left: OpenSession[];
-	/** the players still on, with their open session */
+	/** the players on the list who already have a session */
 	stayed: { player: Player; session: OpenSession }[];
 	/** the players still on who are in a faction other than the last one seen this session;
 	 *  `from` is that last one (null: their first pick of the session) */
 	factioned: { player: Player; from: string | null }[];
 }
 
-/** Compares the observed player list with the open sessions. Pure; touches nothing. */
-export function diffPresence(presence: Presence, players: Player[]): PresenceDiff {
+/** How long a player may be missing from the list before their session closes. The game empties
+ *  the list for half a minute or so at a map change while the clients load the next map; that is
+ *  not a leave, and the same players back on the list is not a round of joins. */
+export const LEAVE_GRACE_MS = 60_000;
+
+/**
+ * Compares the observed player list with the open sessions. Pure; touches nothing. A player
+ * missing from the list is in neither `stayed` nor `left` until they have been gone for the grace;
+ * their `lastSeen` stays put, so a leave recorded after it is dated to the last time they were on.
+ */
+export function diffPresence(
+	presence: Presence,
+	players: Player[],
+	now: number,
+	graceMs = LEAVE_GRACE_MS
+): PresenceDiff {
 	const seen = new Set<string>();
 	const joined: Player[] = [];
 	const stayed: PresenceDiff['stayed'] = [];
@@ -97,7 +111,9 @@ export function diffPresence(presence: Presence, players: Player[]): PresenceDif
 				factioned.push({ player: p, from: s.lastFaction });
 		} else joined.push(p);
 	}
-	const left = [...presence.open.values()].filter((s) => !seen.has(s.steamId));
+	const left = [...presence.open.values()].filter(
+		(s) => !seen.has(s.steamId) && now - s.lastSeen > graceMs
+	);
 	return { joined, left, stayed, factioned };
 }
 

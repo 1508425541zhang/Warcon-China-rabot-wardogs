@@ -469,7 +469,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 		!wasOffline &&
 		gapMs <= 2 * Math.max(m.playersIntervalMs, 1000) + 1000;
 	const diff: PresenceDiff = players
-		? diffPresence(m.presence, players)
+		? diffPresence(m.presence, players, started)
 		: { joined: [], left: [], stayed: [], factioned: [] };
 	const joined = joinsTrusted ? diff.joined : [];
 	// Players pick a faction after joining; rules that wait for it see the change here. A joiner
