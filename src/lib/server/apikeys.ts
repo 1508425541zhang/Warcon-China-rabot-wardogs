@@ -1,12 +1,13 @@
 // Organisation API keys: the records, their creation and revocation, and turning a bearer token
 // into a principal for the hook. Format, hashing and scope rules live in apikeys-core.ts.
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Env } from './env';
 import { ApiError, int, newId, str } from './http';
 import { writeAudit } from './audit';
 import type { OrgRow, SessionUser } from './access';
 import { apiKeys, organizations, servers, user, type ApiKeyRow } from './db/schema';
 import { parseCapabilities } from '../capabilities';
+import { parseServerScope } from './server-scope';
 import {
 	hashToken,
 	keyProblem,
@@ -48,19 +49,6 @@ export async function listKeys(env: Env, orgId: string): Promise<ApiKeyView[]> {
 	return rows.map((r) => shape(r.k, r.creator?.name !== undefined ? r.creator : null));
 }
 
-/** null = every server; otherwise only ids that are this org's servers (unknown ones dropped). */
-async function parseServers(env: Env, orgId: string, raw: unknown): Promise<string[] | null> {
-	if (raw === null || raw === undefined) return null;
-	const wanted = Array.isArray(raw) ? raw.map((v) => str(v, 64)).filter(Boolean) : [];
-	if (!wanted.length) return null;
-	const known = await env.db
-		.select({ id: servers.id })
-		.from(servers)
-		.where(and(eq(servers.orgId, orgId), inArray(servers.id, wanted)));
-	if (!known.length) throw new ApiError(400, 'None of those servers belong to this organisation.');
-	return known.map((s) => s.id);
-}
-
 /** Mints a key; the plaintext token is returned here and never again. */
 export async function createKey(
 	env: Env,
@@ -78,7 +66,7 @@ export async function createKey(
 		throw new ApiError(400, err instanceof Error ? err.message : 'Bad capabilities.');
 	}
 	if (!capabilities.length) throw new ApiError(400, 'Pick at least one capability for the key.');
-	const serverIds = await parseServers(env, org.id, body.serverIds);
+	const serverIds = await parseServerScope(env, org.id, body.serverIds);
 	// The org lists are pushed to every server, so they are not something a key held to some
 	// servers can be given (access.ts refuses such a key the lists either way).
 	if (serverIds && capabilities.includes('lists.edit'))
