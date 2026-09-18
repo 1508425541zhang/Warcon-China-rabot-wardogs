@@ -171,7 +171,7 @@ export interface OrgSummary {
 	allowPublicLeaderboards: boolean;
 }
 
-/** Servers (with their orgs) where the user's granted role includes `cap`. */
+/** Servers (with their orgs) where the user's granted role includes `cap`; a suspended org grants nothing. */
 async function grantedWith(
 	env: Env,
 	user: SessionUser,
@@ -181,8 +181,9 @@ async function grantedWith(
 		.select({ serverId: serverGrants.serverId, orgId: servers.orgId })
 		.from(serverGrants)
 		.innerJoin(servers, eq(servers.id, serverGrants.serverId))
+		.innerJoin(organizations, eq(organizations.id, servers.orgId))
 		.innerJoin(orgRoles, eq(orgRoles.id, serverGrants.roleId))
-		.where(and(eq(serverGrants.userId, user.id), hasCap(cap)));
+		.where(and(eq(serverGrants.userId, user.id), isNull(organizations.suspendedAt), hasCap(cap)));
 }
 
 /** Orgs the user belongs to, with their role; the site owner sees every org as owner. */
@@ -503,9 +504,19 @@ export async function auditVisibility(
 		return { userId: user.id, adminServerIds: covered, ownedOrgIds: [] };
 	}
 	if (user.role === 'owner') return null;
+	// A suspended org is closed to its owners too: they keep their own rows and nothing else.
 	const [granted, orgIds] = await Promise.all([
 		grantedWith(env, user, 'audit.read'),
-		ownedOrgIds(env, user)
+		ownedOrgIds(env, user).then(async (ids) =>
+			ids.length
+				? (
+						await env.db
+							.select({ id: organizations.id })
+							.from(organizations)
+							.where(and(inArray(organizations.id, ids), isNull(organizations.suspendedAt)))
+					).map((o) => o.id)
+				: []
+		)
 	]);
 	const ids = new Set(granted.map((r) => r.serverId));
 	if (orgIds.length) {
