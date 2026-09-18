@@ -16,6 +16,7 @@ import type { Env } from './env';
 import { userAgent, int, str } from './http';
 import { auditLog, user, type AuditRow } from './db/schema';
 import { notifyWebhooks } from './webhook-delivery';
+import { OWNERS_ROWS } from './audit-rows';
 
 export type { AuditRow };
 export type Outcome = 'ok' | 'error' | 'denied';
@@ -114,12 +115,6 @@ const seesBrowser = (
 	v: AuditVisibility | undefined,
 	row: { actorId: string | null; orgId: string | null }
 ) => !v || row.actorId === v.userId || (!!row.orgId && v.ownedOrgIds.includes(row.orgId));
-
-/**
- * Adding, editing and deleting a server is its org's owners at work, and those rows say where
- * RCON listens and carry the owners' notes: Audit trail on the server does not show them.
- */
-const OWNERS_ROWS = ['server.create', 'server.update', 'server.delete'];
 
 /** The rows a caller may see: their own, those on servers they admin, those of orgs they own. */
 function visibleWhere(v: AuditVisibility | undefined): SQL | undefined {
