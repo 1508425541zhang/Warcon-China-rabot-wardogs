@@ -722,6 +722,10 @@ What a change needs before it is merged:
 
 - It works, and where the code is testable it has a test. Tests sit next to the code as
   `*.test.ts` and run with `bun test`.
+- A new route, page load or game action has a line in the permission matrices under
+  [src/test](src/test): they ask every route as every kind of person and key, and fail when one
+  is missing. They need a Postgres to make a throwaway database on, named by
+  `TEST_DATABASE_URL` (see `.env.example`); without it they are skipped locally, and CI runs them.
 - CI passes: `bun run lint` (Prettier), `bun run check` (svelte-check), `bun test` and
   `bun run build`, the same four steps [ci.yml](.github/workflows/ci.yml) runs.
 - The commit message says what behaviour changed, in plain words. Small whole commits are easier
