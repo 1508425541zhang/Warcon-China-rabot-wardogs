@@ -207,6 +207,19 @@ export async function updateServer(
 	server: ServerRow,
 	body: Record<string, unknown>
 ): Promise<void> {
+	// A change of where RCON listens is the add-a-server flow again: the stored password goes out
+	// as the bearer to whatever the target is, so an owner who never knew it could otherwise point
+	// the server at a host of their own and read it there.
+	const moved =
+		(body.host !== undefined && str(body.host, 253).toLowerCase() !== server.host) ||
+		(body.port !== undefined && Number(body.port) !== server.port) ||
+		(body.scheme !== undefined && (body.scheme === 'https' ? 'https' : 'http') !== server.scheme);
+	if (moved && !(typeof body.password === 'string' && body.password))
+		throw new ApiError(
+			400,
+			'Changing the host, port or scheme needs the RCON password again.',
+			'password_required'
+		);
 	const t = await validateTarget(env, actor, body, server).catch((err) =>
 		auditRefusedTarget(
 			env,

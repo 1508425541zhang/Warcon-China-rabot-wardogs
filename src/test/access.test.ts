@@ -21,6 +21,7 @@ import {
 	orgMembers,
 	orgRoles,
 	serverGrants,
+	servers,
 	user
 } from '$lib/server/db/schema';
 import { beforeSelfDelete } from '$lib/server/erasure';
@@ -138,6 +139,28 @@ describe.skipIf(!hasTestDb)('access', () => {
 			expect(await seenBy('admin')).toEqual(['rcon.broadcast']);
 			expect(await seenBy('owner')).toEqual(['rcon.broadcast', 'server.update']);
 			expect(await seenBy('site')).toEqual(['rcon.broadcast', 'server.update']);
+		});
+
+		test('pointing a server somewhere else needs its RCON password again: the stored one would be sent there', async () => {
+			const w = await seedWorld(env);
+			const patch = (body: Record<string, unknown>) =>
+				api(w, 'owner', 'PATCH api/servers/[id]', { params: { id: w.server.id }, body });
+			for (const body of [{ host: 'collector.test.invalid' }, { port: 7780 }, { scheme: 'https' }])
+				expect(await patch(body)).toMatchObject({ status: 400, code: 'password_required' });
+			const [row] = await env.db.select().from(servers).where(eq(servers.id, w.server.id));
+			expect([row.host, row.port, row.scheme]).toEqual(['game.test.invalid', 7779, 'http']);
+			// The same target sent back with other fields is not a move, and the password lets one through
+			// to the usual checks of the address.
+			const same = {
+				host: 'game.test.invalid',
+				port: 7779,
+				scheme: 'http',
+				notes: 'moved racks'
+			};
+			expect((await patch(same)).status).toBe(200);
+			expect((await patch({ port: 7780, password: 'typed-again' })).code).not.toBe(
+				'password_required'
+			);
 		});
 
 		test('lists.edit and audit.read are found in the stored role', async () => {
