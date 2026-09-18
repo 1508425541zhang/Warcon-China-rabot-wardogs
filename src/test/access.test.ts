@@ -13,7 +13,15 @@ import {
 	userOrgs
 } from '$lib/server/access';
 import { resolveBearer } from '$lib/server/apikeys';
-import { apiKeys, orgInvites, orgMembers, orgRoles, serverGrants } from '$lib/server/db/schema';
+import { queryAudit } from '$lib/server/audit';
+import {
+	apiKeys,
+	auditLog,
+	orgInvites,
+	orgMembers,
+	orgRoles,
+	serverGrants
+} from '$lib/server/db/schema';
 import { findInvite, joinOrg } from '$lib/server/orgs';
 import type { PrincipalName } from './world';
 import { hasTestDb, testEnv } from './db';
@@ -78,6 +86,44 @@ describe.skipIf(!hasTestDb)('access', () => {
 		});
 
 		// The containment is SQL over jsonb; a string bound as jsonb is encoded twice and never matches.
+		test('Audit trail shows what others did, not where they connected from', async () => {
+			const w = await seedWorld(env);
+			const row = (actor: PrincipalName, ip: string) => ({
+				actorId: w.users[actor]!.id,
+				actorName: actor,
+				serverId: w.server.id,
+				orgId: w.org.id,
+				category: 'rcon',
+				action: 'rcon.kick',
+				outcome: 'ok' as const,
+				ip,
+				userAgent: `${actor}-browser`
+			});
+			await env.db
+				.insert(auditLog)
+				.values([row('owner', '203.0.113.7'), row('admin', '198.51.100.9')]);
+			const seenBy = async (who: PrincipalName, q?: string) =>
+				(
+					await queryAudit(env, {
+						serverId: w.server.id,
+						q,
+						visibleTo: await auditVisibility(env, w.users[who]!)
+					})
+				).entries.map((e) => [e.actorName, e.ip, e.userAgent]);
+			expect(await seenBy('admin')).toEqual([
+				['admin', '198.51.100.9', 'admin-browser'],
+				['owner', '', '']
+			]);
+			expect(await seenBy('owner')).toEqual([
+				['admin', '198.51.100.9', 'admin-browser'],
+				['owner', '203.0.113.7', 'owner-browser']
+			]);
+			// Nor can the address be found by searching for it.
+			expect(await seenBy('admin', '203.0.113')).toEqual([]);
+			expect(await seenBy('owner', '203.0.113')).toHaveLength(1);
+			expect(await seenBy('site', '203.0.113')).toHaveLength(1);
+		});
+
 		test('lists.edit and audit.read are found in the stored role', async () => {
 			const w = await seedWorld(env);
 			const lists = async (who: PrincipalName) =>

@@ -95,6 +95,21 @@ export type AuditVisibility = {
 	ownedOrgIds: string[];
 } | null;
 
+/**
+ * Where an action came from (address, browser) is shown on the caller's own rows and on rows of
+ * orgs they own: Audit trail on a server is for what was done, not where staff connect from.
+ */
+function originWhere(v: AuditVisibility | undefined): SQL | undefined {
+	if (!v) return undefined;
+	const any: SQL[] = [eq(auditLog.actorId, v.userId)];
+	if (v.ownedOrgIds.length) any.push(inArray(auditLog.orgId, v.ownedOrgIds));
+	return or(...any)!;
+}
+const seesOrigin = (
+	v: AuditVisibility | undefined,
+	row: { actorId: string | null; orgId: string | null }
+) => !v || row.actorId === v.userId || (!!row.orgId && v.ownedOrgIds.includes(row.orgId));
+
 /** The rows a caller may see: their own, those on servers they admin, those of orgs they own. */
 function visibleWhere(v: AuditVisibility | undefined): SQL | undefined {
 	if (!v) return undefined;
@@ -160,7 +175,7 @@ export async function queryAudit(
 				like(auditLog.action, pattern),
 				like(auditLog.target, pattern),
 				like(auditLog.message, pattern),
-				like(auditLog.ip, pattern)
+				and(like(auditLog.ip, pattern), originWhere(q.visibleTo))
 			)!
 		);
 	}
@@ -173,7 +188,9 @@ export async function queryAudit(
 		.where(where.length ? and(...where) : undefined)
 		.orderBy(desc(auditLog.id))
 		.limit(limit + 1);
-	const entries = found.slice(0, limit);
+	const entries = found
+		.slice(0, limit)
+		.map((e) => (seesOrigin(q.visibleTo, e) ? e : { ...e, ip: '', userAgent: '' }));
 	const nextBefore = found.length > limit ? entries[entries.length - 1].id : null;
 	return { entries, nextBefore };
 }
