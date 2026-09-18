@@ -243,10 +243,7 @@
 			{/if}
 			<a href="/orgs" class="nav-pill {isActive('/orgs') ? 'nav-pill-active' : ''}">Orgs</a>
 			{#if data.user.role === 'owner'}
-				<a href="/users" class="nav-pill {isActive('/users') ? 'nav-pill-active' : ''}">Users</a>
-				<a href="/settings" class="nav-pill {isActive('/settings') ? 'nav-pill-active' : ''}"
-					>Settings</a
-				>
+				<a href="/admin" class="nav-pill {isActive('/admin') ? 'nav-pill-active' : ''}">Admin</a>
 			{/if}
 		</nav>
 
@@ -297,8 +294,7 @@
 						{/if}
 						<a href="/orgs" class="menu-item" role="menuitem">Orgs</a>
 						{#if data.user.role === 'owner'}
-							<a href="/users" class="menu-item" role="menuitem">Users</a>
-							<a href="/settings" class="menu-item" role="menuitem">Settings</a>
+							<a href="/admin" class="menu-item" role="menuitem">Admin</a>
 						{/if}
 						<div class="my-1.5 border-t border-white/8"></div>
 					</nav>

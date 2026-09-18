@@ -159,10 +159,9 @@
 	}
 </script>
 
-<svelte:head><title>Users · {data.appName}</title></svelte:head>
+<svelte:head><title>Users · Admin · {data.appName}</title></svelte:head>
 
-<div class="mb-5 flex items-center gap-3">
-	<h1 class="text-xl font-semibold tracking-tight">Users &amp; access</h1>
+<div class="mb-4 flex items-center gap-3">
 	<button class="ml-auto btn btn-primary" onclick={() => openEdit(null)}>Add user</button>
 </div>
 
