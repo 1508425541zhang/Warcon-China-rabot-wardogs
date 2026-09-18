@@ -76,4 +76,71 @@ describe('gameRequest address pinning', () => {
 		expect(res.status).toBe(200);
 		expect(JSON.parse(res.text).host).toBe(`127.0.0.1:${PORT}`);
 	});
+
+	describe('a command that reached the game is never sent again', () => {
+		// A second game server on the same port of the other loopback address. `first` takes the
+		// request on [::1] and breaks off; the HTTP server on 127.0.0.1 counts what it is sent.
+		let posts = 0;
+		const second = Bun.serve({
+			port: 0,
+			hostname: '127.0.0.1',
+			fetch() {
+				posts++;
+				return new Response('{}');
+			}
+		});
+		const target = {
+			host: 'not-a-real-host.invalid',
+			port: second.port as number,
+			scheme: 'http' as const,
+			addresses: ['::1', '127.0.0.1']
+		};
+		afterAll(() => second.stop(true));
+
+		async function firstAnswers(
+			answer: string
+		): Promise<{ taken: () => number; stop: () => void }> {
+			let taken = 0;
+			const first = Bun.listen({
+				hostname: '::1',
+				port: target.port,
+				socket: {
+					data(socket) {
+						taken++;
+						if (answer) socket.write(answer);
+						socket.end();
+					}
+				}
+			});
+			return { taken: () => taken, stop: () => first.stop(true) };
+		}
+
+		test('the answer breaks off after its headers', async () => {
+			posts = 0;
+			const first = await firstAnswers('HTTP/1.1 200 OK\r\ncontent-length: 100\r\n\r\npart');
+			try {
+				await expect(
+					gameRequest(target, { method: 'POST', path: '/v1/match/end', body: '{}' })
+				).rejects.toThrow('Could not reach the game server');
+				expect(first.taken()).toBe(1);
+				expect(posts).toBe(0);
+			} finally {
+				first.stop();
+			}
+		});
+
+		test('the connection drops with the request sent and nothing answered', async () => {
+			posts = 0;
+			const first = await firstAnswers('');
+			try {
+				await expect(
+					gameRequest(target, { method: 'POST', path: '/v1/match/end', body: '{}' })
+				).rejects.toThrow('Could not reach the game server');
+				expect(first.taken()).toBe(1);
+				expect(posts).toBe(0);
+			} finally {
+				first.stop();
+			}
+		});
+	});
 });

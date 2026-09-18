@@ -91,12 +91,13 @@ export async function gameRequest(
 			return { status: res.status, statusText: res.statusText, headers, text: await res.text() };
 		} catch (err) {
 			lastErr = err;
-			// The timeout is spent, or this was the last validated address: give up. Otherwise the
-			// address was merely unreachable (wrong family, refused), so try the next validated one —
-			// never a fresh resolution, so the connection can only ever land on an approved address.
+			// The next validated address is tried only when this one never opened (wrong family,
+			// refused): never a fresh resolution, so the connection can only land on an approved
+			// address. Anything later may have reached the game, which may have acted on it; sending
+			// it again would end a match or kick a player twice, so that is a failure the caller sees.
 			const name = (err as { name?: string }).name;
 			const done = signal.aborted || name === 'TimeoutError' || name === 'AbortError';
-			if (done || i === addresses.length - 1) {
+			if (done || !neverOpened(err) || i === addresses.length - 1) {
 				const cause = (err as { cause?: { code?: string; message?: string } }).cause;
 				const detail = cause?.code || cause?.message || (err as Error).message;
 				throw new TransportError(
@@ -107,6 +108,21 @@ export async function gameRequest(
 		}
 	}
 	throw new TransportError('Could not reach the game server.', lastErr);
+}
+
+/** Bun's codes, and Node's, for a connection that failed before anything was sent on it. */
+const NEVER_OPENED = new Set([
+	'ConnectionRefused',
+	'FailedToOpenSocket',
+	'ECONNREFUSED',
+	'EHOSTUNREACH',
+	'ENETUNREACH',
+	'EADDRNOTAVAIL'
+]);
+
+function neverOpened(err: unknown): boolean {
+	const e = err as { code?: string; cause?: { code?: string } };
+	return NEVER_OPENED.has(e.code ?? '') || NEVER_OPENED.has(e.cause?.code ?? '');
 }
 
 /**
