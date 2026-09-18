@@ -93,13 +93,15 @@ export async function callLoad(
 	}
 }
 
-/** The worker, answering nothing: permission tests stop at "the request got as far as the game". */
-export function stubGateway(): { runs: { server: string; action: string }[] } {
+/** The worker, answering nothing (or `answer`): permission tests stop at "the request got as far as the game". */
+export function stubGateway(answer: unknown = {}): {
+	runs: { server: string; action: string }[];
+} {
 	const runs: { server: string; action: string }[] = [];
 	const g: Gateway = {
 		run: async (_env, server, action) => {
 			runs.push({ server: server.id, action });
-			return {};
+			return structuredClone(answer);
 		},
 		live: async () => new Map(),
 		interest: () => {},

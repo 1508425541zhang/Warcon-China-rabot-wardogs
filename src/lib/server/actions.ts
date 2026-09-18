@@ -463,8 +463,9 @@ export const ACTIONS: Record<string, ActionDef> = {
 		mutating: false,
 		run: async (c) => ({ imageUrl: (await c.json('GET', '/v1/sponsor')).imageUrl || '' })
 	},
-	// The game's own RCON log: who connected from where and what they ran. Audit trail, like the
-	// panel's record of the same actions.
+	// The game's own RCON log: who connected and what they ran. Audit trail, like the panel's
+	// record of the same actions. The peer addresses are blanked in rcon-run.ts for everyone but
+	// the site owner.
 	serverLog: {
 		cap: 'audit.read',
 		mutating: false,
@@ -804,6 +805,14 @@ export const ACTIONS: Record<string, ActionDef> = {
 					403,
 					"The config document is not served through raw: use the 'config', 'configValidate' and 'configApply' actions.",
 					'use_config_actions'
+				);
+			// The listener's log names the address of everyone who connected to it; 'serverLog' serves
+			// it, with those addresses for the site owner only.
+			if (/^\/v1\/audit(\/|$)/i.test(safeDecode(path.split('?')[0])))
+				throw new ApiError(
+					403,
+					"The listener's log is not served through raw: use the 'serverLog' action.",
+					'use_server_log'
 				);
 			const isText = typeof p.body === 'string';
 			const res = await c.raw(
