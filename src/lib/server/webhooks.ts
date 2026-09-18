@@ -11,7 +11,6 @@ import { webhooks, type WebhookRow } from './db/schema';
 import {
 	deleteDiscord,
 	invalidateWebhookCache,
-	orgServerIds,
 	postDiscord,
 	WEBHOOK_EVENTS,
 	type PostResult,
@@ -20,6 +19,7 @@ import {
 import type { WebhookView } from '$lib/types';
 import { isStatusStyle, type StatusStyle } from '$lib/status-styles';
 import { gateway } from './gateway';
+import { parseServerScope } from './server-scope';
 import { servers } from './db/schema';
 import { cardLinks, clampInterval, statusMessage } from './webhook-status-core';
 import { effectiveFeatures } from '$lib/features';
@@ -82,14 +82,6 @@ async function removeStatusMessages(
 	for (const id of ids) await deleteDiscord(env, row, id);
 }
 
-async function parseServers(env: Env, orgId: string, raw: unknown): Promise<string[] | null> {
-	if (raw === null || raw === undefined) return null;
-	const wanted = Array.isArray(raw) ? raw.map((v) => str(v, 64)).filter(Boolean) : [];
-	if (!wanted.length) return null;
-	const known = await orgServerIds(env, orgId, wanted);
-	return known.length ? known : null;
-}
-
 const shape = (w: WebhookRow): WebhookView => ({
 	id: w.id,
 	label: w.label,
@@ -140,7 +132,7 @@ export async function createWebhook(
 	const statusEnabled = !!body.statusEnabled;
 	const statusStyle = body.statusStyle === undefined ? 'banner' : parseStyle(body.statusStyle);
 	const events = parseEvents(body.events, statusEnabled);
-	const serverIds = await parseServers(env, org.id, body.serverIds);
+	const serverIds = await parseServerScope(env, org.id, body.serverIds);
 	const label = str(body.label, 60) || 'Discord';
 	const card = {
 		statusIntervalS: clampInterval(body.statusIntervalS),
@@ -231,7 +223,7 @@ export async function updateWebhook(
 			'Pick at least one kind of event to mirror, or keep the live status message on.'
 		);
 	if (body.serverIds !== undefined)
-		changes.serverIds = set.serverIds = await parseServers(env, org.id, body.serverIds);
+		changes.serverIds = set.serverIds = await parseServerScope(env, org.id, body.serverIds);
 	if (body.enabled !== undefined) {
 		changes.enabled = set.enabled = !!body.enabled;
 		if (!set.enabled) dropMessage = true;

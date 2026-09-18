@@ -923,7 +923,10 @@
 			</p>
 			<div class="flex justify-end gap-2 pt-2">
 				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
-				<button type="submit" class="btn btn-primary" disabled={busy}
+				<button
+					type="submit"
+					class="btn btn-primary"
+					disabled={busy || (!d.allServers && !Object.values(d.servers).some(Boolean))}
 					>{d.id ? 'Save' : 'Add webhook'}</button
 				>
 			</div>
@@ -984,8 +987,12 @@
 			</p>
 			<div class="flex justify-end gap-2 pt-2">
 				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
-				<button type="submit" class="btn btn-primary" disabled={busy || !d.capabilities.length}
-					>Create key</button
+				<button
+					type="submit"
+					class="btn btn-primary"
+					disabled={busy ||
+						!d.capabilities.length ||
+						(!d.allServers && !Object.values(d.servers).some(Boolean))}>Create key</button
 				>
 			</div>
 		</form>

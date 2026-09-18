@@ -485,6 +485,28 @@ describe.skipIf(!hasTestDb)('access', () => {
 			expect(whole.status).toBe(201);
 		});
 
+		test('an empty or malformed server selection is refused, not read as every server', async () => {
+			const w = await seedWorld(env);
+			const params = { id: w.org.id };
+			for (const serverIds of [[], [''], 'all', [w.server.id, 'no-such-server'], [42]]) {
+				const key = await api(w, 'owner', 'POST api/orgs/[id]/keys', {
+					params,
+					body: { label: 'scoped', capabilities: ['server.view'], serverIds }
+				});
+				expect({ serverIds, code: key.code }).toEqual({ serverIds, code: 'bad_scope' });
+				const hook = await api(w, 'owner', 'POST api/orgs/[id]/webhooks', {
+					params,
+					body: {
+						url: 'https://discord.com/api/webhooks/123456789012345678/' + 'a'.repeat(60),
+						events: ['bans'],
+						serverIds
+					}
+				});
+				expect({ serverIds, code: hook.code }).toEqual({ serverIds, code: 'bad_scope' });
+			}
+			expect(await env.db.select().from(apiKeys).where(eq(apiKeys.label, 'scoped'))).toEqual([]);
+		});
+
 		test('a key holds no seat in the org: no members, roles, keys, invites or servers', async () => {
 			const w = await seedWorld(env);
 			const params = { id: w.org.id };
