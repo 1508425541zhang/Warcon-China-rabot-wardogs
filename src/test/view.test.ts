@@ -122,13 +122,15 @@ describe.skipIf(!hasTestDb)('what View shows', () => {
 		expect(admin.orgLists.canEdit).toBe(true);
 	});
 
-	test("the players table's marks give the watch reason to those with Notes", async () => {
+	test("the players table's marks name bans only on servers the reader can open", async () => {
 		const marks = async (who: PrincipalName) =>
 			JSON.stringify(
 				(await get(who, 'api/servers/[id]/players/marks', `ids=${PLAYER}&names=someone`)).marks
 			);
+		expect(await marks('viewer')).not.toContain('cheating on the other server');
 		expect(await marks('viewer')).not.toContain('watch for team kills');
 		expect(await marks('operator')).toContain('watch for team kills');
+		expect(await marks('owner')).toContain('cheating on the other server');
 	});
 
 	test("raw status and the game's raw capabilities need Config & settings", async () => {
