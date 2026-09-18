@@ -1,10 +1,23 @@
 // HTTP client for the game server's WDRCON listener: plain fetch to http(s)://host:port.
+import { isIP } from 'node:net';
 
 export interface GameTarget {
 	host: string;
 	port: number;
 	scheme: 'http' | 'https';
+	/**
+	 * The IPs the host policy resolved and approved, best family first. When set, the request
+	 * connects to these addresses rather than resolving `host` a second time, so a name that passed
+	 * the check cannot rebind to an internal address before the socket opens; the addresses are tried
+	 * in order (as the OS would with happy-eyeballs, and all already validated) until one connects.
+	 * The hostname still travels as the Host header and the TLS server name, so virtual hosts and
+	 * certificates keep working.
+	 */
+	addresses?: string[];
 }
+
+/** Wrap an IPv6 literal in brackets for a URL authority; leave a hostname or IPv4 as is. */
+const forAuthority = (addr: string): string => (isIP(addr) === 6 ? `[${addr}]` : addr);
 
 export interface GameRequestInit {
 	method: string;
@@ -36,30 +49,59 @@ export async function gameRequest(
 	target: GameTarget,
 	init: GameRequestInit
 ): Promise<GameResponse> {
-	const url = `${target.scheme}://${target.host}:${target.port}${init.path}`;
-	const request: BunFetchRequestInit = {
-		method: init.method,
-		headers: {
-			'user-agent': 'warcon/0.3',
-			accept: 'application/json, text/plain, */*',
-			...init.headers
-		},
-		body: init.body,
-		signal: AbortSignal.timeout(init.timeoutMs ?? 10000),
-		redirect: 'manual'
-	};
-	if (init.insecureTls) request.tls = { rejectUnauthorized: false };
-	let res: Response;
-	try {
-		res = await fetch(url, request);
-	} catch (err) {
-		const cause = (err as { cause?: { code?: string; message?: string } }).cause;
-		const detail = cause?.code || cause?.message || (err as Error).message;
-		throw new TransportError(`Could not reach ${target.host}:${target.port} (${detail}).`, err);
+	const bareHost = target.host.replace(/^\[|\]$/g, '');
+	// The validated addresses to connect to, or the host itself when none were pinned (a bare-IP
+	// target, or a caller that did not resolve). All attempts share one timeout budget.
+	const addresses = target.addresses?.length ? target.addresses : [bareHost];
+	const signal = AbortSignal.timeout(init.timeoutMs ?? 10000);
+	let lastErr: unknown;
+	for (let i = 0; i < addresses.length; i++) {
+		const addr = addresses[i];
+		// A pinned address is one that is not the host text itself (a literal IP target pins to
+		// itself and needs no rewrite). Then the hostname stays in the URL's Host and, over TLS, as
+		// the server name, so nothing the game server sees changes.
+		const pinned = addr !== bareHost;
+		const url = pinned
+			? `${target.scheme}://${forAuthority(addr)}:${target.port}${init.path}`
+			: `${target.scheme}://${target.host}:${target.port}${init.path}`;
+		const request: BunFetchRequestInit = {
+			method: init.method,
+			headers: {
+				'user-agent': 'warcon/0.3',
+				accept: 'application/json, text/plain, */*',
+				...init.headers,
+				...(pinned ? { host: `${target.host}:${target.port}` } : {})
+			},
+			body: init.body,
+			signal,
+			redirect: 'manual'
+		};
+		if (init.insecureTls || (pinned && target.scheme === 'https'))
+			request.tls = {
+				...(init.insecureTls ? { rejectUnauthorized: false } : {}),
+				// Validate the certificate against the hostname, not the pinned IP.
+				...(pinned && target.scheme === 'https' ? { serverName: bareHost } : {})
+			};
+		try {
+			const res = await fetch(url, request);
+			const headers: Record<string, string> = {};
+			res.headers.forEach((v, k) => {
+				headers[k.toLowerCase()] = v;
+			});
+			return { status: res.status, statusText: res.statusText, headers, text: await res.text() };
+		} catch (err) {
+			lastErr = err;
+			// The timeout is spent, or this was the last validated address: give up. Otherwise the
+			// address was merely unreachable (wrong family, refused), so try the next validated one —
+			// never a fresh resolution, so the connection can only ever land on an approved address.
+			const name = (err as { name?: string }).name;
+			const done = signal.aborted || name === 'TimeoutError' || name === 'AbortError';
+			if (done || i === addresses.length - 1) {
+				const cause = (err as { cause?: { code?: string; message?: string } }).cause;
+				const detail = cause?.code || cause?.message || (err as Error).message;
+				throw new TransportError(`Could not reach ${target.host}:${target.port} (${detail}).`, err);
+			}
+		}
 	}
-	const headers: Record<string, string> = {};
-	res.headers.forEach((v, k) => {
-		headers[k.toLowerCase()] = v;
-	});
-	return { status: res.status, statusText: res.statusText, headers, text: await res.text() };
+	throw new TransportError(`Could not reach ${target.host}:${target.port}.`, lastErr);
 }
