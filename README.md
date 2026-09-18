@@ -861,7 +861,7 @@ experiences alternators catalog rotation bans reserved sponsor` (View) ·
 `broadcast whisper` (Chat) · `kick kill changeTeam` (Kick, kill, move) · `endMatch restartMatch
 changeMap setWeather setNextMap` (Match control) · `rotationAdd rotationRemove rotationMove
 rotationReorder` (Live rotation) · `ban unban` (Bans) · `reservedAdd reservedRemove` (Reserved
-slots) · `rotationSave` (Save rotation) · `config settings configValidate configApply` (Config &
+slots) · `rotationSave rotationSettings` (Save rotation) · `config settings configValidate configApply` (Config &
 settings) · `serverLog` (Audit trail) · `raw` (Raw RCON).
 
 ## Notes and limits

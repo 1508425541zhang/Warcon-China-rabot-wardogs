@@ -295,6 +295,16 @@ async function editReserved(c: WardogsClient, p: any, op: 'add' | 'remove'): Pro
 	return reservedViaConfig(c, id, op);
 }
 
+function rotationSettingsOf(p: any): { rotationEnabled?: boolean; rotationMode?: string } {
+	const body: { rotationEnabled?: boolean; rotationMode?: string } = {};
+	if (p.rotationEnabled !== undefined)
+		body.rotationEnabled =
+			p.rotationEnabled === true || p.rotationEnabled === 'on' || p.rotationEnabled === 'true';
+	if (p.rotationMode !== undefined)
+		body.rotationMode = String(p.rotationMode).toLowerCase() === 'random' ? 'random' : 'ordered';
+	return body;
+}
+
 export const ACTIONS: Record<string, ActionDef> = {
 	// ---- reads (viewer) ----
 	capabilities: {
@@ -687,22 +697,27 @@ export const ACTIONS: Record<string, ActionDef> = {
 		mutating: true,
 		run: (c) => c.json('POST', '/v1/rotation/save')
 	},
+	// Rotation on or off and its order belong with saving the rotation, which is what the
+	// capability says and what the rotation page enables the switch on.
+	rotationSettings: {
+		cap: 'rotation.save',
+		mutating: true,
+		target: (p) => Object.keys(p || {}).join(','),
+		run: (c, p) => {
+			const body = rotationSettingsOf(p);
+			if (!Object.keys(body).length)
+				throw new ApiError(400, 'No settings to apply (rotationEnabled, rotationMode).');
+			return c.json('PATCH', '/v1/settings', body);
+		}
+	},
 	settings: {
 		cap: 'config.apply',
 		mutating: true,
 		target: (p) => Object.keys(p || {}).join(','),
 		run: (c, p) => {
-			const body: any = {};
+			const body: any = rotationSettingsOf(p);
 			if (p.scoreTick !== undefined) {
 				body.scoreTick = int(p.scoreTick, 24, 1, 600);
-			}
-			if (p.rotationEnabled !== undefined) {
-				body.rotationEnabled =
-					p.rotationEnabled === true || p.rotationEnabled === 'on' || p.rotationEnabled === 'true';
-			}
-			if (p.rotationMode !== undefined) {
-				body.rotationMode =
-					String(p.rotationMode).toLowerCase() === 'random' ? 'random' : 'ordered';
 			}
 			if (!Object.keys(body).length) {
 				throw new ApiError(400, 'No settings to apply (scoreTick, rotationEnabled, rotationMode).');
