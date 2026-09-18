@@ -209,7 +209,15 @@ async function assertTargetStillAllowed(
 			);
 		} catch (err) {
 			if (!(err instanceof ApiError)) throw err;
-			error = new GameError(err.status, err.message, err.code || 'blocked_host');
+			// The policy's own message names the host and what it resolves to, which is for whoever
+			// is saving the target. This one is stored as the live error for every viewer.
+			error = new GameError(
+				err.status,
+				err.code === 'unresolvable'
+					? "The game server's address does not resolve."
+					: "The game server's address is not one Warcon may connect to. An owner can check it in the server's settings.",
+				err.code || 'blocked_host'
+			);
 		}
 		hit = { until: now + TARGET_CHECK_TTL_MS, error, addresses };
 		targetChecks.set(key, hit);
