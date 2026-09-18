@@ -40,7 +40,7 @@ const MATRIX: Record<string, Policy> = {
 	'GET api/audit/meta': 'user',
 	'GET api/live': 'user',
 	'GET api/live/events': 'user',
-	'GET api/steam/profiles': 'user',
+	'GET api/steam/profiles': 'anyServer',
 	'GET api/passkeys': 'user',
 	'DELETE api/passkeys/[id]': 'user',
 	'PUT api/scope': 'person',
