@@ -189,6 +189,51 @@ Have the proxy redirect plain `http://` to `https://` (Caddy does this by defaul
 **Always Use HTTPS**). A page served over http has an http origin, and every form post on it is then
 rejected as cross-site against the https `ORIGIN`.
 
+### Metrics (Prometheus)
+
+Both processes export Prometheus metrics at `/metrics`, the web on its normal port and the worker
+on `WORKER_PORT`, behind the `METRICS_TOKEN` bearer; the endpoint answers 404 until that is set.
+Warcon ships no Prometheus or Grafana of its own: point the ones you already run at it. Everything
+is counted in memory on paths that already run, never with a query per server, and the few gauges
+that need a look at the database or the scheduler are read once per scrape.
+
+```yaml
+# prometheus.yml on your monitoring host
+scrape_configs:
+  - job_name: warcon-web
+    authorization: { credentials: <METRICS_TOKEN> }
+    static_configs: [{ targets: ['panel.example.com:443'] }]
+    scheme: https
+  - job_name: warcon-worker
+    authorization: { credentials: <METRICS_TOKEN> }
+    static_configs: [{ targets: ['10.0.0.5:7700'] }] # the worker's private address
+```
+
+With `WARCON_ROLE=all` one process serves both sets, so one job is enough. The web endpoint sits
+on the panel's own URL, so it is reachable wherever the panel is. The worker's port is the relay
+port: the Compose file keeps it inside the Compose network, so a Prometheus on another machine
+cannot see it until you publish it on a private address (add `ports: ['10.0.0.5:7700:7700']` to
+the `worker` service, never `0.0.0.0`), or run Prometheus on the same host and Compose network.
+The exposition carries fleet-wide figures: keep the token out of URLs and never publish
+`/metrics` without it.
+[`monitoring/grafana-dashboard.json`](monitoring/grafana-dashboard.json) is a dashboard to import
+into your Grafana (Dashboards → New → Import); it expects the two job names above and, for its
+database panels, a [postgres_exporter](https://github.com/prometheus-community/postgres_exporter)
+scraped as job `postgres`, which is optional.
+
+| Metric                                                                                | What it is                                                                                   |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `warcon_players_online`, `warcon_servers{tier}`                                       | Players on every reachable server and the roster by observation tier (worker).               |
+| `warcon_observations_total{outcome}`, `warcon_observation_seconds`                    | Looks at game servers per second and how long they take (worker).                            |
+| `warcon_servers_behind`, `warcon_observations_stuck`, `warcon_observations_in_flight` | Whether the worker is keeping up: the same figures as the Worker block on the Settings page. |
+| `warcon_deliveries_total{outcome}`, `warcon_outbox_pending`                           | Trigger actions delivered, failed, skipped or unknown, and the queue depth (worker).         |
+| `warcon_worker_lease_held`                                                            | 1 on the process that owns observation and delivery.                                         |
+| `warcon_http_requests_total{route,method,status}`, `warcon_http_request_seconds`      | Every request by SvelteKit route id (web).                                                   |
+| `warcon_feed_posts_total{outcome}`, `warcon_feed_kills_total{result}`                 | Kill feed batches accepted, refused or rejected, and events accepted, skipped or duplicate.  |
+| `warcon_rate_limited_total{scope}`                                                    | Requests the in-memory limiter refused, by the limit that fired.                             |
+| `warcon_fleet{table}`                                                                 | Row counts of organizations, users, servers, org members, webhooks and triggers (web).       |
+| `process_*`, `nodejs_*`                                                               | CPU, memory and event-loop lag of each process.                                              |
+
 ### Configuration (`.env`)
 
 | Var                                                          | Default                | Meaning                                                                                                                                                                           |
@@ -203,6 +248,7 @@ rejected as cross-site against the https `ORIGIN`.
 | `PORT` / `HOST`                                              | `3000` / `0.0.0.0`     | Listen address.                                                                                                                                                                   |
 | `WARCON_ROLE`                                                | `all`                  | `all` serves, migrates and runs the worker in one process; `web` and `worker` split them (Compose does); `migrate` applies migrations and exits.                                  |
 | `RELAY_SECRET` / `RELAY_URL` / `WORKER_PORT`                 | unset / unset / `7700` | Split roles only: the secret web and worker share, where the web finds the worker (`http://worker:7700`), and the worker's port.                                                  |
+| `METRICS_TOKEN`                                              | unset                  | Bearer for `GET /metrics` (Prometheus) on the web and worker processes; the endpoint answers 404 until it is set. See [Metrics](#metrics-prometheus).                             |
 | `POLL_SECONDS` / `POLL_CONCURRENCY`                          | `20` / `128`           | Seeds for two of the runtime settings on a fresh install only; after that the owner edits cadences, budgets and retention on the **Settings** page without a restart.             |
 | `APP_NAME`                                                   | `Warcon`               | Name shown in the UI.                                                                                                                                                             |
 | `AUDIT_LOG_READS`                                            | `false`                | Also audit read-only calls (status polls etc.). Noisy.                                                                                                                            |
