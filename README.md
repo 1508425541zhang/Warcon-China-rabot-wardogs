@@ -289,7 +289,14 @@ Org owners and the site owner hold every capability on every server in scope.
 | Config & settings | score tick, sponsor image, validate and apply the config document, connection test                                                    |        |          | ✓     |
 | Automation        | create, edit, dry-run and delete triggers                                                                                             |        |          | ✓     |
 | Audit trail       | everyone's actions on the server in the audit log, not just your own                                                                  |        |          | ✓     |
-| Raw RCON          | any /v1 route on the game server directly                                                                                             |        |          | ✓     |
+| Raw RCON          | any /v1 route on the game server directly, except the config document                                                                 |        |          | ✓     |
+
+No role reads the server's credentials. The config document leaves the panel with the RCON
+`Password`, its `PasswordHash` and the kill feed `Token` shown as `(hidden)`, for every role, org
+owners and API keys included. Leave `(hidden)` as it is and validate and apply put the server's
+current value back; type over it to change the value. A copied or downloaded document carries the
+placeholder too, so it is not a backup of those three lines. Raw RCON does not serve `/v1/config`;
+the `config`, `configValidate` and `configApply` actions are the way to the document.
 
 Beyond server roles, an **org owner** adds, edits and removes the org's servers, manages members,
 roles, per-server grants and invite links and Discord webhooks, and sees the org's audit trail. The
