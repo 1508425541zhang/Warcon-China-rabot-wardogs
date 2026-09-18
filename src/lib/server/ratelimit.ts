@@ -3,6 +3,7 @@
 // several replicas the effective limit is that many times higher, which is still enough to stop
 // the panel being used as a fast scanner.
 import { ApiError } from './http';
+import { rateLimited } from './metrics';
 
 const windows = new Map<string, number[]>();
 let sweepAt = 0;
@@ -19,6 +20,7 @@ export function assertRate(key: string, limit: number, windowMs: number): void {
 	if (stamps.length >= limit) {
 		const retryIn = Math.ceil((stamps[0] + windowMs - now) / 1000);
 		windows.set(key, stamps);
+		rateLimited.inc({ scope: key.slice(0, key.indexOf(':') > 0 ? key.indexOf(':') : undefined) });
 		throw new ApiError(
 			429,
 			`Too many requests; try again in ${retryIn} second${retryIn === 1 ? '' : 's'}.`,

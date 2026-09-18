@@ -45,6 +45,7 @@ import { settings } from './settings';
 import { isWatched } from './interest';
 import { emit } from './events';
 import { liveView, writeLive } from './live';
+import { observations, observationSeconds } from './metrics';
 import { nextDue, withHold } from './poller-schedule';
 import { cashByFaction } from '$lib/cash';
 import type { Features, LiveView, Player, Status } from '$lib/types';
@@ -421,9 +422,13 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 			players = ((await ACTIONS.players.run(client, {})) as { players: Player[] }).players;
 	} catch (err) {
 		await observationFailed(env, m, ts, started, err);
+		observations.inc({ outcome: 'failed' });
+		observationSeconds.observe((Date.now() - started) / 1000);
 		return;
 	}
 	const latencyMs = Date.now() - started;
+	observations.inc({ outcome: 'ok' });
+	observationSeconds.observe(latencyMs / 1000);
 	const wasOffline = m.failures >= OFFLINE_AFTER_FAILURES;
 	// Any failure may have been a restart onto a new build: re-read the identity on recovery.
 	const hadFailed = m.failures > 0;

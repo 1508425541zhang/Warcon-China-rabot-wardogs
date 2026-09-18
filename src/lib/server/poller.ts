@@ -39,6 +39,7 @@ import { applyRetentionPolicy, rollupSamples } from './rollups';
 import { liveView } from './live';
 import { feedDemoKills } from './feed-events';
 import { publicMessage } from './http';
+import * as metrics from './metrics';
 import type { LiveView } from '$lib/types';
 
 const BEAT_MS = 250;
@@ -79,6 +80,24 @@ interface Scheduler {
 
 let scheduler: Scheduler | null = null;
 let envRef: Env | null = null;
+let unregisterMetrics: (() => void) | null = null;
+
+/** Fills the worker gauges from the scheduler once per scrape. */
+async function collectWorkerMetrics(): Promise<void> {
+	const st = await pollerStats();
+	for (const tier of ['watched', 'hot', 'idle', 'offline'] as const)
+		metrics.serversByTier.set({ tier }, st.tiers[tier]);
+	metrics.playersOnline.set(st.players);
+	metrics.observationsInFlight.set(st.active);
+	metrics.observationConcurrency.set(st.concurrency);
+	metrics.serversBehind.set(st.behind);
+	metrics.observationsStuck.set(st.stuck);
+	metrics.lanesBusy.set(st.lanes.busy);
+	metrics.lanesQueued.set(st.lanes.queued);
+	metrics.leaseHeld.set(st.owner ? 1 : 0);
+	metrics.outboxPending.set(st.delivery.pending);
+	metrics.outboxOldestSeconds.set((st.delivery.oldestMs ?? 0) / 1000);
+}
 
 export function startPoller(env: Env, label = 'worker'): void {
 	envRef = env;
@@ -110,6 +129,8 @@ export function startPoller(env: Env, label = 'worker'): void {
 	globalThis.__warconRenew = scheduler.renewTimer;
 	startDelivery(env);
 	startStatusMirror(env);
+	if (unregisterMetrics) unregisterMetrics();
+	unregisterMetrics = metrics.registerCollector(collectWorkerMetrics);
 	globalThis.__warconPoller = setInterval(() => void beat(env), BEAT_MS);
 	console.log('[warcon] worker scheduler started');
 }
@@ -122,6 +143,8 @@ export async function stopPoller(): Promise<void> {
 	globalThis.__warconRenew = undefined;
 	stopDelivery();
 	stopStatusMirror();
+	if (unregisterMetrics) unregisterMetrics();
+	unregisterMetrics = null;
 	scheduler = null;
 	if (envRef) await releaseOwnership(envRef);
 }
@@ -356,6 +379,8 @@ export interface PollerStats {
 	enabled: boolean;
 	owner: boolean;
 	servers: number;
+	/** players on every reachable server, from its last observation */
+	players: number;
 	tiers: Record<'watched' | 'hot' | 'idle' | 'offline', number>;
 	cadence: Record<'watched' | 'hot' | 'idle', { players: number; status: number }>;
 	concurrency: number;
@@ -377,9 +402,11 @@ export async function pollerStats(): Promise<PollerStats> {
 	const tiers = { watched: 0, hot: 0, idle: 0, offline: 0 };
 	let behind = 0;
 	let stuck = 0;
+	let players = 0;
 	if (s)
 		for (const m of s.roster) {
 			tiers[m.tier]++;
+			if (m.ok) players += m.status?.playerCount ?? m.players.length;
 			const due = Math.min(m.playersDueAt, m.statusDueAt);
 			const c = cadenceOf(m.tier, m.failures);
 			if (m.inFlight === null && due > 0 && now - due > Math.min(c.players, c.status)) behind++;
@@ -394,6 +421,7 @@ export async function pollerStats(): Promise<PollerStats> {
 		enabled: !!s,
 		owner: isOwner(),
 		servers: s?.roster.length ?? 0,
+		players,
 		tiers,
 		cadence: {
 			watched: { players: set.watchedPlayersMs, status: set.watchedStatusMs },

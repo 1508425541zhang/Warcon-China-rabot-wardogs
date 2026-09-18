@@ -20,6 +20,7 @@ import { memoryOf } from './observe';
 import { grantEntry, listOf, serverListOf } from './lists';
 import { getOrg, getServer } from './access';
 import { gateway } from './gateway';
+import { deliveries } from './metrics';
 import type { OutboxView } from '$lib/types';
 
 const CLAIM_LIMIT = 50;
@@ -290,6 +291,7 @@ async function execute(client: WardogsClient, row: OutboxRow): Promise<unknown> 
 
 async function finish(env: Env, row: OutboxRow, state: Outcome, outcome: string): Promise<void> {
 	stats[state]++;
+	deliveries.inc({ outcome: state });
 	try {
 		await withOwnedTransaction(env, (tx) =>
 			tx
