@@ -127,6 +127,8 @@ describe('gamePath', () => {
 			'//evil.example/v1/x',
 			'http://evil.example/v1/x',
 			'/v1/x#/../y',
+			'/v1//config',
+			'/v1/config//',
 			''
 		])
 			expect(() => gamePath(bad), bad).toThrow(ApiError);
