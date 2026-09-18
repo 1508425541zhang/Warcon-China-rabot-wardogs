@@ -3,7 +3,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { getEnv } from '$lib/server/env';
-import { clientIp, normalizeError, str } from '$lib/server/http';
+import { addressKey, normalizeError, str } from '$lib/server/http';
 import { writeAudit } from '$lib/server/audit';
 import { clearLoginFailures, loginLockSeconds, noteLoginFailure } from '$lib/server/access';
 import { consumeRecoveryKey } from '$lib/server/recovery';
@@ -23,7 +23,10 @@ export const actions: Actions = {
 		if (!username || !key)
 			return fail(400, { error: 'Username and recovery key are required.', username });
 
-		const keys = [`u:${username.toLowerCase()}`, `ip:${clientIp(request) || 'unknown'}`];
+		const keys = [
+			`u:${username.toLowerCase()}`,
+			`ip:${addressKey(request, env.BETTER_AUTH_SECRET ?? '')}`
+		];
 		const lock = await loginLockSeconds(env, keys);
 		if (lock > 0) {
 			await writeAudit(env, request, {

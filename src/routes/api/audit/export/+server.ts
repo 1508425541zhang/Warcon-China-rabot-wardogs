@@ -42,7 +42,6 @@ export const GET = route(async ({ locals, url }) => {
 		'status',
 		'message',
 		'detail',
-		'ip',
 		'userAgent',
 		'durationMs'
 	];

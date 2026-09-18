@@ -4,7 +4,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { getEnv } from '$lib/server/env';
-import { clientIp, normalizeError, str } from '$lib/server/http';
+import { addressKey, normalizeError, str } from '$lib/server/http';
 import { writeAudit } from '$lib/server/audit';
 import { clearLoginFailures, loginLockSeconds, noteLoginFailure } from '$lib/server/access';
 
@@ -36,7 +36,7 @@ export const actions: Actions = {
 
 		// The username is not known here (only the challenge cookie is), so the throttle is per address;
 		// Better Auth also locks the authenticator itself after repeated wrong codes.
-		const keys = [`ip:${clientIp(request) || 'unknown'}`];
+		const keys = [`ip:${addressKey(request, env.BETTER_AUTH_SECRET ?? '')}`];
 		const lock = await loginLockSeconds(env, keys);
 		if (lock > 0)
 			return fail(429, {

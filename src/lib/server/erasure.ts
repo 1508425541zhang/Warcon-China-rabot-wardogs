@@ -42,14 +42,14 @@ export async function assertMayDeleteSelf(env: Env, u: DeletingUser): Promise<vo
 
 /**
  * Pseudonymises the audit trail after the account row is gone. Rows the person wrote keep their
- * opaque actor id (so the trail still hangs together) but lose name, IP address and user agent;
+ * opaque actor id (so the trail still hangs together) but lose name and user agent;
  * rows about the person (user, org and sign-in events that name them) lose the username.
  */
 export async function eraseUserTraces(env: Env, u: DeletingUser): Promise<void> {
 	await env.db.transaction(async (tx) => {
 		await tx
 			.update(auditLog)
-			.set({ actorName: DELETED_ACTOR, ip: '', userAgent: '' })
+			.set({ actorName: DELETED_ACTOR, userAgent: '' })
 			.where(eq(auditLog.actorId, u.id));
 		const username = (u.username || u.name || '').toLowerCase();
 		if (username)

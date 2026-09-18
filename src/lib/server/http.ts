@@ -1,5 +1,6 @@
 import { json as kitJson, type RequestEvent, type RequestHandler } from '@sveltejs/kit';
 import { isAPIError } from 'better-auth/api';
+import { createHmac } from 'node:crypto';
 
 /** Thrown by server modules; API routes turn it into a JSON error response. */
 export class ApiError extends Error {
@@ -91,6 +92,14 @@ export async function readJson<T = Record<string, unknown>>(req: Request): Promi
 /** Set by hooks.server.ts on every request (overwriting anything the client sent). */
 export const CLIENT_IP_HEADER = 'x-warcon-client-ip';
 export const clientIp = (req: Request): string => req.headers.get(CLIENT_IP_HEADER) || '';
+/**
+ * The client address as a key for a limit that is stored (the login lockout): a keyed hash, so no
+ * address is ever written down. The address itself is only ever held in memory, for throttling.
+ */
+export const addressKey = (req: Request, secret: string): string => {
+	const ip = clientIp(req);
+	return ip ? createHmac('sha256', secret).update(ip).digest('hex').slice(0, 32) : 'unknown';
+};
 
 /**
  * The client address as adapter-node resolved it (socket peer, or the header named by

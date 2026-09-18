@@ -3,7 +3,7 @@
 import { fail, redirect, type RequestEvent } from '@sveltejs/kit';
 import { count, eq } from 'drizzle-orm';
 import { flag, maxOrgsPerUser, turnstileSiteKey, type Env } from './env';
-import { ApiError, clientIp, normalizeError, str } from './http';
+import { addressKey, ApiError, clientIp, normalizeError, str } from './http';
 import { writeAudit } from './audit';
 import { keyForbidden, loginLockSeconds, noteLoginFailure, type SessionUser } from './access';
 import { createUser, userCount, validatePassword, validateUsername } from './users';
@@ -66,8 +66,10 @@ export async function verifyTurnstile(env: Env, token: string, ip: string): Prom
 }
 
 // Self-registration shares the login throttle table: 8 attempts per IP in 30 minutes, then a
-// 15-minute lock. Successful sign-ups count too, so one address cannot mint accounts in bulk.
-export const signupKeys = (req: Request) => [`signup:${clientIp(req) || 'unknown'}`];
+// 15-minute lock, keyed on a hash of the address like the login lockout. Successful sign-ups count too, so one address cannot mint accounts in bulk.
+export const signupKeys = (req: Request, env: Env) => [
+	`signup:${addressKey(req, env.BETTER_AUTH_SECRET ?? '')}`
+];
 
 /**
  * Form action body for "create a username and password" on the join and sign-up pages: makes the
@@ -88,7 +90,7 @@ export async function registerFromForm(event: RequestEvent, env: Env, here: stri
 			error: 'This panel has not been set up yet. Open /setup first.',
 			...values
 		});
-	const keys = signupKeys(request);
+	const keys = signupKeys(request, env);
 	const lock = await loginLockSeconds(env, keys);
 	if (lock > 0) {
 		await writeAudit(env, request, {

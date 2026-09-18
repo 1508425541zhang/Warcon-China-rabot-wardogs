@@ -29,7 +29,7 @@ export const POST = route(async ({ locals, request }) => {
 	}
 
 	// Sign-up. Who may create an account here mirrors registerFromForm in signup.ts.
-	const keys = signupKeys(request);
+	const keys = signupKeys(request, env);
 	const lock = await loginLockSeconds(env, keys);
 	if (lock > 0)
 		throw new ApiError(

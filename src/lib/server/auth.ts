@@ -227,13 +227,14 @@ function build(env: Env) {
 		databaseHooks: {
 			session: {
 				create: {
+					// The address is read for throttling and never kept: a session is stored without it.
+					before: async (session) => ({ data: { ...session, ipAddress: null } }),
 					after: async (session) => {
 						await writeAudit(env, null, {
 							actor: { id: session.userId, username: '' },
 							category: 'auth',
 							action: 'login',
 							outcome: 'ok',
-							ip: session.ipAddress ?? '',
 							userAgent: session.userAgent ?? ''
 						}).catch((err) => console.error('audit login', err));
 						// The sign-in rules: start the grace clock on the first sign-in and re-check the

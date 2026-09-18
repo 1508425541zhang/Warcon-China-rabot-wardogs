@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { ApiError, publicMessage } from './http';
+import { addressKey, ApiError, CLIENT_IP_HEADER, publicMessage } from './http';
 
 describe('publicMessage', () => {
 	test('passes our own errors through', () => {
@@ -18,4 +18,15 @@ describe('publicMessage', () => {
 			console.error = quiet;
 		}
 	});
+});
+
+test('the stored lockout key is a keyed hash of the address, never the address', () => {
+	const from = (ip: string) =>
+		new Request('http://localhost/', { headers: ip ? { [CLIENT_IP_HEADER]: ip } : {} });
+	const key = addressKey(from('203.0.113.7'), 'secret-one');
+	expect(key).toMatch(/^[0-9a-f]{32}$/);
+	expect(key).toBe(addressKey(from('203.0.113.7'), 'secret-one'));
+	expect(key).not.toBe(addressKey(from('203.0.113.8'), 'secret-one'));
+	expect(key).not.toBe(addressKey(from('203.0.113.7'), 'secret-two'));
+	expect(addressKey(from(''), 'secret-one')).toBe('unknown');
 });
