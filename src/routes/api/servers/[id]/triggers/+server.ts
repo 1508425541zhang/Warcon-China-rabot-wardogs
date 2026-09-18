@@ -5,7 +5,12 @@ import { createTrigger, listTriggers } from '$lib/server/triggers';
 
 export const GET = route(async (event) => {
 	const env = getEnv();
-	const { server } = await requireServerCap(env, event.locals, param(event, 'id'), 'server.view');
+	const { server } = await requireServerCap(
+		env,
+		event.locals,
+		param(event, 'id'),
+		'automation.manage'
+	);
 	return apiJson({ ok: true, triggers: await listTriggers(env, server.id) });
 });
 

@@ -22,8 +22,9 @@
 	// Live build CL-499480 serves none of the rotation edit routes. On such a build this tab edits
 	// the rotation section of the config document instead: the same table and buttons, staged
 	// locally and written to the server in one apply. The server rebuilds its rotation at once and
-	// uses the new order from the next map change.
-	let viaDoc = $derived(!data.features.rotationEdit);
+	// uses the new order from the next map change. The document is for those who may apply it;
+	// everyone else reads the live rotation, which such a build cannot edit.
+	let viaDoc = $derived(!data.features.rotationEdit && configApply);
 	let liveToggle = $derived(!viaDoc && data.features.liveSettings);
 
 	let rotation = $state<Rotation | null>(null);
@@ -39,7 +40,7 @@
 	const same = (a: RotationDoc, b: RotationDoc) => JSON.stringify(a) === JSON.stringify(b);
 	let dirty = $derived(viaDoc && !same(staged, base));
 	let canApply = $derived(configApply && !!doc?.writable);
-	let canEdit = $derived(viaDoc ? canApply : rotationEdit);
+	let canEdit = $derived(viaDoc ? canApply : rotationEdit && data.features.rotationEdit);
 	let canToggle = $derived(viaDoc ? canApply : rotationSave && data.features.liveSettings);
 
 	const clone = (r: RotationDoc): RotationDoc => JSON.parse(JSON.stringify(r));

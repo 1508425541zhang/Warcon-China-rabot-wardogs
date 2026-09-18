@@ -11,7 +11,14 @@ import { and, asc, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { ApiError, newId, str } from './http';
 import { writeAudit } from './audit';
-import { getOrg, listsRoleFor, type OrgRow, type ServerRow, type SessionUser } from './access';
+import {
+	getOrg,
+	listsRoleFor,
+	type OrgRow,
+	type ServerAccess,
+	type ServerRow,
+	type SessionUser
+} from './access';
 import type { Db } from './db';
 import {
 	listEntries,
@@ -817,7 +824,8 @@ export async function orgListMembership(
 export async function serverListsState(
 	env: Env,
 	server: ServerRow,
-	user: SessionUser
+	user: SessionUser,
+	access: ServerAccess
 ): Promise<ServerListsState> {
 	const [bans, reserved, state, [sync], role] = await Promise.all([
 		env.db
@@ -903,7 +911,8 @@ export async function serverListsState(
 		for (const e of entries) {
 			if (sourceOf.get(e.steamId) !== e.listId) continue;
 			const s = out.reserved[e.steamId];
-			s.note = e.reason;
+			// Who holds a slot is View; what staff wrote about it is for those who manage slots.
+			s.note = role !== null || access.caps.has('slots.manage') ? e.reason : '';
 			s.expiresAt = iso(e.expiresAt);
 			if (e.listId === own.id) s.scope = 'server';
 		}

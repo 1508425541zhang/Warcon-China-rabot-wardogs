@@ -163,12 +163,14 @@ export async function localSignals(
 export function riskFor(
 	env: Env,
 	profile: SteamProfileRow | undefined,
-	local: LocalSignals | undefined
+	local: LocalSignals | undefined,
+	/** false leaves the watchlist reason out of the risk line: it is a staff note */
+	staff = true
 ): Risk {
 	return assessRisk({
 		profile: profile ?? null,
 		steamEnabled: steamEnabled(env),
-		watched: local?.watched ?? null,
+		watched: local?.watched ? { reason: staff ? local.watched.reason : '' } : null,
 		bannedOn: local?.bannedOn ?? [],
 		resembles: local?.resembles ?? []
 	});
@@ -177,12 +179,15 @@ export function riskFor(
 /** Marks for the players table: watchlist, first visit, risk. One batch per refresh. */
 export async function marksFor(
 	env: Env,
+	user: SessionUser,
 	server: ServerRow,
+	access: ServerAccess,
 	players: { steamId: string; name: string }[]
 ): Promise<PlayerMark[]> {
 	const ids = [...new Set(players.map((p) => p.steamId).filter(isSteamId))];
 	if (!ids.length) return [];
 	const orgIds = (await orgServers(env, server.orgId)).map((s) => s.id);
+	const staff = access.caps.has('players.notes') || access.caps.has('players.notes.manage');
 	const [profiles, local, counts] = await Promise.all([
 		getProfiles(env, ids),
 		localSignals(env, server.orgId, orgIds, server.id, players),
@@ -198,9 +203,9 @@ export async function marksFor(
 		return {
 			steamId,
 			watched: !!l?.watched,
-			reason: l?.watched?.reason ?? '',
+			reason: staff ? (l?.watched?.reason ?? '') : '',
 			firstVisit: (visits.get(steamId) ?? 0) <= 1,
-			risk: riskFor(env, profiles.get(steamId), l)
+			risk: riskFor(env, profiles.get(steamId), l, staff)
 		};
 	});
 }
@@ -294,9 +299,11 @@ export async function dossier(
 		]);
 	const l = local.get(steamId);
 	const admin = access.caps.has('players.notes.manage');
-	const membership = org
-		? await orgListMembership(env, org, steamId)
-		: { ban: null, reserve: null };
+	// What staff wrote about the player is for those who may write it; the org list entry (its
+	// reason, who added it, where it stands on every server) for those who may open the lists.
+	const staff = admin || access.caps.has('players.notes');
+	const membership =
+		org && listsRole ? await orgListMembership(env, org, steamId) : { ban: null, reserve: null };
 	return {
 		steamId,
 		name,
@@ -308,11 +315,11 @@ export async function dossier(
 		orgLists: { ...membership, canEdit: listsRole !== null },
 		steamEnabled: steamEnabled(env),
 		steam: steamView(profiles.get(steamId)),
-		risk: riskFor(env, profiles.get(steamId), l),
+		risk: riskFor(env, profiles.get(steamId), l, staff),
 		watch: {
 			watched: !!mark?.watched,
-			reason: mark?.reason ?? '',
-			updatedByName: mark?.updatedByName ?? '',
+			reason: staff ? (mark?.reason ?? '') : '',
+			updatedByName: staff ? (mark?.updatedByName ?? '') : '',
 			updatedAt: iso(mark?.updatedAt)
 		},
 		bannedOn: (l?.bannedOn ?? []).map((b) => ({
@@ -354,7 +361,7 @@ export async function dossier(
 			deaths: s.deaths,
 			cash: s.cash
 		})),
-		notes: noteRows.map((n) => ({
+		notes: (staff ? noteRows : []).map((n) => ({
 			id: n.id,
 			authorId: n.authorId,
 			authorName: n.authorName,

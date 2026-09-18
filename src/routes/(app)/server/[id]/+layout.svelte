@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { can, type Capability } from '$lib/capabilities';
 	import { health, identity, setHealth, throttled } from '$lib/health.svelte';
 	import Pulse from '$lib/components/Pulse.svelte';
 	import Badge from '$lib/components/Badge.svelte';
@@ -10,23 +11,25 @@
 
 	let { data, children }: LayoutProps = $props();
 
-	const TABS = [
+	// A tab whose reads need more than View names the capability; the API refuses the same people.
+	const TABS: readonly (readonly [string, string, Capability?])[] = [
 		['', 'Overview'],
 		['/players', 'Players'],
 		['/kills', 'Kills'],
 		['/bans', 'Bans'],
 		['/slots', 'Reserved slots'],
 		['/rotation', 'Map rotation'],
-		['/config', 'Config'],
-		['/automation', 'Automation'],
+		['/config', 'Config', 'config.apply'],
+		['/automation', 'Automation', 'automation.manage'],
 		['/analytics', 'Analytics'],
 		['/leaderboard', 'Leaderboards'],
-		['/log', 'Server log']
-	] as const;
+		['/log', 'Server log', 'audit.read']
+	];
 	// Discord channels and the public pages are an org owner's to manage, so Settings shows for them alone.
-	let visibleTabs = $derived(
-		data.server.manager ? [...TABS, ['/settings', 'Settings'] as const] : [...TABS]
-	);
+	let visibleTabs = $derived([
+		...TABS.filter(([, , cap]) => !cap || can(data.server.caps, cap)),
+		...(data.server.manager ? [['/settings', 'Settings'] as const] : [])
+	]);
 	let base = $derived(`/server/${encodeURIComponent(data.server.id)}`);
 	let current = $derived(page.url.pathname.slice(base.length) || '');
 	// A dossier (/players/<steamId>) keeps the Players tab lit.
@@ -81,9 +84,11 @@
 				{#if data.server.demo}<Badge tone="info">demo</Badge>{/if}
 			</h1>
 			<div class="mt-1.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[12.5px] text-mist-400">
-				<span class="font-mono text-mist-200">{data.server.host}:{data.server.port}</span>
+				{#if data.server.host}
+					<span class="font-mono text-mist-200">{data.server.host}:{data.server.port}</span>
+				{/if}
 				{#if ident.gameServerId}
-					<span class="text-mist-600">·</span>
+					{#if data.server.host}<span class="text-mist-600">·</span>{/if}
 					<button
 						type="button"
 						class="group inline-flex cursor-pointer items-center gap-1.5 text-left"

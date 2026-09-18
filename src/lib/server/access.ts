@@ -363,6 +363,7 @@ export type ServerSummary = {
 	orgId: string;
 	orgName: string;
 	name: string;
+	/** where the game's RCON listens, and the owners' notes: blank unless `manager` */
 	host: string;
 	port: number;
 	scheme: 'http' | 'https';
@@ -392,10 +393,10 @@ export function shapeServer(
 		orgId: s.orgId,
 		orgName: org.name,
 		name: s.name,
-		host: s.host,
-		port: s.port,
-		scheme: s.scheme,
-		notes: s.notes,
+		host: access.manager ? s.host : '',
+		port: access.manager ? s.port : 0,
+		scheme: access.manager ? s.scheme : 'http',
+		notes: access.manager ? s.notes : '',
 		roleName: access.roleName,
 		caps: [...access.caps],
 		manager: access.manager,

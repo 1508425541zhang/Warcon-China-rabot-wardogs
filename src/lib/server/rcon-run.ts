@@ -101,9 +101,16 @@ export async function runAction(
 	// Pages read the live view; direct game reads are for tools and the odd refresh, not a poll loop.
 	assertRate(`rcon:${user.id}`, 120, 60_000);
 
+	// The game's answers as it sent them are what a connection test shows, and that needs Config
+	// & settings; a viewer gets the shaped status and the feature list.
+	const unshaped = access.caps.has('config.apply');
+	if (name === 'status' && !unshaped) delete params.raw;
+
 	const started = Date.now();
 	try {
 		const result = await gateway().run(env, server, name, params);
+		if (name === 'capabilities' && !unshaped && result && typeof result === 'object')
+			delete (result as { raw?: unknown }).raw;
 		const durationMs = Date.now() - started;
 		// The panel shows what the worker last saw; after a change, have it look again now. A list
 		// edit also rewrites the mirror here, so the change shows before the worker's re-read lands.
