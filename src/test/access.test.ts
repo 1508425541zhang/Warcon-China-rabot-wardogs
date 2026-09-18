@@ -118,6 +118,28 @@ describe.skipIf(!hasTestDb)('access', () => {
 			]);
 		});
 
+		test('Audit trail on a server leaves out the owners editing it: those rows say where RCON listens', async () => {
+			const w = await seedWorld(env);
+			const edited = await api(w, 'owner', 'PATCH api/servers/[id]', {
+				params: { id: w.server.id },
+				body: { notes: 'rcon behind the office firewall' }
+			});
+			expect(edited.status).toBe(200);
+			await run(w, 'owner', 'broadcast');
+			const seenBy = async (who: PrincipalName) =>
+				(
+					await queryAudit(env, {
+						serverId: w.server.id,
+						visibleTo: await auditVisibility(env, w.users[who]!)
+					})
+				).entries
+					.map((e) => e.action)
+					.sort();
+			expect(await seenBy('admin')).toEqual(['rcon.broadcast']);
+			expect(await seenBy('owner')).toEqual(['rcon.broadcast', 'server.update']);
+			expect(await seenBy('site')).toEqual(['rcon.broadcast', 'server.update']);
+		});
+
 		test('lists.edit and audit.read are found in the stored role', async () => {
 			const w = await seedWorld(env);
 			const lists = async (who: PrincipalName) =>

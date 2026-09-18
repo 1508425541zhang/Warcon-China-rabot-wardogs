@@ -257,6 +257,7 @@ export async function deleteServer(
 	await writeAudit(env, req, {
 		actor,
 		server: { id: server.id, name: server.name },
+		orgId: server.orgId,
 		category: 'server',
 		action: 'server.delete',
 		outcome: 'ok',

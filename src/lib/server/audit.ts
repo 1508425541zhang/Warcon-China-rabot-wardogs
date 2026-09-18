@@ -1,4 +1,17 @@
-import { and, desc, eq, gte, inArray, isNotNull, like, lt, lte, or, type SQL } from 'drizzle-orm';
+import {
+	and,
+	desc,
+	eq,
+	gte,
+	inArray,
+	isNotNull,
+	like,
+	lt,
+	lte,
+	notInArray,
+	or,
+	type SQL
+} from 'drizzle-orm';
 import type { Env } from './env';
 import { userAgent, int, str } from './http';
 import { auditLog, user, type AuditRow } from './db/schema';
@@ -102,11 +115,20 @@ const seesBrowser = (
 	row: { actorId: string | null; orgId: string | null }
 ) => !v || row.actorId === v.userId || (!!row.orgId && v.ownedOrgIds.includes(row.orgId));
 
+/**
+ * Adding, editing and deleting a server is its org's owners at work, and those rows say where
+ * RCON listens and carry the owners' notes: Audit trail on the server does not show them.
+ */
+const OWNERS_ROWS = ['server.create', 'server.update', 'server.delete'];
+
 /** The rows a caller may see: their own, those on servers they admin, those of orgs they own. */
 function visibleWhere(v: AuditVisibility | undefined): SQL | undefined {
 	if (!v) return undefined;
 	const any: SQL[] = [eq(auditLog.actorId, v.userId)];
-	if (v.adminServerIds.length) any.push(inArray(auditLog.serverId, v.adminServerIds));
+	if (v.adminServerIds.length)
+		any.push(
+			and(inArray(auditLog.serverId, v.adminServerIds), notInArray(auditLog.action, OWNERS_ROWS))!
+		);
 	if (v.ownedOrgIds.length) any.push(inArray(auditLog.orgId, v.ownedOrgIds));
 	return or(...any)!;
 }
