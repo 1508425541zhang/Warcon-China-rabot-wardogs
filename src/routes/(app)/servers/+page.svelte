@@ -95,6 +95,12 @@
 			publicLeaderboards: s?.publicLeaderboards ?? false
 		};
 	};
+	/** An edit that changes where RCON listens is the add flow again: the password is asked for. */
+	const moved = (d: { server: ServerInfo | null; host: string; port: string; scheme: string }) =>
+		!!d.server &&
+		(d.host.trim().toLowerCase() !== d.server.host ||
+			Number(d.port) !== d.server.port ||
+			d.scheme !== d.server.scheme);
 	/** What the site owner allows the dialog's organisation (the server's, or the one picked for a new one). */
 	const allowancesOf = (d: { server: ServerInfo | null; orgId: string }) =>
 		d.server ?? data.ownedOrgs.find((o) => o.id === d.orgId) ?? NO_ALLOWANCES;
@@ -347,9 +353,13 @@
 					class="input"
 					type="password"
 					bind:value={d.password}
-					placeholder={d.server ? '(unchanged)' : 'RCON password'}
+					placeholder={!d.server
+						? 'RCON password'
+						: moved(d)
+							? 'needed again: the address changed'
+							: '(unchanged)'}
 					autocomplete="new-password"
-					required={!d.server}
+					required={!d.server || moved(d)}
 				/></label
 			>
 			<div class="grid grid-cols-1 gap-2 sm:grid-cols-[4fr_1fr]">
