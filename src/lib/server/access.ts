@@ -199,9 +199,7 @@ export async function userOrgs(env: Env, user: SessionUser): Promise<OrgSummary[
 	});
 	if (user.apiKey) {
 		const o = await getOrg(env, user.apiKey.orgId);
-		return o && !o.suspendedAt
-			? [shape(o, 'member', user.apiKey.capabilities.includes('lists.edit'))]
-			: [];
+		return o && !o.suspendedAt ? [shape(o, 'member', keyEditsLists(user.apiKey))] : [];
 	}
 	if (user.role === 'owner') {
 		const all = await env.db.select().from(organizations).orderBy(asc(organizations.name));
@@ -223,6 +221,14 @@ export async function userOrgs(env: Env, user: SessionUser): Promise<OrgSummary[
 
 // --- org lists (bans and reserved slots) ---
 
+/**
+ * The org lists are pushed to every server of the org, so a key held to some of its servers
+ * cannot edit them, whatever capabilities it carries. (A person with lists.edit on one server
+ * can: that is what the capability says, and an owner chose to give it.)
+ */
+const keyEditsLists = (key: ApiKeyPrincipal): boolean =>
+	key.capabilities.includes('lists.edit') && key.serverIds === null;
+
 /** owner: the org's owners; editor: holds lists.edit on at least one of its servers. Both may add and remove entries. */
 export type ListsRole = 'owner' | 'editor';
 
@@ -232,9 +238,7 @@ export async function listsRoleFor(
 	orgId: string
 ): Promise<ListsRole | null> {
 	if (user.apiKey)
-		return user.apiKey.orgId === orgId && user.apiKey.capabilities.includes('lists.edit')
-			? 'editor'
-			: null;
+		return keyEditsLists(user.apiKey) && user.apiKey.orgId === orgId ? 'editor' : null;
 	if ((await orgRoleFor(env, user, orgId)) === 'owner') return 'owner';
 	const [row] = await env.db
 		.select({ serverId: serverGrants.serverId })

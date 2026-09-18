@@ -79,6 +79,13 @@ export async function createKey(
 	}
 	if (!capabilities.length) throw new ApiError(400, 'Pick at least one capability for the key.');
 	const serverIds = await parseServers(env, org.id, body.serverIds);
+	// The org lists are pushed to every server, so they are not something a key held to some
+	// servers can be given (access.ts refuses such a key the lists either way).
+	if (serverIds && capabilities.includes('lists.edit'))
+		throw new ApiError(
+			400,
+			"'Org lists' reaches every server in the organisation; a key limited to some servers cannot hold it."
+		);
 	const days = int(body.expiresDays, 0, 0, 3650);
 	const expiresAt = days ? new Date(Date.now() + days * 86400_000) : null;
 	const token = mintToken();

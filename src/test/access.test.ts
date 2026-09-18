@@ -470,6 +470,21 @@ describe.skipIf(!hasTestDb)('access', () => {
 			expect((await run(viaKey, 'keyView', 'broadcast')).status).toBe(403);
 		});
 
+		test('a key limited to some servers cannot be given the org lists', async () => {
+			const w = await seedWorld(env);
+			const body = { label: 'one server', capabilities: ['server.view', 'lists.edit'] };
+			const limited = await api(w, 'owner', 'POST api/orgs/[id]/keys', {
+				params: { id: w.org.id },
+				body: { ...body, serverIds: [w.server.id] }
+			});
+			expect(limited.status).toBe(400);
+			const whole = await api(w, 'owner', 'POST api/orgs/[id]/keys', {
+				params: { id: w.org.id },
+				body
+			});
+			expect(whole.status).toBe(201);
+		});
+
 		test('a key holds no seat in the org: no members, roles, keys, invites or servers', async () => {
 			const w = await seedWorld(env);
 			const params = { id: w.org.id };
