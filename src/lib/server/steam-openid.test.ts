@@ -49,8 +49,14 @@ describe('steam openid', () => {
 	// get() reads the first of a repeated field and the body sent to Steam kept the last, so the
 	// attacker's own signed fields were confirmed while the victim's identity in front was returned.
 	test('an assertion that repeats a field is refused before Steam is asked', async () => {
+		let asked = 0;
+		const fetchFn = (async () => {
+			asked++;
+			return new Response('is_valid:true\n');
+		}) as unknown as typeof fetch;
 		const VICTIM = 'https://steamcommunity.com/openid/id/76561198000000099';
-		const fetchFn = (async () => new Response('is_valid:true\n')) as unknown as typeof fetch;
+
+		// The attack itself: the victim's identity in front of the attacker's own signed answer.
 		const forged = new URLSearchParams([
 			['openid.claimed_id', VICTIM],
 			['openid.identity', VICTIM],
@@ -59,11 +65,24 @@ describe('steam openid', () => {
 		await expect(verifySteamAssertion(forged, RETURN, fetchFn)).rejects.toMatchObject({
 			code: 'steam_duplicate'
 		});
-		const twoSigs = good();
-		twoSigs.append('openid.sig', 'other=');
-		await expect(verifySteamAssertion(twoSigs, RETURN, fetchFn)).rejects.toMatchObject({
-			code: 'steam_duplicate'
-		});
+
+		// And every field, repeated in front or behind, with the same value or another.
+		for (const [field, value] of good())
+			for (const extra of [value, 'something-else'])
+				for (const where of ['front', 'behind'] as const) {
+					const twice = new URLSearchParams(
+						where === 'front' ? [[field, extra], ...good()] : [...good(), [field, extra]]
+					);
+					await expect(verifySteamAssertion(twice, RETURN, fetchFn)).rejects.toMatchObject({
+						code: 'steam_duplicate'
+					});
+				}
+		expect(asked).toBe(0);
+	});
+	test('a repeated parameter that is not part of the assertion does not matter', async () => {
+		const fetchFn = (async () => new Response('is_valid:true\n')) as unknown as typeof fetch;
+		const params = new URLSearchParams([['utm', 'a'], ...good(), ['utm', 'b']]);
+		expect(await verifySteamAssertion(params, RETURN, fetchFn)).toBe('76561198000000001');
 	});
 	test('steam saying is_valid:false is refused', async () => {
 		const fetchFn = (async () => new Response('is_valid:false\n')) as unknown as typeof fetch;
