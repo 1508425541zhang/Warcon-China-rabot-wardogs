@@ -120,7 +120,7 @@
 	</div>
 {/if}
 
-<ImportCandidates kind="ban" {org} {owner} />
+{#if owner}<ImportCandidates kind="ban" {org} {owner} />{/if}
 
 {#if !lists.servers.length}
 	<div class="callout mb-4">
