@@ -19,7 +19,7 @@ import {
 	twoFactor,
 	user
 } from './db/schema';
-import { ensureMemberships, soleOwnerOf } from './orgs';
+import { ensureMemberships, revokeMintedBy, soleOwnerOf } from './orgs';
 import { refreshAuthComplete } from './enrolment';
 import type { UserView } from '$lib/types';
 
@@ -319,6 +319,8 @@ export async function deleteUser(
 			400,
 			`${label(u)} is the only owner of ${sole.join(', ')}. Promote another owner there first.`
 		);
+	// Before the row goes: a key's created_by is set null by the delete, and then nothing says whose it was.
+	await revokeMintedBy(env.db, u.id);
 	await auth.api.removeUser({ body: { userId: u.id }, headers: req.headers }); // grants and memberships cascade
 	await writeAudit(env, req, {
 		actor,

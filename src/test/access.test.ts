@@ -253,6 +253,52 @@ describe.skipIf(!hasTestDb)('access', () => {
 			expect(members.status).toBe(403);
 		});
 
+		test('the links and keys an owner minted end with their ownership', async () => {
+			for (const leave of ['remove', 'demote'] as const) {
+				const w = await seedWorld(env);
+				const params = { id: w.org.id };
+				// `member` becomes a second owner, mints an owner link and a key, and is then let go.
+				await env.db
+					.update(orgMembers)
+					.set({ role: 'owner' })
+					.where(and(eq(orgMembers.orgId, w.org.id), eq(orgMembers.userId, w.users.member!.id)));
+				await api(w, 'member', 'POST api/orgs/[id]/invites', {
+					params,
+					body: { orgRole: 'owner' }
+				});
+				const minted = await api(w, 'member', 'POST api/orgs/[id]/keys', {
+					params,
+					body: { label: 'mine', capabilities: ['server.view', 'rcon.raw'] }
+				});
+				const token = (minted.body as { token: string }).token;
+				const [link] = await env.db
+					.select()
+					.from(orgInvites)
+					.where(eq(orgInvites.createdBy, w.users.member!.id));
+				expect((await resolveBearer(env, token)).orgId).toBe(w.org.id);
+
+				const path = 'api/orgs/[id]/members/[userId]';
+				const gone = await api(
+					w,
+					'owner',
+					leave === 'remove' ? `DELETE ${path}` : `PATCH ${path}`,
+					{
+						params: { ...params, userId: w.users.member!.id },
+						body: { role: 'member' }
+					}
+				);
+				expect(gone.status).toBe(200);
+
+				await expect(resolveBearer(env, token)).rejects.toMatchObject({ status: 401 });
+				const found = (await findInvite(env, link.token))!;
+				await expect(
+					joinOrg(env, new Request('http://localhost/'), w.users.stranger!, found.invite, found.org)
+				).rejects.toMatchObject({ status: 410 });
+				// What the remaining owner made is untouched.
+				expect((await resolveBearer(env, w.tokens.keyAll)).orgId).toBe(w.org.id);
+			}
+		});
+
 		test('the last owner of an org cannot be removed or demoted', async () => {
 			const w = await seedWorld(env);
 			const params = { id: w.org.id, userId: w.users.owner!.id };
