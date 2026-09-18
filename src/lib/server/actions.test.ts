@@ -531,20 +531,38 @@ test('raw does not serve the config document, however the path is spelt', async 
 		'/v1/config',
 		'/v1/config?x=1',
 		'/v1/Config',
-		'/v1/%63onfig',
+		'/v1/config.',
 		'/v1/config/validate'
 	])
 		await expect(ACTIONS.raw.run(client, { method: 'GET', path })).rejects.toMatchObject({
 			status: 403,
 			code: 'use_config_actions'
 		});
-	for (const path of ['/v1/audit', '/v1/audit?limit=500', '/v1/%61udit'])
+	for (const path of ['/v1/audit', '/v1/audit?limit=500', '/v1/AUDIT.'])
 		await expect(ACTIONS.raw.run(client, { method: 'GET', path })).rejects.toMatchObject({
 			status: 403,
 			code: 'use_server_log'
 		});
+	// A listener that reads an escape, a ';' or a second layer of encoding its own way would serve
+	// the document for these, so a route with anything but plain characters is not sent at all.
+	for (const path of [
+		'/v1/%63onfig',
+		'/v1/%61udit',
+		'/v1/config%3Fx',
+		'/v1/config%23x',
+		'/v1/config;x',
+		'/v1/config%20',
+		'/v1/config%00',
+		'/v1/config%5c',
+		'/v1/%2563onfig',
+		'/v1/%63onfig/%ZZ'
+	])
+		await expect(ACTIONS.raw.run(client, { method: 'GET', path })).rejects.toMatchObject({
+			status: 400
+		});
 	expect(calls).toEqual([]);
 	await ACTIONS.raw.run(client, { method: 'GET', path: '/v1/configuration' });
 	await ACTIONS.raw.run(client, { method: 'GET', path: '/v1/status' });
-	expect(calls).toEqual(['GET /v1/configuration', 'GET /v1/status']);
+	await ACTIONS.raw.run(client, { method: 'GET', path: '/v1/players?name=a%20b' });
+	expect(calls).toEqual(['GET /v1/configuration', 'GET /v1/status', 'GET /v1/players?name=a%20b']);
 });

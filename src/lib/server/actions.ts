@@ -28,14 +28,6 @@ const fingerprint = (text: unknown) => {
 	return { length: s.length, sha256: createHash('sha256').update(s).digest('hex') };
 };
 
-const safeDecode = (v: string): string => {
-	try {
-		return decodeURIComponent(v);
-	} catch {
-		return v;
-	}
-};
-
 const steamId = (v: unknown): string => {
 	const id = str(v, 32);
 	if (!/^\d{17}$/.test(id)) {
@@ -799,8 +791,18 @@ export const ACTIONS: Record<string, ActionDef> = {
 			// Parsed and re-serialised first: "%2e%2e" is a dot segment to a URL parser.
 			const path = gamePath(str(p.path, 500));
 			// The config document carries the RCON password, so it leaves through the config actions,
-			// which hide it. Compared decoded: a listener may read %63onfig as config.
-			if (/^\/v1\/config(\/|$)/i.test(safeDecode(path.split('?')[0])))
+			// which hide it. What a listener makes of an escape, a ';' or a control character in a
+			// route is not something to guess at (%3F, a second layer of %25, a trailing %20), and no
+			// /v1 route needs one: the route is plain characters or it is refused. A query may carry
+			// escapes.
+			const route = path.split('?')[0];
+			if (!/^[A-Za-z0-9/_~.-]+$/.test(route))
+				throw new ApiError(
+					400,
+					'A raw path is letters, digits, "/", "-", "_", "." and "~"; put anything else in the query or the body.',
+					'bad_path'
+				);
+			if (/^\/v1\/config(?![a-z0-9_-])/i.test(route))
 				throw new ApiError(
 					403,
 					"The config document is not served through raw: use the 'config', 'configValidate' and 'configApply' actions.",
@@ -808,7 +810,7 @@ export const ACTIONS: Record<string, ActionDef> = {
 				);
 			// The listener's log names the address of everyone who connected to it; 'serverLog' serves
 			// it, with those addresses for the site owner only.
-			if (/^\/v1\/audit(\/|$)/i.test(safeDecode(path.split('?')[0])))
+			if (/^\/v1\/audit(?![a-z0-9_-])/i.test(route))
 				throw new ApiError(
 					403,
 					"The listener's log is not served through raw: use the 'serverLog' action.",
