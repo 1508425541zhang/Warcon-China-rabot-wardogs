@@ -32,7 +32,7 @@ import { localSignals, orgServers, type LocalSignals } from './players';
 import { gateway } from './gateway';
 import type { SessionUser } from './access';
 import type { ServerAccess } from './access-resolve';
-import { CAPABILITY_INFO } from '$lib/capabilities';
+import { CAPABILITY_INFO, type Capability } from '$lib/capabilities';
 import type { DryRunResult, Player, Status, TriggerKind, TriggerView } from '$lib/types';
 import {
 	broadcastWanted,
@@ -106,22 +106,39 @@ async function triggerOf(env: Env, serverId: string, id: string): Promise<Trigge
 }
 
 /**
- * A rule that hands out something needs the capability an admin would need to do it by hand:
- * the Seeding reward reserves slots on this server, or on the organisation's list.
+ * A rule acts without anyone at the controls, so saving it needs the capability its author would
+ * need to do the same by hand: a rule that kicks needs Kick players, not only Automation.
  */
-function requireRuleCaps(
+const RULE_NEEDS: Record<Exclude<TriggerKind, 'seed_reward'>, [Capability, string]> = {
+	welcome: ['chat.send', 'messages players'],
+	faction_change: ['chat.send', 'messages players'],
+	broadcast: ['chat.send', 'messages players'],
+	restart_notice: ['chat.send', 'messages players'],
+	match_broadcast: ['chat.send', 'messages players'],
+	empty_reset: ['match.control', 'changes the map'],
+	risk_kick: ['players.moderate', 'kicks players'],
+	team_kill: ['players.moderate', 'kicks players']
+};
+
+/** What one rule needs of whoever saves it. The Seeding reward reserves slots: here, or on the organisation's list. */
+export function ruleNeeds(kind: TriggerKind, config: unknown): [Capability, string] {
+	if (kind !== 'seed_reward') return RULE_NEEDS[kind];
+	return (config as Partial<SeedRewardConfig> | null)?.scope !== 'server'
+		? ['lists.edit', "edits the organisation's reserved-slot list"]
+		: ['slots.manage', 'reserves slots on this server'];
+}
+
+export function requireRuleCaps(
 	kind: TriggerKind,
 	config: unknown,
 	server: ServerRow,
 	access: ServerAccess
 ): void {
-	if (kind !== 'seed_reward') return;
-	const orgWide = (config as SeedRewardConfig).scope !== 'server';
-	const cap = orgWide ? 'lists.edit' : 'slots.manage';
+	const [cap, does] = ruleNeeds(kind, config);
 	if (access.caps.has(cap)) return;
 	throw new ApiError(
 		403,
-		`A ${TRIGGER_LABELS[kind]} rule ${orgWide ? "edits the organisation's reserved-slot list" : 'reserves slots on this server'}, which needs '${CAPABILITY_INFO[cap].label}' on ${server.name}; your role '${access.roleName}' does not include it.`,
+		`A ${TRIGGER_LABELS[kind]} rule ${does}, which needs '${CAPABILITY_INFO[cap].label}' on ${server.name}; your role '${access.roleName}' does not include it.`,
 		'forbidden'
 	);
 }
