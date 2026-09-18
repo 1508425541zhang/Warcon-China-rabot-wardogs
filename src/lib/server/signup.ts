@@ -5,7 +5,7 @@ import { count, eq } from 'drizzle-orm';
 import { flag, maxOrgsPerUser, turnstileSiteKey, type Env } from './env';
 import { ApiError, clientIp, normalizeError, str } from './http';
 import { writeAudit } from './audit';
-import { loginLockSeconds, noteLoginFailure, type SessionUser } from './access';
+import { keyForbidden, loginLockSeconds, noteLoginFailure, type SessionUser } from './access';
 import { createUser, userCount, validatePassword, validateUsername } from './users';
 import { organizations } from './db/schema';
 
@@ -24,6 +24,7 @@ export async function orgsRemaining(env: Env, user: SessionUser): Promise<number
 }
 
 export async function assertMayCreateOrg(env: Env, user: SessionUser): Promise<void> {
+	if (user.apiKey) throw keyForbidden();
 	const left = await orgsRemaining(env, user);
 	if (left === null || left > 0) return;
 	if (!orgSignupEnabled(env))

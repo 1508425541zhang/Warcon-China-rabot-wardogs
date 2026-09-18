@@ -56,7 +56,7 @@ export const keyUser = (k: ApiKeyPrincipal): SessionUser => ({
 	apiKey: k
 });
 
-const keyForbidden = () =>
+export const keyForbidden = () =>
 	new ApiError(403, 'API keys cannot manage an organisation or the panel.', 'api_key_forbidden');
 
 export const ORG_ROLES: OrgRole[] = ['owner', 'member'];
