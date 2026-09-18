@@ -28,6 +28,8 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 20
     env:
       DATABASE_URL: postgres://warcon:warcon@127.0.0.1:5432/warcon
+      # bun test makes its own warcon_test_* database on this server for the permission suites
+      TEST_DATABASE_URL: postgres://warcon:warcon@127.0.0.1:5432/postgres
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
