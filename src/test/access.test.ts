@@ -428,6 +428,39 @@ describe.skipIf(!hasTestDb)('access', () => {
 	});
 
 	describe('roles', () => {
+		test('a rule is saved and dry-run only by someone who could do by hand what it does', async () => {
+			const w = await seedWorld(env);
+			const params = { id: w.server.id };
+			const holds = (caps: string[]) =>
+				env.db
+					.update(orgRoles)
+					.set({ capabilities: ['server.view', 'automation.manage', ...caps] })
+					.where(eq(orgRoles.id, w.roles.viewer));
+			const rules: [string, Record<string, unknown>, string][] = [
+				['welcome', { message: 'hello' }, 'chat.send'],
+				['empty_reset', { map: 'Bakurani', afterMinutes: 10 }, 'match.control'],
+				['risk_kick', { vacBans: true }, 'players.moderate'],
+				['team_kill', { kickAt: 3 }, 'players.moderate'],
+				['seed_reward', { minutes: 60, scope: 'server' }, 'slots.manage'],
+				['seed_reward', { minutes: 60, scope: 'org' }, 'lists.edit']
+			];
+			for (const [kind, config, cap] of rules) {
+				await holds([]);
+				for (const route of [
+					'POST api/servers/[id]/triggers',
+					'POST api/servers/[id]/triggers/dry-run'
+				]) {
+					const body = { kind, config };
+					const refused = await api(w, 'viewer', route, { params, body });
+					expect([kind, route, refused.status]).toEqual([kind, route, 403]);
+					await holds([cap]);
+					// Past the check: whatever the rule's own settings then make of the request.
+					expect((await api(w, 'viewer', route, { params, body })).status).not.toBe(403);
+					await holds([]);
+				}
+			}
+		});
+
 		const rolePath = 'api/orgs/[id]/roles/[roleId]';
 
 		test('editing a role changes what its holders may do on their next request', async () => {

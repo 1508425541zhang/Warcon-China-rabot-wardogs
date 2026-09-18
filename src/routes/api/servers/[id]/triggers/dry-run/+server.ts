@@ -3,11 +3,11 @@ import { getEnv } from '$lib/server/env';
 import { ApiError, apiJson, param, readJson, route } from '$lib/server/http';
 import { requireServerCap } from '$lib/server/access';
 import { gateway } from '$lib/server/gateway';
-import { dryRun, isTriggerKind } from '$lib/server/triggers';
+import { dryRun, isTriggerKind, requireRuleCaps } from '$lib/server/triggers';
 
 export const POST = route(async (event) => {
 	const env = getEnv();
-	const { server } = await requireServerCap(
+	const { server, access } = await requireServerCap(
 		env,
 		event.locals,
 		param(event, 'id'),
@@ -15,6 +15,8 @@ export const POST = route(async (event) => {
 	);
 	const body = await readJson(event.request);
 	if (!isTriggerKind(body.kind)) throw new ApiError(400, 'Unknown trigger kind.');
+	// A dry run names the players a rule would act on and why: for those who could save the rule.
+	requireRuleCaps(body.kind, body.config, server, access);
 	const reserved = () =>
 		gateway()
 			.run(env, server, 'reserved', {})
