@@ -128,6 +128,75 @@ export const fleet = new Gauge({
 	registers: [registry]
 });
 
+// ---- the panel's view of the same counters ------------------------------------------------------
+
+/** Cumulative counts of this process, for the Admin overview: it takes two readings and derives rates. */
+export interface ProcessSnapshot {
+	/** epoch ms of the reading */
+	at: number;
+	observations: { ok: number; failed: number; seconds: number };
+	requests: { total: number; public: number; errors: number; seconds: number };
+	feed: {
+		posts: number;
+		unauthorized: number;
+		rejected: number;
+		kills: number;
+		skipped: number;
+		duplicates: number;
+	};
+	rateLimited: { total: number; feed: number };
+	rssBytes: number;
+	eventLoopLagP99: number | null;
+}
+
+type Labels = Partial<Record<string, string | number>>;
+async function total(
+	metric: Counter<string> | Histogram<string>,
+	pick: (labels: Labels, metricName: string | undefined) => boolean = () => true
+): Promise<number> {
+	const { values } = await metric.get();
+	let sum = 0;
+	// A histogram's values carry the bucket, sum and count names; the typing does not say so.
+	for (const v of values as ((typeof values)[number] & { metricName?: string })[])
+		if (pick(v.labels, v.metricName)) sum += v.value;
+	return sum;
+}
+const sumOf = (name: string) => (_: Labels, metricName: string | undefined) =>
+	metricName === `${name}_sum`;
+
+export async function snapshot(): Promise<ProcessSnapshot> {
+	const lag = registry.getSingleMetric('nodejs_eventloop_lag_p99_seconds');
+	const lagValue = lag ? (await lag.get()).values[0]?.value : undefined;
+	return {
+		at: Date.now(),
+		observations: {
+			ok: await total(observations, (l) => l.outcome === 'ok'),
+			failed: await total(observations, (l) => l.outcome === 'failed'),
+			seconds: await total(observationSeconds, sumOf('warcon_observation_seconds'))
+		},
+		requests: {
+			total: await total(httpRequests),
+			public: await total(httpRequests, (l) => String(l.route).startsWith('/(public)')),
+			errors: await total(httpRequests, (l) => String(l.status).startsWith('5')),
+			seconds: await total(httpRequestSeconds, sumOf('warcon_http_request_seconds'))
+		},
+		feed: {
+			posts: await total(feedPosts, (l) => l.outcome === 'accepted'),
+			unauthorized: await total(feedPosts, (l) => l.outcome === 'unauthorized'),
+			rejected: await total(feedPosts, (l) => l.outcome === 'rejected'),
+			kills: await total(feedKills, (l) => l.result === 'accepted'),
+			skipped: await total(feedKills, (l) => l.result === 'skipped'),
+			duplicates: await total(feedKills, (l) => l.result === 'duplicate')
+		},
+		rateLimited: {
+			total: await total(rateLimited),
+			feed: await total(rateLimited, (l) => l.scope === 'feed')
+		},
+		rssBytes: process.memoryUsage().rss,
+		eventLoopLagP99: typeof lagValue === 'number' && Number.isFinite(lagValue) ? lagValue : null
+	};
+}
+
 // ---- collectors and the scrape -----------------------------------------------------------------
 
 type Collector = () => void | Promise<void>;

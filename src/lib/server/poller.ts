@@ -394,6 +394,8 @@ export interface PollerStats {
 	delivery: ReturnType<typeof deliveryStats> & { pending: number; oldestMs: number | null };
 	settingsVersion: number;
 	ownership: ReturnType<typeof ownershipStats>;
+	/** this process's cumulative counters and memory, for the Admin overview */
+	process: metrics.ProcessSnapshot;
 }
 
 export async function pollerStats(): Promise<PollerStats> {
@@ -437,7 +439,8 @@ export async function pollerStats(): Promise<PollerStats> {
 		lanes: dispatcherStats(),
 		delivery: { ...deliveryStats(), ...depth },
 		settingsVersion: settingsVersion(),
-		ownership: ownershipStats()
+		ownership: ownershipStats(),
+		process: await metrics.snapshot()
 	};
 }
 

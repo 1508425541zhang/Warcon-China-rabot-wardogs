@@ -148,3 +148,26 @@ export function prettyJson(text: string): string {
 		return text;
 	}
 }
+
+/** One decimal below a hundred, whole numbers above: 6.2, 12.9, 318. */
+const scaled = (v: number) => (v < 100 ? v.toFixed(1) : String(Math.round(v)));
+
+/** 6.2 GB, 640 MB, 48 KB, 812 B. */
+export function fmtBytes(bytes: number): string {
+	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+	let v = Math.max(0, bytes);
+	let i = 0;
+	while (v >= 1000 && i < units.length - 1) {
+		v /= 1000;
+		i++;
+	}
+	return `${i === 0 ? Math.round(v) : scaled(v)} ${units[i]}`;
+}
+
+/** 12.9 M, 318 K, 964: row counts and other big tallies at a glance. */
+export function fmtCompact(n: number): string {
+	const v = Math.max(0, n);
+	if (v >= 1e6) return `${scaled(v / 1e6)} M`;
+	if (v >= 1e3) return `${scaled(v / 1e3)} K`;
+	return String(Math.round(v));
+}
