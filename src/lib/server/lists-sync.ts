@@ -39,10 +39,13 @@ import {
 	isUnreachable,
 	planHasWork,
 	planSync,
+	refusedBansAfter,
 	type Kind,
 	type PlanInput,
+	type RefusedBan,
 	type SyncPlan
 } from './lists-plan';
+import type { DbOrTx } from './db';
 import type { Ban, Features, ListSyncServer, ListSyncSummary } from '$lib/types';
 
 /** A failed add or remove is not retried for this long. */
@@ -60,6 +63,8 @@ export interface SyncResult extends ListSyncServer {
 	skipped?: 'busy' | 'suspended';
 	/** the server's lists after the run; the poller keeps its in-memory copy from this */
 	observed?: { bans: string[]; reserved: string[] };
+	/** bans the lists want that the game refused; the worker bans the player on sight */
+	refusedBans?: RefusedBan[];
 }
 
 // ---- per-server lock ---------------------------------------------------------------------------
@@ -427,7 +432,12 @@ async function run(
 	let reserve: ReserveMode = { writable: true, viaConfig: false };
 	if (!planHasWork(plan) && plan.confirms.length === 0 && plan.deletes.length === 0) {
 		await bookkeep(env, server.id, { syncedAt: now, lastError: '' });
-		return { ...base, ok: true, observed: flat(observed) };
+		return {
+			...base,
+			ok: true,
+			observed: flat(observed),
+			refusedBans: refusedBansAfter(desired.bans, state)
+		};
 	}
 	try {
 		client ??= await WardogsClient.forServer(env, server);
@@ -499,7 +509,12 @@ async function run(
 		removed: outcome.removed.length,
 		failed: failedNow.length,
 		error: outcome.aborted ?? '',
-		observed: flat(outcome.observed)
+		observed: flat(outcome.observed),
+		refusedBans: refusedBansAfter(desired.bans, state, {
+			added: outcome.added,
+			confirms: plan.confirms,
+			failedAdds: outcome.failedAdds
+		})
 	};
 }
 
@@ -634,8 +649,7 @@ async function record(
 	now: Date,
 	b: Bookkeeping
 ): Promise<void> {
-	type Upsert = typeof serverListState.$inferInsert;
-	const applied = (r: { kind: Kind; steamId: string; listId: string }): Upsert => ({
+	const applied = (r: { kind: Kind; steamId: string; listId: string }): StateUpsert => ({
 		serverId,
 		kind: r.kind,
 		steamId: r.steamId,
@@ -645,7 +659,12 @@ async function record(
 		attemptedAt: now,
 		updatedAt: now
 	});
-	const failed = (r: { kind: Kind; steamId: string; listId?: string; error: string }): Upsert => ({
+	const failed = (r: {
+		kind: Kind;
+		steamId: string;
+		listId?: string;
+		error: string;
+	}): StateUpsert => ({
 		serverId,
 		kind: r.kind,
 		steamId: r.steamId,
@@ -655,7 +674,7 @@ async function record(
 		attemptedAt: now,
 		updatedAt: now
 	});
-	const upserts: Upsert[] = [
+	const upserts: StateUpsert[] = [
 		...o.added.map(applied),
 		...plan.confirms.map(applied),
 		...o.failedAdds.map(failed),
@@ -663,20 +682,7 @@ async function record(
 	];
 	const drops = [...o.removed, ...plan.deletes];
 	await env.db.transaction(async (tx) => {
-		for (const u of upserts)
-			await tx
-				.insert(serverListState)
-				.values(u)
-				.onConflictDoUpdate({
-					target: [serverListState.serverId, serverListState.kind, serverListState.steamId],
-					set: {
-						sourceListId: u.sourceListId,
-						state: u.state,
-						error: u.error,
-						attemptedAt: u.attemptedAt,
-						updatedAt: u.updatedAt
-					}
-				});
+		for (const u of upserts) await upsertState(tx, u);
 		for (const d of drops)
 			await tx
 				.delete(serverListState)
@@ -693,6 +699,82 @@ async function record(
 			.onConflictDoUpdate({ target: serverListSync.serverId, set: { ...b, updatedAt: now } });
 	});
 	await writeSnapshot(env, serverId, o.observed, now);
+}
+
+type StateUpsert = typeof serverListState.$inferInsert;
+
+async function upsertState(db: DbOrTx, u: StateUpsert): Promise<void> {
+	await db
+		.insert(serverListState)
+		.values(u)
+		.onConflictDoUpdate({
+			target: [serverListState.serverId, serverListState.kind, serverListState.steamId],
+			set: {
+				sourceListId: u.sourceListId,
+				state: u.state,
+				error: u.error,
+				attemptedAt: u.attemptedAt,
+				updatedAt: u.updatedAt
+			}
+		});
+}
+
+// ---- bans on sight -----------------------------------------------------------------------------
+
+/**
+ * Bans, at once, any player on the server whose ban the game refused earlier because they were
+ * not connected (`refused`: the worker's copy from the last sync, edited here as bans land). One
+ * call per such player, on the connection the observation already holds, and nothing at all on a
+ * server with no refused bans. A ban that lands is recorded as applied, mirrored into server_bans
+ * and audited like a sync run; one the game refuses again keeps its failed row with the new error
+ * and attempt time, for the sync's own retry.
+ */
+export async function banOnSight(
+	env: Env,
+	server: ServerRow,
+	org: OrgRow,
+	client: WardogsClient,
+	present: string[],
+	refused: Map<string, RefusedBan>
+): Promise<void> {
+	for (const steamId of present) {
+		const r = refused.get(steamId);
+		if (!r) continue;
+		const now = new Date();
+		const row = {
+			serverId: server.id,
+			kind: 'ban' as const,
+			steamId,
+			sourceListId: r.listId,
+			attemptedAt: now,
+			updatedAt: now
+		};
+		try {
+			await ACTIONS.ban.run(client, { steamId, reason: r.reason || undefined });
+		} catch (err) {
+			const f = failure(err);
+			if (!isAlreadyApplied(f)) {
+				if (isUnreachable(f)) return;
+				await upsertState(env.db, { ...row, state: 'failed', error: f.message.slice(0, 300) });
+				continue;
+			}
+		}
+		refused.delete(steamId);
+		await upsertState(env.db, { ...row, state: 'applied', error: '' });
+		await noteLocalEdit(env, server.id, 'ban', 'add', steamId, r.reason, now);
+		await writeAudit(env, null, {
+			actorName: 'list sync',
+			server: { id: server.id, name: server.name },
+			orgId: server.orgId,
+			category: 'system',
+			action: 'lists.sync',
+			target: org.name,
+			outcome: 'ok',
+			status: 200,
+			message: '1 added on sight',
+			detail: { reason: 'join', added: [`ban:${steamId}`], removed: [], failed: [] }
+		}).catch((err) => console.error('[warcon] lists.sync audit', err));
+	}
 }
 
 // ---- fan-out from the API ----------------------------------------------------------------------

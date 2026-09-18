@@ -29,7 +29,14 @@ import {
 	type TickContext
 } from './triggers';
 import { applyTriggerUpdates, enqueueIntents, wakeDelivery } from './outbox';
-import { liveObserved, reconcileServer, writeSnapshot, type Observed } from './lists-sync';
+import {
+	banOnSight,
+	liveObserved,
+	reconcileServer,
+	writeSnapshot,
+	type Observed
+} from './lists-sync';
+import type { RefusedBan } from './lists-plan';
 import {
 	closeAllSessions,
 	diffPresence,
@@ -86,6 +93,8 @@ export interface ServerMemory {
 	/** the previous look at the match (map, scores, clock); null until one is remembered */
 	lastMatch: MatchLook | null;
 	reserved: Set<string>;
+	/** bans the lists want here that the game refused (the player was not on): applied on sight */
+	refusedBans: Map<string, RefusedBan>;
 	listsAt: number;
 	syncAt: number;
 	liveKey: string;
@@ -149,6 +158,7 @@ export function memoryFor(server: ServerRow, org: OrgRow): ServerMemory {
 			presence: newPresence(),
 			lastMatch: null,
 			reserved: new Set(),
+			refusedBans: new Map(),
 			listsAt: 0,
 			syncAt: 0,
 			liveKey: '',
@@ -601,7 +611,11 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	emit({ type: 'live', live: liveView(m) });
 	if (intents) wakeDelivery();
 
-	// Housekeeping, each part on its own, and only while this process still owns the worker.
+	// Housekeeping, each part on its own, and only while this process still owns the worker. A
+	// player the lists want banned here, seen on the list: banned now, not at the sync's retry.
+	const seen = players?.map((p) => p.steamId) ?? [];
+	if (isOwner() && seen.length && m.refusedBans.size)
+		await stage('bans', m, () => banOnSight(env, server, m.org, client, seen, m.refusedBans));
 	if (look)
 		await stage('match', m, () =>
 			withOwnedTransaction(env, (tx) => reconcileMatch(tx, m, ts, look, matchEnd))
@@ -741,6 +755,7 @@ async function keepLists(
 			lane: 'held'
 		});
 		if (synced.observed) m.reserved = new Set(synced.observed.reserved);
+		if (synced.refusedBans) m.refusedBans = new Map(synced.refusedBans.map((r) => [r.steamId, r]));
 	}
 }
 
