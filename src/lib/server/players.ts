@@ -186,7 +186,8 @@ export async function marksFor(
 ): Promise<PlayerMark[]> {
 	const ids = [...new Set(players.map((p) => p.steamId).filter(isSteamId))];
 	if (!ids.length) return [];
-	const orgIds = (await orgServers(env, server.orgId)).map((s) => s.id);
+	// Bans elsewhere in the org count only where the reader could open them, as in the dossier.
+	const orgIds = (await accessibleServers(env, user, server.orgId)).map((s) => s.id);
 	const staff = access.caps.has('players.notes') || access.caps.has('players.notes.manage');
 	const [profiles, local, counts] = await Promise.all([
 		getProfiles(env, ids),
