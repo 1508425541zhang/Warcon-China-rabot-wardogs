@@ -52,5 +52,28 @@ describe('page loads under (app)', () => {
 		test(`${name} checks access itself (${family.says})`, () => {
 			expect(family.needs.test(source)).toBe(true);
 		});
+		// One check somewhere in the file is not enough for a form action: it runs no load and no
+		// layout, and there is no parent() to lean on, so each action carries the check itself.
+		for (const [action, body] of actionsOf(source))
+			test(`${name} action '${action}' checks access itself (${family.says})`, () => {
+				expect(family.needs.test(body.replace(/await parent\(\)|parent\(\),/g, ''))).toBe(true);
+			});
 	}
 });
+
+/** The entries of `export const actions`, each with its source, split where an entry begins. */
+function actionsOf(source: string): [string, string][] {
+	const at = source.indexOf('export const actions');
+	if (at < 0) return [];
+	const parts = source.slice(at).split(/^\t(\w+): async /m);
+	const out: [string, string][] = [];
+	// An action may hand straight over to a function of the same file: its source counts as the action's.
+	const helper = (name: string) =>
+		source.match(new RegExp(`^(?:async )?function ${name}\\([\\s\\S]*?^}`, 'm'))?.[0] ?? '';
+	for (let i = 1; i < parts.length; i += 2) {
+		const body = parts[i + 1].split(/^};?$/m)[0];
+		const called = [...body.matchAll(/\b(\w+)\(/g)].map((m) => helper(m[1]));
+		out.push([parts[i], body + called.join('')]);
+	}
+	return out;
+}
