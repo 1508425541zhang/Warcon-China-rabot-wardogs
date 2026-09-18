@@ -1,16 +1,29 @@
+import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getEnv } from '$lib/server/env';
-import { getServer } from '$lib/server/access';
+import { requireServerCap } from '$lib/server/access';
+import { normalizeError } from '$lib/server/http';
 import { steamEnabled } from '$lib/server/steam';
 import { listTriggers } from '$lib/server/triggers';
 
-/** The server layout already refused anyone without access; viewers see the rules read-only. */
-export const load: PageServerLoad = async ({ params }) => {
+/**
+ * Checked here as well as in the server layout: a page's data can be asked for without its
+ * layouts (SvelteKit's __data.json), so the layout's refusal protects nothing below it. Viewers
+ * see the rules read-only.
+ */
+export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
-	const [triggers, row] = await Promise.all([
-		listTriggers(env, params.id),
-		getServer(env, params.id)
-	]);
-	// What the kinds need before they can run here, so the Add menu and the editor can say so.
-	return { triggers, steam: steamEnabled(env), feed: !!row?.feedTokenHash };
+	try {
+		const { server } = await requireServerCap(env, locals, params.id, 'server.view');
+		// What the kinds need before they can run here, so the Add menu and the editor can say so.
+		return {
+			triggers: await listTriggers(env, server.id),
+			steam: steamEnabled(env),
+			feed: !!server.feedTokenHash
+		};
+	} catch (err) {
+		const known = normalizeError(err);
+		if (!known) throw err;
+		error(known.status, known.message);
+	}
 };

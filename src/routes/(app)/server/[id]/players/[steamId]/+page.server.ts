@@ -1,29 +1,37 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getEnv } from '$lib/server/env';
-import { accessibleServers, getServer, requireUser } from '$lib/server/access';
+import { accessibleServers, requireServerCap } from '$lib/server/access';
+import { normalizeError } from '$lib/server/http';
 import { dossier } from '$lib/server/players';
 import { loadCareer } from '$lib/server/leaderboards';
-import { accessFromCaps } from '$lib/server/access-resolve';
 
-export const load: PageServerLoad = async ({ locals, params, parent }) => {
+/**
+ * Checked here as well as in the server layout: a page's data can be asked for without its layouts
+ * (SvelteKit's __data.json), so the layout's refusal protects nothing below it — and a dossier is
+ * the most sensitive thing on the server. The sibling tabs guard the same way.
+ */
+export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
-	const user = requireUser(locals);
-	// The server layout already refused anyone without access to this server.
-	const [{ server }, row] = await Promise.all([parent(), getServer(env, params.id)]);
-	if (!row) error(404, 'Server not found.');
-	if (!/^\d{17}$/.test(params.steamId)) error(404, 'Not a SteamID64.');
-	const visible = (await accessibleServers(env, user, row.orgId)).filter(
-		(s) => s.orgId === row.orgId
-	);
-	const [d, career] = await Promise.all([
-		dossier(env, user, row, accessFromCaps(server.caps, server.roleName), params.steamId),
-		loadCareer(env, {
-			serverId: row.id,
-			ids: visible.map((s) => s.id),
-			nameOf: new Map(visible.map((s) => [s.id, s.name])),
-			steamId: params.steamId
-		})
-	]);
-	return { dossier: d, career, multiServer: visible.length > 1 };
+	try {
+		const { server, access, user } = await requireServerCap(env, locals, params.id, 'server.view');
+		if (!/^\d{17}$/.test(params.steamId)) error(404, 'Not a SteamID64.');
+		const visible = (await accessibleServers(env, user, server.orgId)).filter(
+			(s) => s.orgId === server.orgId
+		);
+		const [d, career] = await Promise.all([
+			dossier(env, user, server, access, params.steamId),
+			loadCareer(env, {
+				serverId: server.id,
+				ids: visible.map((s) => s.id),
+				nameOf: new Map(visible.map((s) => [s.id, s.name])),
+				steamId: params.steamId
+			})
+		]);
+		return { dossier: d, career, multiServer: visible.length > 1 };
+	} catch (err) {
+		const known = normalizeError(err);
+		if (!known) throw err;
+		error(known.status, known.message);
+	}
 };
