@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { getScalar, parseIni, quoteIfNeeded, setScalarInText } from './config-doc';
+import {
+	getScalar,
+	parseIni,
+	quoteIfNeeded,
+	redactSecrets,
+	restoreSecrets,
+	setScalarInText
+} from './config-doc';
 
 const SAMPLE = [
 	'; generated',
@@ -72,5 +79,76 @@ describe('setScalarInText', () => {
 	test('a parse of the edited text sees the new value', () => {
 		const out = setScalarInText(SAMPLE, '/Script/WDGame.WDGameSession', 'ServerName', 'New');
 		expect(getScalar(parseIni(out), '/Script/WDGame.WDGameSession', 'ServerName')).toBe('New');
+	});
+});
+
+describe('credentials', () => {
+	const LIVE = [
+		'[/Script/WDGame.WDGameSession]',
+		'ServerName=EU #1',
+		'ServerPassword=scrim-night',
+		'',
+		'[/Script/WDRCON.WDRCONSettings]',
+		'bEnabled=true',
+		'; Password=last-years',
+		'Password=hunter2',
+		'PasswordHash=',
+		'',
+		'[WDServerFeed]',
+		'Url=https://console.example',
+		'Token=wcf_abc',
+		''
+	].join('\r\n');
+
+	test('the RCON password, its hash and the feed token are hidden, commented out or not', () => {
+		const out = redactSecrets(LIVE);
+		expect(out).not.toContain('hunter2');
+		expect(out).not.toContain('last-years');
+		expect(out).not.toContain('wcf_abc');
+		expect(out).toContain('Password=(hidden)');
+		expect(out).toContain('; Password=(hidden)');
+		expect(out).toContain('Token=(hidden)');
+	});
+	test('nothing else moves: the join password, empty values, line endings', () => {
+		const out = redactSecrets(LIVE);
+		expect(out).toContain('ServerPassword=scrim-night');
+		expect(out).toContain('PasswordHash=\r\n');
+		expect(out.split('\r\n')).toHaveLength(LIVE.split('\r\n').length);
+		expect(redactSecrets('[A]\nk=1\n')).toBe('[A]\nk=1\n');
+	});
+	test('keys match whatever their case or array prefix', () => {
+		expect(redactSecrets('[x]\n  password = a\n+TOKEN=b\n')).toBe(
+			'[x]\n  password =(hidden)\n+TOKEN=(hidden)\n'
+		);
+	});
+	test('an untouched document goes back exactly as the server had it', () => {
+		expect(restoreSecrets(redactSecrets(LIVE), LIVE)).toBe(LIVE);
+	});
+	test('an edit elsewhere keeps the credentials; a typed credential stays as typed', () => {
+		const shown = redactSecrets(LIVE);
+		const renamed = restoreSecrets(shown.replace('EU #1', 'EU #2'), LIVE);
+		expect(renamed).toBe(LIVE.replace('EU #1', 'EU #2'));
+		const rotated = restoreSecrets(
+			shown.replace('\r\nPassword=(hidden)', '\r\nPassword=new-one'),
+			LIVE
+		);
+		expect(rotated).toContain('\r\nPassword=new-one\r\n');
+		expect(rotated).toContain('; Password=last-years');
+		expect(rotated).toContain('Token=wcf_abc');
+	});
+	test('a removed credential line stays removed', () => {
+		const shown = redactSecrets(LIVE).replace('Token=(hidden)\r\n', '');
+		expect(restoreSecrets(shown, LIVE)).not.toContain('Token=');
+	});
+	test('a placeholder with nothing behind it is refused, never written as the password', () => {
+		expect(() =>
+			restoreSecrets('[/Script/WDRCON.WDRCONSettings]\nPassword=(hidden)\n', '[A]\nk=1\n')
+		).toThrow(/does not have/);
+	});
+	test('a byte order mark the client dropped does not orphan the first section', () => {
+		const live = '\uFEFF[WDServerFeed]\nToken=t1\n';
+		expect(restoreSecrets('[WDServerFeed]\nToken=(hidden)\n', live)).toBe(
+			'[WDServerFeed]\nToken=t1\n'
+		);
 	});
 });

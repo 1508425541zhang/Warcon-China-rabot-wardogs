@@ -111,7 +111,7 @@ export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
 	},
 	'rcon.raw': {
 		label: 'Raw RCON',
-		hint: 'Call any /v1 route on the game server directly.',
+		hint: 'Call any /v1 route on the game server directly, except the config document.',
 		group: 'manage'
 	}
 };
