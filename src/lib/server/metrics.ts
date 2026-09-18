@@ -7,6 +7,7 @@
 // the worker exports observation, delivery and scheduler figures. WARCON_ROLE=all exports both.
 // Scraped at /metrics on either process, behind the METRICS_TOKEN bearer; off when it is unset.
 import { collectDefaultMetrics, Counter, Gauge, Histogram, Registry } from 'prom-client';
+import { timingSafeEqualStr } from './crypto';
 
 export const registry = new Registry();
 collectDefaultMetrics({ register: registry });
@@ -234,7 +235,7 @@ export async function metricsResponse(
 	token: string | undefined
 ): Promise<Response> {
 	if (!token) return new Response('Not found.', { status: 404 });
-	if (request.headers.get('authorization') !== `Bearer ${token}`)
+	if (!timingSafeEqualStr(request.headers.get('authorization') || '', `Bearer ${token}`))
 		return new Response('Unauthorized.', {
 			status: 401,
 			headers: { 'www-authenticate': 'Bearer realm="metrics"' }

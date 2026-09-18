@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
 import { getOrg, getServer } from '$lib/server/access';
 import { ApiError } from '$lib/server/http';
+import { timingSafeEqualStr } from '$lib/server/crypto';
 import { setGateway } from '$lib/server/gateway';
 import { localGateway } from '$lib/server/gateway-local';
 import { loadSettings } from '$lib/server/settings';
@@ -34,12 +35,14 @@ export function startWorker(env: Env, label = 'worker'): ReturnType<typeof Bun.s
 		idleTimeout: 0,
 		async fetch(req) {
 			const url = new URL(req.url);
+			// Liveness only: the scheduler stats it used to carry are fleet-wide, so they go through
+			// the relay-authenticated /relay/health instead. The container healthcheck reads only `ok`.
 			if (url.pathname === '/health' && req.method === 'GET')
-				return json({ ok: true, service: 'warcon-worker', worker: await pollerStats() });
+				return json({ ok: true, service: 'warcon-worker' });
 			if (url.pathname === '/metrics' && req.method === 'GET')
 				return metricsResponse(req, env.METRICS_TOKEN);
 			if (!url.pathname.startsWith(RELAY_PREFIX + '/')) return json({ ok: false }, 404);
-			if (req.headers.get('authorization') !== `Bearer ${env.RELAY_SECRET}`)
+			if (!timingSafeEqualStr(req.headers.get('authorization') || '', `Bearer ${env.RELAY_SECRET}`))
 				return json(
 					{ ok: false, error: { kind: 'api', status: 401, message: 'Bad relay secret.' } },
 					401
