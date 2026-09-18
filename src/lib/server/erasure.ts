@@ -7,7 +7,7 @@ import { APIError } from 'better-auth/api';
 import type { Env } from './env';
 import { writeAudit } from './audit';
 import { auditLog, listEntries, user } from './db/schema';
-import { soleOwnerOf } from './orgs';
+import { revokeMintedBy, soleOwnerOf } from './orgs';
 
 /** What a deleted account's name becomes in the audit trail. */
 export const DELETED_ACTOR = '[deleted]';
@@ -38,6 +38,16 @@ export async function assertMayDeleteSelf(env: Env, u: DeletingUser): Promise<vo
 		throw refuse(
 			`You are the only owner of ${sole.join(', ')}. Promote another owner there, or delete the organisation, first.`
 		);
+}
+
+/**
+ * What runs before a person deletes their own account: the refusals above, then the invite links
+ * and API keys they minted are ended. Those work without their maker, and the delete sets their
+ * created_by null, after which nothing says whose they were.
+ */
+export async function beforeSelfDelete(env: Env, u: DeletingUser): Promise<void> {
+	await assertMayDeleteSelf(env, u);
+	await revokeMintedBy(env.db, u.id);
 }
 
 /**

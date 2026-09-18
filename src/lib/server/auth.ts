@@ -19,7 +19,7 @@ import { adminAc, defaultStatements, userAc } from 'better-auth/plugins/admin/ac
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { getRequestEvent } from '$app/server';
 import { writeAudit } from './audit';
-import { assertMayDeleteSelf, auditSelfDelete, eraseUserTraces } from './erasure';
+import { auditSelfDelete, beforeSelfDelete, eraseUserTraces } from './erasure';
 import { discordEnabled, type Env } from './env';
 import { ApiError, CLIENT_IP_HEADER } from './http';
 import { warconSessions } from './auth-plugin';
@@ -174,7 +174,7 @@ function build(env: Env) {
 			// pseudonymises the audit trail afterwards.
 			deleteUser: {
 				enabled: true,
-				beforeDelete: (u) => assertMayDeleteSelf(env, u),
+				beforeDelete: (u) => beforeSelfDelete(env, u),
 				afterDelete: async (u, request) => {
 					await eraseUserTraces(env, u);
 					if (request) await auditSelfDelete(env, request, u);

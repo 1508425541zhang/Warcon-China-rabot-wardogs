@@ -289,6 +289,11 @@ export async function updateUser(
 			await tx.delete(passkey).where(eq(passkey.userId, u.id));
 		}
 		if (signOut) await tx.delete(session).where(eq(session.userId, u.id));
+		// A disabled account is signed out everywhere; the keys and links it minted work without
+		// a session, so they end with it (and stay ended if the account is enabled again).
+		// So do a site owner's when they stop being one: they could mint them in any organisation.
+		if (changes.disabled === true || (u.role === 'owner' && changes.role === 'member'))
+			Object.assign(changes, await revokeMintedBy(tx, u.id));
 	});
 	if (resetAuth || body.password !== undefined) await refreshAuthComplete(env, u.id);
 	await writeAudit(env, req, {

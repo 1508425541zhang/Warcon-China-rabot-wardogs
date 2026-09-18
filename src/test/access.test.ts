@@ -20,8 +20,10 @@ import {
 	orgInvites,
 	orgMembers,
 	orgRoles,
-	serverGrants
+	serverGrants,
+	user
 } from '$lib/server/db/schema';
+import { beforeSelfDelete } from '$lib/server/erasure';
 import { findInvite, joinOrg } from '$lib/server/orgs';
 import type { PrincipalName } from './world';
 import { hasTestDb, testEnv } from './db';
@@ -348,6 +350,50 @@ describe.skipIf(!hasTestDb)('access', () => {
 					joinOrg(env, new Request('http://localhost/'), w.users.stranger!, found.invite, found.org)
 				).rejects.toMatchObject({ status: 410 });
 				// What the remaining owner made is untouched.
+				expect((await resolveBearer(env, w.tokens.keyAll)).orgId).toBe(w.org.id);
+			}
+		});
+
+		test('they end when their maker is disabled, stops being a site owner, or deletes their own account', async () => {
+			for (const leave of ['disable', 'demote', 'self-delete'] as const) {
+				const w = await seedWorld(env);
+				const params = { id: w.org.id };
+				await env.db
+					.update(orgMembers)
+					.set({ role: 'owner' })
+					.where(and(eq(orgMembers.orgId, w.org.id), eq(orgMembers.userId, w.users.member!.id)));
+				await api(w, 'member', 'POST api/orgs/[id]/invites', {
+					params,
+					body: { orgRole: 'owner' }
+				});
+				const minted = await api(w, 'member', 'POST api/orgs/[id]/keys', {
+					params,
+					body: { label: 'mine', capabilities: ['server.view', 'rcon.raw'] }
+				});
+				const token = (minted.body as { token: string }).token;
+				const [link] = await env.db
+					.select()
+					.from(orgInvites)
+					.where(eq(orgInvites.createdBy, w.users.member!.id));
+				expect((await resolveBearer(env, token)).orgId).toBe(w.org.id);
+
+				if (leave === 'self-delete')
+					await beforeSelfDelete(env, { id: w.users.member!.id, role: 'member' });
+				else {
+					if (leave === 'demote')
+						await env.db.update(user).set({ role: 'owner' }).where(eq(user.id, w.users.member!.id));
+					const changed = await api(w, 'site', 'PATCH api/users/[id]', {
+						params: { id: w.users.member!.id },
+						body: leave === 'demote' ? { role: 'member' } : { disabled: true }
+					});
+					expect(changed.status).toBe(200);
+				}
+
+				await expect(resolveBearer(env, token)).rejects.toMatchObject({ status: 401 });
+				const found = (await findInvite(env, link.token))!;
+				await expect(
+					joinOrg(env, new Request('http://localhost/'), w.users.stranger!, found.invite, found.org)
+				).rejects.toMatchObject({ status: 410 });
 				expect((await resolveBearer(env, w.tokens.keyAll)).orgId).toBe(w.org.id);
 			}
 		});
