@@ -209,6 +209,21 @@ describe.skipIf(!hasTestDb)('access', () => {
 			await expect(resolveBearer(env, w.tokens.keyAll)).rejects.toMatchObject({ status: 403 });
 		});
 
+		test('its audit trail closes too: members and owners keep only their own rows', async () => {
+			const w = await seedWorld(env);
+			expect((await auditVisibility(env, w.users.owner!))?.ownedOrgIds).toEqual([w.org.id]);
+			await suspend(env, w.org.id);
+			for (const who of ['owner', 'admin'] as const)
+				expect({ who, ...(await auditVisibility(env, w.users[who]!)) }).toEqual({
+					who,
+					userId: w.users[who]!.id,
+					adminServerIds: [],
+					ownedOrgIds: []
+				});
+			expect(await auditVisibility(env, w.users.keyAll!)).toMatchObject({ adminServerIds: [] });
+			expect(await auditVisibility(env, w.users.site!)).toBeNull();
+		});
+
 		test("its owner no longer reads the server's Discord channels from the settings page", async () => {
 			const w = await seedWorld(env);
 			const { load } = await import(join(ROUTES, '(app)/server/[id]/settings/+page.server.ts'));
