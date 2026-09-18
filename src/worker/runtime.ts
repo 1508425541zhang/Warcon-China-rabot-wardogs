@@ -12,6 +12,7 @@ import { pollerStats, startPoller, stopPoller } from '$lib/server/poller';
 import { subscribe } from '$lib/server/events';
 import { organizations } from '$lib/server/db/schema';
 import { RELAY_PREFIX, serializeError } from '$lib/server/relay';
+import { metricsResponse } from '$lib/server/metrics';
 import type { KillView } from '$lib/types';
 import type { Priority } from '$lib/server/dispatcher';
 
@@ -35,6 +36,8 @@ export function startWorker(env: Env, label = 'worker'): ReturnType<typeof Bun.s
 			const url = new URL(req.url);
 			if (url.pathname === '/health' && req.method === 'GET')
 				return json({ ok: true, service: 'warcon-worker', worker: await pollerStats() });
+			if (url.pathname === '/metrics' && req.method === 'GET')
+				return metricsResponse(req, env.METRICS_TOKEN);
 			if (!url.pathname.startsWith(RELAY_PREFIX + '/')) return json({ ok: false }, 404);
 			if (req.headers.get('authorization') !== `Bearer ${env.RELAY_SECRET}`)
 				return json(

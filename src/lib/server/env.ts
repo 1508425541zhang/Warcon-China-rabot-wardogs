@@ -53,6 +53,8 @@ export interface Env {
 	POLL_SECONDS?: string;
 	/** Seed for the observation concurrency setting on a fresh install. */
 	POLL_CONCURRENCY?: string;
+	/** Bearer for GET /metrics (Prometheus) on the web and worker processes; the endpoint is off when unset. */
+	METRICS_TOKEN?: string;
 }
 
 export type Role = 'all' | 'web' | 'worker';
@@ -191,6 +193,7 @@ export async function initEnv(opts: { role?: Role } = {}): Promise<Env> {
 		ALLOW_DEMO_SERVER: processEnv.ALLOW_DEMO_SERVER ?? 'true',
 		ALLOW_ORG_SIGNUP: processEnv.ALLOW_ORG_SIGNUP,
 		MAX_ORGS_PER_USER: processEnv.MAX_ORGS_PER_USER,
+		METRICS_TOKEN: processEnv.METRICS_TOKEN,
 		MAX_SERVERS_PER_ORG: processEnv.MAX_SERVERS_PER_ORG,
 		TURNSTILE_SITE_KEY: processEnv.TURNSTILE_SITE_KEY,
 		TURNSTILE_SECRET_KEY: processEnv.TURNSTILE_SECRET_KEY,

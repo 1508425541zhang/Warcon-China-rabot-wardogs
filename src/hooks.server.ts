@@ -24,6 +24,8 @@ import { localGateway } from '$lib/server/gateway-local';
 import { connectRemoteGateway } from '$lib/server/gateway-remote';
 import { loadSettings } from '$lib/server/settings';
 import { beginShutdown } from '$lib/server/shutdown';
+import { httpRequests, httpRequestSeconds, routeLabel } from '$lib/server/metrics';
+import { registerFleetCollector } from '$lib/server/metrics-fleet';
 
 const SECURITY_HEADERS: Record<string, string> = {
 	'x-content-type-options': 'nosniff',
@@ -66,6 +68,7 @@ export const init: ServerInit = async () => {
 		setGateway(localGateway);
 		startPoller(env, 'all');
 	}
+	registerFleetCollector(env);
 	installShutdown(env);
 };
 
@@ -96,7 +99,29 @@ function installShutdown(env: Awaited<ReturnType<typeof initEnv>>): void {
 	});
 }
 
-export const handle: Handle = async ({ event, resolve }) => {
+/** Counts and times every answer by route id, including the early refusals and thrown redirects. */
+export const handle: Handle = async (input) => {
+	const started = performance.now();
+	let status = 500;
+	try {
+		const res = await handleRequest(input);
+		status = res.status;
+		return res;
+	} catch (err) {
+		// SvelteKit turns a thrown redirect or HttpError into the response; anything else is a 500.
+		const thrown = err as { status?: unknown };
+		if (typeof thrown?.status === 'number') status = thrown.status;
+		throw err;
+	} finally {
+		if (!building) {
+			const route = routeLabel(input.event.route.id);
+			httpRequests.inc({ route, method: input.event.request.method, status: String(status) });
+			httpRequestSeconds.observe({ route }, (performance.now() - started) / 1000);
+		}
+	}
+};
+
+const handleRequest: Handle = async ({ event, resolve }) => {
 	event.locals.user = null;
 	event.locals.session = null;
 	event.locals.apiKey = null;
