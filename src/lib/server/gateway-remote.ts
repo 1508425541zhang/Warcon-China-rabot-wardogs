@@ -25,7 +25,7 @@ function rethrow(e: RelayError): never {
 	throw new ApiError(502, `Worker: ${e.message}`, 'worker_error');
 }
 
-async function call<T>(
+export async function call<T>(
 	env: Env,
 	path: string,
 	body?: unknown,
@@ -45,11 +45,9 @@ async function call<T>(
 			signal: AbortSignal.timeout(timeoutMs)
 		});
 	} catch (err) {
-		throw new ApiError(
-			503,
-			`The worker is not reachable (${err instanceof Error ? err.message : String(err)}).`,
-			'worker_unavailable'
-		);
+		// The runtime's text can quote the relay's URL, which is for the log, not for whoever clicked.
+		console.error('[warcon] relay', err instanceof Error ? err.message : err);
+		throw new ApiError(503, 'The worker is not reachable.', 'worker_unavailable');
 	}
 	const data = (await res.json().catch(() => null)) as {
 		ok?: boolean;
