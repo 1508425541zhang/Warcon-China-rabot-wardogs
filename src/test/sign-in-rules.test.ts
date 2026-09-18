@@ -1,11 +1,13 @@
-// The sign-in rules and the login lockout against a real database: what a second sign-in and a
-// burst of wrong passwords leave behind.
+// The sign-in rules and the login lockout against a real database: what a second sign-in, a
+// promotion and a burst of wrong passwords leave behind.
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
 import { loginLockSeconds, noteLoginFailure } from '$lib/server/access';
-import { loginAttempts, user } from '$lib/server/db/schema';
-import { startGrace } from '$lib/server/enrolment';
+import type { Auth } from '$lib/server/auth';
+import { loginAttempts, passkey, user } from '$lib/server/db/schema';
+import { refreshAuthComplete, startGrace } from '$lib/server/enrolment';
+import { updateUser } from '$lib/server/users';
 import { hasTestDb, testEnv } from './db';
 import { seedWorld } from './world';
 
@@ -35,6 +37,31 @@ describe.skipIf(!hasTestDb)('sign-in rules', () => {
 		await env.db.update(user).set({ authGraceStartedAt: longAgo }).where(eq(user.id, id));
 		await startGrace(env, id);
 		expect((await graceOf(id))!.getTime()).toBe(longAgo.getTime());
+	});
+
+	test('a promotion to site owner is judged by the owner rules at once', async () => {
+		const w = await seedWorld(env);
+		const id = w.users.member!.id;
+		await env.db.insert(passkey).values(
+			['a', 'b'].map((n) => ({
+				id: `${id}_${n}`,
+				publicKey: 'key',
+				userId: id,
+				credentialID: `${id}_${n}`,
+				counter: 0,
+				deviceType: 'singleDevice',
+				backedUp: false
+			}))
+		);
+		// Two passkeys are enough for a member; an owner also needs a provider or a recovery key.
+		expect((await refreshAuthComplete(env, id)).enrolment.complete).toBe(true);
+		const complete = async () =>
+			(await env.db.select({ c: user.authComplete }).from(user).where(eq(user.id, id)))[0].c;
+		const req = new Request('http://localhost/api/users');
+		await updateUser({} as Auth, env, req, w.users.site!, id, { role: 'owner' });
+		expect(await complete()).toBe(false);
+		await updateUser({} as Auth, env, req, w.users.site!, id, { role: 'member' });
+		expect(await complete()).toBe(true);
 	});
 
 	test('wrong passwords sent at once are each counted, and lock the name at the limit', async () => {
