@@ -1,18 +1,12 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage } from '$lib/api';
-	import { poll } from '$lib/poll';
-	import { fmtNum } from '$lib/format';
 	import { toast } from '$lib/toast.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	type Setting = (typeof data.settings)[number];
-	type Worker = typeof data.worker;
-
-	let refreshed = $state<Worker | null>(null);
-	let worker = $derived(refreshed ?? data.worker);
 	/** edits by key, in the unit shown (seconds for millisecond settings) */
 	let edits = $state<Record<string, string>>({});
 	let busy = $state(false);
@@ -92,61 +86,9 @@
 			busy = false;
 		}
 	}
-
-	async function refreshWorker() {
-		try {
-			refreshed = (await api<{ worker: Worker }>('GET', '/api/health')).worker;
-		} catch {
-			/* keep the last view */
-		}
-	}
-	$effect(() => poll(refreshWorker, 5000));
-	const secs = (ms: number | null) => (ms === null ? '—' : `${Math.round(ms / 100) / 10}s`);
 </script>
 
-<svelte:head><title>Settings · {data.appName}</title></svelte:head>
-
-<h1 class="mb-5 text-xl font-semibold tracking-tight">Settings</h1>
-
-<div class="mb-4 panel">
-	<div class="mb-2 flex flex-wrap items-center gap-2">
-		<span class="label-sm mb-0">Worker</span>
-		{#if worker.owner}<Badge tone="ok">this process holds the lease</Badge
-			>{:else if worker.enabled}<Badge tone="warn">another process holds the lease</Badge
-			>{:else}<Badge tone="err">not running</Badge>{/if}
-		{#if worker.behind}<Badge tone="err">{worker.behind} behind</Badge>{/if}
-		{#if worker.stuck}<Badge tone="err">{worker.stuck} stuck</Badge>{/if}
-	</div>
-	<div class="grid grid-cols-2 gap-x-6 gap-y-1 text-[13px] sm:grid-cols-4">
-		<div class="kv">
-			<span class="text-mist-400">Servers</span><span>{fmtNum(worker.servers)}</span>
-		</div>
-		<div class="kv">
-			<span class="text-mist-400">Tiers</span><span
-				>{worker.tiers.watched} watched · {worker.tiers.hot} busy · {worker.tiers.idle} idle · {worker
-					.tiers.offline} unreachable</span
-			>
-		</div>
-		<div class="kv">
-			<span class="text-mist-400">In flight</span><span
-				>{worker.active} / {worker.concurrency} · lanes busy {worker.lanes.busy}, queued {worker
-					.lanes.queued}</span
-			>
-		</div>
-		<div class="kv">
-			<span class="text-mist-400">Deliveries</span><span
-				>{worker.delivery.pending} pending{#if worker.delivery.oldestMs !== null}
-					(oldest {secs(worker.delivery.oldestMs)}){/if} · {worker.delivery.delivered} delivered · {worker
-					.delivery.failed} failed · {worker.delivery.unknown} unknown · {worker.delivery.skipped} skipped</span
-			>
-		</div>
-	</div>
-	<p class="note">
-		"Behind" counts servers overdue by more than their own cadence: the worker is not keeping up and
-		the concurrency guard or the cadences need a look. Everything here is also on
-		<code class="chip">/api/health</code>.
-	</p>
-</div>
+<svelte:head><title>Settings · Admin · {data.appName}</title></svelte:head>
 
 {#each GROUPS as g (g.id)}
 	<div class="mb-4 panel">
