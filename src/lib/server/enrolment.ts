@@ -1,7 +1,7 @@
 // What sign-in methods an account holds, and whether that satisfies the rules in $lib/enrolment.
 // The verdict is cached on user.auth_complete so the request hook needs no extra query; call
 // refreshAuthComplete after anything that adds or removes a method.
-import { and, count, eq, or, sql } from 'drizzle-orm';
+import { and, count, eq, isNull, or, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { account, orgMembers, orgRoles, passkey, serverGrants, user } from './db/schema';
 import { AUTH_ENFORCE, settings } from './settings';
@@ -57,14 +57,17 @@ export async function refreshAuthComplete(env: Env, userId: string): Promise<Enr
 	return { methods, enrolment };
 }
 
-/** The grace period counts from the first sign-in after the rules arrived. */
+/**
+ * The grace period counts from the first sign-in after the rules arrived. A later sign-in leaves
+ * the clock alone: signing out and in again must not buy another period.
+ */
 export async function startGrace(env: Env, userId: string): Promise<void> {
 	await env.db
 		.update(user)
 		.set({ authGraceStartedAt: new Date() })
-		.where(eq(user.id, userId))
+		.where(and(eq(user.id, userId), isNull(user.authGraceStartedAt)))
 		.then(() => {})
-		.catch(() => {});
+		.catch((err) => console.error('enrolment grace', err));
 }
 
 export const statusFor = (u: EnrolmentSubject): EnrolmentStatus => enrolmentStatus(u, settings());
