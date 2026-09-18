@@ -179,14 +179,14 @@
 			staged.enabled = on;
 			return;
 		}
-		void act('settings', { rotationEnabled: on }, { after: refresh });
+		void act('rotationSettings', { rotationEnabled: on }, { after: refresh });
 	}
 	function setMode(mode: string) {
 		if (viaDoc) {
 			staged.mode = mode === 'random' ? 'random' : 'ordered';
 			return;
 		}
-		void act('settings', { rotationMode: mode }, { after: refresh });
+		void act('rotationSettings', { rotationMode: mode }, { after: refresh });
 	}
 	function discard() {
 		staged = clone(base);

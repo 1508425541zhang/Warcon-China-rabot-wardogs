@@ -45,6 +45,7 @@ const ACTION_CAPS: Record<string, Capability> = {
 	reservedAdd: 'slots.manage',
 	reservedRemove: 'slots.manage',
 	rotationSave: 'rotation.save',
+	rotationSettings: 'rotation.save',
 	serverLog: 'audit.read',
 	config: 'config.apply',
 	settings: 'config.apply',
