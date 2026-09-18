@@ -13,6 +13,7 @@ export type Expect = 401 | 403 | 404 | 'ok';
 export type Policy =
 	| 'open' // no check at all
 	| 'user' // any signed-in person or key
+	| 'anyServer' // someone who can open at least one server, anywhere
 	| 'person' // a signed-in person; keys are refused
 	| 'site' // the site owner
 	| 'orgOwner' // an owner of the org (or the site owner); never a key
@@ -50,6 +51,9 @@ export function expected(policy: Policy, who: PrincipalName): Expect {
 	switch (policy) {
 		case 'user':
 			return 'ok';
+		case 'anyServer':
+			// `outsider` runs a server of their own; `member` and `stranger` have none to look at.
+			return who === 'stranger' || who === 'member' ? 403 : 'ok';
 		case 'person':
 			return KEYS.includes(who) ? 403 : 'ok';
 		case 'site':
