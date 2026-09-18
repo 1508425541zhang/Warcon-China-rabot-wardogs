@@ -693,8 +693,11 @@ bun run build && bun run start   # production build, http://localhost:3000 (set 
 To run the split roles locally after `bun run build`: `bun run db:migrate`, then
 `WARCON_ROLE=worker RELAY_SECRET=… bun run worker` in one terminal and
 `WARCON_ROLE=web RELAY_SECRET=… RELAY_URL=http://127.0.0.1:7700 bun run start` in another.
-`/api/health` on the web (and `/health` on the worker) shows the worker's tiers, in-flight count,
-"behind" and "stuck" figures, and the delivery queue; the Admin page's Overview tab shows the same.
+`/api/health` on the web (and `/health` on the worker) answers a plain liveness check for anyone
+(a monitor or the container healthcheck reads only `ok`); the worker's tiers, in-flight count,
+"behind" and "stuck" figures and the delivery queue are added only for the site owner's own session
+or a caller presenting `METRICS_TOKEN`, since they are fleet-wide. The Admin page's Overview tab
+shows the same figures to the owner.
 
 The schema is defined in [src/lib/server/db/schema.ts](src/lib/server/db/schema.ts). After changing
 it, run `bun run db:generate` to write a new migration into `drizzle/`; the app applies pending
