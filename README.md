@@ -477,8 +477,9 @@ shown to org owners only. `POST /api/ingest/events` is the one `/api` route that
 session nor an API key, and it is exempt from the CSRF header for the same reason a bearer is.
 Configs written by earlier versions hold `Url=<origin>/api/feed/events`, which the game turns into
 a path Warcon does not serve. Click **Configure** again (the game reads the new `Url` at its next
-restart), or have the proxy in front of the panel redirect `/api/feed/events/api/ingest/events` to
-`/api/ingest/events` until then.
+restart), or have the proxy in front of the panel rewrite `/api/feed/events/api/ingest/events` to
+`/api/ingest/events` until then. It has to be a rewrite, not a redirect: the game follows a 301 or
+302 as a GET, which the feed refuses.
 
 ### Discord webhooks
 
