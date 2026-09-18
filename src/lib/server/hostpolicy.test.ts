@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { ApiError } from './http';
-import { assertReachableTarget, classifyAddress, gamePath, normaliseHost } from './hostpolicy';
+import {
+	assertReachableTarget,
+	classifyAddress,
+	gamePath,
+	normaliseHost,
+	pinnedAddresses
+} from './hostpolicy';
 
 describe('classifyAddress', () => {
 	test('IPv4 ranges', () => {
@@ -124,5 +130,31 @@ describe('gamePath', () => {
 			''
 		])
 			expect(() => gamePath(bad), bad).toThrow(ApiError);
+	});
+});
+
+describe('pinnedAddresses', () => {
+	test('a hostname pins to every validated address, IPv4 first for reachability', () => {
+		expect(
+			pinnedAddresses('game.example.com', [
+				{ address: '2606:4700::1', kind: 'public' },
+				{ address: '93.184.216.34', kind: 'public' },
+				{ address: '2606:4700::2', kind: 'public' },
+				{ address: '93.184.216.35', kind: 'public' }
+			])
+		).toEqual(['93.184.216.34', '93.184.216.35', '2606:4700::1', '2606:4700::2']);
+	});
+	test('an IPv4 literal pins to itself', () => {
+		expect(pinnedAddresses('8.8.8.8', [{ address: '8.8.8.8', kind: 'public' }])).toEqual([
+			'8.8.8.8'
+		]);
+	});
+	test('an IPv6 literal pins to itself, brackets stripped (the URL builder re-adds them)', () => {
+		expect(
+			pinnedAddresses('[2606:4700::1]', [{ address: '2606:4700::1', kind: 'public' }])
+		).toEqual(['2606:4700::1']);
+	});
+	test('nothing resolved pins to nothing (the caller then falls back to the host)', () => {
+		expect(pinnedAddresses('game.example.com', [])).toEqual([]);
 	});
 });

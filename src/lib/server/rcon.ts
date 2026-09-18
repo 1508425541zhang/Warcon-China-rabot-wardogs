@@ -5,7 +5,7 @@ import { gameRequest, TransportError, type GameResponse, type GameTarget } from 
 import { mockHandle } from './mockgame';
 import { decryptSecret } from './crypto';
 import { ApiError } from './http';
-import { assertReachableTarget } from './hostpolicy';
+import { assertReachableTarget, pinnedAddresses } from './hostpolicy';
 import type { ServerRow } from './access';
 
 /** A non-2xx answer (or no answer) from the game server. Its message is meant for the operator. */
@@ -97,16 +97,19 @@ export class WardogsClient {
 		server: Pick<ServerRow, 'host' | 'port' | 'scheme'>,
 		private key: string,
 		private demoKey: string | null,
-		private timeoutMs = 10000
+		private timeoutMs = 10000,
+		addresses: string[] = []
 	) {
-		this.target = { host: server.host, port: server.port, scheme: server.scheme };
+		this.target = { host: server.host, port: server.port, scheme: server.scheme, addresses };
 	}
 
 	static async forServer(env: Env, server: ServerRow): Promise<WardogsClient> {
 		const demo = isDemoServer(env, server);
-		if (!demo) await assertTargetStillAllowed(server);
+		// Resolve and validate once, then pin the connection to those addresses: the check and the
+		// socket must not do two independent DNS lookups a rebind could answer differently.
+		const addresses = demo ? [] : await assertTargetStillAllowed(server);
 		const key = decryptSecret(env, server.passwordEnc);
-		return new WardogsClient(env, server, key, demo ? server.id : null);
+		return new WardogsClient(env, server, key, demo ? server.id : null, undefined, addresses);
 	}
 
 	async raw(
@@ -177,34 +180,44 @@ export const etagOf = (headers: Record<string, string>): string =>
 
 /** How long one verdict on a host is reused before it is resolved again. */
 const TARGET_CHECK_TTL_MS = 60_000;
-const targetChecks = new Map<string, { until: number; error: GameError | null }>();
+const targetChecks = new Map<
+	string,
+	{ until: number; error: GameError | null; addresses: string[] }
+>();
 
 /**
  * Re-runs the hostpolicy check right before Warcon talks to a server, so a hostname that was
- * public when it was saved but now points somewhere internal is refused (rebinding). Servers the
- * site owner saved keep their private-address allowance. Cached briefly per host+allowance so the
- * poller does not resolve every server on every tick.
+ * public when it was saved but now points somewhere internal is refused (rebinding). Returns the
+ * addresses the connection must be pinned to (the ones just validated), so the socket does not
+ * resolve the name a second time. Servers the site owner saved keep their private-address
+ * allowance. Cached briefly per host+allowance so the poller does not resolve every server on
+ * every tick.
  */
 async function assertTargetStillAllowed(
 	server: Pick<ServerRow, 'host' | 'allowPrivate'>
-): Promise<void> {
+): Promise<string[]> {
 	const key = `${server.allowPrivate ? 'p' : 'o'}:${server.host}`;
 	const now = Date.now();
 	let hit = targetChecks.get(key);
 	if (!hit || hit.until <= now) {
 		let error: GameError | null = null;
+		let addresses: string[] = [];
 		try {
-			await assertReachableTarget(server.host, server.allowPrivate);
+			addresses = pinnedAddresses(
+				server.host,
+				await assertReachableTarget(server.host, server.allowPrivate)
+			);
 		} catch (err) {
 			if (!(err instanceof ApiError)) throw err;
 			error = new GameError(err.status, err.message, err.code || 'blocked_host');
 		}
-		hit = { until: now + TARGET_CHECK_TTL_MS, error };
+		hit = { until: now + TARGET_CHECK_TTL_MS, error, addresses };
 		targetChecks.set(key, hit);
 		if (targetChecks.size > 1000)
 			for (const [k, v] of targetChecks) if (v.until <= now) targetChecks.delete(k);
 	}
 	if (hit.error) throw hit.error;
+	return hit.addresses;
 }
 
 export function parseJson(text: string): any {

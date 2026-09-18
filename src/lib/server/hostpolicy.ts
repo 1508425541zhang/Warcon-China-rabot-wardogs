@@ -162,6 +162,21 @@ export async function assertReachableTarget(
 }
 
 /**
+ * The addresses a connection may be pinned to, given the host as saved and what it resolved to. A
+ * literal IP pins to itself (no second lookup happens anyway); a hostname pins to every address the
+ * policy just validated, IPv4 first (the common family for game servers and the one a Warcon host
+ * can almost always reach), so the socket opens only onto an address the check saw, and a host that
+ * cannot reach the first family falls back to the next rather than losing the server.
+ */
+export function pinnedAddresses(host: string, resolved: Resolved[]): string[] {
+	const literal = bare(host);
+	if (isIP(literal)) return [literal];
+	return [...resolved]
+		.sort((a, b) => (isIP(a.address) === 6 ? 1 : 0) - (isIP(b.address) === 6 ? 1 : 0))
+		.map((r) => r.address);
+}
+
+/**
  * The request path for the game server, normalised the way a URL parser will read it, so encoded
  * dot segments cannot climb out of /v1/. Returns pathname plus query.
  */
