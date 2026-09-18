@@ -1,13 +1,13 @@
 // The sign-in rules and the login lockout against a real database: what a second sign-in, a
 // promotion and a burst of wrong passwords leave behind.
 import { beforeAll, describe, expect, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
 import { loginLockSeconds, noteLoginFailure } from '$lib/server/access';
 import type { Auth } from '$lib/server/auth';
 import { loginAttempts, passkey, user } from '$lib/server/db/schema';
 import { refreshAuthComplete, startGrace } from '$lib/server/enrolment';
-import { updateUser } from '$lib/server/users';
+import { refuseMemberBeforeOwner, updateUser } from '$lib/server/users';
 import { hasTestDb, testEnv } from './db';
 import { seedWorld } from './world';
 
@@ -62,6 +62,27 @@ describe.skipIf(!hasTestDb)('sign-in rules', () => {
 		expect(await complete()).toBe(false);
 		await updateUser({} as Auth, env, req, w.users.site!, id, { role: 'member' });
 		expect(await complete()).toBe(true);
+	});
+
+	test('before the site owner exists no other account can be made', async () => {
+		await seedWorld(env);
+		await refuseMemberBeforeOwner(env, 'member');
+		// An empty panel, for the length of a transaction that is rolled back.
+		const empty = new Error('roll back');
+		await env.db
+			.transaction(async (tx) => {
+				await tx.execute(sql`TRUNCATE "user" CASCADE`);
+				await refuseMemberBeforeOwner({ db: tx }, 'owner');
+				for (const role of ['member', undefined])
+					await expect(refuseMemberBeforeOwner({ db: tx }, role)).rejects.toMatchObject({
+						status: 409,
+						code: 'not_set_up'
+					});
+				throw empty;
+			})
+			.catch((err) => {
+				if (err !== empty) throw err;
+			});
 	});
 
 	test('wrong passwords sent at once are each counted, and lock the name at the limit', async () => {

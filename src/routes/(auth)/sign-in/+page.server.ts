@@ -5,7 +5,7 @@ import { discordEnabled, getEnv } from '$lib/server/env';
 import { addressKey, str } from '$lib/server/http';
 import { writeAudit } from '$lib/server/audit';
 import { clearLoginFailures, loginLockSeconds, noteLoginFailure } from '$lib/server/access';
-import { userCount } from '$lib/server/users';
+import { NOT_SET_UP, userCount } from '$lib/server/users';
 import { orgSignupEnabled } from '$lib/server/signup';
 import { beginSteam } from '$lib/server/steam-auth';
 
@@ -98,6 +98,7 @@ export const actions: Actions = {
 	/** Steam OpenID: linked accounts sign in; new Steam users get an account only when sign-up is open. */
 	steam: async (event) => {
 		const env = getEnv();
+		if ((await userCount(env)) === 0) return fail(409, { error: NOT_SET_UP });
 		const next = nextPath(event.url);
 		beginSteam(event, env, {
 			mode: 'signin',
@@ -115,6 +116,7 @@ export const actions: Actions = {
 	discord: async ({ request, locals, url }) => {
 		const env = getEnv();
 		if (!discordEnabled(env)) return fail(404, { error: 'Discord sign-in is not configured.' });
+		if ((await userCount(env)) === 0) return fail(409, { error: NOT_SET_UP });
 		const next = nextPath(url);
 		const open = orgSignupEnabled(env);
 		const res = await locals.auth!.api.signInSocial({
