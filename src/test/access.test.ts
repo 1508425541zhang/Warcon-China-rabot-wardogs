@@ -127,6 +127,23 @@ describe.skipIf(!hasTestDb)('access', () => {
 			expect(held).toEqual([]);
 		});
 
+		test('granting a server role does not enrol someone who never joined the org', async () => {
+			const w = await seedWorld(env);
+			const put = await api(w, 'owner', 'PUT api/servers/[id]/grants', {
+				params: { id: w.server.id },
+				body: {
+					grants: [
+						{ userId: w.users.stranger!.id, roleId: w.roles.admin },
+						{ userId: w.users.member!.id, roleId: w.roles.viewer }
+					]
+				}
+			});
+			expect(put.status).toBe(200);
+			expect(await userOrgs(env, w.users.stranger!)).toEqual([]);
+			expect((await run(w, 'stranger', 'status')).status).toBe(404);
+			expect((await run(w, 'member', 'status')).status).toBe(200);
+		});
+
 		test('a key cannot be scoped to, or an invite given a role from, another org', async () => {
 			const w = await seedWorld(env);
 			const key = await api(w, 'owner', 'POST api/orgs/[id]/keys', {
