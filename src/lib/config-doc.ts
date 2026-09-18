@@ -249,6 +249,32 @@ export function redactSecrets(text: string): string {
 }
 
 /**
+ * What the game says about a document (warnings, changed lines, conflict deltas, error text) with
+ * every credential value of `texts` replaced by the placeholder, wherever it is quoted. The
+ * documented answers quote no values; this is for a build that does.
+ */
+export function hideSecretValues<T>(answer: T, ...texts: string[]): T {
+	const values = new Set<string>();
+	for (const text of texts)
+		for (const s of secretLines(splitLines(text).lines)) {
+			const bare = s.value.replace(/^"(.*)"$/, '$1');
+			for (const v of [s.value, bare]) if (v && v !== SECRET_PLACEHOLDER) values.add(v);
+		}
+	if (!values.size) return answer;
+	// Longest first, so a value that contains another is replaced whole.
+	const ordered = [...values].sort((a, b) => b.length - a.length);
+	const walk = (v: unknown): unknown => {
+		if (typeof v === 'string')
+			return ordered.reduce((out, secret) => out.split(secret).join(SECRET_PLACEHOLDER), v);
+		if (Array.isArray(v)) return v.map(walk);
+		if (v && typeof v === 'object')
+			return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+		return v;
+	};
+	return walk(answer) as T;
+}
+
+/**
  * The other half of redactSecrets: `text` came back from someone who was shown placeholders, and
  * every credential line still holding one gets the value that line has in `live` (the document as
  * the game serves it now). A value they typed is theirs and stays. Throws when a placeholder has

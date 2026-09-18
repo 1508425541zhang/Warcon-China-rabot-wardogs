@@ -6,7 +6,7 @@ import { ApiError, int, str } from './http';
 import { gamePath } from './hostpolicy';
 import { classifyGameError, etagOf, GameError, parseJson, WardogsClient } from './rcon';
 import { reservedFromText, reservedIntoText } from '../reserved-doc';
-import { redactSecrets, restoreSecrets, SECRET_PLACEHOLDER } from '../config-doc';
+import { hideSecretValues, redactSecrets, restoreSecrets, SECRET_PLACEHOLDER } from '../config-doc';
 
 export interface ActionDef {
 	cap: Capability;
@@ -253,6 +253,7 @@ async function reservedViaConfig(
 		// quote the file, which slots.manage alone may not see.
 		const e = classifyGameError('PUT', '/v1/config', status, '', body);
 		e.body = null;
+		e.message = hideSecretValues(e.message, doc.text);
 		throw e;
 	}
 }
@@ -484,7 +485,7 @@ export const ACTIONS: Record<string, ActionDef> = {
 		mutating: false,
 		run: async (c) => {
 			const doc = await readConfig(c);
-			return { ...doc, text: redactSecrets(doc.text) };
+			return hideSecretValues({ ...doc, text: redactSecrets(doc.text) }, doc.text);
 		}
 	},
 
@@ -726,12 +727,9 @@ export const ACTIONS: Record<string, ActionDef> = {
 		mutating: false,
 		audit: (p) => ({ text: fingerprint(p.text) }),
 		run: async (c, p) => {
-			const { status, body, etag } = await c.configCall(
-				'POST',
-				'/v1/config/validate',
-				await withSecrets(c, p.text)
-			);
-			return configResult(status, body, etag);
+			const text = await withSecrets(c, p.text);
+			const { status, body, etag } = await c.configCall('POST', '/v1/config/validate', text);
+			return hideSecretValues(configResult(status, body, etag), text);
 		}
 	},
 	configApply: {
@@ -754,13 +752,22 @@ export const ACTIONS: Record<string, ActionDef> = {
 				query.push('fullApply=true');
 			}
 			const path = '/v1/config' + (query.length ? `?${query.join('&')}` : '');
+			const text = await withSecrets(c, p.text);
 			const { status, body, etag } = await c.configCall(
 				'PUT',
 				path,
-				await withSecrets(c, p.text),
+				text,
 				str(p.revision, 100) || undefined
 			);
-			const result = configResult(status, body, etag);
+			const answered = configResult(status, body, etag);
+			// A conflict is told as the lines that differ, and the live side of one may be a
+			// credential this document never held.
+			const live = answered.conflict
+				? await readConfig(c)
+						.then((d) => d.text)
+						.catch(() => '')
+				: '';
+			const result = hideSecretValues(answered, text, live);
 			if (!result.ok && !result.conflict) {
 				throw new GameError(
 					status,
