@@ -383,12 +383,20 @@ export async function listMembers(env: Env, orgId: string): Promise<OrgMemberVie
 	}));
 }
 
-async function ownerCountIn(env: Env, orgId: string): Promise<number> {
-	const [row] = await env.db
-		.select({ n: count() })
+/**
+ * Refuses to take away an org's last owner. Called inside the transaction that demotes or removes:
+ * it locks the org's owner rows, so of two requests that arrive together the second waits, then
+ * counts what the first left. A count before the transaction let both through.
+ */
+async function keepAnOwner(tx: DbOrTx, org: OrgRow, userId: string): Promise<void> {
+	const owners = await tx
+		.select({ userId: orgMembers.userId })
 		.from(orgMembers)
-		.where(and(eq(orgMembers.orgId, orgId), eq(orgMembers.role, 'owner')));
-	return row?.n ?? 0;
+		.where(and(eq(orgMembers.orgId, org.id), eq(orgMembers.role, 'owner')))
+		.orderBy(orgMembers.userId)
+		.for('update');
+	if (owners.length <= 1 && owners.some((o) => o.userId === userId))
+		throw new ApiError(400, `${org.name} needs at least one owner.`);
 }
 
 /** Is there a stored membership row (site owners are not implied members)? */
@@ -439,9 +447,8 @@ export async function setMemberRole(
 	if (!ORG_ROLES.includes(role)) throw new ApiError(400, 'role must be owner or member.');
 	const m = await memberOf(env, org.id, userId);
 	if (m.role === role) return;
-	if (m.role === 'owner' && (await ownerCountIn(env, org.id)) <= 1)
-		throw new ApiError(400, `${org.name} needs at least one owner.`);
 	const ended = await env.db.transaction(async (tx) => {
+		if (role === 'member') await keepAnOwner(tx, org, userId);
 		await tx
 			.update(orgMembers)
 			.set({ role })
@@ -505,9 +512,8 @@ export async function removeMember(
 	userId: string
 ): Promise<void> {
 	const m = await memberOf(env, org.id, userId);
-	if (m.role === 'owner' && (await ownerCountIn(env, org.id)) <= 1)
-		throw new ApiError(400, `${org.name} needs at least one owner.`);
 	const ended = await env.db.transaction(async (tx) => {
+		await keepAnOwner(tx, org, userId);
 		const ids = (
 			await tx.select({ id: servers.id }).from(servers).where(eq(servers.orgId, org.id))
 		).map((r) => r.id);
