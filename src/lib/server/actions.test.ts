@@ -503,6 +503,55 @@ test('configValidate checks the document the server would get, not the placehold
 	expect(validated).toBe(WITH_SECRETS);
 });
 
+test('what the game says about a document never quotes a credential back', async () => {
+	const f = reservedClient({ route: false, text: WITH_SECRETS });
+	const shown = ((await ACTIONS.config.run(f.client, {})) as any).text as string;
+	// A build that echoes lines: nothing documented does, and nothing says one never will.
+	const echo = {
+		ok: true,
+		changed: [{ key: 'Password', from: 'hunter2', to: 'hunter2' }],
+		warnings: ['line 7: Password=hunter2 is short', 'Token=wcf_abc unused']
+	};
+	f.client.configCall = async () => ({ status: 200, body: echo });
+	for (const action of [ACTIONS.configValidate, ACTIONS.configApply]) {
+		const told = JSON.stringify(await action.run(f.client, { text: shown, revision: 'r1' }));
+		expect(told).not.toContain('hunter2');
+		expect(told).not.toContain('wcf_abc');
+		expect(told).toContain('Password=(hidden) is short');
+	}
+	// A refused apply carries the game's answer as the error's body, and a conflict names the
+	// live side, which may be a password this document never held.
+	f.client.configCall = async () => ({
+		status: 400,
+		body: { ok: false, error: { message: 'bad line: Password=hunter2' }, errors: ['hunter2'] }
+	});
+	const refused: any = await ACTIONS.configApply
+		.run(f.client, { text: shown, revision: 'r1' })
+		.catch((e) => e);
+	expect(refused.message).not.toContain('hunter2');
+	expect(JSON.stringify(refused.body)).not.toContain('hunter2');
+	f.client.configCall = async () => ({
+		status: 412,
+		body: { conflict: [{ line: 'Password=hunter2' }] }
+	});
+	const conflict = await ACTIONS.configApply.run(f.client, {
+		text: WITH_SECRETS.replace('hunter2', 'typed-by-me'),
+		revision: 'r0'
+	});
+	expect(JSON.stringify(conflict)).not.toContain('hunter2');
+});
+
+test('a reserved slot the document refuses says so without quoting a credential', async () => {
+	const f = reservedClient({ route: false, text: WITH_SECRETS, live: [] });
+	f.client.configCall = async () => ({
+		status: 400,
+		body: { error: { code: 'invalid', message: 'bad line: Password=hunter2' } }
+	});
+	const refused: any = await ACTIONS.reservedAdd.run(f.client, { steamId: ID }).catch((e) => e);
+	expect(refused.message).toBe('bad line: Password=(hidden)');
+	expect(refused.body).toBeNull();
+});
+
 test('a placeholder the server has no value for is refused before anything is written', async () => {
 	const f = reservedClient({ route: false, text: `${SESSION}\r\nServerName=x\r\n` });
 	await expect(
