@@ -88,7 +88,7 @@ const MATRIX: Record<string, Policy> = {
 	'GET api/orgs/[id]/lists/[kind]/entries': 'lists',
 	'POST api/orgs/[id]/lists/[kind]/entries': 'lists',
 	'DELETE api/orgs/[id]/lists/[kind]/entries/[steamId]': 'lists',
-	'GET api/orgs/[id]/lists/import': 'lists',
+	'GET api/orgs/[id]/lists/import': 'listsOwner',
 	'POST api/orgs/[id]/lists/import': 'listsOwner',
 	'POST api/orgs/[id]/lists/sync': 'lists',
 	'GET api/orgs/[id]/players': 'lists',

@@ -372,7 +372,7 @@
 	</div>
 </div>
 
-<ImportCandidates kind="reserve" {org} {owner} />
+{#if owner}<ImportCandidates kind="reserve" {org} {owner} />{/if}
 
 <div class="panel">
 	<div class="mb-3 flex flex-wrap items-center gap-2">
