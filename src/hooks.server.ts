@@ -7,6 +7,7 @@ import { keyUser, toSessionUser } from '$lib/server/access';
 import { enrolmentPolicy, statusFor } from '$lib/server/enrolment';
 import { resolveBearer } from '$lib/server/apikeys';
 import { looksLikeOurToken, parseBearer } from '$lib/server/apikeys-core';
+import { isApiRequest } from '$lib/server/api-path';
 import { assertRate } from '$lib/server/ratelimit';
 import { getEnv, initEnv } from '$lib/server/env';
 import { encryptionKey } from '$lib/server/crypto';
@@ -143,6 +144,7 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 	const auth = getAuth();
 	event.locals.auth = auth;
 	const path = event.url.pathname;
+	const isApi = isApiRequest(path, event.route.id);
 	const isAuthApi = path.startsWith('/api/auth');
 
 	// Every Better Auth call the panel makes is server-side (auth.api.*) from a form action or API
@@ -156,7 +158,7 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 	// session (cookies are ignored) and for the CSRF header (a browser cannot attach a bearer to a
 	// cross-site request). A bad key never falls back to the cookie: it is simply refused.
 	const authorization = event.request.headers.get('authorization');
-	if (path.startsWith('/api/') && !isAuthApi && looksLikeOurToken(authorization)) {
+	if (isApi && !isAuthApi && looksLikeOurToken(authorization)) {
 		try {
 			const token = parseBearer(authorization);
 			if (!token) throw new ApiError(401, 'Malformed API key.', 'invalid_api_key');
@@ -180,7 +182,7 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 	// The kill feed is the game process posting with its own bearer, which no browser form can
 	// attach; the route checks that token itself.
 	if (
-		path.startsWith('/api/') &&
+		isApi &&
 		!isAuthApi &&
 		!path.startsWith(FEED_PATH) &&
 		!event.locals.apiKey &&
@@ -210,7 +212,7 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 		}
 
 		if (event.locals.user?.mustChangePassword && !PASSWORD_GATE_EXEMPT.test(path)) {
-			if (path.startsWith('/api/')) {
+			if (isApi) {
 				return json(
 					{
 						ok: false,
@@ -231,7 +233,7 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 			!PASSWORD_GATE_EXEMPT.test(path) &&
 			(await enrolmentPolicy(env, event.locals.user)).enforced
 		) {
-			if (path.startsWith('/api/')) {
+			if (isApi) {
 				return json(
 					{
 						ok: false,
