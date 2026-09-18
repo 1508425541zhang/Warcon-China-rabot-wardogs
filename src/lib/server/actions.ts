@@ -829,9 +829,15 @@ export const ACTIONS: Record<string, ActionDef> = {
 			} catch {
 				parsed = null;
 			}
-			return { status: res.status, headers: res.headers, body: parsed ?? res.text };
+			// Only the headers the API documents: a proxy in front of the listener answers with a
+			// Location, Via or Alt-Svc that names where RCON listens, and raw is not an owner's tool.
+			const headers: Record<string, string> = {};
+			for (const name of RAW_HEADERS) if (res.headers[name]) headers[name] = res.headers[name];
+			return { status: res.status, headers, body: parsed ?? res.text };
 		}
 	}
 };
+
+const RAW_HEADERS = ['content-type', 'etag', 'retry-after'];
 
 export const ACTION_NAMES = Object.keys(ACTIONS);
