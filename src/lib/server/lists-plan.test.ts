@@ -6,6 +6,7 @@ import {
 	isGone,
 	isUnreachable,
 	planSync,
+	refusedBansAfter,
 	type PlanInput,
 	type StateLike
 } from './lists-plan';
@@ -197,5 +198,43 @@ describe('desiredOf', () => {
 			{ steamId: '2', listId: 'srv', member: false }
 		]);
 		expect(want.bans).toEqual([{ steamId: '3', reason: 'cheating', listId: 'bans' }]);
+	});
+});
+
+describe('refusedBansAfter', () => {
+	const refused = (steamId: string) =>
+		state({
+			kind: 'ban',
+			steamId,
+			state: 'failed',
+			error: `Error: no player matching '${steamId}'.`
+		});
+	const desired = [ban('1', 'cheat'), ban('2'), ban('3'), ban('4')];
+	const rows = [
+		refused('1'),
+		refused('2'),
+		state({ kind: 'ban', steamId: '3' }),
+		refused('9'),
+		state({ kind: 'reserve', steamId: '4', state: 'failed', error: 'x' })
+	];
+
+	test('the wanted bans whose last attempt failed; a lifted ban and a reserved slot are not', () => {
+		expect(refusedBansAfter(desired, rows)).toEqual([
+			{ steamId: '1', reason: 'cheat', listId: 'L' },
+			{ steamId: '2', reason: '', listId: 'L' }
+		]);
+	});
+
+	test('a run takes out what it added or confirmed and brings in what it failed to add', () => {
+		expect(
+			refusedBansAfter(desired, rows, {
+				added: [{ kind: 'ban', steamId: '1' }],
+				confirms: [{ kind: 'ban', steamId: '2' }],
+				failedAdds: [
+					{ kind: 'ban', steamId: '3' },
+					{ kind: 'reserve', steamId: '4' }
+				]
+			})
+		).toEqual([{ steamId: '3', reason: '', listId: 'L' }]);
 	});
 });
