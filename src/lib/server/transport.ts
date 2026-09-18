@@ -98,10 +98,9 @@ export async function gameRequest(
 			const name = (err as { name?: string }).name;
 			const done = signal.aborted || name === 'TimeoutError' || name === 'AbortError';
 			if (done || !neverOpened(err) || i === addresses.length - 1) {
-				const cause = (err as { cause?: { code?: string; message?: string } }).cause;
-				const detail = cause?.code || cause?.message || (err as Error).message;
+				const why = reasonOf(err, done);
 				throw new TransportError(
-					`Could not reach the game server (${withoutTarget(detail, target, addresses)}).`,
+					why ? `Could not reach the game server (${why}).` : 'Could not reach the game server.',
 					err
 				);
 			}
@@ -128,11 +127,23 @@ function neverOpened(err: unknown): boolean {
 /**
  * The message is stored as the server's live error and shown to everyone who can open the server,
  * and on its Discord card, so it never names where RCON listens: that is for the org's owners,
- * who have it on the server's form.
+ * who have it on the server's form. The runtime's own text is never passed on (it quotes the whole
+ * URL for some failures, port and path included); the error's code picks one of these phrases.
  */
-function withoutTarget(detail: string, target: GameTarget, addresses: string[]): string {
-	let out = detail;
-	for (const part of [target.host, target.host.replace(/^\[|\]$/g, ''), ...addresses])
-		if (part) out = out.split(part).join('the address');
-	return out;
+const REASONS: [RegExp, string][] = [
+	[/^(ConnectionRefused|ECONNREFUSED)$/, 'connection refused'],
+	[/^(FailedToOpenSocket|EHOSTUNREACH|ENETUNREACH|EADDRNOTAVAIL)$/, 'no route to it'],
+	[/^(ConnectionClosed|ECONNRESET|EPIPE)$/, 'the connection was closed'],
+	[/SELF_SIGNED/, 'self-signed certificate'],
+	[/CERT_HAS_EXPIRED/, 'certificate has expired'],
+	[/ALTNAME/, 'certificate is for another name'],
+	[/CERT|TLS|SSL/, 'certificate problem'],
+	[/^Malformed_HTTP_Response$/, 'the answer was not HTTP']
+];
+
+function reasonOf(err: unknown, timedOut: boolean): string {
+	if (timedOut) return 'no answer in time';
+	const e = err as { code?: string; cause?: { code?: string } };
+	const code = e.code || e.cause?.code || '';
+	return REASONS.find(([re]) => re.test(code))?.[1] ?? '';
 }
