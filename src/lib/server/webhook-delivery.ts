@@ -6,6 +6,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import type { Env } from './env';
 import { decryptSecret } from './crypto';
 import { servers, webhooks, type AuditRow, type WebhookRow } from './db/schema';
+import { OWNERS_ROWS } from './audit-rows';
 import { causeLabel } from '$lib/causes';
 import type { KillView } from '$lib/types';
 
@@ -157,12 +158,16 @@ export function buildEmbed(appName: string, row: AuditRow): Embed {
 	const title = ACTION_TITLES[row.action] || row.action;
 	const lines: string[] = [];
 	const who = row.actorName || 'someone';
-	const target = row.target ? ` → \`${clip(row.target, 120)}\`` : '';
+	// A server being added, edited or deleted names it and who did it, no more: the row's target is
+	// where RCON listens and a refusal's message says what the host resolves to, and a channel is
+	// read by people the Audit trail would not show these rows to.
+	const bare = OWNERS_ROWS.includes(row.action);
+	const target = row.target && !bare ? ` → \`${clip(row.target, 120)}\`` : '';
 	lines.push(`**${clip(who, 60)}**${target}`);
 	if (row.serverName) lines.push(`Server: ${clip(row.serverName, 80)}`);
 	if (row.outcome !== 'ok')
 		lines.push(`Outcome: **${row.outcome}**${row.status ? ` (${row.status})` : ''}`);
-	if (row.message) lines.push(clip(row.message, 600));
+	if (row.message && !bare) lines.push(clip(row.message, 600));
 	return {
 		title: clip(title, 200),
 		description: clip(lines.join('\n'), 2000),
