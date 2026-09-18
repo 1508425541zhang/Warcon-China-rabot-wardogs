@@ -10,7 +10,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Env } from './env';
 import { publicMessage } from './http';
 import type { OrgRow, ServerRow } from './access';
-import { ACTIONS } from './actions';
+import { ACTIONS, readConfig } from './actions';
 import { reservedSlotsHeld } from '../reserved-doc';
 import { GameError, WardogsClient } from './rcon';
 import { matches, samples, serverLive } from './db/schema';
@@ -268,8 +268,7 @@ async function refreshIdentity(client: WardogsClient, m: ServerMemory, now: numb
 	// How many player slots the server holds back for reserved players lives in its config document
 	// (MaxReservedSlots), which every build serves; the status route only reports the public cap.
 	try {
-		const cfg = (await ACTIONS.config.run(client, {})) as { text: string };
-		next.reservedSlots = reservedSlotsHeld(cfg.text);
+		next.reservedSlots = reservedSlotsHeld((await readConfig(client)).text);
 	} catch (err) {
 		retrySoon();
 		holdFor(m, err);

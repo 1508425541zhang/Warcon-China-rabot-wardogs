@@ -183,6 +183,96 @@ export function setArrayInText(
 	return kept.join(eol);
 }
 
+// ---- credentials --------------------------------------------------------------------------------
+
+/**
+ * The keys of the document that are credentials: the RCON password and its hash (whoever holds
+ * either runs the server without the panel), and the kill feed's token. Matched by name in any
+ * section. The join password (ServerPassword) is a setting people hand to players, not one of these.
+ */
+export const SECRET_KEYS = ['Password', 'PasswordHash', 'Token'] as const;
+/** What stands in for a credential's value in any document the panel hands out. */
+export const SECRET_PLACEHOLDER = '(hidden)';
+
+interface SecretLine {
+	index: number;
+	/** section, key and whether the line is commented out: which line of the live document it answers to */
+	slot: string;
+	/** everything up to and including the '=' */
+	head: string;
+	value: string;
+}
+
+/** Every line that sets a credential, commented out or not: an old password in a comment is still one. */
+function secretLines(lines: string[]): SecretLine[] {
+	const out: SecretLine[] = [];
+	let section = '';
+	lines.forEach((raw, index) => {
+		// A byte order mark sits in front of the first header; a client may or may not send it back.
+		const line = (index === 0 ? raw.replace(/^﻿/, '') : raw).trim();
+		if (isHeader(line)) {
+			section = line.slice(1, -1).trim().toLowerCase();
+			return;
+		}
+		const eq = raw.indexOf('=');
+		if (eq < 0) return;
+		const commented = isComment(line);
+		const key = raw
+			.slice(0, eq)
+			.replace(/^[\s;#]+/, '')
+			.replace(/^[+.!-]/, '')
+			.trim()
+			.toLowerCase();
+		if (!SECRET_KEYS.some((k) => k.toLowerCase() === key)) return;
+		out.push({
+			index,
+			slot: `${section}\n${key}\n${commented}`,
+			head: raw.slice(0, eq + 1),
+			value: raw.slice(eq + 1).trim()
+		});
+	});
+	return out;
+}
+
+const splitLines = (text: string) => ({
+	eol: text.includes('\r\n') ? '\r\n' : '\n',
+	lines: text.split(/\r\n|\n|\r/)
+});
+
+/** The document with every credential's value replaced by the placeholder; nothing else moves. */
+export function redactSecrets(text: string): string {
+	const { eol, lines } = splitLines(text);
+	const found = secretLines(lines).filter((s) => s.value !== '');
+	if (!found.length) return text;
+	for (const s of found) lines[s.index] = s.head + SECRET_PLACEHOLDER;
+	return lines.join(eol);
+}
+
+/**
+ * The other half of redactSecrets: `text` came back from someone who was shown placeholders, and
+ * every credential line still holding one gets the value that line has in `live` (the document as
+ * the game serves it now). A value they typed is theirs and stays. Throws when a placeholder has
+ * no line in the live document to answer to, since it would otherwise be written as the password.
+ */
+export function restoreSecrets(text: string, live: string): string {
+	const { eol, lines } = splitLines(text);
+	const held = secretLines(lines).filter((s) => s.value === SECRET_PLACEHOLDER);
+	if (!held.length) return text;
+	const real = secretLines(splitLines(live).lines);
+	const taken = new Map<string, number>();
+	for (const s of held) {
+		const nth = taken.get(s.slot) ?? 0;
+		taken.set(s.slot, nth + 1);
+		const source = real.filter((r) => r.slot === s.slot)[nth];
+		if (!source)
+			throw new Error(
+				`${s.head.trim()}${SECRET_PLACEHOLDER} stands for a value the server does not have; type the value or remove the line.`
+			);
+		lines[s.index] = s.head + source.value;
+	}
+	return lines.join(eol);
+}
+
 export const unquote = (v: string): string =>
 	v.length >= 2 && v.startsWith('"') && v.endsWith('"') ? v.slice(1, -1) : v;
 
