@@ -221,18 +221,18 @@ into your Grafana (Dashboards → New → Import); it expects the two job names 
 database panels, a [postgres_exporter](https://github.com/prometheus-community/postgres_exporter)
 scraped as job `postgres`, which is optional.
 
-| Metric                                                                                | What it is                                                                                   |
-| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `warcon_players_online`, `warcon_servers{tier}`                                       | Players on every reachable server and the roster by observation tier (worker).               |
-| `warcon_observations_total{outcome}`, `warcon_observation_seconds`                    | Looks at game servers per second and how long they take (worker).                            |
-| `warcon_servers_behind`, `warcon_observations_stuck`, `warcon_observations_in_flight` | Whether the worker is keeping up: the same figures as the Worker block on the Settings page. |
-| `warcon_deliveries_total{outcome}`, `warcon_outbox_pending`                           | Trigger actions delivered, failed, skipped or unknown, and the queue depth (worker).         |
-| `warcon_worker_lease_held`                                                            | 1 on the process that owns observation and delivery.                                         |
-| `warcon_http_requests_total{route,method,status}`, `warcon_http_request_seconds`      | Every request by SvelteKit route id (web).                                                   |
-| `warcon_feed_posts_total{outcome}`, `warcon_feed_kills_total{result}`                 | Kill feed batches accepted, refused or rejected, and events accepted, skipped or duplicate.  |
-| `warcon_rate_limited_total{scope}`                                                    | Requests the in-memory limiter refused, by the limit that fired.                             |
-| `warcon_fleet{table}`                                                                 | Row counts of organizations, users, servers, org members, webhooks and triggers (web).       |
-| `process_*`, `nodejs_*`                                                               | CPU, memory and event-loop lag of each process.                                              |
+| Metric                                                                                | What it is                                                                                  |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `warcon_players_online`, `warcon_servers{tier}`                                       | Players on every reachable server and the roster by observation tier (worker).              |
+| `warcon_observations_total{outcome}`, `warcon_observation_seconds`                    | Looks at game servers per second and how long they take (worker).                           |
+| `warcon_servers_behind`, `warcon_observations_stuck`, `warcon_observations_in_flight` | Whether the worker is keeping up: the same figures as the Admin page's Overview tab.        |
+| `warcon_deliveries_total{outcome}`, `warcon_outbox_pending`                           | Trigger actions delivered, failed, skipped or unknown, and the queue depth (worker).        |
+| `warcon_worker_lease_held`                                                            | 1 on the process that owns observation and delivery.                                        |
+| `warcon_http_requests_total{route,method,status}`, `warcon_http_request_seconds`      | Every request by SvelteKit route id (web).                                                  |
+| `warcon_feed_posts_total{outcome}`, `warcon_feed_kills_total{result}`                 | Kill feed batches accepted, refused or rejected, and events accepted, skipped or duplicate. |
+| `warcon_rate_limited_total{scope}`                                                    | Requests the in-memory limiter refused, by the limit that fired.                            |
+| `warcon_fleet{table}`                                                                 | Row counts of organizations, users, servers, org members, webhooks and triggers (web).      |
+| `process_*`, `nodejs_*`                                                               | CPU, memory and event-loop lag of each process.                                             |
 
 ### Configuration (`.env`)
 
@@ -249,7 +249,7 @@ scraped as job `postgres`, which is optional.
 | `WARCON_ROLE`                                                | `all`                  | `all` serves, migrates and runs the worker in one process; `web` and `worker` split them (Compose does); `migrate` applies migrations and exits.                                  |
 | `RELAY_SECRET` / `RELAY_URL` / `WORKER_PORT`                 | unset / unset / `7700` | Split roles only: the secret web and worker share, where the web finds the worker (`http://worker:7700`), and the worker's port.                                                  |
 | `METRICS_TOKEN`                                              | unset                  | Bearer for `GET /metrics` (Prometheus) on the web and worker processes; the endpoint answers 404 until it is set. See [Metrics](#metrics-prometheus).                             |
-| `POLL_SECONDS` / `POLL_CONCURRENCY`                          | `20` / `128`           | Seeds for two of the runtime settings on a fresh install only; after that the owner edits cadences, budgets and retention on the **Settings** page without a restart.             |
+| `POLL_SECONDS` / `POLL_CONCURRENCY`                          | `20` / `128`           | Seeds for two of the runtime settings on a fresh install only; after that the owner edits cadences, budgets and retention under **Admin → Settings** without a restart.           |
 | `APP_NAME`                                                   | `Warcon`               | Name shown in the UI.                                                                                                                                                             |
 | `AUDIT_LOG_READS`                                            | `false`                | Also audit read-only calls (status polls etc.). Noisy.                                                                                                                            |
 | `ALLOW_ORG_SIGNUP`                                           | `false`                | Anyone may create an account and their own organisation at `/sign-up` (3 orgs per person). For hosted, multi-clan instances.                                                      |
@@ -265,7 +265,7 @@ scraped as job `postgres`, which is optional.
 
 Every server belongs to an **organisation**. People are members of organisations, either as
 **org owner** or **member**, and members get a per-server role. The **site owner** (the account
-from first-run setup, plus anyone it promotes on the Users page) runs the whole panel.
+from first-run setup, plus anyone it promotes under Admin → Users) runs the whole panel.
 
 A server role is a named set of **capabilities**. Every organisation starts with three, `viewer`,
 `operator` and `admin`, holding what the table shows. Its owners can change any of them on the
@@ -322,7 +322,7 @@ expected to be able to survive losing one thing. The rules, checked on the **Acc
   authenticator app (TOTP, with backup codes) or drop the password and rely on passkeys and
   providers. Passkeys and provider sign-ins are two factors by themselves and never ask for a code.
 - **Owners hold a linked provider or a recovery key.** An organisation owner can reset a member's
-  methods from the Users page, but nobody resets an owner, so an owner needs a way back in that
+  methods under Admin → Users, but nobody resets an owner, so an owner needs a way back in that
   does not depend on one device.
 
 The **recovery key** is a 40-character secret shown once; the panel stores only its hash. Using it
@@ -571,7 +571,7 @@ memberships at once. Audit entries the person caused stay for the record but los
 address and browser, and entries that named them lose the username; one row recording the deletion
 itself keeps the requester's IP. The only owner of an organisation, or the only site owner, must
 hand over first, so nothing is left without an owner. The site owner can delete anyone from the
-Users page under the same rules.
+Users tab of the Admin page under the same rules.
 
 Analytics store the Steam id and in-game name of every player seen on a server, for a year (see
 [Notes and limits](#notes-and-limits)). With `STEAM_API_KEY` set the panel also caches what the
@@ -580,6 +580,15 @@ counts), and admins can leave notes and watchlist flags on players. If you host 
 other people, publish a privacy notice that says so, along with the audit retention you choose.
 
 ### Site owner controls
+
+The **Admin** page (site owner only) has three tabs. **Overview** is the whole install at a
+glance, refreshed every five seconds: players online, servers reachable, organisations and users,
+kill feed and observation rates, the worker's tiers, queue and memory, the web process's request
+and error figures, the database's size table by table, players seen today, this month and ever
+(a tally cached for five minutes, with a Recount button), servers by game build, and whether the
+[Prometheus endpoint](#metrics-prometheus) is on. **Users** manages every account and **Settings**
+the runtime settings (cadences, delivery, retention). The old `/users` and `/settings` addresses
+redirect to their tabs.
 
 The Orgs page shows every organisation with its creator, member and server counts against its
 limit, and status. From there (or from an org's own page) the site owner can raise or lower an
@@ -673,7 +682,7 @@ To run the split roles locally after `bun run build`: `bun run db:migrate`, then
 `WARCON_ROLE=worker RELAY_SECRET=… bun run worker` in one terminal and
 `WARCON_ROLE=web RELAY_SECRET=… RELAY_URL=http://127.0.0.1:7700 bun run start` in another.
 `/api/health` on the web (and `/health` on the worker) shows the worker's tiers, in-flight count,
-"behind" and "stuck" figures, and the delivery queue; the owner's **Settings** page shows the same.
+"behind" and "stuck" figures, and the delivery queue; the Admin page's Overview tab shows the same.
 
 The schema is defined in [src/lib/server/db/schema.ts](src/lib/server/db/schema.ts). After changing
 it, run `bun run db:generate` to write a new migration into `drizzle/`; the app applies pending
@@ -773,7 +782,7 @@ src/lib/config-doc.ts / config-fields.ts   ServerSettings.ini parser and line-le
 src/lib/components/            Modal, MapPicker, PopulationChart, CashChart, ConfigForm, Toasts, badges…
 src/routes/(auth)/             /sign-in (+ /verify), /setup, /join/[token], /recover (form actions)     src/routes/sign-out
 src/routes/api/passkeys/       WebAuthn ceremonies relayed to Better Auth; src/routes/auth/steam/ the Steam callback
-src/routes/(app)/              dashboard, /server/[id]/{,players,players/[steamId],bans,rotation,config,automation,analytics,leaderboard,log,settings}, /audit, /orgs, /orgs/[id]/{,bans,reserved}, /users, /servers, /account
+src/routes/(app)/              dashboard, /server/[id]/{,players,players/[steamId],bans,rotation,config,automation,analytics,leaderboard,log,settings}, /audit, /orgs, /orgs/[id]/{,bans,reserved}, /admin/{,users,settings}, /servers, /account
 src/routes/(public)/           /s/[id]{,/leaderboard,/players/[steamId]}: the public pages, no session
 src/routes/api/                JSON API (below)
 docs/wardogs-api.md            the reverse-engineered game-server API
