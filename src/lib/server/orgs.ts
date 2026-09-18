@@ -6,6 +6,7 @@ import { ApiError, int, newId, str } from './http';
 import { writeAudit } from './audit';
 import { ORG_ROLES, type OrgRole, type OrgRow, type SessionUser } from './access';
 import {
+	apiKeys,
 	orgInvites,
 	orgMembers,
 	orgRoles,
@@ -15,7 +16,7 @@ import {
 	user
 } from './db/schema';
 import type { OrgInviteRow } from './db/schema';
-import type { Db } from './db';
+import type { Db, DbOrTx } from './db';
 import { ensureOrgLists } from './lists';
 import { ensureOrgRoles, roleInOrg, rolesOf } from './roles';
 import { gateway } from './gateway';
@@ -440,10 +441,13 @@ export async function setMemberRole(
 	if (m.role === role) return;
 	if (m.role === 'owner' && (await ownerCountIn(env, org.id)) <= 1)
 		throw new ApiError(400, `${org.name} needs at least one owner.`);
-	await env.db
-		.update(orgMembers)
-		.set({ role })
-		.where(and(eq(orgMembers.orgId, org.id), eq(orgMembers.userId, userId)));
+	const ended = await env.db.transaction(async (tx) => {
+		await tx
+			.update(orgMembers)
+			.set({ role })
+			.where(and(eq(orgMembers.orgId, org.id), eq(orgMembers.userId, userId)));
+		return role === 'member' ? revokeMintedBy(tx, userId, org.id) : null;
+	});
 	await writeAudit(env, req, {
 		actor,
 		orgId: org.id,
@@ -451,11 +455,48 @@ export async function setMemberRole(
 		action: 'org.member.role',
 		outcome: 'ok',
 		target: m.label,
-		detail: { orgId: org.id, org: org.name, role }
+		detail: { orgId: org.id, org: org.name, role, ...(ended ?? {}) }
 	});
 }
 
-/** Removes the membership and every grant on the org's servers. */
+/**
+ * Ends the invite links and API keys this person minted, in one org or (deleting the account) in
+ * all of them. Both are an owner's to make and both work without their maker: left live, an
+ * owner-role link lets a removed owner straight back in, and their key goes on driving the
+ * servers. Returns how many of each it ended, for the audit trail.
+ */
+export async function revokeMintedBy(
+	db: DbOrTx,
+	userId: string,
+	orgId?: string
+): Promise<{ invitesRevoked: number; keysRevoked: number }> {
+	const now = new Date();
+	const links = await db
+		.update(orgInvites)
+		.set({ revokedAt: now })
+		.where(
+			and(
+				eq(orgInvites.createdBy, userId),
+				isNull(orgInvites.revokedAt),
+				orgId ? eq(orgInvites.orgId, orgId) : undefined
+			)
+		)
+		.returning({ id: orgInvites.id });
+	const keys = await db
+		.update(apiKeys)
+		.set({ revokedAt: now })
+		.where(
+			and(
+				eq(apiKeys.createdBy, userId),
+				isNull(apiKeys.revokedAt),
+				orgId ? eq(apiKeys.orgId, orgId) : undefined
+			)
+		)
+		.returning({ id: apiKeys.id });
+	return { invitesRevoked: links.length, keysRevoked: keys.length };
+}
+
+/** Removes the membership, every grant on the org's servers, and the links and keys they minted. */
 export async function removeMember(
 	env: Env,
 	req: Request,
@@ -466,7 +507,7 @@ export async function removeMember(
 	const m = await memberOf(env, org.id, userId);
 	if (m.role === 'owner' && (await ownerCountIn(env, org.id)) <= 1)
 		throw new ApiError(400, `${org.name} needs at least one owner.`);
-	await env.db.transaction(async (tx) => {
+	const ended = await env.db.transaction(async (tx) => {
 		const ids = (
 			await tx.select({ id: servers.id }).from(servers).where(eq(servers.orgId, org.id))
 		).map((r) => r.id);
@@ -477,6 +518,7 @@ export async function removeMember(
 		await tx
 			.delete(orgMembers)
 			.where(and(eq(orgMembers.orgId, org.id), eq(orgMembers.userId, userId)));
+		return revokeMintedBy(tx, userId, org.id);
 	});
 	await writeAudit(env, req, {
 		actor,
@@ -485,7 +527,7 @@ export async function removeMember(
 		action: 'org.member.remove',
 		outcome: 'ok',
 		target: m.label,
-		detail: { orgId: org.id, org: org.name }
+		detail: { orgId: org.id, org: org.name, ...ended }
 	});
 }
 
