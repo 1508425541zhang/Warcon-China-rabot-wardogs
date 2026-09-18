@@ -1,0 +1,1323 @@
+{
+	"uid": "warcon",
+	"title": "Warcon",
+	"tags": ["warcon"],
+	"timezone": "browser",
+	"schemaVersion": 39,
+	"version": 1,
+	"editable": true,
+	"graphTooltip": 1,
+	"time": {
+		"from": "now-6h",
+		"to": "now"
+	},
+	"refresh": "30s",
+	"templating": {
+		"list": []
+	},
+	"annotations": {
+		"list": []
+	},
+	"panels": [
+		{
+			"id": 1,
+			"type": "row",
+			"title": "Fleet",
+			"collapsed": false,
+			"gridPos": {
+				"x": 0,
+				"y": 0,
+				"w": 24,
+				"h": 1
+			},
+			"panels": []
+		},
+		{
+			"id": 2,
+			"type": "stat",
+			"title": "Players online",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 0,
+				"y": 1,
+				"w": 4,
+				"h": 4
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(warcon_players_online)",
+					"legendFormat": "__auto",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {},
+				"overrides": []
+			},
+			"options": {
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"colorMode": "none",
+				"graphMode": "none",
+				"textMode": "value"
+			}
+		},
+		{
+			"id": 3,
+			"type": "stat",
+			"title": "Servers reachable",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 4,
+				"y": 1,
+				"w": 4,
+				"h": 4
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(warcon_servers{tier!=\"offline\"})",
+					"legendFormat": "__auto",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {},
+				"overrides": []
+			},
+			"options": {
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"colorMode": "none",
+				"graphMode": "none",
+				"textMode": "value"
+			}
+		},
+		{
+			"id": 4,
+			"type": "stat",
+			"title": "Servers on the roster",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 8,
+				"y": 1,
+				"w": 4,
+				"h": 4
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(warcon_servers)",
+					"legendFormat": "__auto",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {},
+				"overrides": []
+			},
+			"options": {
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"colorMode": "none",
+				"graphMode": "none",
+				"textMode": "value"
+			}
+		},
+		{
+			"id": 5,
+			"type": "stat",
+			"title": "Organisations",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 12,
+				"y": 1,
+				"w": 4,
+				"h": 4
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "max(warcon_fleet{table=\"organizations\"})",
+					"legendFormat": "__auto",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {},
+				"overrides": []
+			},
+			"options": {
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"colorMode": "none",
+				"graphMode": "none",
+				"textMode": "value"
+			}
+		},
+		{
+			"id": 6,
+			"type": "stat",
+			"title": "Users",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 16,
+				"y": 1,
+				"w": 4,
+				"h": 4
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "max(warcon_fleet{table=\"users\"})",
+					"legendFormat": "__auto",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {},
+				"overrides": []
+			},
+			"options": {
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"colorMode": "none",
+				"graphMode": "none",
+				"textMode": "value"
+			}
+		},
+		{
+			"id": 7,
+			"type": "stat",
+			"title": "Database",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 20,
+				"y": 1,
+				"w": 4,
+				"h": 4
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(pg_database_size_bytes{datname=\"warcon\"})",
+					"legendFormat": "__auto",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"unit": "bytes"
+				},
+				"overrides": []
+			},
+			"options": {
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"colorMode": "none",
+				"graphMode": "none",
+				"textMode": "value"
+			}
+		},
+		{
+			"id": 8,
+			"type": "timeseries",
+			"title": "Players online",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 0,
+				"y": 5,
+				"w": 12,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(warcon_players_online)",
+					"legendFormat": "players",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 9,
+			"type": "timeseries",
+			"title": "Servers by tier",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 12,
+				"y": 5,
+				"w": 12,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum by (tier) (warcon_servers)",
+					"legendFormat": "{{tier}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 40,
+						"showPoints": "never",
+						"stacking": {
+							"mode": "normal",
+							"group": "A"
+						}
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 10,
+			"type": "row",
+			"title": "Worker",
+			"collapsed": false,
+			"gridPos": {
+				"x": 0,
+				"y": 13,
+				"w": 24,
+				"h": 1
+			},
+			"panels": []
+		},
+		{
+			"id": 11,
+			"type": "timeseries",
+			"title": "Observations per second",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 0,
+				"y": 14,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum by (outcome) (rate(warcon_observations_total[5m]))",
+					"legendFormat": "{{outcome}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 40,
+						"showPoints": "never",
+						"stacking": {
+							"mode": "normal",
+							"group": "A"
+						}
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 12,
+			"type": "timeseries",
+			"title": "Observation latency",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 8,
+				"y": 14,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "histogram_quantile(0.5, sum by (le) (rate(warcon_observation_seconds_bucket[5m])))",
+					"legendFormat": "p50",
+					"refId": "A"
+				},
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "histogram_quantile(0.95, sum by (le) (rate(warcon_observation_seconds_bucket[5m])))",
+					"legendFormat": "p95",
+					"refId": "B"
+				},
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "histogram_quantile(0.99, sum by (le) (rate(warcon_observation_seconds_bucket[5m])))",
+					"legendFormat": "p99",
+					"refId": "C"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"unit": "s",
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 13,
+			"type": "timeseries",
+			"title": "Keeping up",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 16,
+				"y": 14,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(warcon_servers_behind)",
+					"legendFormat": "behind",
+					"refId": "A"
+				},
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(warcon_observations_stuck)",
+					"legendFormat": "stuck",
+					"refId": "B"
+				},
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(warcon_observations_in_flight)",
+					"legendFormat": "in flight",
+					"refId": "C"
+				},
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "max(warcon_observation_concurrency)",
+					"legendFormat": "concurrency budget",
+					"refId": "D"
+				},
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(warcon_lanes_queued)",
+					"legendFormat": "lanes queued",
+					"refId": "E"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			},
+			"description": "Behind counts servers overdue by more than their own cadence. Stuck are observations running for over two minutes."
+		},
+		{
+			"id": 14,
+			"type": "timeseries",
+			"title": "Deliveries per minute",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 0,
+				"y": 22,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum by (outcome) (rate(warcon_deliveries_total[5m])) * 60",
+					"legendFormat": "{{outcome}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 40,
+						"showPoints": "never",
+						"stacking": {
+							"mode": "normal",
+							"group": "A"
+						}
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 15,
+			"type": "timeseries",
+			"title": "Outbox",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 8,
+				"y": 22,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(warcon_outbox_pending)",
+					"legendFormat": "pending",
+					"refId": "A"
+				},
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "max(warcon_outbox_oldest_seconds)",
+					"legendFormat": "oldest (s)",
+					"refId": "B"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 16,
+			"type": "timeseries",
+			"title": "Worker lease",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 16,
+				"y": 22,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "max by (instance) (warcon_worker_lease_held)",
+					"legendFormat": "{{instance}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"min": 0,
+					"max": 1,
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 30,
+						"showPoints": "never",
+						"lineInterpolation": "stepAfter"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 17,
+			"type": "row",
+			"title": "Web and kill feed",
+			"collapsed": false,
+			"gridPos": {
+				"x": 0,
+				"y": 30,
+				"w": 24,
+				"h": 1
+			},
+			"panels": []
+		},
+		{
+			"id": 18,
+			"type": "timeseries",
+			"title": "Requests per second, top routes",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 0,
+				"y": 31,
+				"w": 12,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "topk(10, sum by (route) (rate(warcon_http_requests_total[5m])))",
+					"legendFormat": "{{route}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"unit": "reqps",
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 19,
+			"type": "timeseries",
+			"title": "Request latency p95, top routes",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 12,
+				"y": 31,
+				"w": 12,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "topk(10, histogram_quantile(0.95, sum by (route, le) (rate(warcon_http_request_seconds_bucket[5m]))))",
+					"legendFormat": "{{route}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"unit": "s",
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 20,
+			"type": "timeseries",
+			"title": "Errors and refusals per minute",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 0,
+				"y": 39,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(rate(warcon_http_requests_total{status=~\"5..\"}[5m])) * 60",
+					"legendFormat": "5xx",
+					"refId": "A"
+				},
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum by (scope) (rate(warcon_rate_limited_total[5m])) * 60",
+					"legendFormat": "rate limited: {{scope}}",
+					"refId": "B"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 21,
+			"type": "timeseries",
+			"title": "Kill feed posts per second",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 8,
+				"y": 39,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum by (outcome) (rate(warcon_feed_posts_total[5m]))",
+					"legendFormat": "{{outcome}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 40,
+						"showPoints": "never",
+						"stacking": {
+							"mode": "normal",
+							"group": "A"
+						}
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 22,
+			"type": "timeseries",
+			"title": "Kill feed events per second",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 16,
+				"y": 39,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum by (result) (rate(warcon_feed_kills_total[5m]))",
+					"legendFormat": "{{result}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 40,
+						"showPoints": "never",
+						"stacking": {
+							"mode": "normal",
+							"group": "A"
+						}
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 23,
+			"type": "row",
+			"title": "Processes and database",
+			"collapsed": false,
+			"gridPos": {
+				"x": 0,
+				"y": 47,
+				"w": 24,
+				"h": 1
+			},
+			"panels": []
+		},
+		{
+			"id": 24,
+			"type": "timeseries",
+			"title": "Resident memory",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 0,
+				"y": 48,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum by (job) (process_resident_memory_bytes{job=~\"warcon-.*\"})",
+					"legendFormat": "{{job}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"unit": "bytes",
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 25,
+			"type": "timeseries",
+			"title": "CPU",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 8,
+				"y": 48,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum by (job) (rate(process_cpu_seconds_total{job=~\"warcon-.*\"}[5m]))",
+					"legendFormat": "{{job}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"unit": "percentunit",
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 26,
+			"type": "timeseries",
+			"title": "Event loop lag p99",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 16,
+				"y": 48,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "max by (job) (nodejs_eventloop_lag_p99_seconds{job=~\"warcon-.*\"})",
+					"legendFormat": "{{job}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"unit": "s",
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 27,
+			"type": "timeseries",
+			"title": "Database size",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 0,
+				"y": 56,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(pg_database_size_bytes{datname=\"warcon\"})",
+					"legendFormat": "warcon",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"unit": "bytes",
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 28,
+			"type": "timeseries",
+			"title": "Largest tables, live rows (estimate)",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 8,
+				"y": 56,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "topk(8, pg_stat_user_tables_n_live_tup{datname=\"warcon\"})",
+					"legendFormat": "{{relname}}",
+					"refId": "A"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"unit": "short",
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		},
+		{
+			"id": 29,
+			"type": "timeseries",
+			"title": "Database connections",
+			"datasource": {
+				"type": "prometheus",
+				"uid": "warcon-prometheus"
+			},
+			"gridPos": {
+				"x": 16,
+				"y": 56,
+				"w": 8,
+				"h": 8
+			},
+			"targets": [
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "sum(pg_stat_activity_count{datname=\"warcon\"})",
+					"legendFormat": "connections",
+					"refId": "A"
+				},
+				{
+					"datasource": {
+						"type": "prometheus",
+						"uid": "warcon-prometheus"
+					},
+					"expr": "max(pg_settings_max_connections)",
+					"legendFormat": "max",
+					"refId": "B"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"lineWidth": 1,
+						"fillOpacity": 8,
+						"showPoints": "never"
+					}
+				},
+				"overrides": []
+			},
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"mode": "multi",
+					"sort": "desc"
+				}
+			}
+		}
+	]
+}
