@@ -32,6 +32,21 @@ export function normalizeError(err: unknown): ApiError | null {
 	return null;
 }
 
+/**
+ * An error as it goes to the process log: its stack, and the cause's message. A failed query's
+ * message lists its parameters, and for the servers table those are the stored RCON password (as
+ * ciphertext) and the address, so the parameters are left out.
+ */
+export function forLog(err: unknown): unknown {
+	if (!(err instanceof Error)) return err;
+	const text = (err.stack || err.message).replace(
+		/\nparams: [\s\S]*?(?=\n\s+at |$)/,
+		'\nparams: (not logged)'
+	);
+	const cause = (err as { cause?: unknown }).cause;
+	return cause instanceof Error ? `${text}\ncause: ${cause.message}` : text;
+}
+
 export function apiError(raw: unknown): Response {
 	const err = normalizeError(raw);
 	if (err) {
@@ -47,7 +62,7 @@ export function apiError(raw: unknown): Response {
 			err.status
 		);
 	}
-	console.error('unhandled', raw instanceof Error ? raw.stack : raw);
+	console.error('unhandled', forLog(raw));
 	return apiJson({ ok: false, error: { message: 'Internal error.', code: 'internal' } }, 500);
 }
 
@@ -59,7 +74,7 @@ export function apiError(raw: unknown): Response {
 export function publicMessage(err: unknown, fallback = 'Internal error.'): string {
 	const known = normalizeError(err);
 	if (known) return known.message;
-	console.error('unhandled', err instanceof Error ? err.stack : err);
+	console.error('unhandled', forLog(err));
 	return fallback;
 }
 

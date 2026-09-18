@@ -16,6 +16,7 @@ import {
 	apiError,
 	CLIENT_IP_HEADER,
 	clientIp,
+	forLog,
 	normalizeError,
 	resolveClientIp
 } from '$lib/server/http';
@@ -208,7 +209,7 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 				};
 			}
 		} catch (err) {
-			console.error('session lookup failed:', err instanceof Error ? err.stack : err);
+			console.error('session lookup failed:', forLog(err));
 		}
 
 		if (event.locals.user?.mustChangePassword && !PASSWORD_GATE_EXEMPT.test(path)) {
@@ -255,7 +256,6 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 export const handleError: HandleServerError = ({ error, status, message }) => {
 	const known = normalizeError(error);
 	if (known) return { message: known.message, code: known.code || undefined };
-	if (status !== 404)
-		console.error('unhandled', status, error instanceof Error ? error.stack : error);
+	if (status !== 404) console.error('unhandled', status, forLog(error));
 	return { message: status === 404 ? 'Not found.' : message || 'Internal error.' };
 };
