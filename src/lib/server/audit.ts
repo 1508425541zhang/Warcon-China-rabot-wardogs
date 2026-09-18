@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, isNotNull, like, lt, lte, or, type SQL } from 'drizzle-orm';
 import type { Env } from './env';
-import { clientIp, userAgent, int, str } from './http';
+import { userAgent, int, str } from './http';
 import { auditLog, user, type AuditRow } from './db/schema';
 import { notifyWebhooks } from './webhook-delivery';
 
@@ -22,7 +22,6 @@ export interface AuditEvent {
 	status?: number;
 	message?: string;
 	durationMs?: number;
-	ip?: string;
 	userAgent?: string;
 }
 
@@ -79,7 +78,6 @@ export async function writeAudit(env: Env, req: Request | null, ev: AuditEvent):
 			outcome: ev.outcome,
 			status: ev.status ?? null,
 			message: str(ev.message, 1000),
-			ip: ev.ip ?? (req ? clientIp(req) : ''),
 			userAgent: ev.userAgent ?? (req ? userAgent(req) : ''),
 			durationMs: ev.durationMs ?? null
 		})
@@ -96,16 +94,10 @@ export type AuditVisibility = {
 } | null;
 
 /**
- * Where an action came from (address, browser) is shown on the caller's own rows and on rows of
- * orgs they own: Audit trail on a server is for what was done, not where staff connect from.
+ * The browser an action came from is shown on the caller's own rows and on rows of orgs they own:
+ * Audit trail on a server is for what was done. The address it came from is not recorded at all.
  */
-function originWhere(v: AuditVisibility | undefined): SQL | undefined {
-	if (!v) return undefined;
-	const any: SQL[] = [eq(auditLog.actorId, v.userId)];
-	if (v.ownedOrgIds.length) any.push(inArray(auditLog.orgId, v.ownedOrgIds));
-	return or(...any)!;
-}
-const seesOrigin = (
+const seesBrowser = (
 	v: AuditVisibility | undefined,
 	row: { actorId: string | null; orgId: string | null }
 ) => !v || row.actorId === v.userId || (!!row.orgId && v.ownedOrgIds.includes(row.orgId));
@@ -174,8 +166,7 @@ export async function queryAudit(
 				like(auditLog.serverName, pattern),
 				like(auditLog.action, pattern),
 				like(auditLog.target, pattern),
-				like(auditLog.message, pattern),
-				and(like(auditLog.ip, pattern), originWhere(q.visibleTo))
+				like(auditLog.message, pattern)
 			)!
 		);
 	}
@@ -190,7 +181,7 @@ export async function queryAudit(
 		.limit(limit + 1);
 	const entries = found
 		.slice(0, limit)
-		.map((e) => (seesOrigin(q.visibleTo, e) ? e : { ...e, ip: '', userAgent: '' }));
+		.map((e) => (seesBrowser(q.visibleTo, e) ? e : { ...e, userAgent: '' }));
 	const nextBefore = found.length > limit ? entries[entries.length - 1].id : null;
 	return { entries, nextBefore };
 }

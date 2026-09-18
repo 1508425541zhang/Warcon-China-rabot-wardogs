@@ -400,7 +400,6 @@ export interface SessionView {
 	createdAt: string | null;
 	updatedAt: string | null;
 	expiresAt: string | null;
-	ip: string;
 	userAgent: string;
 	current: boolean;
 }
@@ -416,7 +415,6 @@ export async function listSessions(
 			createdAt: session.createdAt,
 			updatedAt: session.updatedAt,
 			expiresAt: session.expiresAt,
-			ipAddress: session.ipAddress,
 			userAgent: session.userAgent
 		})
 		.from(session)
@@ -427,7 +425,6 @@ export async function listSessions(
 		createdAt: iso(s.createdAt),
 		updatedAt: iso(s.updatedAt),
 		expiresAt: iso(s.expiresAt),
-		ip: s.ipAddress || '',
 		userAgent: s.userAgent || '',
 		current: s.id === currentId
 	}));

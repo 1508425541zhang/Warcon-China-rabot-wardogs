@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { isAPIError } from 'better-auth/api';
 import type { Actions, PageServerLoad } from './$types';
 import { discordEnabled, getEnv } from '$lib/server/env';
-import { clientIp, str } from '$lib/server/http';
+import { addressKey, str } from '$lib/server/http';
 import { writeAudit } from '$lib/server/audit';
 import { clearLoginFailures, loginLockSeconds, noteLoginFailure } from '$lib/server/access';
 import { userCount } from '$lib/server/users';
@@ -36,7 +36,10 @@ export const actions: Actions = {
 		if (!username || !password)
 			return fail(400, { error: 'Username and password are required.', username });
 
-		const keys = [`u:${username.toLowerCase()}`, `ip:${clientIp(request) || 'unknown'}`];
+		const keys = [
+			`u:${username.toLowerCase()}`,
+			`ip:${addressKey(request, env.BETTER_AUTH_SECRET ?? '')}`
+		];
 		const lock = await loginLockSeconds(env, keys);
 		if (lock > 0) {
 			await writeAudit(env, request, {

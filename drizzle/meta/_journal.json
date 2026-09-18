@@ -176,6 +176,13 @@
       "when": 1789687548128,
       "tag": "0024_server_lists",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789762927998,
+      "tag": "0025_no_addresses",
+      "breakpoints": true
     }
   ]
 }

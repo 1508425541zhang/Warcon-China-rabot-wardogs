@@ -102,7 +102,7 @@
 		<input
 			class="col-span-2 input"
 			type="search"
-			placeholder="Search target, message, detail, IP…"
+			placeholder="Search target, message, detail…"
 			bind:value={f.q}
 			oninput={applyDebounced}
 		/>
@@ -133,7 +133,7 @@
 			<tr
 				><th>Time</th><th>Actor</th><th>Server</th><th>Action</th><th>Target</th><th>Outcome</th><th
 					>Message / detail</th
-				><th>IP</th><th class="num">ms</th></tr
+				><th class="num">ms</th></tr
 			>
 		</thead>
 		<tbody>
@@ -167,11 +167,10 @@
 							</details>
 						{/if}
 					</td>
-					<td class="font-mono text-[12px] text-mist-400">{r.ip}</td>
 					<td class="num font-mono text-[12px] text-mist-600">{r.durationMs ?? ''}</td>
 				</tr>
 			{:else}
-				<tr><td colspan="9" class="py-8 text-center text-mist-600">No audit entries match.</td></tr>
+				<tr><td colspan="8" class="py-8 text-center text-mist-600">No audit entries match.</td></tr>
 			{/each}
 		</tbody>
 	</table>

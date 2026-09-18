@@ -556,15 +556,12 @@
 			<span class="label-sm">Your sessions</span>
 			<div class="table-wrap">
 				<table>
-					<thead
-						><tr><th>Started</th><th>Last seen</th><th>IP</th><th>Client</th><th></th></tr></thead
-					>
+					<thead><tr><th>Started</th><th>Last seen</th><th>Client</th><th></th></tr></thead>
 					<tbody>
 						{#each data.sessions as s (s.id)}
 							<tr>
 								<td class="whitespace-nowrap">{fmtTime(s.createdAt)}</td>
 								<td class="whitespace-nowrap">{fmtTime(s.updatedAt)}</td>
-								<td class="font-mono text-[12px]">{s.ip}</td>
 								<td class="max-w-[160px] truncate text-mist-400" title={s.userAgent}
 									>{s.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 28)}</td
 								>

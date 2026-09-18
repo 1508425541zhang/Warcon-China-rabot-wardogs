@@ -60,17 +60,15 @@ describe('buildEmbed', () => {
 		outcome: 'ok' as const,
 		status: 200,
 		message: 'Kicked Nomad.',
-		ip: '203.0.113.9',
 		userAgent: 'curl',
 		durationMs: 12
 	};
-	test('names the action, actor, target and server, never the IP', () => {
+	test('names the action, actor, target and server', () => {
 		const e = buildEmbed('Warcon', row);
 		expect(e.title).toBe('Kick');
 		expect(e.description).toContain('**james** → `76561198000000001`');
 		expect(e.description).toContain('Server: EU #1');
 		expect(e.description).toContain('Kicked Nomad.');
-		expect(JSON.stringify(e)).not.toContain('203.0.113.9');
 		expect(e.color).toBe(0x7bc462);
 		expect(e.timestamp).toBe('2026-09-09T12:00:00.000Z');
 	});

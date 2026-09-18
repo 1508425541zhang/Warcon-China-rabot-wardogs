@@ -380,7 +380,6 @@ export const auditLog = pgTable(
 		outcome: text('outcome', { enum: ['ok', 'error', 'denied'] }).notNull(),
 		status: integer('status'),
 		message: text('message').notNull().default(''),
-		ip: text('ip').notNull().default(''),
 		userAgent: text('user_agent').notNull().default(''),
 		durationMs: integer('duration_ms')
 	},
@@ -394,7 +393,7 @@ export const auditLog = pgTable(
 );
 
 export const loginAttempts = pgTable('login_attempts', {
-	/** 'u:<username>' or 'ip:<address>' */
+	/** 'u:<username>', or 'ip:' / 'signup:' + a keyed hash of the address (addressKey in http.ts) */
 	key: text('key').primaryKey(),
 	count: integer('count').notNull().default(0),
 	firstAt: ts('first_at').notNull(),
