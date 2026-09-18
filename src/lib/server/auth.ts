@@ -24,6 +24,7 @@ import { discordEnabled, type Env } from './env';
 import { ApiError, CLIENT_IP_HEADER } from './http';
 import { warconSessions } from './auth-plugin';
 import { refreshAuthComplete, startGrace } from './enrolment';
+import { refuseMemberBeforeOwner } from './users';
 
 export const authConfigured = (env: Partial<Env> | undefined) => Boolean(env?.BETTER_AUTH_SECRET);
 
@@ -225,6 +226,14 @@ function build(env: Env) {
 			cookieCache: { enabled: false }
 		},
 		databaseHooks: {
+			user: {
+				create: {
+					// Password, passkey, Steam and Discord accounts are all made through here.
+					before: async (u) => {
+						await refuseMemberBeforeOwner(env, (u as { role?: unknown }).role);
+					}
+				}
+			},
 			session: {
 				create: {
 					// The address is read for throttling and never kept: a session is stored without it.

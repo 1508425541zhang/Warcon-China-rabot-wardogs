@@ -3,6 +3,7 @@
 import { and, asc, count, desc, eq, isNull, max, ne, or, sql } from 'drizzle-orm';
 import type { Auth } from './auth';
 import { emailFor, MIN_PASSWORD, USERNAME_RE } from './auth';
+import type { DbOrTx } from './db';
 import type { Env } from './env';
 import { ApiError, str } from './http';
 import { writeAudit } from './audit';
@@ -43,6 +44,19 @@ export function validateUsername(u: unknown): string {
 export async function userCount(env: Env): Promise<number> {
 	const [row] = await env.db.select({ n: count() }).from(user);
 	return row?.n ?? 0;
+}
+
+export const NOT_SET_UP = 'This panel has not been set up yet. Open /setup first.';
+
+/**
+ * The first account on the panel is the site owner's, made at /setup (which refuses once anyone
+ * exists). Every way an account is made passes here, so a Steam or Discord sign-up that arrives
+ * before setup cannot take the first place and leave the panel without an owner.
+ */
+export async function refuseMemberBeforeOwner(env: { db: DbOrTx }, role: unknown): Promise<void> {
+	if (role === 'owner') return;
+	const [first] = await env.db.select({ id: user.id }).from(user).limit(1);
+	if (!first) throw new ApiError(409, NOT_SET_UP, 'not_set_up');
 }
 
 export async function ownerCount(env: Env): Promise<number> {
