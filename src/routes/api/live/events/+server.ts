@@ -20,11 +20,17 @@ export const GET = async (event) => {
 	// The checks before the stream answer like every other API route (401/400/503 as JSON); only
 	// the stream itself stays outside route(), since it is a long-lived response.
 	let ids: string[];
+	let automation: Set<string>;
 	try {
 		const user = requireUser(event.locals);
-		const mine = new Set((await accessibleServers(env, user)).map((s) => s.id));
+		const servers = await accessibleServers(env, user);
+		const mine = new Set(servers.map((s) => s.id));
 		const asked = (event.url.searchParams.get('ids') || '').split(',').filter(Boolean);
 		ids = (asked.length ? asked : [...mine]).filter((id) => mine.has(id));
+		// What a rule did is for those who may read the outbox (GET .../outbox), not every viewer.
+		automation = new Set(
+			servers.filter((s) => s.caps.includes('automation.manage')).map((s) => s.id)
+		);
 		if (!ids.length) throw new ApiError(400, 'No servers to watch.');
 		// A process that is stopping must not take on a stream the browser would only lose again.
 		if (isShuttingDown()) throw new ApiError(503, 'Server restarting; retry shortly.');
@@ -70,7 +76,8 @@ export const GET = async (event) => {
 			if (closed) return;
 			unsubscribe = gateway().subscribe((e) => {
 				if (e.type === 'live' && wanted.has(e.live.serverId)) send('live', e.live);
-				else if (e.type === 'outbox' && wanted.has(e.serverId)) send('outbox', e);
+				else if (e.type === 'outbox' && wanted.has(e.serverId) && automation.has(e.serverId))
+					send('outbox', e);
 				else if (e.type === 'kills' && wanted.has(e.serverId)) send('kills', e);
 			});
 			timers.push(setInterval(() => gateway().interest(ids), INTEREST_MS));
