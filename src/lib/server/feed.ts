@@ -182,103 +182,108 @@ export async function ingestBatch(
 	} catch (err) {
 		throw new ApiError(400, err instanceof Error ? err.message : 'Malformed batch.');
 	}
-	const db = env.db;
 	let fresh: ParsedKill[] = batch.kills;
 	let duplicates = 0;
-	if (fresh.length) {
-		const ids = [...new Set(fresh.map((k) => k.eventId))];
-		const seen = new Set(
-			(
-				await db
-					.select({ eventId: kills.eventId })
-					.from(kills)
+	let written: KillView[] = [];
+	if (fresh.length)
+		// The table cannot hold a unique event id (a hypertable's unique indexes must include ts),
+		// so the look and the insert are one turn per server: the game sends a batch again when it
+		// did not hear back, and a copy that arrived mid-write passed the look and was written too.
+		await env.db.transaction(async (db) => {
+			await db.execute(
+				sql`SELECT pg_advisory_xact_lock(hashtextextended(${'feed:' + serverId}, 0))`
+			);
+			const ids = [...new Set(fresh.map((k) => k.eventId))];
+			const seen = new Set(
+				(
+					await db
+						.select({ eventId: kills.eventId })
+						.from(kills)
+						.where(
+							and(
+								eq(kills.serverId, serverId),
+								inArray(kills.eventId, ids),
+								gt(kills.ts, new Date(now.getTime() - DEDUPE_WINDOW_MS))
+							)
+						)
+				).map((r) => r.eventId)
+			);
+			const once = new Set<string>();
+			fresh = fresh.filter((k) => {
+				if (seen.has(k.eventId) || once.has(k.eventId)) return false;
+				once.add(k.eventId);
+				return true;
+			});
+			duplicates = batch.kills.length - fresh.length;
+			if (!fresh.length) return;
+			const steamIds = [
+				...new Set(
+					fresh.flatMap((k) =>
+						k.killerSteamId ? [k.killerSteamId, k.victimSteamId] : [k.victimSteamId]
+					)
+				)
+			];
+			const [open, [match]] = await Promise.all([
+				db
+					.select({ steamId: playerSessions.steamId, faction: playerSessions.faction })
+					.from(playerSessions)
 					.where(
 						and(
-							eq(kills.serverId, serverId),
-							inArray(kills.eventId, ids),
-							gt(kills.ts, new Date(now.getTime() - DEDUPE_WINDOW_MS))
+							eq(playerSessions.serverId, serverId),
+							isNull(playerSessions.leftAt),
+							inArray(playerSessions.steamId, steamIds)
 						)
 					)
-			).map((r) => r.eventId)
-		);
-		const once = new Set<string>();
-		fresh = fresh.filter((k) => {
-			if (seen.has(k.eventId) || once.has(k.eventId)) return false;
-			once.add(k.eventId);
-			return true;
+					.orderBy(playerSessions.id),
+				db
+					.select({ id: matches.id })
+					.from(matches)
+					.where(and(eq(matches.serverId, serverId), isNull(matches.endedAt)))
+					.orderBy(sql`${matches.id} DESC`)
+					.limit(1)
+			]);
+			// Newest open session wins when a player somehow has two.
+			const faction = new Map<string, string | null>();
+			for (const s of open) faction.set(s.steamId, s.faction);
+			const rows = await db
+				.insert(kills)
+				.values(
+					fresh.map((k) => {
+						const kf = k.killerSteamId ? (faction.get(k.killerSteamId) ?? null) : null;
+						const vf = faction.get(k.victimSteamId) ?? null;
+						return {
+							ts: now,
+							serverId,
+							eventId: k.eventId,
+							instanceId: batch.instanceId,
+							matchId: k.matchId,
+							matchRow: match?.id ?? null,
+							eventTime: k.eventTime,
+							map: k.map,
+							killerSteamId: k.killerSteamId,
+							killerName: k.killerName,
+							killerFaction: kf,
+							victimSteamId: k.victimSteamId,
+							victimName: k.victimName,
+							victimFaction: vf,
+							cause: k.cause,
+							distanceM: k.distanceM,
+							headshot: k.headshot,
+							suicide: k.suicide,
+							teamKill: isTeamKill(k, kf, vf),
+							tags: k.tags
+						};
+					})
+				)
+				.returning();
+			written = rows.map(killView);
 		});
-		duplicates = batch.kills.length - fresh.length;
-	}
-	let written: KillView[] = [];
-	if (fresh.length) {
-		const steamIds = [
-			...new Set(
-				fresh.flatMap((k) =>
-					k.killerSteamId ? [k.killerSteamId, k.victimSteamId] : [k.victimSteamId]
-				)
-			)
-		];
-		const [open, [match]] = await Promise.all([
-			db
-				.select({ steamId: playerSessions.steamId, faction: playerSessions.faction })
-				.from(playerSessions)
-				.where(
-					and(
-						eq(playerSessions.serverId, serverId),
-						isNull(playerSessions.leftAt),
-						inArray(playerSessions.steamId, steamIds)
-					)
-				)
-				.orderBy(playerSessions.id),
-			db
-				.select({ id: matches.id })
-				.from(matches)
-				.where(and(eq(matches.serverId, serverId), isNull(matches.endedAt)))
-				.orderBy(sql`${matches.id} DESC`)
-				.limit(1)
-		]);
-		// Newest open session wins when a player somehow has two.
-		const faction = new Map<string, string | null>();
-		for (const s of open) faction.set(s.steamId, s.faction);
-		const rows = await db
-			.insert(kills)
-			.values(
-				fresh.map((k) => {
-					const kf = k.killerSteamId ? (faction.get(k.killerSteamId) ?? null) : null;
-					const vf = faction.get(k.victimSteamId) ?? null;
-					return {
-						ts: now,
-						serverId,
-						eventId: k.eventId,
-						instanceId: batch.instanceId,
-						matchId: k.matchId,
-						matchRow: match?.id ?? null,
-						eventTime: k.eventTime,
-						map: k.map,
-						killerSteamId: k.killerSteamId,
-						killerName: k.killerName,
-						killerFaction: kf,
-						victimSteamId: k.victimSteamId,
-						victimName: k.victimName,
-						victimFaction: vf,
-						cause: k.cause,
-						distanceM: k.distanceM,
-						headshot: k.headshot,
-						suicide: k.suicide,
-						teamKill: isTeamKill(k, kf, vf),
-						tags: k.tags
-					};
-				})
-			)
-			.returning();
-		written = rows.map(killView);
-	}
 	// The liveness stamp, at most every ten seconds per server: the worker's upsert of the row
 	// leaves this column alone, so the two never fight.
 	const last = feedAtWritten.get(serverId) ?? 0;
 	if (now.getTime() - last >= FEED_AT_EVERY_MS) {
 		feedAtWritten.set(serverId, now.getTime());
-		await db
+		await env.db
 			.insert(serverLive)
 			.values({ serverId, feedAt: now })
 			.onConflictDoUpdate({ target: serverLive.serverId, set: { feedAt: now } });
