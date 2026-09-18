@@ -442,80 +442,81 @@
 			</div>
 		{/if}
 
-		<div class="panel">
-			<div class="mb-3 flex items-center gap-2">
-				<span class="label-sm mb-0!">Organisation lists</span>
-				{#if d.orgLists.canEdit}
+		<!-- the entry, its reason and who added it are for those who may open the lists -->
+		{#if d.orgLists.canEdit}
+			<div class="panel">
+				<div class="mb-3 flex items-center gap-2">
+					<span class="label-sm mb-0!">Organisation lists</span>
 					<a
 						href="/orgs/{encodeURIComponent(data.server.orgId)}/bans"
 						class="ml-auto text-[12px] text-accent hover:underline">Open the lists →</a
 					>
-				{/if}
-			</div>
-			<div class="space-y-3 text-[13px]">
-				<div class="flex flex-wrap items-center gap-2">
-					{#if d.orgLists.ban}
-						{@const b = d.orgLists.ban}
-						<Badge tone="err">banned org-wide</Badge>
-						<span class="min-w-0 flex-1 truncate text-mist-400"
-							>{b.reason || 'no reason'} · by {b.addedByName || '—'}{#if b.expiresAt}
-								· until {fmtTime(b.expiresAt)}{/if}</span
-						>
-						<span class="inline-flex flex-wrap gap-1">
-							{#each b.servers as s (s.serverId)}
-								<span title="{s.serverName}: {s.state}{s.error ? ` — ${s.error}` : ''}"
-									><Badge tone={STATE_TONE[s.state]}>{s.serverName}</Badge></span
-								>
-							{/each}
-						</span>
-						{#if d.orgLists.canEdit}
-							<button class="btn btn-sm" disabled={busy} onclick={() => orgRemove('ban')}
-								>Unban org-wide</button
-							>
-						{/if}
-					{:else}
-						<span class="text-mist-400">Not on the organisation's ban list.</span>
-						{#if d.orgLists.canEdit}
-							<button
-								class="ml-auto btn btn-sm btn-danger"
-								disabled={busy}
-								onclick={() => (banning = true)}>Ban org-wide</button
-							>
-						{/if}
-					{/if}
 				</div>
-				<div class="flex flex-wrap items-center gap-2">
-					{#if d.orgLists.reserve}
-						{@const r = d.orgLists.reserve}
-						<Badge tone="accent">reserved slot</Badge>
-						<span class="min-w-0 flex-1 truncate text-mist-400"
-							>{r.reason || 'org-wide'}{#if r.member}
-								· member{/if}{#if r.expiresAt}
-								· until {fmtTime(r.expiresAt)}{/if}</span
-						>
-						<span class="inline-flex flex-wrap gap-1">
-							{#each r.servers as s (s.serverId)}
-								<span title="{s.serverName}: {s.state}{s.error ? ` — ${s.error}` : ''}"
-									><Badge tone={STATE_TONE[s.state]}>{s.serverName}</Badge></span
+				<div class="space-y-3 text-[13px]">
+					<div class="flex flex-wrap items-center gap-2">
+						{#if d.orgLists.ban}
+							{@const b = d.orgLists.ban}
+							<Badge tone="err">banned org-wide</Badge>
+							<span class="min-w-0 flex-1 truncate text-mist-400"
+								>{b.reason || 'no reason'} · by {b.addedByName || '—'}{#if b.expiresAt}
+									· until {fmtTime(b.expiresAt)}{/if}</span
+							>
+							<span class="inline-flex flex-wrap gap-1">
+								{#each b.servers as s (s.serverId)}
+									<span title="{s.serverName}: {s.state}{s.error ? ` — ${s.error}` : ''}"
+										><Badge tone={STATE_TONE[s.state]}>{s.serverName}</Badge></span
+									>
+								{/each}
+							</span>
+							{#if d.orgLists.canEdit}
+								<button class="btn btn-sm" disabled={busy} onclick={() => orgRemove('ban')}
+									>Unban org-wide</button
 								>
-							{/each}
-						</span>
-						{#if d.orgLists.canEdit && !r.member}
-							<button class="btn btn-sm" disabled={busy} onclick={() => orgRemove('reserve')}
-								>Withdraw</button
-							>
+							{/if}
+						{:else}
+							<span class="text-mist-400">Not on the organisation's ban list.</span>
+							{#if d.orgLists.canEdit}
+								<button
+									class="ml-auto btn btn-sm btn-danger"
+									disabled={busy}
+									onclick={() => (banning = true)}>Ban org-wide</button
+								>
+							{/if}
 						{/if}
-					{:else}
-						<span class="text-mist-400">No reserved slot from the organisation.</span>
-						{#if d.orgLists.canEdit}
-							<button class="ml-auto btn btn-sm" disabled={busy} onclick={orgReserve}
-								>Reserve a slot</button
+					</div>
+					<div class="flex flex-wrap items-center gap-2">
+						{#if d.orgLists.reserve}
+							{@const r = d.orgLists.reserve}
+							<Badge tone="accent">reserved slot</Badge>
+							<span class="min-w-0 flex-1 truncate text-mist-400"
+								>{r.reason || 'org-wide'}{#if r.member}
+									· member{/if}{#if r.expiresAt}
+									· until {fmtTime(r.expiresAt)}{/if}</span
 							>
+							<span class="inline-flex flex-wrap gap-1">
+								{#each r.servers as s (s.serverId)}
+									<span title="{s.serverName}: {s.state}{s.error ? ` — ${s.error}` : ''}"
+										><Badge tone={STATE_TONE[s.state]}>{s.serverName}</Badge></span
+									>
+								{/each}
+							</span>
+							{#if d.orgLists.canEdit && !r.member}
+								<button class="btn btn-sm" disabled={busy} onclick={() => orgRemove('reserve')}
+									>Withdraw</button
+								>
+							{/if}
+						{:else}
+							<span class="text-mist-400">No reserved slot from the organisation.</span>
+							{#if d.orgLists.canEdit}
+								<button class="ml-auto btn btn-sm" disabled={busy} onclick={orgReserve}
+									>Reserve a slot</button
+								>
+							{/if}
 						{/if}
-					{/if}
+					</div>
 				</div>
 			</div>
-		</div>
+		{/if}
 
 		<div class="panel">
 			<div class="mb-3 flex items-center gap-2">
@@ -609,9 +610,11 @@
 			{#if d.watch.watched}
 				<p class="mb-2 text-[13px]">
 					On the watchlist{#if d.watch.reason}: <b>{d.watch.reason}</b>{/if}.
-					<span class="text-mist-400"
-						>Added by {d.watch.updatedByName || '?'} · {fmtTime(d.watch.updatedAt)}</span
-					>
+					{#if notes}
+						<span class="text-mist-400"
+							>Added by {d.watch.updatedByName || '?'} · {fmtTime(d.watch.updatedAt)}</span
+						>
+					{/if}
 				</p>
 				<button class="btn btn-sm" disabled={busy || !notes} onclick={() => setWatch(false)}
 					>Remove from watchlist</button
@@ -635,42 +638,47 @@
 			</p>
 		</div>
 
-		<div class="panel">
-			<span class="label-sm">Notes</span>
-			{#if notes}
-				<div class="mb-3">
-					<textarea
-						class="min-h-[70px] input"
-						placeholder="Anything the next admin should know…"
-						maxlength="2000"
-						bind:value={note}></textarea>
-					<div class="mt-2 flex justify-end">
-						<button class="btn btn-sm btn-primary" disabled={busy || !note.trim()} onclick={addNote}
-							>Add note</button
-						>
-					</div>
-				</div>
-			{/if}
-			<div class="space-y-2">
-				{#each d.notes as n (n.id)}
-					<div class="rounded-ctl border border-black bg-ink-950 px-3 py-2">
-						<div class="mb-1 flex items-center gap-2 text-[12px] text-mist-400">
-							<b class="text-mist-100">{n.authorName || '—'}</b>
-							<span>{fmtTime(n.createdAt)}</span>
-							{#if n.deletable}<button
-									class="ml-auto btn btn-sm btn-ghost"
-									aria-label="Delete note"
-									disabled={busy}
-									onclick={() => deleteNote(n.id)}>✕</button
-								>{/if}
+		<!-- notes are read by those who may write them -->
+		{#if notes}
+			<div class="panel">
+				<span class="label-sm">Notes</span>
+				{#if notes}
+					<div class="mb-3">
+						<textarea
+							class="min-h-[70px] input"
+							placeholder="Anything the next admin should know…"
+							maxlength="2000"
+							bind:value={note}></textarea>
+						<div class="mt-2 flex justify-end">
+							<button
+								class="btn btn-sm btn-primary"
+								disabled={busy || !note.trim()}
+								onclick={addNote}>Add note</button
+							>
 						</div>
-						<div class="text-[13.5px] whitespace-pre-wrap">{n.body}</div>
 					</div>
-				{:else}
-					<p class="text-[13px] text-mist-600">No notes yet.</p>
-				{/each}
+				{/if}
+				<div class="space-y-2">
+					{#each d.notes as n (n.id)}
+						<div class="rounded-ctl border border-black bg-ink-950 px-3 py-2">
+							<div class="mb-1 flex items-center gap-2 text-[12px] text-mist-400">
+								<b class="text-mist-100">{n.authorName || '—'}</b>
+								<span>{fmtTime(n.createdAt)}</span>
+								{#if n.deletable}<button
+										class="ml-auto btn btn-sm btn-ghost"
+										aria-label="Delete note"
+										disabled={busy}
+										onclick={() => deleteNote(n.id)}>✕</button
+									>{/if}
+							</div>
+							<div class="text-[13.5px] whitespace-pre-wrap">{n.body}</div>
+						</div>
+					{:else}
+						<p class="text-[13px] text-mist-600">No notes yet.</p>
+					{/each}
+				</div>
 			</div>
-		</div>
+		{/if}
 	</div>
 </div>
 

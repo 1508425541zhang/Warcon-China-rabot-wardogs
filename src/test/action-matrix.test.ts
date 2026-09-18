@@ -24,8 +24,6 @@ const ACTION_CAPS: Record<string, Capability> = {
 	bans: 'server.view',
 	reserved: 'server.view',
 	sponsor: 'server.view',
-	serverLog: 'server.view',
-	config: 'server.view',
 
 	broadcast: 'chat.send',
 	whisper: 'chat.send',
@@ -47,6 +45,8 @@ const ACTION_CAPS: Record<string, Capability> = {
 	reservedAdd: 'slots.manage',
 	reservedRemove: 'slots.manage',
 	rotationSave: 'rotation.save',
+	serverLog: 'audit.read',
+	config: 'config.apply',
 	settings: 'config.apply',
 	configValidate: 'config.apply',
 	configApply: 'config.apply',

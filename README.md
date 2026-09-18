@@ -273,23 +273,28 @@ org's **Roles** tab (a change applies at once to everyone holding the role), res
 what it shipped with, and add roles of their own, say a `Trial staff` that may kick but not ban.
 Org owners and the site owner hold every capability on every server in scope.
 
-| Capability        | Unlocks                                                                                                                               | viewer | operator | admin |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------- | ----- |
-| View              | status, players, rotation, bans, reserved, config (read), server log, analytics, player dossiers, triggers (read). Every role has it. | ✓      | ✓        | ✓     |
-| Chat              | broadcast, whisper                                                                                                                    |        | ✓        | ✓     |
-| Kick, kill, move  | kick, kill, change team                                                                                                               |        | ✓        | ✓     |
-| Match control     | end/restart match, change map, next map, weather                                                                                      |        | ✓        | ✓     |
-| Live rotation     | add, remove and reorder rotation entries on the running server                                                                        |        | ✓        | ✓     |
-| Notes & watchlist | player notes (delete your own), watch and unwatch                                                                                     |        | ✓        | ✓     |
-| Bans              | ban and unban on the server                                                                                                           |        |          | ✓     |
-| Reserved slots    | reserve and unreserve on this server, with a note and an expiry; a Seeding reward rule that hands out slots here                      |        |          | ✓     |
-| Org lists         | the organisation's ban and reserved-slot lists, pushed to every server; sync                                                          |        |          | ✓     |
-| Others' notes     | delete anyone's note; the full dossier                                                                                                |        |          | ✓     |
-| Save rotation     | save the rotation, rotation mode on and off                                                                                           |        |          | ✓     |
-| Config & settings | score tick, sponsor image, validate and apply the config document, connection test                                                    |        |          | ✓     |
-| Automation        | create, edit, dry-run and delete triggers                                                                                             |        |          | ✓     |
-| Audit trail       | everyone's actions on the server in the audit log, not just your own                                                                  |        |          | ✓     |
-| Raw RCON          | any /v1 route on the game server directly, except the config document                                                                 |        |          | ✓     |
+| Capability        | Unlocks                                                                                                                                                                   | viewer | operator | admin |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------- | ----- |
+| View              | what is happening on the server: status, players, kills, rotation, who is banned and who holds a reserved slot, analytics, leaderboards, player stats. Every role has it. | ✓      | ✓        | ✓     |
+| Chat              | broadcast, whisper                                                                                                                                                        |        | ✓        | ✓     |
+| Kick, kill, move  | kick, kill, change team                                                                                                                                                   |        | ✓        | ✓     |
+| Match control     | end/restart match, change map, next map, weather                                                                                                                          |        | ✓        | ✓     |
+| Live rotation     | add, remove and reorder rotation entries on the running server                                                                                                            |        | ✓        | ✓     |
+| Notes & watchlist | read and add player notes (delete your own), watch and unwatch, the reason a player is watched                                                                            |        | ✓        | ✓     |
+| Bans              | ban and unban on the server                                                                                                                                               |        |          | ✓     |
+| Reserved slots    | reserve and unreserve on this server, with a note and an expiry, and read the notes; a Seeding reward rule that hands out slots here                                      |        |          | ✓     |
+| Org lists         | the organisation's ban and reserved-slot lists, pushed to every server; sync; a player's entry on them in the dossier                                                     |        |          | ✓     |
+| Others' notes     | delete anyone's note                                                                                                                                                      |        |          | ✓     |
+| Save rotation     | save the rotation, rotation mode on and off                                                                                                                               |        |          | ✓     |
+| Config & settings | read, validate and apply the config document; score tick, sponsor image, connection test, the game's raw status                                                           |        |          | ✓     |
+| Automation        | see the triggers and what they did; create, edit, dry-run and delete them                                                                                                 |        |          | ✓     |
+| Audit trail       | everyone's actions on the server in the audit log, not just your own; the game server's own RCON log                                                                      |        |          | ✓     |
+| Raw RCON          | any /v1 route on the game server directly, except the config document                                                                                                     |        |          | ✓     |
+
+View is what is happening on the server and nothing about how it is run. The config document, the
+triggers, staff notes on players and the game's RCON log each need the capability that manages
+them, in the panel and for API keys alike; where the server listens (its RCON host and port) and
+the notes on the Servers page are shown to the organisation's owners only.
 
 No role reads the server's credentials. The config document leaves the panel with the RCON
 `Password`, its `PasswordHash` and the kill feed `Token` shown as `(hidden)`, for every role, org
@@ -852,12 +857,12 @@ GET  /api/steam/profiles?ids=a,b      GET /api/health
 ```
 
 Actions, by the capability each needs: `capabilities status health serverId players maps lightings
-experiences alternators catalog rotation bans reserved sponsor serverLog config` (View) ·
+experiences alternators catalog rotation bans reserved sponsor` (View) ·
 `broadcast whisper` (Chat) · `kick kill changeTeam` (Kick, kill, move) · `endMatch restartMatch
 changeMap setWeather setNextMap` (Match control) · `rotationAdd rotationRemove rotationMove
 rotationReorder` (Live rotation) · `ban unban` (Bans) · `reservedAdd reservedRemove` (Reserved
-slots) · `rotationSave` (Save rotation) · `settings configValidate configApply` (Config & settings)
-· `raw` (Raw RCON).
+slots) · `rotationSave` (Save rotation) · `config settings configValidate configApply` (Config &
+settings) · `serverLog` (Audit trail) · `raw` (Raw RCON).
 
 ## Notes and limits
 

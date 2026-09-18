@@ -6,6 +6,11 @@ import { recentOutbox } from '$lib/server/outbox';
 
 export const GET = route(async (event) => {
 	const env = getEnv();
-	const { server } = await requireServerCap(env, event.locals, param(event, 'id'), 'server.view');
+	const { server } = await requireServerCap(
+		env,
+		event.locals,
+		param(event, 'id'),
+		'automation.manage'
+	);
 	return apiJson({ ok: true, items: await recentOutbox(env, server.id, 40) });
 });

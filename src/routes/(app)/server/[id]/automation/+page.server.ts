@@ -14,7 +14,7 @@ import { listTriggers } from '$lib/server/triggers';
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
 	try {
-		const { server } = await requireServerCap(env, locals, params.id, 'server.view');
+		const { server } = await requireServerCap(env, locals, params.id, 'automation.manage');
 		// What the kinds need before they can run here, so the Add menu and the editor can say so.
 		return {
 			triggers: await listTriggers(env, server.id),

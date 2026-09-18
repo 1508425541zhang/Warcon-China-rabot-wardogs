@@ -13,9 +13,9 @@ import { orgListsView, serverListsState } from '$lib/server/lists';
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
 	try {
-		const { server, user } = await requireServerCap(env, locals, params.id, 'server.view');
+		const { server, user, access } = await requireServerCap(env, locals, params.id, 'server.view');
 		const [listState, org, role] = await Promise.all([
-			serverListsState(env, server, user),
+			serverListsState(env, server, user, access),
 			getOrg(env, server.orgId),
 			listsRoleFor(env, user, server.orgId)
 		]);

@@ -453,8 +453,10 @@ export const ACTIONS: Record<string, ActionDef> = {
 		mutating: false,
 		run: async (c) => ({ imageUrl: (await c.json('GET', '/v1/sponsor')).imageUrl || '' })
 	},
+	// The game's own RCON log: who connected from where and what they ran. Audit trail, like the
+	// panel's record of the same actions.
 	serverLog: {
-		cap: 'server.view',
+		cap: 'audit.read',
 		mutating: false,
 		run: async (c, p) => {
 			const limit = int(p.limit, 50, 1, 500);
@@ -472,9 +474,10 @@ export const ACTIONS: Record<string, ActionDef> = {
 	},
 	// The document without its credentials: the RCON password, its hash and the kill feed token
 	// read as a placeholder for everyone, and validate/apply put the live values back. Nobody
-	// needs them from here (README, "Roles"), and View is held by every role and read-only key.
+	// needs them from here (README, "Roles"). The rest of the document (the join password, the
+	// admin list, every setting) is for those who may apply it.
 	config: {
-		cap: 'server.view',
+		cap: 'config.apply',
 		mutating: false,
 		run: async (c) => {
 			const doc = await readConfig(c);

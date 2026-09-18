@@ -45,7 +45,7 @@ export interface CapabilityInfo {
 export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
 	'server.view': {
 		label: 'View',
-		hint: 'Status, players, rotation, bans, reserved slots, config, server log, analytics, player dossiers, triggers.',
+		hint: 'What is happening on the server: status, players, kills, rotation, who is banned and who holds a reserved slot, analytics, leaderboards and player stats.',
 		group: 'read'
 	},
 	'chat.send': {
@@ -70,23 +70,23 @@ export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
 	},
 	'players.notes': {
 		label: 'Notes & watchlist',
-		hint: 'Add player notes, delete your own, and watch or unwatch players.',
+		hint: 'Read and add player notes, delete your own, watch or unwatch players and see why they are watched.',
 		group: 'play'
 	},
 	'bans.manage': { label: 'Bans', hint: 'Ban and unban on this server.', group: 'moderate' },
 	'slots.manage': {
 		label: 'Reserved slots',
-		hint: 'Reserve and unreserve slots on this server (through its config document on builds without the live routes).',
+		hint: 'Reserve and unreserve slots on this server (through its config document on builds without the live routes), and read the note on each.',
 		group: 'moderate'
 	},
 	'lists.edit': {
 		label: 'Org lists',
-		hint: "Edit the organisation's ban and reserved-slot lists and push them to servers.",
+		hint: "Edit the organisation's ban and reserved-slot lists and push them to servers; see a player's entry on them in the dossier.",
 		group: 'moderate'
 	},
 	'players.notes.manage': {
 		label: "Others' notes",
-		hint: 'Delete notes written by anyone; see the full dossier.',
+		hint: 'Delete notes written by anyone.',
 		group: 'moderate'
 	},
 	'rotation.save': {
@@ -96,17 +96,17 @@ export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
 	},
 	'config.apply': {
 		label: 'Config & settings',
-		hint: 'Score tick, sponsor image, validate and apply the config document, connection test.',
+		hint: 'Read, validate and apply the config document; score tick, sponsor image, connection test.',
 		group: 'manage'
 	},
 	'automation.manage': {
 		label: 'Automation',
-		hint: 'Create, edit, dry-run and delete triggers.',
+		hint: 'See the triggers and what they did; create, edit, dry-run and delete them.',
 		group: 'manage'
 	},
 	'audit.read': {
 		label: 'Audit trail',
-		hint: "See everyone's actions on this server in the audit log, not just your own.",
+		hint: "See everyone's actions on this server in the audit log, not just your own, and the game server's own RCON log.",
 		group: 'manage'
 	},
 	'rcon.raw': {
