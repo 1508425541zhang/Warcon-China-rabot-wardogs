@@ -36,6 +36,16 @@ export async function verifySteamAssertion(
 	expectedReturnTo: string,
 	fetchFn: typeof fetch = fetch
 ): Promise<string> {
+	// Every field once. get() reads the first of a repeated field and the body sent to Steam below
+	// keeps the last, so a repeated identity would have Steam confirm one and this return another:
+	// anyone could sign in as any Steam account by putting that identity in front of their own.
+	const seen = new Set<string>();
+	for (const [k] of params) {
+		if (!k.startsWith('openid.')) continue;
+		if (seen.has(k))
+			throw new ApiError(403, 'Steam sign-in answer repeats a field.', 'steam_duplicate');
+		seen.add(k);
+	}
 	if (params.get('openid.mode') !== 'id_res')
 		throw new ApiError(403, 'Steam did not confirm the sign-in.', 'steam_denied');
 	const returnTo = params.get('openid.return_to') ?? '';

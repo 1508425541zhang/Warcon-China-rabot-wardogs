@@ -46,6 +46,25 @@ describe('steam openid', () => {
 		expect(posted!.get('openid.mode')).toBe('check_authentication');
 		expect(posted!.get('openid.sig')).toBe('base64sig=');
 	});
+	// get() reads the first of a repeated field and the body sent to Steam kept the last, so the
+	// attacker's own signed fields were confirmed while the victim's identity in front was returned.
+	test('an assertion that repeats a field is refused before Steam is asked', async () => {
+		const VICTIM = 'https://steamcommunity.com/openid/id/76561198000000099';
+		const fetchFn = (async () => new Response('is_valid:true\n')) as unknown as typeof fetch;
+		const forged = new URLSearchParams([
+			['openid.claimed_id', VICTIM],
+			['openid.identity', VICTIM],
+			...good()
+		]);
+		await expect(verifySteamAssertion(forged, RETURN, fetchFn)).rejects.toMatchObject({
+			code: 'steam_duplicate'
+		});
+		const twoSigs = good();
+		twoSigs.append('openid.sig', 'other=');
+		await expect(verifySteamAssertion(twoSigs, RETURN, fetchFn)).rejects.toMatchObject({
+			code: 'steam_duplicate'
+		});
+	});
 	test('steam saying is_valid:false is refused', async () => {
 		const fetchFn = (async () => new Response('is_valid:false\n')) as unknown as typeof fetch;
 		await expect(verifySteamAssertion(good(), RETURN, fetchFn)).rejects.toMatchObject({
