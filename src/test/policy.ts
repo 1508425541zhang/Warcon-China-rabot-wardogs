@@ -37,8 +37,12 @@ const CAPS: Partial<Record<PrincipalName, readonly Capability[]>> = {
 const KEYS: PrincipalName[] = ['keyView', 'keyAll', 'keyElsewhere'];
 const RUNS_ORG: PrincipalName[] = ['owner', 'site'];
 const IN_ORG: PrincipalName[] = ['member', 'viewer', 'operator', 'admin', 'elsewhere'];
-/** lists.edit somewhere in the org: the admin role, on this server or the other one, and the full keys */
-const LIST_EDITORS: PrincipalName[] = ['admin', 'elsewhere', 'keyAll', 'keyElsewhere'];
+/**
+ * lists.edit somewhere in the org: the admin role, on this server or the other one, and a key
+ * over the whole org. The org lists reach every server, so a key held to some servers
+ * (`keyElsewhere`) cannot open them whatever it carries.
+ */
+const LIST_EDITORS: PrincipalName[] = ['admin', 'elsewhere', 'keyAll'];
 
 export function expected(policy: Policy, who: PrincipalName): Expect {
 	if (policy === 'open') return 'ok';
