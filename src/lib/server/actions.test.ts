@@ -566,3 +566,22 @@ test('raw does not serve the config document, however the path is spelt', async 
 	await ACTIONS.raw.run(client, { method: 'GET', path: '/v1/players?name=a%20b' });
 	expect(calls).toEqual(['GET /v1/configuration', 'GET /v1/status', 'GET /v1/players?name=a%20b']);
 });
+
+test('raw passes on the documented headers only: a proxy in front of the listener names the RCON address in the others', async () => {
+	const client: any = {
+		raw: async () => ({
+			status: 301,
+			statusText: 'Moved',
+			headers: {
+				'content-type': 'text/html',
+				etag: '"abc"',
+				location: 'https://rcon.example.net:7776/v1/status/',
+				via: '1.1 rcon.example.net',
+				'alt-svc': 'h3="rcon.example.net:7776"'
+			},
+			text: ''
+		})
+	};
+	const res: any = await ACTIONS.raw.run(client, { method: 'GET', path: '/v1/status' });
+	expect(res.headers).toEqual({ 'content-type': 'text/html', etag: '"abc"' });
+});
