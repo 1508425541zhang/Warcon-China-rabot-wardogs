@@ -67,6 +67,22 @@ export async function ownerCount(env: Env): Promise<number> {
 	return row?.n ?? 0;
 }
 
+/**
+ * The same question inside the transaction that demotes or disables an owner, with the owners'
+ * rows locked: of two requests that arrive together the second waits and counts what the first
+ * left. The count before the transaction answers the ordinary case early; alone it let both through.
+ */
+async function keepASiteOwner(tx: DbOrTx, userId: string): Promise<void> {
+	const owners = await tx
+		.select({ id: user.id })
+		.from(user)
+		.where(and(eq(user.role, 'owner'), or(isNull(user.banned), eq(user.banned, false))))
+		.orderBy(user.id)
+		.for('update');
+	if (owners.length <= 1 && owners.some((o) => o.id === userId))
+		throw new ApiError(400, 'The panel needs at least one owner.');
+}
+
 const iso = (v: Date | null | undefined): string | null => (v ? v.toISOString() : null);
 const label = (u: { displayUsername: string | null; username: string | null; email: string }) =>
 	u.displayUsername || u.username || u.email.split('@')[0];
@@ -297,6 +313,8 @@ export async function updateUser(
 	if (!Object.keys(changes).length) throw new ApiError(400, 'Nothing to update.');
 	set.updatedAt = new Date();
 	await env.db.transaction(async (tx) => {
+		if (u.role === 'owner' && (changes.role === 'member' || changes.disabled === true))
+			await keepASiteOwner(tx, u.id);
 		await tx.update(user).set(set).where(eq(user.id, u.id));
 		if (resetAuth) {
 			await tx.delete(twoFactor).where(eq(twoFactor.userId, u.id));
