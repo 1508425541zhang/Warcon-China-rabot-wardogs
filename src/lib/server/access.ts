@@ -553,26 +553,28 @@ export async function loginLockSeconds(env: Env, keys: string[]): Promise<number
 	return worst;
 }
 
+/**
+ * One statement per key, so failures that arrive together are each counted: a read and a write
+ * apart let a burst of guesses overwrite one another's count and stay under the limit.
+ */
 export async function noteLoginFailure(env: Env, keys: string[]): Promise<void> {
 	const now = new Date();
+	const windowStart = new Date(now.getTime() - WINDOW_MINUTES * 60 * 1000);
+	const lockUntil = new Date(now.getTime() + LOCK_MINUTES * 60 * 1000);
 	for (const key of keys) {
-		const [row] = await env.db
-			.select({ count: loginAttempts.count, firstAt: loginAttempts.firstAt })
-			.from(loginAttempts)
-			.where(eq(loginAttempts.key, key))
-			.limit(1);
-		let count = 1;
-		let firstAt = now;
-		if (row && now.getTime() - row.firstAt.getTime() < WINDOW_MINUTES * 60 * 1000) {
-			count = row.count + 1;
-			firstAt = row.firstAt;
-		}
 		const limit = key.startsWith('ip:') ? LOCK_AFTER_IP : LOCK_AFTER_USER;
-		const lockedUntil = count >= limit ? new Date(now.getTime() + LOCK_MINUTES * 60 * 1000) : null;
+		const inWindow = sql`${loginAttempts.firstAt} > ${windowStart.toISOString()}::timestamptz`;
 		await env.db
 			.insert(loginAttempts)
-			.values({ key, count, firstAt, lockedUntil })
-			.onConflictDoUpdate({ target: loginAttempts.key, set: { count, firstAt, lockedUntil } });
+			.values({ key, count: 1, firstAt: now, lockedUntil: limit <= 1 ? lockUntil : null })
+			.onConflictDoUpdate({
+				target: loginAttempts.key,
+				set: {
+					count: sql`CASE WHEN ${inWindow} THEN ${loginAttempts.count} + 1 ELSE 1 END`,
+					firstAt: sql`CASE WHEN ${inWindow} THEN ${loginAttempts.firstAt} ELSE ${now.toISOString()}::timestamptz END`,
+					lockedUntil: sql`CASE WHEN ${inWindow} AND ${loginAttempts.count} + 1 >= ${limit} THEN ${lockUntil.toISOString()}::timestamptz ELSE NULL END`
+				}
+			});
 	}
 }
 
