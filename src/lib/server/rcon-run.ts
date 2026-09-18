@@ -111,6 +111,9 @@ export async function runAction(
 		const result = await gateway().run(env, server, name, params);
 		if (name === 'capabilities' && !unshaped && result && typeof result === 'object')
 			delete (result as { raw?: unknown }).raw;
+		// Addresses are for the site owner alone: the listener's log keeps its events, not its peers.
+		if (name === 'serverLog' && user.role !== 'owner')
+			for (const e of (result as { entries?: { peer: string }[] })?.entries ?? []) e.peer = '';
 		const durationMs = Date.now() - started;
 		// The panel shows what the worker last saw; after a change, have it look again now. A list
 		// edit also rewrites the mirror here, so the change shows before the worker's re-read lands.

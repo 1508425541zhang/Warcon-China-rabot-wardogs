@@ -101,4 +101,20 @@ describe.skipIf(!hasTestDb)('game action permission matrix', () => {
 		});
 		expect(answer.status).toBe(405);
 	});
+
+	test("the listener's log names its peers to the site owner only", async () => {
+		stubGateway({ entries: [{ peer: '203.0.113.7:51022', event: 'AUTH_OK', detail: '-' }] });
+		const { GET } = await import('../routes/api/servers/[id]/rcon/[action]/+server');
+		const peers = async (who: 'site' | 'owner' | 'admin') => {
+			const answer = await callApi(GET, world.users[who], {
+				params: { id: world.server.id, action: 'serverLog' }
+			});
+			return JSON.stringify(answer.body);
+		};
+		expect(await peers('site')).toContain('203.0.113.7');
+		for (const who of ['owner', 'admin'] as const) {
+			expect(await peers(who)).toContain('AUTH_OK');
+			expect(await peers(who)).not.toContain('203.0.113.7');
+		}
+	});
 });

@@ -538,6 +538,11 @@ test('raw does not serve the config document, however the path is spelt', async 
 			status: 403,
 			code: 'use_config_actions'
 		});
+	for (const path of ['/v1/audit', '/v1/audit?limit=500', '/v1/%61udit'])
+		await expect(ACTIONS.raw.run(client, { method: 'GET', path })).rejects.toMatchObject({
+			status: 403,
+			code: 'use_server_log'
+		});
 	expect(calls).toEqual([]);
 	await ACTIONS.raw.run(client, { method: 'GET', path: '/v1/configuration' });
 	await ACTIONS.raw.run(client, { method: 'GET', path: '/v1/status' });
