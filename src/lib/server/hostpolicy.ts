@@ -190,7 +190,15 @@ export function gamePath(raw: string): string {
 	if (url.host !== 'game.invalid' || !raw.startsWith('/'))
 		throw new ApiError(400, 'path must start with /v1/.');
 	const path = url.pathname;
-	if (url.hash || !path.startsWith('/v1/') || path.includes('..') || /%2e/i.test(path))
+	// An empty segment is refused too: a listener that reads /v1//config as /v1/config would
+	// serve the document the raw action keeps back.
+	if (
+		url.hash ||
+		!path.startsWith('/v1/') ||
+		path.includes('//') ||
+		path.includes('..') ||
+		/%2e/i.test(path)
+	)
 		throw new ApiError(400, 'path must start with /v1/.');
 	return path + url.search;
 }
