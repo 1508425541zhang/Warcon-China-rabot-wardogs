@@ -9,7 +9,7 @@
 // banned" is a success, "not banned" on delete is a success), so two replicas working the same
 // server at once do no harm; the in-process lock below only keeps the poller and an API call in
 // one process from interleaving.
-import { and, eq, inArray, isNotNull, isNull, lte, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, lte, notInArray, or, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { publicMessage } from './http';
 import { writeAudit } from './audit';
@@ -728,6 +728,10 @@ async function upsertState(db: DbOrTx, u: StateUpsert): Promise<void> {
  * server with no refused bans. A ban that lands is recorded as applied, mirrored into server_bans
  * and audited like a sync run; one the game refuses again keeps its failed row with the new error
  * and attempt time, for the sync's own retry.
+ *
+ * The worker's copy is as old as the last sync, so each ban is asked for again before it is
+ * placed: an entry taken off its list or run out since then bans nobody. That is one query, and
+ * only when such a player is actually on the server.
  */
 export async function banOnSight(
 	env: Env,
@@ -741,6 +745,10 @@ export async function banOnSight(
 		const r = refused.get(steamId);
 		if (!r) continue;
 		const now = new Date();
+		if (!(await stillBanned(env, server.id, r, now))) {
+			refused.delete(steamId);
+			continue;
+		}
 		const row = {
 			serverId: server.id,
 			kind: 'ban' as const,
@@ -775,6 +783,25 @@ export async function banOnSight(
 			detail: { reason: 'join', added: [`ban:${steamId}`], removed: [], failed: [] }
 		}).catch((err) => console.error('[warcon] lists.sync audit', err));
 	}
+}
+
+/** Is the entry this refused ban came from still live on a list the server subscribes to? */
+async function stillBanned(env: Env, serverId: string, r: RefusedBan, now: Date): Promise<boolean> {
+	const [entry] = await env.db
+		.select({ id: listEntries.id })
+		.from(serverLists)
+		.innerJoin(listEntries, eq(listEntries.listId, serverLists.listId))
+		.where(
+			and(
+				eq(serverLists.serverId, serverId),
+				eq(serverLists.listId, r.listId),
+				eq(listEntries.steamId, r.steamId),
+				isNull(listEntries.removedAt),
+				or(isNull(listEntries.expiresAt), gt(listEntries.expiresAt, now))
+			)
+		)
+		.limit(1);
+	return !!entry;
 }
 
 // ---- fan-out from the API ----------------------------------------------------------------------
