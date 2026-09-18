@@ -51,6 +51,37 @@ describe('gameRequest address pinning', () => {
 		expect(message).not.toContain(':9');
 	});
 
+	test('an answer that is not HTTP says neither the port nor the path: the runtime quotes the whole URL in that error', async () => {
+		const notHttp = Bun.listen({
+			hostname: '127.0.0.1',
+			port: 0,
+			socket: {
+				data(socket) {
+					socket.end('not http at all\r\n\r\n');
+				}
+			}
+		});
+		try {
+			const failure = await gameRequest(
+				{
+					host: 'not-a-real-host.invalid',
+					port: notHttp.port,
+					scheme: 'http',
+					addresses: ['127.0.0.1']
+				},
+				{ method: 'GET', path: '/v1/status', timeoutMs: 2000 }
+			).catch((err: Error) => err);
+			expect(failure).toBeInstanceOf(Error);
+			const message = (failure as Error).message;
+			expect(message).toStartWith('Could not reach the game server');
+			expect(message).not.toContain(String(notHttp.port));
+			expect(message).not.toContain('/v1/status');
+			expect(message).not.toContain('http://');
+		} finally {
+			notHttp.stop(true);
+		}
+	});
+
 	test('falls back to the next validated address when the first is unreachable', async () => {
 		// The server binds 127.0.0.1 only, so [::1] refuses at once; the request must still land on
 		// the second validated address. This is the happy-eyeballs resilience the old by-hostname
