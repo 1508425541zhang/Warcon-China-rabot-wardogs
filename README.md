@@ -36,8 +36,9 @@ What is in the box:
 - **Account management**: Better Auth accounts; password resets, forced password change, disable,
   session revocation, login throttling.
 - **Full audit trail**: every login, user or server change, and every game-server command, with
-  actor, server, target, outcome, upstream status, IP and duration. Filterable and exportable
-  (CSV/JSON). The game server's own listener log is shown alongside it.
+  actor, server, target, outcome, upstream status and duration. Filterable and exportable
+  (CSV/JSON). The game server's own listener log is shown alongside it; the addresses of its peers
+  are shown to the site owner only.
 - **Live view**: a worker process watches every server on a cadence that follows what is
   happening: every second or two while someone has it open or people are on it, every half
   minute when it is empty. Pages get each observation as it happens over an event stream, and a
@@ -181,9 +182,9 @@ ADDRESS_HEADER=x-forwarded-for    # the header your proxy puts the client IP in;
 ```
 
 `ADDRESS_HEADER` and `XFF_DEPTH` are read by SvelteKit's Node adapter, which resolves the client
-address for the audit trail and login throttling. Use `x-real-ip` for nginx, `x-forwarded-for` for
+address for login throttling and the rate limits (it is never stored). Use `x-real-ip` for nginx, `x-forwarded-for` for
 Caddy and Traefik, `cf-connecting-ip` for a Cloudflare Tunnel. Only set it when the proxy is the only
-way to reach the port; otherwise anyone can spoof the recorded IP.
+way to reach the port; otherwise anyone can spoof their address and dodge the limits.
 
 Have the proxy redirect plain `http://` to `https://` (Caddy does this by default; on Cloudflare turn on
 **Always Use HTTPS**). A page served over http has an http origin, and every form post on it is then
@@ -301,7 +302,9 @@ No role reads the server's credentials. The config document leaves the panel wit
 owners and API keys included. Leave `(hidden)` as it is and validate and apply put the server's
 current value back; type over it to change the value. A copied or downloaded document carries the
 placeholder too, so it is not a backup of those three lines. Raw RCON does not serve `/v1/config`;
-the `config`, `configValidate` and `configApply` actions are the way to the document.
+the `config`, `configValidate` and `configApply` actions are the way to the document. Nor does it
+serve `/v1/audit`: the `serverLog` action does, with the peers' addresses blank for everyone but
+the site owner, API keys included.
 
 Beyond server roles, an **org owner** adds, edits and removes the org's servers, manages members,
 roles, per-server grants and invite links and Discord webhooks, and sees the org's audit trail. The
@@ -500,7 +503,7 @@ organisation's overview an owner adds channel webhooks (in Discord: channel sett
 Integrations → Webhooks → copy URL) and chooses what to mirror: bans (including org list changes), other game commands, trigger
 actions, player notes and watchlist changes, management changes, sign-ins, team kills from the
 [kill feed](#kill-feed); for every server or a subset. A separate team-kill channel is a second
-webhook with only that box ticked; the server's **Settings** tab connects one in a click. Events are batched into one message per burst, IP addresses are never sent, and the URL
+webhook with only that box ticked; the server's **Settings** tab connects one in a click. Events are batched into one message per burst, and the URL
 (which lets anyone post to the channel) is stored encrypted with `ENCRYPTION_KEY` and never shown
 again. **Test** posts a message right away; delivery failures show on the org page.
 
@@ -575,18 +578,19 @@ discord.com/invite), shown as a button on its public pages. Each page has a JSON
 
 An account holds a username, display name, password hash if a password is set, the encrypted
 authenticator secret and backup codes if the app is on, passkey public keys, the hash of a
-recovery key, sessions (with IP address and browser), the Discord id and avatar URL when Discord
+recovery key, sessions (with the browser), the Discord id and avatar URL when Discord
 is linked, and a SteamID64 when Steam is linked or the person enters one on the Account page (so
 an organisation can hand them a reserved slot). Every sign-in and action is written to the audit
-trail with the actor's name, IP address and browser. No email address is ever asked for. Nothing
-else is collected, and nothing leaves the panel.
+trail with the actor's name and browser. IP addresses are not kept: the panel reads a request's
+address to throttle sign-ins and rate limit, in memory, and the login and sign-up lockouts store only a keyed
+hash of it. No email address is ever asked for. Nothing else is collected, and nothing leaves
+the panel.
 
 Anyone can delete their own account from the **Account** page (right to erasure): password
 accounts confirm with the password, the rest by typing their username after a recent sign-in.
 Deletion removes the account, its credentials, passkeys, sessions, server roles and organisation
-memberships at once. Audit entries the person caused stay for the record but lose their name, IP
-address and browser, and entries that named them lose the username; one row recording the deletion
-itself keeps the requester's IP. The only owner of an organisation, or the only site owner, must
+memberships at once. Audit entries the person caused stay for the record but lose their name and
+browser, and entries that named them lose the username. The only owner of an organisation, or the only site owner, must
 hand over first, so nothing is left without an owner. The site owner can delete anyone from the
 Users tab of the Admin page under the same rules.
 
