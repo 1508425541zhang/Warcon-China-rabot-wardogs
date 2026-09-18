@@ -295,7 +295,9 @@ export async function updateUser(
 		if (changes.disabled === true || (u.role === 'owner' && changes.role === 'member'))
 			Object.assign(changes, await revokeMintedBy(tx, u.id));
 	});
-	if (resetAuth || body.password !== undefined) await refreshAuthComplete(env, u.id);
+	// The verdict depends on the methods and on the role: an owner is held to more than a member.
+	if (resetAuth || body.password !== undefined || changes.role !== undefined)
+		await refreshAuthComplete(env, u.id);
 	await writeAudit(env, req, {
 		actor,
 		category: 'user',
