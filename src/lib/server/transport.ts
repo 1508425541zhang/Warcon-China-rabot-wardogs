@@ -99,9 +99,24 @@ export async function gameRequest(
 			if (done || i === addresses.length - 1) {
 				const cause = (err as { cause?: { code?: string; message?: string } }).cause;
 				const detail = cause?.code || cause?.message || (err as Error).message;
-				throw new TransportError(`Could not reach ${target.host}:${target.port} (${detail}).`, err);
+				throw new TransportError(
+					`Could not reach the game server (${withoutTarget(detail, target, addresses)}).`,
+					err
+				);
 			}
 		}
 	}
-	throw new TransportError(`Could not reach ${target.host}:${target.port}.`, lastErr);
+	throw new TransportError('Could not reach the game server.', lastErr);
+}
+
+/**
+ * The message is stored as the server's live error and shown to everyone who can open the server,
+ * and on its Discord card, so it never names where RCON listens: that is for the org's owners,
+ * who have it on the server's form.
+ */
+function withoutTarget(detail: string, target: GameTarget, addresses: string[]): string {
+	let out = detail;
+	for (const part of [target.host, target.host.replace(/^\[|\]$/g, ''), ...addresses])
+		if (part) out = out.split(part).join('the address');
+	return out;
 }

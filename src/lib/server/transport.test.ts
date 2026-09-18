@@ -38,6 +38,19 @@ describe('gameRequest address pinning', () => {
 		).rejects.toThrow();
 	});
 
+	test('a failure never says where RCON listens: the message reaches every viewer and the Discord card', async () => {
+		const failure = await gameRequest(
+			{ host: 'not-a-real-host.invalid', port: 9, scheme: 'http', addresses: ['127.0.0.1'] },
+			{ method: 'GET', path: '/v1/status', timeoutMs: 2000 }
+		).catch((err: Error) => err);
+		expect(failure).toBeInstanceOf(Error);
+		const message = (failure as Error).message;
+		expect(message).toStartWith('Could not reach the game server');
+		expect(message).not.toContain('not-a-real-host');
+		expect(message).not.toContain('127.0.0.1');
+		expect(message).not.toContain(':9');
+	});
+
 	test('falls back to the next validated address when the first is unreachable', async () => {
 		// The server binds 127.0.0.1 only, so [::1] refuses at once; the request must still land on
 		// the second validated address. This is the happy-eyeballs resilience the old by-hostname
