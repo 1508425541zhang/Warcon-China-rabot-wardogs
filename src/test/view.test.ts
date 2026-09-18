@@ -162,6 +162,40 @@ describe.skipIf(!hasTestDb)('what View shows', () => {
 		expect((viewer.body as any).result.raw).toBeUndefined();
 		expect((admin.body as any).result.raw).toEqual({ secret: 1 });
 	});
+
+	test('the event stream tells what a rule did only to those who may read the outbox', async () => {
+		let emit: (e: any) => void = () => {};
+		const { gateway, setGateway } = await import('$lib/server/gateway');
+		stubGateway();
+		const stub = gateway();
+		setGateway({
+			...stub,
+			subscribe: (fn) => {
+				emit = fn;
+				return () => {};
+			}
+		});
+		const { GET } = await import(join(ROUTES, 'api/live/events/+server.ts'));
+		const heard = async (who: PrincipalName) => {
+			const res: Response = await GET({
+				locals: { user: w.users[who], session: null, apiKey: null },
+				url: new URL(`http://localhost/api/live/events?ids=${w.server.id}`),
+				request: new Request('http://localhost/api/live/events'),
+				setHeaders: () => {}
+			} as never);
+			const reader = res.body!.getReader();
+			await new Promise((r) => setTimeout(r, 20)); // the stream subscribes once it has started
+			emit({ type: 'outbox', serverId: w.server.id, id: 'row', state: 'sent' });
+			emit({ type: 'kills', serverId: w.server.id, kills: [] });
+			let text = '';
+			while (!text.includes('event: kills'))
+				text += new TextDecoder().decode((await reader.read()).value);
+			await reader.cancel();
+			return text.includes('event: outbox');
+		};
+		expect(await heard('viewer')).toBe(false);
+		expect(await heard('admin')).toBe(true);
+	});
 });
 
 const pick = (s: Record<string, unknown>) => ({ host: s.host, port: s.port, notes: s.notes });
