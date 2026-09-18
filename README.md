@@ -412,7 +412,11 @@ to players who stayed while a server was low; the entry names the rule that adde
 Sync happens twice over: right away when a list is edited (the toast says on how many servers the
 change landed, and which are unreachable and will be retried), and on every poll, where the
 poller re-applies anything missing, so an org ban that someone lifts on the server directly comes
-back at the next poll; use the org list to lift it everywhere. A reserved slot is a queue skip:
+back at the next poll; use the org list to lift it everywhere. The live game build only bans a
+player who is connected, so a ban added while the player is elsewhere is refused on that server
+(the entry shows as failed on the list page, with the game's answer); the worker keeps those in
+mind and bans the player the moment it sees them on that server, without waiting for the sync's
+five-minute retry. A reserved slot is a queue skip:
 the game takes the list at any length, and `MaxReservedSlots` only sets how many player slots
 are held back for the people on it (a 100-slot server with 2 held back reports 98 to the public;
 the panel shows the split). Live builds have no reserved-slot routes,
