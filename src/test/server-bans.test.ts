@@ -10,6 +10,7 @@ import { entriesView, listOf, serverListOf } from '$lib/server/lists';
 import { desiredFor } from '$lib/server/lists-sync';
 import { getOrg } from '$lib/server/access';
 import { newId } from '$lib/server/http';
+import { gateway, setGateway } from '$lib/server/gateway';
 import { hasTestDb, testEnv } from './db';
 import { callApi, stubGateway, type CallInput } from './call';
 import { seedWorld, type World } from './world';
@@ -198,6 +199,39 @@ describe.skipIf(!hasTestDb)("a server's own bans", () => {
 			reason: 'org reason',
 			addedByName: 'owner'
 		});
+	});
+
+	test('an answer says where the sync landed and nothing of what the worker holds', async () => {
+		const spoken = { serverId: w.server.id, serverName: 'one', ok: true, added: 0, removed: 0 };
+		setGateway({
+			...gateway(),
+			syncServer: async () => ({
+				...spoken,
+				failed: 1,
+				pending: false,
+				error: '',
+				observed: { bans: [ORG_BANNED], reserved: [] },
+				refusedBans: [{ steamId: ORG_BANNED, reason: 'org reason', listId: 'x' }]
+			})
+		});
+		const answers = [
+			await call(w.users.admin, 'POST', 'servers/[id]/lists/reserve/entries', {
+				body: { steamId: '76561198000000079' }
+			}),
+			await call(w.users.admin, 'POST', 'servers/[id]/lists/sync'),
+			await call(moderator, 'PATCH', 'servers/[id]/lists/ban/entries/[steamId]', {
+				body: { reason: 'aimbot, appeal pending' }
+			}),
+			await call(moderator, 'POST', 'servers/[id]/lists/ban/entries', {
+				body: { steamId: '76561198000000080' }
+			})
+		];
+		for (const a of answers) {
+			expect(a.status).toBeLessThan(300);
+			expect(JSON.stringify(a.body)).not.toContain('org reason');
+			expect(JSON.stringify(a.body)).not.toContain('observed');
+		}
+		stubGateway();
 	});
 
 	test('lifting it withdraws the entry; a second time there is nothing to lift', async () => {

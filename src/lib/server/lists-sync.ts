@@ -843,18 +843,14 @@ export async function fanOut(env: Env, org: OrgRow): Promise<ListSyncSummary> {
 			return Promise.race([work, timer]);
 		})
 	);
-	return {
-		servers: results.map(
-			({ serverId, serverName, ok, added, removed, failed, pending, error }) => ({
-				serverId,
-				serverName,
-				ok,
-				added,
-				removed,
-				failed,
-				pending,
-				error
-			})
-		)
-	};
+	return { servers: results.map(summaryOf) };
+}
+
+/**
+ * What an API answer says of a sync: where it landed, in counts. The rest of a SyncResult is the
+ * worker's own (the server's lists, and the refused bans with their reasons) and never leaves.
+ */
+export function summaryOf(r: SyncResult): ListSyncServer {
+	const { serverId, serverName, ok, added, removed, failed, pending, error } = r;
+	return { serverId, serverName, ok, added, removed, failed, pending, error };
 }

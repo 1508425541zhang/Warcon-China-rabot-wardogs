@@ -35,7 +35,7 @@ import {
 	type ListRow
 } from './db/schema';
 import { requireSteamId } from './steam';
-import { desiredFor, memberSlots } from './lists-sync';
+import { desiredFor, memberSlots, summaryOf } from './lists-sync';
 import { gateway } from './gateway';
 import type {
 	ImportCandidate,
@@ -620,7 +620,7 @@ export async function addServerEntry(
 			(expiresAt ? ` (until ${expiresAt.toISOString()})` : ''),
 		detail: { kind, listId: list.id, reason, expiresAt: iso(expiresAt) }
 	});
-	const sync = await gateway().syncServer(env, server, org, 15_000);
+	const sync = summaryOf(await gateway().syncServer(env, server, org, 15_000));
 	return { sync };
 }
 
@@ -673,7 +673,7 @@ export async function removeServerEntry(
 			kind === 'ban' ? `Unbanned on ${server.name}` : `Reserved slot withdrawn on ${server.name}`,
 		detail: { kind, listId: list.id, entryId: row.id }
 	});
-	const sync = await gateway().syncServer(env, server, org, 15_000);
+	const sync = summaryOf(await gateway().syncServer(env, server, org, 15_000));
 	return { sync };
 }
 
