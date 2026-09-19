@@ -573,9 +573,12 @@ the server limit, which shuts every such page in it at once.
   leaderboards are public too, with the player's kill-feed record (headshots, longest shot,
   weapons, most killed, nemeses). While this is on, names on the live page open the career.
 
-Public pages show in-game names, never SteamIDs, pings, cash, the build or the panel's own
-error text (an unreachable server says only that it could not be reached), and read Steam
-personas from the cache only. A page that is off answers 404, so a closed page looks like no
+Public pages never show pings, the build or the panel's own error text (an unreachable server
+says only that it could not be reached), and read Steam personas from the cache only. The status
+page shows in-game names alone. With leaderboards public, a player's SteamID is public too: it
+is the address of their career, and the board, the live page's names and a career's most killed
+and nemeses link by it; the board also shows the in-game cash. A public board goes twenty pages
+deep (the top thousand); the panel's has no ceiling. A page that is off answers 404, so a closed page looks like no
 page. An org owner can set the organisation's **Discord invite** link (discord.gg or
 discord.com/invite), shown as a button on its public pages. Each page has a JSON twin under
 `/api/public/servers/<id>`, rate limited per address and cacheable for a few seconds.
@@ -853,7 +856,7 @@ GET  /api/servers/:id/leaderboard?scope=server|org&range=7d|30d|90d|all&sort=kil
 POST /api/servers/:id/players/:steamId/notes {body}     DELETE .../notes/:noteId   PUT .../watch {watched,reason}
 GET/POST /api/servers/:id/triggers {kind,name,enabled,config}   PATCH/DELETE .../:triggerId   POST .../dry-run {kind,config}
 GET/POST /api/orgs/:id/webhooks {label,url,events,serverIds,enabled,statusEnabled,statusStyle,statusIntervalS,linkStatus,linkLeaderboard,linkPanel}   PATCH/DELETE .../:webhookId   POST .../:webhookId/test
-GET  /api/public/servers/:id   .../leaderboard (same query as above)   .../players/:steamId      the public pages' JSON: no session, 404 while the page is off, limited per address
+GET  /api/public/servers/:id   .../leaderboard (same query as above, page 20 at most)   .../players/:steamId      the public pages' JSON: no session, 404 while the page is off, limited per address
 GET  /api/orgs/:id/lists                                 the org's ban and reserved-slot lists, and the caller's role on them
 GET/POST /api/orgs/:id/lists/:kind/entries {steamId,reason,expiresAt}   DELETE .../entries/:steamId   (kind = ban | reserve; ?includeRemoved=1)
 POST /api/orgs/:id/lists/sync                            push the lists to every org server now

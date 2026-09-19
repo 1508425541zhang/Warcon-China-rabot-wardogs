@@ -183,6 +183,13 @@ describe.skipIf(!hasTestDb)('outside review: against the database', () => {
 		expect(row).toMatchObject({ steamId: ME, cash: 4321 });
 	});
 
+	test('a stranger reads the top thousand of a public board, no deeper; the panel board has no ceiling', async () => {
+		const deep = await get('api/public/servers/[id]/leaderboard', null, 'minMinutes=0&page=100000');
+		expect(deep.body).toMatchObject({ query: { page: 20 }, maxPage: 20 });
+		const panel = await get('api/servers/[id]/leaderboard', 'viewer', 'page=100000');
+		expect((panel.body as { query: { page: number } }).query.page).toBe(100_000);
+	});
+
 	test("by design: the public career links the player's victims and nemeses by SteamID", async () => {
 		const { combatSummary } = await import('$lib/server/players');
 		const combat = await combatSummary(env, [w.server.id], ME);

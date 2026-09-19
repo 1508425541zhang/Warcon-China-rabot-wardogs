@@ -66,7 +66,11 @@
 		const n = Math.max(0, Math.round(Number(floor) || 0));
 		if (n !== query.minMinutes) set({ minMinutes: n });
 	}
-	let pages = $derived(board ? Math.max(1, Math.ceil(board.total / board.pageSize)) : 1);
+	let pages = $derived(
+		board
+			? Math.min(board.maxPage ?? Infinity, Math.max(1, Math.ceil(board.total / board.pageSize)))
+			: 1
+	);
 	const ratio = (v: number | null, digits = 2) => (v === null ? '—' : v.toFixed(digits));
 	const pct = (v: number | null) => (v === null ? '—' : `${Math.round(v * 100)}%`);
 	const seen = (iso: string | null) => (iso ? (relative ? fmtAgo(iso) : fmtTime(iso)) : '—');
