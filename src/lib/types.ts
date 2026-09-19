@@ -468,7 +468,8 @@ export type TriggerKind =
 	| 'restart_notice'
 	| 'team_kill'
 	| 'seed_reward'
-	| 'match_broadcast';
+	| 'match_broadcast'
+	| 'name_filter';
 
 export interface TriggerView {
 	id: string;
