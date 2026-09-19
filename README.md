@@ -43,6 +43,10 @@ What is in the box:
   happening: every second or two while someone has it open or people are on it, every half
   minute when it is empty. Pages get each observation as it happens over an event stream, and a
   command you send shows its effect on the next look. Browsers never talk to a game server.
+- **Past players**: the Players tab switches between who is on now and everyone who has played on
+  that server, searched by name, alias or SteamID64, with when they were last on, their sessions
+  and playtime. Anyone who can open the server can look; a row's Ban (for people who hold _Bans_)
+  lands the moment the player next joins, and Watch needs _Notes_.
 - **Analytics**: the worker keeps what the game does not: players online over time, cash in play
   per faction, uptime, time per map, busiest hours, player playtime and sessions, match history
   with results. Samples are written when something changes plus a heartbeat, and every figure is
@@ -867,6 +871,7 @@ GET  /api/orgs/:id/lists                                 the org's ban and reser
 GET/POST /api/orgs/:id/lists/:kind/entries {steamId,reason,expiresAt}   PATCH {reason,expiresAt} / DELETE .../entries/:steamId   (kind = ban | reserve; ?includeRemoved=1)
 POST /api/orgs/:id/lists/sync                            push the lists to every org server now
 GET  /api/orgs/:id/lists/import                          server entries not on the org list   POST {entries:[{kind,steamId,reason}]} adopts them (owner)
+GET  /api/servers/:id/players/seen?q=&since=&flag=&sort=&dir=&offset=&limit=   everyone who has played on this server, by name, alias or SteamID (View; 60 a minute)
 GET  /api/servers/:id/lists/state                        which bans / reserved slots here come from the org lists or this server's own   POST .../lists/sync
 POST /api/servers/:id/lists/ban/entries {steamId,reason,expiresAt}       ban on this server only, placed on sight if the player is away (Bans)   PATCH {reason,expiresAt} / DELETE .../entries/:steamId
 POST /api/servers/:id/lists/reserve/entries {steamId,reason,expiresAt}   reserve on this server only (Reserved slots)   DELETE .../entries/:steamId
