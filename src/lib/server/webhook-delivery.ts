@@ -145,6 +145,7 @@ const ACTION_TITLES: Record<string, string> = {
 	'player.watch': 'Watchlist',
 	'list.add': 'Org list · added',
 	'list.remove': 'Org list · removed',
+	'list.update': 'Org list · changed',
 	'list.import': 'Org list · imported from a server',
 	'list.expire': 'Org list · expired',
 	'lists.sync': 'Org list · sync',
