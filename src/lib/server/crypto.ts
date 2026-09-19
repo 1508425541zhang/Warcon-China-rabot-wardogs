@@ -23,6 +23,19 @@ export function authSecretProblem(value: string | undefined): string | null {
 	return null;
 }
 
+/** The RELAY_SECRET that .env.example ships with: public, so a relay that accepts it is open. */
+export const RELAY_PLACEHOLDER = 'change-me-to-32-random-characters';
+
+/** Why RELAY_SECRET cannot be used by a split role (unset, short, or the placeholder), or null. */
+export function relaySecretProblem(value: string | undefined): string | null {
+	const secret = (value || '').trim();
+	if (secret === RELAY_PLACEHOLDER)
+		return 'RELAY_SECRET is still the placeholder from .env.example. Set it to a long random string (openssl rand -hex 24).';
+	if (secret.length < 16)
+		return 'RELAY_SECRET (16+ characters, shared by web and worker) is required for the web and worker roles.';
+	return null;
+}
+
 /** Constant-time string comparison (length leaks, contents do not). */
 export function timingSafeEqualStr(a: string, b: string): boolean {
 	const ab = Buffer.from(a);
