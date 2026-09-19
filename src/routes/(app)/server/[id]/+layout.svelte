@@ -35,6 +35,17 @@
 	// A dossier (/players/<steamId>) keeps the Players tab lit.
 	const isCurrent = (path: string) =>
 		current === path || (path !== '' && current.startsWith(path + '/'));
+	// One title for the whole section, written again on every navigation: a page that set its own
+	// would leave it behind on the way out, since nothing here changes to write this one again.
+	const title = () =>
+		[
+			(page.data.dossier as { name?: string } | undefined)?.name,
+			visibleTabs.find(([path]) => path !== '' && isCurrent(path))?.[1],
+			data.server.name,
+			data.appName
+		]
+			.filter(Boolean)
+			.join(' · ');
 
 	$effect(() => {
 		setHealth(data.server.id, data.reachable);
@@ -73,7 +84,7 @@
 	});
 </script>
 
-<svelte:head><title>{data.server.name} · {data.appName}</title></svelte:head>
+<svelte:head><title>{title()}</title></svelte:head>
 
 <div class="mb-4 rise rounded-card border border-l-[3px] border-black border-l-accent bg-ink-900">
 	<div class="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4">
