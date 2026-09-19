@@ -2,8 +2,10 @@
 	// Ban a player: across the whole organisation (the org ban list, pushed to every server) or on
 	// one server only. Used from the org ban list page, the players page and the dossier.
 	import { untrack } from 'svelte';
+	import { page } from '$app/state';
 	import { api, errorMessage } from '$lib/api';
 	import { toast } from '$lib/toast.svelte';
+	import { DEFAULT_BAN_MESSAGE, renderBanMessage } from '$lib/ban-message';
 	import { describeSync, EXPIRY_OPTIONS, expiryIso, REASON_PRESETS } from '$lib/lists';
 	import { isSteamId, steamProfiles, type SteamProfile } from '$lib/steam-profiles';
 	import type { ListSyncServer, ListSyncSummary } from '$lib/types';
@@ -17,6 +19,7 @@
 		name = '',
 		server = null,
 		canOrg,
+		banMessage = null,
 		onclose,
 		ondone
 	}: {
@@ -29,6 +32,8 @@
 		server?: { id: string; name: string } | null;
 		/** may the user write to the org list? */
 		canOrg: boolean;
+		/** the org's ban message, where the page has it: the dialog then shows the text it makes */
+		banMessage?: string | null;
 		onclose: () => void;
 		ondone: (scope: 'org' | 'server') => unknown;
 	} = $props();
@@ -40,6 +45,20 @@
 	let custom = $state('');
 	let scope = $state<'org' | 'server'>(untrack(() => (canOrg ? 'org' : 'server')));
 	let busy = $state(false);
+
+	// What the player will be shown, once the org wraps the reason in more than the reason. The
+	// uid comes from the entry, which does not exist yet.
+	let shown = $derived.by(() => {
+		if (!banMessage || banMessage === DEFAULT_BAN_MESSAGE) return '';
+		const until = expiryIso(expiry, custom);
+		return renderBanMessage(banMessage.replace(/\{uid\}/gi, 'B-······'), {
+			entryId: '',
+			reason: reason.trim(),
+			addedByName: page.data.user?.username ?? '',
+			addedAt: new Date(),
+			expiresAt: until ? new Date(until) : null
+		});
+	});
 
 	let who = $derived(name ? `${name} (${steamId})` : steamId || 'a player');
 	// A typed id is looked up so the admin sees who they are about to ban.
@@ -190,6 +209,18 @@
 				>
 			{/if}
 		</div>
+
+		{#if shown}
+			<div>
+				<span class="field-label">The player is shown</span>
+				<div
+					class="rounded-ctl border border-black bg-ink-950 px-3.5 py-2.5 font-mono text-[12.5px] leading-relaxed break-words"
+				>
+					{shown}
+				</div>
+				<p class="note">From {orgName}'s ban message.</p>
+			</div>
+		{/if}
 
 		<div class="flex justify-end gap-2 pt-2">
 			<button type="button" class="btn" data-close onclick={onclose}>Cancel</button>

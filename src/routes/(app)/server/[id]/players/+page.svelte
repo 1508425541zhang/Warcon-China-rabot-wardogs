@@ -437,6 +437,7 @@
 			name={banning.name}
 			server={{ id, name: data.server.name }}
 			canOrg={listState?.canEditOrg ?? false}
+			banMessage={listState?.banMessage}
 			onclose={() => (banning = null)}
 			ondone={refreshPlayers}
 		/>

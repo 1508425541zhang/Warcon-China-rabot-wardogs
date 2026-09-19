@@ -6,9 +6,11 @@
 	import { fmtTime } from '$lib/format';
 	import { toast } from '$lib/toast.svelte';
 	import { confirmDialog } from '$lib/confirm.svelte';
+	import { banUid } from '$lib/ban-message';
 	import { describeSync, STATE_TEXT, STATE_TONE } from '$lib/lists';
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
+	import BanMessagePanel from './BanMessagePanel.svelte';
 	import ImportCandidates from './ImportCandidates.svelte';
 	import SortHeader from '$lib/components/SortHeader.svelte';
 	import { TableSort, matches } from '$lib/table.svelte';
@@ -33,6 +35,7 @@
 	/** newest first as the server sends them, until a header is clicked */
 	const sort = new TableSort<ListEntryView>({
 		player: { by: (e) => e.name || e.steamId },
+		uid: { by: (e) => banUid(e.id) },
 		reason: { by: (e) => e.reason },
 		by: { by: (e) => e.addedByName },
 		added: { by: (e) => e.addedAt, dir: 'desc' },
@@ -41,7 +44,11 @@
 		servers: { by: (e) => e.servers.filter((s) => s.state === 'applied').length, dir: 'desc' }
 	});
 	let rows = $derived(
-		sort.sorted(entries.filter((e) => matches(search, e.steamId, e.name, e.reason, e.addedByName)))
+		sort.sorted(
+			entries.filter((e) =>
+				matches(search, e.steamId, e.name, banUid(e.id), e.reason, e.addedByName)
+			)
+		)
 	);
 	let dossierBase = $derived(
 		lists.servers.length ? `/server/${encodeURIComponent(lists.servers[0].id)}/players` : null
@@ -129,11 +136,13 @@
 	</div>
 {/if}
 
+<BanMessagePanel {org} banMessage={lists.banMessage} {owner} />
+
 <div class="mb-3 flex flex-wrap items-center gap-2">
 	<input
 		class="input w-full sm:w-80"
 		type="search"
-		placeholder="Filter by name, SteamID, reason, admin…"
+		placeholder="Filter by name, SteamID, ban ID, reason, admin…"
 		bind:value={search}
 	/>
 	<span class="text-[12.5px] text-mist-600"
@@ -146,6 +155,7 @@
 		<thead>
 			<tr>
 				<SortHeader {sort} key="player">Player</SortHeader>
+				<SortHeader {sort} key="uid">ID</SortHeader>
 				<SortHeader {sort} key="reason">Reason</SortHeader>
 				<SortHeader {sort} key="by">By</SortHeader>
 				<SortHeader {sort} key="added">Added</SortHeader>
@@ -167,6 +177,7 @@
 						{/if}
 						{#if e.name}<div class="font-mono text-[12px] text-mist-600">{e.steamId}</div>{/if}
 					</td>
+					<td><span class="chip">{banUid(e.id)}</span></td>
 					<td class="max-w-[280px]">
 						{#if e.reason}{e.reason}{:else}<span class="text-mist-600">—</span>{/if}
 					</td>
@@ -198,7 +209,7 @@
 				</tr>
 			{:else}
 				<tr
-					><td colspan="7" class="py-6 text-center text-mist-600"
+					><td colspan="8" class="py-6 text-center text-mist-600"
 						>{entries.length ? 'Nothing matches the filter.' : 'No bans yet.'}</td
 					></tr
 				>
@@ -218,6 +229,7 @@
 		orgId={org.id}
 		orgName={org.name}
 		canOrg
+		banMessage={lists.banMessage}
 		onclose={() => (banning = false)}
 		ondone={() => invalidateAll()}
 	/>
