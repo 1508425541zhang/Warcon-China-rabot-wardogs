@@ -142,8 +142,6 @@
 	};
 </script>
 
-<svelte:head><title>{d.name} · {data.server.name} · {data.appName}</title></svelte:head>
-
 <div class="mb-4 flex flex-wrap items-center gap-3">
 	<div class="min-w-0">
 		<a
