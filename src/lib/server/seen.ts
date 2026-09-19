@@ -160,10 +160,18 @@ export async function seenPlayers(
 		), flagged AS (
 			SELECT a.*, s.name AS last_server_name,
 			       EXISTS (SELECT 1 FROM list_entries e JOIN lists l ON l.id = e.list_id
-			                WHERE l.org_id = ${orgId} AND l.kind = 'ban' AND e.removed_at IS NULL
+			                WHERE l.org_id = ${orgId} AND l.server_id IS NULL AND l.kind = 'ban'
+			                  AND e.removed_at IS NULL
+			                  AND (e.expires_at IS NULL OR e.expires_at > now())
 			                  AND e.steam_id = a.steam_id) AS org_banned,
-			       EXISTS (SELECT 1 FROM server_bans b
-			                WHERE b.server_id IN ${ids} AND b.steam_id = a.steam_id) AS server_banned,
+			       -- held by one of these servers, or waiting on its own list for the player to join;
+			       -- another server's own list is that server's business
+			       (EXISTS (SELECT 1 FROM server_bans b
+			                 WHERE b.server_id IN ${ids} AND b.steam_id = a.steam_id)
+			        OR EXISTS (SELECT 1 FROM list_entries e JOIN lists l ON l.id = e.list_id
+			                    WHERE l.server_id IN ${ids} AND l.kind = 'ban' AND e.removed_at IS NULL
+			                      AND (e.expires_at IS NULL OR e.expires_at > now())
+			                      AND e.steam_id = a.steam_id)) AS server_banned,
 			       EXISTS (SELECT 1 FROM player_marks m
 			                WHERE m.org_id = ${orgId} AND m.watched AND m.steam_id = a.steam_id) AS watched
 			  FROM agg a LEFT JOIN servers s ON s.id = a.last_server_id
