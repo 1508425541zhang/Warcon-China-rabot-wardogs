@@ -414,6 +414,17 @@ reason and an expiry, a reserved slot a note and an expiry. Everyone who can ope
 write a reason as something the player could be told; who placed a ban is shown to people who hold
 _Bans_ on the server or may edit the org lists.
 
+An org owner can set a **ban message** on the Ban list tab: the text a banned player is shown,
+built from the reason and facts about the ban, for example
+`{reason} | Expires {expires} | Appeal: discord.gg/yours | {uid}`. The placeholders are `{reason}`,
+`{duration}` (`Perm`, `7d`, `36h`), `{expires}` and `{banned}` (UTC, `never` for a permanent ban),
+`{uid}` (a short id shown in the ban list's ID column and found by its filter) and `{admin}` (the
+name of whoever placed the ban: the game shows its ban list to everyone who can open the server,
+so use it only if that name may be public). The message applies to org bans and to bans on one
+server's own list, from the moment it is saved; the list keeps the bare reason, and a ban already
+on a server keeps the text it was placed with, also when its reason or expiry is edited later.
+The default, `{reason}`, sends the reason alone.
+
 Each entry shows where it stands on every server: **applied** by the panel, **pending** the next
 sync, **failed** (hover for the server's answer), or **local**. Local means the player was already
 banned (or reserved) on that server by someone working outside the panel. The panel never removes
@@ -845,7 +856,7 @@ which call Better Auth server-side behind the login lockout and the audit trail.
 own `/api/auth/*` routes only the OAuth callback is reachable over HTTP; everything else answers 404.
 
 ```
-GET/POST /api/orgs  PATCH/DELETE /api/orgs/:id   PATCH {name} | {discordInviteUrl} | {membersReserved} | site owner: {serverLimit, suspended, reason, allowPublicStatus, allowPublicLeaderboards}
+GET/POST /api/orgs  PATCH/DELETE /api/orgs/:id   PATCH {name} | {discordInviteUrl} | {membersReserved} | {banMessage} | site owner: {serverLimit, suspended, reason, allowPublicStatus, allowPublicLeaderboards}
 GET  /api/orgs/:id/members  PATCH/DELETE /api/orgs/:id/members/:userId {role}  PUT .../:userId/grants {grants:[{serverId,roleId}]}
 GET/POST /api/orgs/:id/roles {name,capabilities[]}  PATCH/DELETE .../:roleId {name?,capabilities?}  POST .../:roleId/reset
 GET/POST /api/orgs/:id/keys {label,capabilities[],serverIds[]|null,expiresDays}  DELETE .../:keyId   (POST returns the token once)
