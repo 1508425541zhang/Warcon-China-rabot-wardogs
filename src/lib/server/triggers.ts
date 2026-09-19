@@ -64,6 +64,7 @@ import {
 	type TeamKillConfig,
 	type WelcomeConfig
 } from './trigger-rules';
+import { NAME_FLAG, nameFilterTargets, nameVerdict, type NameFilterConfig } from './name-filter';
 import { fmtUptime, RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 import { DEFAULT_SCORE_CAP, scoreCapOf } from '$lib/match';
 import { settings } from './settings';
@@ -117,6 +118,7 @@ const RULE_NEEDS: Record<Exclude<TriggerKind, 'seed_reward'>, [Capability, strin
 	match_broadcast: ['chat.send', 'messages players'],
 	empty_reset: ['match.control', 'changes the map'],
 	risk_kick: ['players.moderate', 'kicks players'],
+	name_filter: ['players.moderate', 'kicks players'],
 	team_kill: ['players.moderate', 'kicks players']
 };
 
@@ -388,6 +390,9 @@ export async function evaluateTriggers(
 				case 'match_broadcast':
 					evalMatchBroadcast(ctx, row, row.config as MatchBroadcastConfig, out);
 					break;
+				case 'name_filter':
+					evalNameFilter(ctx, row, row.config as NameFilterConfig, out);
+					break;
 			}
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
@@ -582,6 +587,40 @@ function evalRiskKick(
 			lastFiredAt: ctx.ts,
 			lastResult: n === 1 ? `Kicking ${last}` : `Kicking ${n} players`
 		});
+}
+
+function evalNameFilter(ctx: TickContext, row: TriggerRow, cfg: NameFilterConfig, out: Evaluation) {
+	if (!ctx.joined.length) return;
+	let n = 0;
+	let last = '';
+	for (const { player: p, verdict: v } of nameFilterTargets(cfg, ctx.joined, ctx.reserved)) {
+		const kick = cfg.action === 'kick';
+		out.intents.push({
+			trigger: row,
+			action: kick ? 'kick' : NAME_FLAG,
+			params: kick
+				? {
+						steamId: p.steamId,
+						reason: renderTemplate(cfg.reason, { ...vars(ctx, p), why: v.why })
+					}
+				: {},
+			target: p.steamId,
+			okMessage: `${kick ? 'Kicked' : 'Flagged'} ${p.name}: ${v.verdict}`,
+			detail: { name: p.name, verdict: v.verdict },
+			steamId: p.steamId,
+			dedupeKey: key(row, p.steamId, ctx.ts.getTime())
+		});
+		n++;
+		last = `${p.name}: ${v.verdict}`;
+	}
+	if (n) {
+		const doing = cfg.action === 'kick' ? 'Kicking' : 'Flagging';
+		out.updates.push({
+			id: row.id,
+			lastFiredAt: ctx.ts,
+			lastResult: n === 1 ? `${doing} ${last}` : `${doing} ${n} players`
+		});
+	}
 }
 
 function evalRestartNotice(
@@ -824,6 +863,8 @@ export async function recordDelivery(
 }
 
 // ---- dry run ------------------------------------------------------------------------------------
+
+const NAME_REPLAY_MAX = 5000;
 
 /** Replays the last 24 hours of this server's history against a rule. Touches nobody. */
 export async function dryRun(
@@ -1123,6 +1164,40 @@ export async function dryRun(
 		result.notes.push(
 			`Replayed over the last 24 hours only; the live rule adds up seed time over ${c.windowDays} day${c.windowDays === 1 ? '' : 's'}, so it can also fire for players this replay does not show.`
 		);
+		return result;
+	}
+	if (kind === 'name_filter') {
+		const c = cfg as NameFilterConfig;
+		// A name is a name whenever it was used: everyone who has played here, not only the last day.
+		const rows = await env.db.execute<{ steamId: string; name: string; joinedAt: Date }>(sql`
+			SELECT steam_id AS "steamId", name, MAX(joined_at) AS "joinedAt"
+			  FROM player_sessions
+			 WHERE server_id = ${server.id}
+			 GROUP BY steam_id, name
+			 ORDER BY MAX(joined_at) DESC LIMIT ${NAME_REPLAY_MAX}`);
+		let reserved = new Set<string>();
+		if (c.spareReserved && readReserved) {
+			try {
+				reserved = new Set(await readReserved());
+			} catch {
+				result.notes.push('Could not read the reserved slots; nobody was spared for one.');
+			}
+		}
+		let spared = 0;
+		for (const r of rows) {
+			const v = nameVerdict(c, r.name);
+			if (!v) continue;
+			if (reserved.has(r.steamId)) spared++;
+			else push(new Date(r.joinedAt), `${c.action} ${r.name} (${r.steamId}): ${v.verdict}`);
+		}
+		if (rows.length) result.from = new Date(rows[rows.length - 1].joinedAt).toISOString();
+		result.notes.push(
+			`${rows.length} name${rows.length === 1 ? '' : 's'} checked: everyone who has played here${rows.length === NAME_REPLAY_MAX ? `, the latest ${NAME_REPLAY_MAX}` : ''}, under each name they used.`
+		);
+		if (spared)
+			result.notes.push(
+				`${spared} more would match but hold${spared === 1 ? 's' : ''} a reserved slot.`
+			);
 		return result;
 	}
 	if (kind === 'match_broadcast') {

@@ -21,6 +21,7 @@ import { grantEntry, listOf, serverListOf } from './lists';
 import { getOrg, getServer } from './access';
 import { gateway } from './gateway';
 import { deliveries } from './metrics';
+import { NAME_FLAG } from './name-filter';
 import type { OutboxView } from '$lib/types';
 
 const CLAIM_LIMIT = 50;
@@ -158,6 +159,8 @@ class Skipped extends Error {}
 
 async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 	if (row.action === 'seed_reward') return deliverSeedReward(env, row);
+	// An alert-only Name filter match: the audit row (and its Discord card) is the whole delivery.
+	if (row.action === NAME_FLAG) return finish(env, row, 'delivered', row.okMessage);
 	const early = skipReason(row, memoryOf(row.serverId));
 	if (early) return finish(env, row, 'skipped', early);
 	stats.inFlight++;

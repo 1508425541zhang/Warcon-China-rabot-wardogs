@@ -3,6 +3,7 @@
 // triggers.ts holds the engine that runs these against live ticks.
 import { ApiError, int, str } from './http';
 import { accountAgeDays, assessRisk, type RiskLevel } from './risk';
+import { validateNameFilter, type NameFilterConfig } from './name-filter';
 import { RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 import type { SteamProfileRow } from './db/schema';
 import type { TriggerKind } from '$lib/types';
@@ -16,7 +17,8 @@ export const TRIGGER_KINDS: TriggerKind[] = [
 	'restart_notice',
 	'team_kill',
 	'seed_reward',
-	'match_broadcast'
+	'match_broadcast',
+	'name_filter'
 ];
 export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	welcome: 'Welcome whisper',
@@ -27,7 +29,8 @@ export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	restart_notice: 'Restart notice',
 	team_kill: 'Team kill limit',
 	seed_reward: 'Seeding reward',
-	match_broadcast: 'Match broadcast'
+	match_broadcast: 'Match broadcast',
+	name_filter: 'Name filter'
 };
 
 export interface WelcomeConfig {
@@ -132,7 +135,8 @@ export type TriggerConfig =
 	| RestartNoticeConfig
 	| TeamKillConfig
 	| SeedRewardConfig
-	| MatchBroadcastConfig;
+	| MatchBroadcastConfig
+	| NameFilterConfig;
 
 const MAX_MESSAGE = 200;
 
@@ -283,6 +287,8 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 				);
 			return { endMessage, startMessage, minPlayers: int(c.minPlayers, 1, 0, 1000) };
 		}
+		case 'name_filter':
+			return validateNameFilter(c);
 	}
 }
 

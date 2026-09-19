@@ -139,6 +139,12 @@
 			blurb: 'Kick joiners the panel already distrusts, before they get a slot.'
 		},
 		{
+			kind: 'name_filter',
+			group: 'Players',
+			label: 'Name filter',
+			blurb: 'Kick or flag joiners whose name uses characters or words this server does not allow.'
+		},
+		{
 			kind: 'team_kill',
 			group: 'Players',
 			label: 'Team kill limit',
@@ -289,7 +295,28 @@
 		windowDays: number;
 		slotDays: number;
 		slotScope: 'server' | 'org';
+		characters: 'off' | 'latin' | 'ascii';
+		extraScripts: string[];
+		allowSymbols: boolean;
+		minLetters: number;
+		builtinWords: boolean;
+		blocked: string;
+		allowed: string;
+		nameAction: 'kick' | 'alert';
 	}
+	/** The alphabets a Latin policy can let in, by the name the rule stores and the one people use. */
+	const SCRIPTS: [string, string][] = [
+		['Cyrillic', 'Cyrillic'],
+		['Greek', 'Greek'],
+		['Arabic', 'Arabic'],
+		['Hebrew', 'Hebrew'],
+		['Thai', 'Thai'],
+		['Devanagari', 'Devanagari'],
+		['Han', 'Chinese'],
+		['Hiragana', 'Hiragana'],
+		['Katakana', 'Katakana'],
+		['Hangul', 'Korean']
+	];
 	let form = $state<Form | null>(null);
 	/**
 	 * Placeholder chips insert into the message field the admin last had the caret in, or the first
@@ -304,7 +331,7 @@
 			lastField?.isConnected && !lastField.disabled
 				? lastField
 				: formEl?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-						'textarea:not([disabled]), input[type=text]:not([disabled]):not([name=name])'
+						'textarea:not([disabled]):not([data-plain]), input[type=text]:not([disabled]):not([name=name])'
 					);
 		if (!el) return;
 		const at = el.selectionStart ?? el.value.length;
@@ -366,7 +393,12 @@
 			watchlist: b('watchlist', false),
 			kickAtLevel: c.kickAtLevel === 'high' || c.kickAtLevel === 'medium' ? c.kickAtLevel : '',
 			spareReserved: b('spareReserved', true),
-			reason: s('reason', 'Your account does not meet this server’s requirements.'),
+			reason: s(
+				'reason',
+				kind === 'name_filter'
+					? 'Your name is not allowed on this server: {why}.'
+					: 'Your account does not meet this server’s requirements.'
+			),
 			leadMinutes: n('leadMinutes', 30),
 			leadMessage: s(
 				'leadMessage',
@@ -389,7 +421,15 @@
 			windowDays: n('windowDays', 7),
 			slotDays: n('slotDays', 7),
 			// a rule saved before the scope existed hands out org-wide slots; a new one, this server's
-			slotScope: c.scope === 'server' ? 'server' : t ? 'org' : canSlotHere ? 'server' : 'org'
+			slotScope: c.scope === 'server' ? 'server' : t ? 'org' : canSlotHere ? 'server' : 'org',
+			characters: c.characters === 'ascii' || c.characters === 'off' ? c.characters : 'latin',
+			extraScripts: Array.isArray(c.extraScripts) ? (c.extraScripts as string[]) : [],
+			allowSymbols: b('allowSymbols', false),
+			minLetters: n('minLetters', 0),
+			builtinWords: b('builtinWords', !t),
+			blocked: Array.isArray(c.blocked) ? (c.blocked as string[]).join('\n') : '',
+			allowed: Array.isArray(c.allowed) ? (c.allowed as string[]).join('\n') : '',
+			nameAction: c.action === 'alert' ? 'alert' : 'kick'
 		};
 		dry = null;
 		pendingSel =
@@ -403,6 +443,17 @@
 				: null;
 	}
 
+	const dryLabel = (kind: TriggerKind) =>
+		kind === 'restart_notice'
+			? 'Preview next cycle'
+			: kind === 'name_filter'
+				? 'Dry run, past players'
+				: 'Dry run, last 24 h';
+	const lines = (text: string) =>
+		text
+			.split(/[\n,]/)
+			.map((w) => w.trim())
+			.filter(Boolean);
 	// A cleared number input binds null, not '': an optional count is sent only when it is a number.
 	function config(f: Form): Record<string, unknown> {
 		switch (f.kind) {
@@ -436,6 +487,19 @@
 					bannedElsewhere: f.bannedElsewhere,
 					watchlist: f.watchlist,
 					kickAtLevel: f.kickAtLevel || null,
+					spareReserved: f.spareReserved,
+					reason: f.reason
+				};
+			case 'name_filter':
+				return {
+					characters: f.characters,
+					extraScripts: f.characters === 'latin' ? f.extraScripts : [],
+					allowSymbols: f.allowSymbols,
+					minLetters: Number(f.minLetters),
+					builtinWords: f.builtinWords,
+					blocked: lines(f.blocked),
+					allowed: lines(f.allowed),
+					action: f.nameAction,
 					spareReserved: f.spareReserved,
 					reason: f.reason
 				};
@@ -567,6 +631,33 @@
 					c.kickAtLevel && `${c.kickAtLevel}${c.kickAtLevel === 'medium' ? ' or high' : ''} risk`
 				].filter(Boolean);
 				return `${rules.join(', ')}${c.spareReserved ? ' · spares reserved slots' : ''}`;
+			}
+			case 'name_filter': {
+				const also = ((c.extraScripts as string[] | undefined) ?? []).map(
+					(x) => SCRIPTS.find(([k]) => k === x)?.[1] ?? x
+				);
+				const blocked = ((c.blocked as string[] | undefined) ?? []).length;
+				const allowed = ((c.allowed as string[] | undefined) ?? []).length;
+				const lists = [
+					c.builtinWords && 'built-in list',
+					blocked && `${blocked} word${blocked === 1 ? '' : 's'}`
+				].filter(Boolean);
+				return [
+					c.characters === 'ascii'
+						? 'ASCII only'
+						: c.characters === 'latin'
+							? `${['Latin', ...also].join(', ')} letters`
+							: '',
+					c.characters !== 'off' && c.allowSymbols ? 'emoji and symbols allowed' : '',
+					c.minLetters ? `at least ${c.minLetters} letters` : '',
+					lists.length
+						? `${lists.join(' and ')}${allowed ? `, ${allowed} exception${allowed === 1 ? '' : 's'}` : ''}`
+						: '',
+					c.action === 'alert' ? 'alert only' : 'kick',
+					c.spareReserved ? 'spares reserved slots' : ''
+				]
+					.filter(Boolean)
+					.join(' · ');
 			}
 			case 'restart_notice':
 				return `"${c.message}"${c.leadMinutes ? ` · heads-up ${c.leadMinutes} min before` : ''}${c.repeatMinutes ? ` · again every ${c.repeatMinutes} min` : ''} · at least ${c.minPlayers} on`;
@@ -755,8 +846,7 @@
 							class="menu-item"
 							role="menuitem"
 							disabled={dryBusy}
-							onclick={() => dryRun(t.kind, t.config, t.id, t.name)}
-							>{t.kind === 'restart_notice' ? 'Preview next cycle' : 'Dry run, last 24 h'}</button
+							onclick={() => dryRun(t.kind, t.config, t.id, t.name)}>{dryLabel(t.kind)}</button
 						>
 						<button type="button" class="menu-item" role="menuitem" onclick={() => open(t.kind, t)}
 							>Edit</button
@@ -830,6 +920,13 @@
 					? ''
 					: 's'}</span
 			>
+		{:else if r.kind === 'name_filter'}
+			<span
+				>Everyone who has played here: would have matched <b
+					class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b
+				>
+				name{r.fires === 1 ? '' : 's'}</span
+			>
 		{:else}
 			<span
 				>Replayed the last 24 h on this server: would have fired <b
@@ -866,14 +963,15 @@
 	{@const f = form}
 	<Modal
 		title="{f.id ? 'Edit' : 'New'} · {label(f.kind)}"
-		wide={f.kind === 'empty_reset'}
+		wide={f.kind === 'empty_reset' || f.kind === 'name_filter'}
 		onclose={() => (form = null)}
 	>
 		<form
 			class="space-y-3"
 			bind:this={formEl}
 			onfocusin={(e) => {
-				if (isText(e.target) && e.target.name !== 'name') lastField = e.target;
+				if (isText(e.target) && e.target.name !== 'name' && !e.target.dataset.plain)
+					lastField = e.target;
 			}}
 			onsubmit={(e) => {
 				e.preventDefault();
@@ -1205,6 +1303,116 @@
 						<input class="input" type="text" bind:value={f.reason} maxlength="200" />
 					</fieldset>
 					<p class="note">Kicks land in the audit trail with the rule that matched.</p>
+				{:else if f.kind === 'name_filter'}
+					<div class="grid grid-cols-1 items-start gap-x-6 gap-y-3 sm:grid-cols-2">
+						<div class="space-y-3">
+							<fieldset class="space-y-2 text-[13px]">
+								<legend class="field-label">Characters a name may use</legend>
+								<select class="input" bind:value={f.characters} aria-label="Character policy">
+									<option value="off">Any</option>
+									<option value="latin">Latin letters (keeps José, Müller)</option>
+									<option value="ascii">ASCII only (what a US keyboard types)</option>
+								</select>
+								{#if f.characters === 'latin'}
+									<div class="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
+										<span class="text-mist-400">and also</span>
+										{#each SCRIPTS as [value, name] (value)}
+											<label class="flex items-center gap-1.5"
+												><input type="checkbox" {value} bind:group={f.extraScripts} />
+												{name}</label
+											>
+										{/each}
+									</div>
+								{/if}
+								{#if f.characters !== 'off'}
+									<label class="flex flex-wrap items-center gap-2 border-t border-black pt-2"
+										><input type="checkbox" bind:checked={f.allowSymbols} /> Allow emoji and symbols
+										<span class="text-mist-600">(★ 【 】 and the like)</span></label
+									>
+								{/if}
+								<div class="flex flex-wrap items-center gap-2">
+									At least
+									<input
+										class="input w-20 text-right"
+										type="number"
+										min="0"
+										max="10"
+										bind:value={f.minLetters}
+										aria-label="Minimum letters in a name"
+									/>
+									letters <span class="text-mist-600">(0 turns it off; catches ____ and ....)</span>
+								</div>
+								{#if f.characters !== 'off'}
+									<p class="text-[12px] text-mist-600">
+										Digits, spaces and keyboard punctuation always pass.
+									</p>
+								{/if}
+							</fieldset>
+							<fieldset class="space-y-1.5 text-[13px]">
+								<legend class="field-label">When a name matches</legend>
+								<label class="flex items-center gap-2"
+									><input type="radio" value="kick" bind:group={f.nameAction} /> Kick the player</label
+								>
+								<label class="flex flex-wrap items-center gap-2"
+									><input type="radio" value="alert" bind:group={f.nameAction} /> Alert only
+									<span class="text-mist-600">(audit trail and Discord, nobody is kicked)</span
+									></label
+								>
+								<label class="flex items-center gap-2 border-t border-black pt-2"
+									><input type="checkbox" bind:checked={f.spareReserved} /> Never players with a reserved
+									slot</label
+								>
+							</fieldset>
+						</div>
+						<div class="space-y-3 sm:border-l sm:border-black sm:pl-6">
+							<fieldset class="space-y-2 text-[13px]">
+								<legend class="field-label">Words a name may not contain</legend>
+								<label class="flex flex-wrap items-center gap-2"
+									><input type="checkbox" bind:checked={f.builtinWords} /> The built-in English list
+									<span class="text-mist-600">(slurs and hate terms; add swearing yourself)</span
+									></label
+								>
+								<textarea
+									class="input font-mono text-[12.5px]"
+									rows="7"
+									data-plain
+									bind:value={f.blocked}
+									aria-label="Blocked words, one per line"
+									placeholder="one word per line"></textarea>
+								<p class="text-[12px] text-mist-600">
+									Caught through case, leetspeak (n4z1), look-alike letters, stretching and spelling
+									out (n.a.z.i). Letters, digits and spaces; 200 at most.
+								</p>
+							</fieldset>
+							<fieldset class="space-y-2 text-[13px]">
+								<legend class="field-label">Except</legend>
+								<textarea
+									class="input font-mono text-[12.5px]"
+									rows="3"
+									data-plain
+									bind:value={f.allowed}
+									aria-label="Allowed words, one per line"></textarea>
+								<p class="text-[12px] text-mist-600">
+									Names or parts of names that would match but are fine here.
+								</p>
+							</fieldset>
+						</div>
+					</div>
+					{#if f.nameAction === 'kick'}
+						<fieldset class="space-y-2">
+							<legend class="field-label">Kick reason, shown to the player</legend>
+							<input class="input" type="text" bind:value={f.reason} maxlength="200" />
+							{@render placeholders(['why', 'name', 'server'])}
+							<p class="text-[12px] text-mist-600">
+								{'{why}'} names the kind of fault ("it uses characters outside the Latin alphabet"), never
+								the word.
+							</p>
+						</fieldset>
+					{/if}
+					<p class="note">
+						Names are checked as players join; a player who renames mid-session is caught on their
+						next join. Run the dry run before turning a word list loose.
+					</p>
 				{:else if f.kind === 'team_kill'}
 					<fieldset class="space-y-2">
 						<legend class="field-label">Whisper</legend>
@@ -1381,9 +1589,7 @@
 						? 'Working…'
 						: dry && dryFor === 'form'
 							? 'Back to the form'
-							: f.kind === 'restart_notice'
-								? 'Preview next cycle'
-								: 'Dry run, last 24 h'}</button
+							: dryLabel(f.kind)}</button
 				>
 				<button type="button" class="btn" data-close onclick={() => (form = null)}>Cancel</button>
 				<button type="submit" class="btn btn-primary" disabled={busy}
