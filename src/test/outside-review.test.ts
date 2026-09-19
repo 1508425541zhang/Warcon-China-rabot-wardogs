@@ -50,6 +50,16 @@ describe('outside review: no database needed', () => {
 		}
 	});
 
+	test('pages are served under a Content-Security-Policy: own scripts by nonce, Turnstile, any https image', () => {
+		const config = read('vite.config.ts');
+		expect(config).toMatch(/csp:\s*{\s*mode: 'nonce'/);
+		expect(config).toContain("'script-src': ['self', 'https://challenges.cloudflare.com']");
+		expect(config).not.toMatch(/'script-src':[^\n]*unsafe/);
+		// Steam and Discord avatars and owners' server images: any https host, never a list of them.
+		expect(config).toContain("'img-src': ['self', 'data:', 'https:']");
+		expect(config).toContain("'frame-ancestors': ['none']");
+	});
+
 	test('the relay and metrics bearers are compared in constant time', () => {
 		for (const file of [
 			'src/routes/api/health/+server.ts',
