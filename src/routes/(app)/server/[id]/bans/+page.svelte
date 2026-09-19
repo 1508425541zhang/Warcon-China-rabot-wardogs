@@ -1,19 +1,20 @@
 <script lang="ts">
-	// This server's ban list as the game server holds it, with what the organisation's list
-	// contributes marked out, and the way into that list.
+	// This server's ban list: what the game server holds, with what the organisation's list and the
+	// server's own list contribute marked out, and the bans those lists still wait to place.
 	import { invalidateAll } from '$app/navigation';
 	import { api, rconGet, rconPost, errorMessage } from '$lib/api';
-	import { fmtTime } from '$lib/format';
+	import { fmtSpan, fmtTime } from '$lib/format';
 	import { can } from '$lib/capabilities';
 	import { toast } from '$lib/toast.svelte';
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
+	import EditBanDialog from '$lib/components/EditBanDialog.svelte';
 	import SteamName from '$lib/components/SteamName.svelte';
 	import SortHeader from '$lib/components/SortHeader.svelte';
 	import { TableSort, matches } from '$lib/table.svelte';
 	import { steamProfiles, type SteamProfile } from '$lib/steam-profiles';
-	import { describeSync, STATE_TONE } from '$lib/lists';
+	import { describeSync } from '$lib/lists';
 	import type { Ban, ListSyncServer, ListSyncSummary, ServerListsState } from '$lib/types';
 	import type { PageProps } from './$types';
 
@@ -35,24 +36,80 @@
 	let busy = $state(false);
 	let banning = $state(false);
 
-	const sort = new TableSort<Ban>({
-		player: { by: (b) => steam[b.steamId]?.name || b.steamId },
-		source: { by: (b) => (banSource(b.steamId)?.managed ? 'org' : 'local') },
-		bannedAt: { by: (b) => b.bannedAtUtc, dir: 'desc' },
-		by: { by: (b) => b.bannedBy },
-		reason: { by: (b) => b.reason }
+	let editing = $state(false);
+
+	/** One line of the table: the game's ban, told in the panel's words where a list placed it. */
+	interface Row {
+		steamId: string;
+		source: 'org' | 'here' | 'local';
+		/** wanted by a list and not on the server: placed the moment the player is seen */
+		onSight: boolean;
+		failed: boolean;
+		bannedAt: string;
+		by: string;
+		reason: string;
+		expiresAt: string | null;
+	}
+	const utc = (iso: string) => iso.slice(0, 16).replace('T', ' ');
+	let rows = $derived.by(() => {
+		const held = new Set(bans.map((b) => b.steamId));
+		const row = (steamId: string, b: Ban | null): Row => {
+			const src = banSource(steamId);
+			const managed = !!src?.managed;
+			return {
+				steamId,
+				source: !managed ? 'local' : src.scope === 'server' ? 'here' : 'org',
+				onSight: managed && !b,
+				failed: managed && !!b && src.state === 'failed',
+				bannedAt: (managed && src.addedAt ? utc(src.addedAt) : '') || utc(b?.bannedAtUtc ?? ''),
+				by: (managed && src.addedByName) || b?.bannedBy || '',
+				reason: (managed && src.reason) || b?.reason || '',
+				expiresAt: managed ? src.expiresAt : null
+			};
+		};
+		return [
+			...bans.map((b) => row(b.steamId, b)),
+			...Object.entries(listState?.bans ?? {})
+				.filter(([steamId, s]) => s.managed && !held.has(steamId))
+				.map(([steamId]) => row(steamId, null))
+		];
+	});
+
+	const sort = new TableSort<Row>({
+		player: { by: (r) => steam[r.steamId]?.name || r.steamId },
+		source: { by: (r) => r.source },
+		bannedAt: { by: (r) => r.bannedAt, dir: 'desc' },
+		by: { by: (r) => r.by },
+		reason: { by: (r) => r.reason },
+		expires: { by: (r) => r.expiresAt ?? '\uffff' }
 	});
 	let banRows = $derived(
 		sort.sorted(
-			bans.filter((b) =>
-				matches(banSearch, b.steamId, steam[b.steamId]?.name, b.bannedBy, b.reason)
-			)
+			rows.filter((r) => matches(banSearch, r.steamId, steam[r.steamId]?.name, r.by, r.reason))
 		)
+	);
+	let selectedRow = $derived(rows.find((r) => r.steamId === selectedBan) ?? null);
+	/** A ban on the server's own list is edited with Bans, one on the org's with a lists role. */
+	let canEdit = $derived(
+		!!selectedRow &&
+			((selectedRow.source === 'here' && admin) ||
+				(selectedRow.source === 'org' && !!listState?.canEditOrg))
+	);
+	let entryPath = $derived(
+		!selectedRow
+			? ''
+			: selectedRow.source === 'here'
+				? `/api/servers/${encodeURIComponent(id)}/lists/ban/entries/${selectedRow.steamId}`
+				: `/api/orgs/${encodeURIComponent(data.server.orgId)}/lists/ban/entries/${selectedRow.steamId}`
 	);
 	let orgBanCount = $derived(
 		data.orgLists?.lists.find((l) => l.kind === 'ban')?.entryCount ?? null
 	);
-	let managedBans = $derived(Object.values(listState?.bans ?? {}).filter((s) => s.managed).length);
+	let managedBans = $derived(
+		Object.values(listState?.bans ?? {}).filter(
+			(s) => s.managed && s.scope === 'org' && s.state === 'applied'
+		).length
+	);
 	let pendingCount = $derived(
 		Object.values(listState?.bans ?? {}).filter(
 			(s) => s.state === 'pending' || s.state === 'failed'
@@ -91,8 +148,8 @@
 	}
 	async function refreshBans() {
 		bans = (await rconGet<{ bans: Ban[] }>(id, 'bans')).bans;
-		void refreshListState();
-		void lookupSteam(bans.map((b) => b.steamId));
+		await refreshListState();
+		void lookupSteam(rows.map((r) => r.steamId));
 	}
 	async function lookupSteam(ids: string[]) {
 		const found = await steamProfiles(ids.filter((s) => !(s in steam)));
@@ -149,9 +206,28 @@
 			busy = false;
 		}
 	}
+	/** A ban on the server's own list is lifted by withdrawing the entry; the sync unbans. */
+	async function liftHere(steamId: string) {
+		if (!(await confirmDialog(`Lift the ban on ${steamId}?`, { okLabel: 'Do it' }))) return;
+		busy = true;
+		try {
+			const res = await api<{ sync: ListSyncServer }>(
+				'DELETE',
+				`/api/servers/${encodeURIComponent(id)}/lists/ban/entries/${steamId}`
+			);
+			toast(describeSync({ servers: [res.sync] }, `Lifted the ban on ${steamId}.`), 'ok', 8000);
+			selectedBan = null;
+			await refreshBans();
+		} catch (err) {
+			toast(errorMessage(err), 'err');
+		} finally {
+			busy = false;
+		}
+	}
 	async function unbanSelected() {
 		if (!selectedBan) return;
 		const src = banSource(selectedBan);
+		if (src?.managed && src.scope === 'server') return liftHere(selectedBan);
 		const confirm = src?.managed
 			? `${selectedBan} is banned by the organisation's ban list, so the panel will ban them again at the next sync. Unban here anyway? To lift it everywhere, remove it from the organisation's ban list instead.`
 			: `Unban ${selectedBan}?`;
@@ -230,8 +306,11 @@
 					>{listState.orgOwner ? 'Promote to org list' : 'Add to org list'}</button
 				>
 			{/if}
-			<button class="btn btn-danger" disabled={!admin || !selectedBan} onclick={unbanSelected}
-				>Unban selected</button
+			<button class="btn" disabled={busy || !canEdit} onclick={() => (editing = true)}>Edit</button>
+			<button
+				class="btn btn-danger"
+				disabled={busy || !admin || !selectedBan}
+				onclick={unbanSelected}>Unban selected</button
 			>
 		</span>
 	</div>
@@ -244,11 +323,11 @@
 					<SortHeader {sort} key="bannedAt">Banned at (UTC)</SortHeader>
 					<SortHeader {sort} key="by">By</SortHeader>
 					<SortHeader {sort} key="reason">Reason</SortHeader>
+					<SortHeader {sort} key="expires">Expires</SortHeader>
 				</tr>
 			</thead>
 			<tbody>
 				{#each banRows as b (b.steamId)}
-					{@const src = banSource(b.steamId)}
 					<tr
 						class="clickable {selectedBan === b.steamId ? 'selected' : ''}"
 						onclick={() => (selectedBan = selectedBan === b.steamId ? null : b.steamId)}
@@ -263,32 +342,60 @@
 							>
 						</td>
 						<td>
-							{#if src?.managed}
-								<Badge tone={STATE_TONE[src.state]}
-									>org{src.state === 'failed' ? ' · failed' : ''}</Badge
-								>
-							{:else}
+							{#if b.source === 'local'}
 								<Badge>local</Badge>
+							{:else}
+								<Badge tone={b.onSight ? 'warn' : b.failed ? 'err' : 'ok'}
+									>{b.source}{b.onSight ? ' · on sight' : b.failed ? ' · failed' : ''}</Badge
+								>
 							{/if}
 						</td>
-						<td class="font-mono text-[12px] text-mist-400">{b.bannedAtUtc || '—'}</td>
-						<td>{b.bannedBy}</td>
+						<td class="font-mono text-[12px] whitespace-nowrap text-mist-400"
+							>{b.bannedAt || '—'}</td
+						>
+						<td>{b.by}</td>
 						<td
 							>{#if b.reason}{b.reason}{:else}<span class="text-mist-600">—</span>{/if}</td
 						>
+						<td class="whitespace-nowrap">
+							{#if b.source === 'local'}
+								<span class="text-mist-600">—</span>
+							{:else if b.expiresAt}
+								<div class="text-accent">
+									in {fmtSpan(new Date(b.expiresAt).getTime() - Date.now())}
+								</div>
+								<div class="font-mono text-[12px] text-mist-400">{fmtTime(b.expiresAt)}</div>
+							{:else}
+								<span class="text-mist-400">Permanent</span>
+							{/if}
+						</td>
 					</tr>
 				{:else}
-					<tr><td colspan="5" class="py-6 text-center text-mist-600">No bans.</td></tr>
+					<tr><td colspan="6" class="py-6 text-center text-mist-600">No bans.</td></tr>
 				{/each}
 			</tbody>
 		</table>
 	</div>
 	<p class="note">
-		<Badge tone="ok">org</Badge> bans come from the organisation's ban list and are re-applied if removed
-		here; <Badge>local</Badge> bans were added on this server and the panel leaves them alone. To ban
-		someone who is playing right now, use the Players tab.
+		<Badge tone="ok">org</Badge> bans come from the organisation's ban list.
+		<Badge tone="ok">here</Badge> bans are on this server's own list: the panel places them, lifts them
+		when they expire, and bans a player who was not connected the moment they join (<Badge
+			tone="warn">here · on sight</Badge
+		>). <Badge>local</Badge> bans were written straight to the game and the panel leaves them alone.
 	</p>
 </div>
+
+{#if editing && selectedRow}
+	<EditBanDialog
+		path={entryPath}
+		who={steam[selectedRow.steamId]?.name || selectedRow.steamId}
+		placed={`Banned ${selectedRow.source === 'here' ? `on ${data.server.name}` : `across ${data.server.orgName}`}${selectedRow.by ? ` by ${selectedRow.by}` : ''}${selectedRow.bannedAt ? ` on ${selectedRow.bannedAt} UTC` : ''}.`}
+		reason={selectedRow.reason}
+		expiresAt={selectedRow.expiresAt}
+		onclose={() => (editing = false)}
+		ondone={refreshBans}
+	/>
+{/if}
 
 {#if banning}
 	<BanDialog

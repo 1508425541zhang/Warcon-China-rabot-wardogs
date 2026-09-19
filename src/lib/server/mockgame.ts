@@ -830,6 +830,8 @@ export function mockHandle(
 			return fail(400, 'steamId must be a 17-digit SteamID64.');
 		}
 		const player = s.players.find((x) => x.steamId === b.steamId);
+		// The live build only bans a connected player.
+		if (!player && liveBuild()) return fail(404, `Error: no player matching '${b.steamId}'.`);
 		s.players = s.players.filter((x) => x.steamId !== b.steamId);
 		s.bans = s.bans.filter((x) => x.steamId !== b.steamId);
 		s.bans.push({

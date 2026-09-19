@@ -2,11 +2,11 @@
 	// Ban a player: across the whole organisation (the org ban list, pushed to every server) or on
 	// one server only. Used from the org ban list page, the players page and the dossier.
 	import { untrack } from 'svelte';
-	import { api, rconPost, errorMessage } from '$lib/api';
+	import { api, errorMessage } from '$lib/api';
 	import { toast } from '$lib/toast.svelte';
 	import { describeSync, EXPIRY_OPTIONS, expiryIso, REASON_PRESETS } from '$lib/lists';
 	import { isSteamId, steamProfiles, type SteamProfile } from '$lib/steam-profiles';
-	import type { ListSyncSummary } from '$lib/types';
+	import type { ListSyncServer, ListSyncSummary } from '$lib/types';
 	import Modal from './Modal.svelte';
 	import SteamName from './SteamName.svelte';
 
@@ -53,7 +53,6 @@
 			if (previewId === want && want in r) preview = r[want];
 		});
 	});
-	let orgOnly = $derived(!server);
 
 	async function submit() {
 		const target = id.trim();
@@ -71,11 +70,19 @@
 				);
 				toast(describeSync(res.sync, `Banned ${target} across ${orgName}.`), 'ok', 8000);
 			} else if (server) {
-				const res = await rconPost<{ message?: string }>(server.id, 'ban', {
-					steamId: target,
-					reason: reason.trim()
-				});
-				toast(res?.message || `Banned ${target} on ${server.name}.`, 'ok');
+				const res = await api<{ sync: ListSyncServer }>(
+					'POST',
+					`/api/servers/${encodeURIComponent(server.id)}/lists/ban/entries`,
+					{ steamId: target, reason: reason.trim(), expiresAt: expiryIso(expiry, custom) }
+				);
+				// The game only bans a connected player; the list keeps the ban for when they join.
+				toast(
+					res.sync.ok && res.sync.failed
+						? `${target} is not on ${server.name} right now: they are banned the moment they join.`
+						: describeSync({ servers: [res.sync] }, `Banned ${target} on ${server.name}.`),
+					'ok',
+					8000
+				);
 			}
 			await ondone(scope);
 			onclose();
@@ -132,13 +139,17 @@
 					<span
 						><b>{server.name} only</b>
 						<span class="block text-[12.5px] text-mist-400"
-							>Written to this server's config; the panel does not manage it.</span
+							>Goes on this server's own ban list. If the player is not connected, they are banned
+							the moment they join.</span
 						></span
 					>
 				</label>
 			</fieldset>
 		{:else if server}
-			<p class="note">Written to {server.name}'s config.</p>
+			<p class="note">
+				Goes on {server.name}'s own ban list. If the player is not connected, they are banned the
+				moment they join.
+			</p>
 		{/if}
 
 		<label class="block"
@@ -160,27 +171,25 @@
 			{/each}
 		</div>
 
-		{#if scope === 'org' || orgOnly}
-			<div class="flex flex-wrap gap-3">
-				<label class="block sm:w-48"
-					><span class="field-label">Expires</span><select class="input" bind:value={expiry}>
-						{#each EXPIRY_OPTIONS as [value, label] (value)}
-							<option {value}>{label}</option>
-						{/each}
-					</select></label
+		<div class="flex flex-wrap gap-3">
+			<label class="block sm:w-48"
+				><span class="field-label">Expires</span><select class="input" bind:value={expiry}>
+					{#each EXPIRY_OPTIONS as [value, label] (value)}
+						<option {value}>{label}</option>
+					{/each}
+				</select></label
+			>
+			{#if expiry === 'custom'}
+				<label class="block sm:flex-1"
+					><span class="field-label">Until (local time)</span><input
+						class="input"
+						type="datetime-local"
+						bind:value={custom}
+						required
+					/></label
 				>
-				{#if expiry === 'custom'}
-					<label class="block sm:flex-1"
-						><span class="field-label">Until (local time)</span><input
-							class="input"
-							type="datetime-local"
-							bind:value={custom}
-							required
-						/></label
-					>
-				{/if}
-			</div>
-		{/if}
+			{/if}
+		</div>
 
 		<div class="flex justify-end gap-2 pt-2">
 			<button type="button" class="btn" data-close onclick={onclose}>Cancel</button>
