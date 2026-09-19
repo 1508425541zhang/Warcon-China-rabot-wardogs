@@ -272,6 +272,7 @@
 		cooldownMinutes: number;
 		vacBans: boolean;
 		gameBans: boolean;
+		maxBanAgeDays: number;
 		minAccountDays: number;
 		privateProfiles: boolean;
 		bannedElsewhere: boolean;
@@ -387,6 +388,7 @@
 			cooldownMinutes: n('cooldownMinutes', 30),
 			vacBans: b('vacBans', true),
 			gameBans: b('gameBans', false),
+			maxBanAgeDays: n('maxBanAgeDays', 0),
 			minAccountDays: n('minAccountDays', 0),
 			privateProfiles: b('privateProfiles', false),
 			bannedElsewhere: b('bannedElsewhere', true),
@@ -482,6 +484,7 @@
 				return {
 					vacBans: f.vacBans,
 					gameBans: f.gameBans,
+					maxBanAgeDays: Number(f.maxBanAgeDays),
 					minAccountDays: Number(f.minAccountDays),
 					privateProfiles: f.privateProfiles,
 					bannedElsewhere: f.bannedElsewhere,
@@ -621,9 +624,10 @@
 			case 'empty_reset':
 				return `to ${c.map ? mapLabel(data.catalog, String(c.map)) : 'the chosen map'} after ${c.afterMinutes} min empty`;
 			case 'risk_kick': {
+				const banAge = c.maxBanAgeDays ? ` in the last ${c.maxBanAgeDays} days` : '';
 				const rules = [
-					c.vacBans && 'VAC ban',
-					c.gameBans && 'game ban',
+					c.vacBans && `VAC ban${banAge}`,
+					c.gameBans && `game ban${banAge}`,
 					c.minAccountDays &&
 						`account under ${c.minAccountDays} days${c.privateProfiles ? ' or private' : ''}`,
 					c.bannedElsewhere && 'banned elsewhere in the org',
@@ -1255,6 +1259,22 @@
 								<label class="flex items-center gap-2"
 									><input type="checkbox" bind:checked={f.gameBans} disabled={!data.steam} /> game banned</label
 								>
+								{#if f.vacBans || f.gameBans}
+                  <div
+                    class="flex flex-wrap items-center gap-2 pl-5 {data.steam ? '' : 'text-mist-600'}"
+                  >
+                    Only bans from the last
+                    <input
+                      class="input w-24 text-right"
+                      type="number"
+                      min="0"
+                      max="36500"
+                      bind:value={f.maxBanAgeDays}
+                      disabled={!data.steam}
+                    />
+                    days (0 = since forever)
+                  </div>
+                {/if}
 								<div class="flex flex-wrap items-center gap-2">
 									under
 									<input

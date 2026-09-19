@@ -62,6 +62,8 @@ export interface EmptyResetConfig {
 export interface RiskKickConfig {
 	vacBans: boolean;
 	gameBans: boolean;
+	/** only consider bans this recent; 0 means any ban on record */
+	maxBanAgeDays: number;
 	minAccountDays: number;
 	privateProfiles: boolean;
 	bannedElsewhere: boolean;
@@ -199,6 +201,7 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 			const cfg: RiskKickConfig = {
 				vacBans: !!c.vacBans,
 				gameBans: !!c.gameBans,
+				maxBanAgeDays: int(c.maxBanAgeDays, 0, 0, 36500),
 				minAccountDays: int(c.minAccountDays, 0, 0, 3650),
 				privateProfiles: !!c.privateProfiles,
 				bannedElsewhere: !!c.bannedElsewhere,
@@ -645,9 +648,16 @@ export function riskKickVerdict(cfg: RiskKickConfig, s: RiskKickSignals): string
 		return `on the watchlist${s.watched.reason ? ` (${s.watched.reason})` : ''}`;
 	if (s.steamEnabled && s.profile && !s.profile.error) {
 		const p = s.profile;
-		if (cfg.vacBans && p.vacBans > 0)
+		// Configs saved before this setting existed have no property; they keep the old
+		// behaviour of considering the player's full ban history.
+		const maxBanAgeDays = cfg.maxBanAgeDays ?? 0;
+		const banIsRecentEnough =
+			maxBanAgeDays === 0 ||
+			p.daysSinceLastBan === null ||
+			p.daysSinceLastBan <= maxBanAgeDays;
+		if (cfg.vacBans && p.vacBans > 0 && banIsRecentEnough)
 			return `${p.vacBans} VAC ban${p.vacBans === 1 ? '' : 's'} on record`;
-		if (cfg.gameBans && p.gameBans > 0)
+		if (cfg.gameBans && p.gameBans > 0 && banIsRecentEnough)
 			return `${p.gameBans} game ban${p.gameBans === 1 ? '' : 's'} on record`;
 		if (cfg.minAccountDays > 0) {
 			const age = accountAgeDays(p.accountCreatedAt, s.now);

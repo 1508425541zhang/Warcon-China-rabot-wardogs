@@ -93,6 +93,7 @@ describe('validateConfig', () => {
 		expect(() => validateConfig('risk_kick', {})).toThrow('at least one rule');
 		const c = validateConfig('risk_kick', { vacBans: true }) as RiskKickConfig;
 		expect(c.spareReserved).toBe(true);
+		expect(c.maxBanAgeDays).toBe(0);
 		expect(c.kickAtLevel).toBeNull();
 		expect(c.reason).toContain('requirements');
 		expect(validateConfig('risk_kick', { kickAtLevel: 'medium' })).toMatchObject({
@@ -350,6 +351,7 @@ describe('riskKickVerdict', () => {
 	const cfg: RiskKickConfig = {
 		vacBans: true,
 		gameBans: false,
+		maxBanAgeDays: 0,
 		minAccountDays: 30,
 		privateProfiles: false,
 		bannedElsewhere: true,
@@ -401,6 +403,44 @@ describe('riskKickVerdict', () => {
 				profile: { ...profile, accountCreatedAt: new Date('2020-01-01') }
 			})
 		).toBeNull();
+	});
+	test('ban age window ignores older VAC and game bans, while 0 means forever', () => {
+		const oldVac = { ...profile, vacBans: 1, daysSinceLastBan: 366 };
+		expect(
+			riskKickVerdict({ ...cfg, maxBanAgeDays: 365, minAccountDays: 0 }, { ...base, profile: oldVac })
+		).toBeNull();
+		expect(
+			riskKickVerdict({ ...cfg, maxBanAgeDays: 366, minAccountDays: 0 }, { ...base, profile: oldVac })
+		).toBe('1 VAC ban on record');
+		expect(
+			riskKickVerdict({ ...cfg, maxBanAgeDays: 0, minAccountDays: 0 }, { ...base, profile: oldVac })
+		).toBe('1 VAC ban on record');
+
+		const oldGame = { ...profile, gameBans: 2, daysSinceLastBan: 500 };
+		expect(
+			riskKickVerdict(
+				{ ...cfg, vacBans: false, gameBans: true, maxBanAgeDays: 30, minAccountDays: 0 },
+				{ ...base, profile: oldGame }
+			)
+		).toBeNull();
+	});
+	test('a ban with unknown age is still enforced when an age window is set', () => {
+		expect(
+			riskKickVerdict(
+				{ ...cfg, maxBanAgeDays: 30, minAccountDays: 0 },
+				{ ...base, profile: { ...profile, vacBans: 1, daysSinceLastBan: null } }
+			)
+		).toBe('1 VAC ban on record');
+	});
+	test('a rule saved before the ban age field existed still considers all bans', () => {
+		const legacy = { ...cfg } as Partial<RiskKickConfig>;
+		delete legacy.maxBanAgeDays;
+		expect(
+			riskKickVerdict(legacy as RiskKickConfig, {
+				...base,
+				profile: { ...profile, vacBans: 1, daysSinceLastBan: 5000 }
+			})
+		).toBe('1 VAC ban on record');
 	});
 	test('private profiles pass unless asked to fail', () => {
 		const priv = { ...profile, public: false, accountCreatedAt: null };
