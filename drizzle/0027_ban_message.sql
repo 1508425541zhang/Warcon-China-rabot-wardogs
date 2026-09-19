@@ -1,0 +1,1 @@
+ALTER TABLE "organizations" ADD COLUMN "ban_message" text DEFAULT '{reason}' NOT NULL;

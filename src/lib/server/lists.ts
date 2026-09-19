@@ -34,6 +34,7 @@ import {
 	type ListEntryRow,
 	type ListRow
 } from './db/schema';
+import { DEFAULT_BAN_MESSAGE } from '$lib/ban-message';
 import { requireSteamId } from './steam';
 import { desiredFor, memberSlots, summaryOf } from './lists-sync';
 import { gateway } from './gateway';
@@ -329,6 +330,7 @@ export async function orgListsView(
 	return {
 		role,
 		membersReserved: org.membersReserved,
+		banMessage: org.banMessage,
 		servers: srv.map((s) => {
 			const y = syncOf.get(s.id);
 			return {
@@ -922,10 +924,14 @@ export async function serverListsState(
 		env.db.select().from(serverListSync).where(eq(serverListSync.serverId, server.id)).limit(1),
 		listsRoleFor(env, user, server.orgId)
 	]);
+	// who placed a ban, and the message the org wraps its bans in, are for those who manage bans
+	// here or edit the org's lists
+	const staff = role !== null || access.caps.has('bans.manage');
 	const out: ServerListsState = {
 		canEditOrg: role !== null,
 		orgOwner: role === 'owner',
 		orgId: server.orgId,
+		banMessage: null,
 		bans: {},
 		reserved: {},
 		sync: sync
@@ -960,7 +966,11 @@ export async function serverListsState(
 		else out.reserved[s.steamId] = slot(s.state, true);
 	}
 	// wanted but not yet on the server
-	const org = (await getOrg(env, server.orgId)) ?? { membersReserved: false };
+	const org = (await getOrg(env, server.orgId)) ?? {
+		membersReserved: false,
+		banMessage: DEFAULT_BAN_MESSAGE
+	};
+	if (staff) out.banMessage = org.banMessage;
 	const desired = await desiredFor(env, server, org);
 	for (const d of desired.bans) out.bans[d.steamId] ??= ban('pending', true);
 	// The entry behind each ban the lists want: which list it is on (the org's, or this server's
@@ -968,7 +978,6 @@ export async function serverListsState(
 	// says as much); who placed it is for those who manage bans here or edit the org's lists.
 	if (desired.bans.length) {
 		const ownBans = await serverListOf(env, server, 'ban');
-		const staff = role !== null || access.caps.has('bans.manage');
 		const sourceOf = new Map(desired.bans.map((d) => [d.steamId, d.listId]));
 		const entries = await env.db
 			.select({

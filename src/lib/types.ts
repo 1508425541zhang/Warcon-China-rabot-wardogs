@@ -580,6 +580,8 @@ export interface ListSyncSummary {
 export interface OrgListsView {
 	role: 'owner' | 'editor';
 	membersReserved: boolean;
+	/** what a banned player is shown, see $lib/ban-message */
+	banMessage: string;
 	servers: {
 		id: string;
 		name: string;
@@ -635,6 +637,8 @@ export interface ServerListsState {
 	/** owners may import (adopt) local entries into the org list */
 	orgOwner: boolean;
 	orgId: string;
+	/** the org's ban message, for those who can ban here; null for everyone else */
+	banMessage: string | null;
 	bans: Record<string, BanState>;
 	reserved: Record<string, ReservedSlotState>;
 	sync: {
