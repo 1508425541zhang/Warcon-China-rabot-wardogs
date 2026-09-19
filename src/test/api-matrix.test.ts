@@ -115,6 +115,7 @@ const MATRIX: Record<string, Policy> = {
 	'GET api/servers/[id]/players/[steamId]/career': 'cap:server.view',
 	'POST api/servers/[id]/players/[steamId]/steam': 'cap:server.view',
 	'GET api/servers/[id]/players/marks': 'cap:server.view',
+	'GET api/servers/[id]/players/seen': 'cap:server.view',
 	'GET api/servers/[id]/summary': 'cap:server.view',
 	'POST api/servers/[id]/players/[steamId]/notes': 'cap:players.notes',
 	'DELETE api/servers/[id]/players/[steamId]/notes/[noteId]': 'cap:players.notes',
