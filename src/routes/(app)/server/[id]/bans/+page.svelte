@@ -403,6 +403,7 @@
 		orgName={data.server.orgName}
 		server={{ id, name: data.server.name }}
 		canOrg={listState?.canEditOrg ?? false}
+		banMessage={listState?.banMessage}
 		onclose={() => (banning = false)}
 		ondone={refreshAll}
 	/>
