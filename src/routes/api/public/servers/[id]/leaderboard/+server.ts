@@ -9,16 +9,20 @@ import {
 	requirePublicServer
 } from '$lib/server/public';
 import { loadBoard } from '$lib/server/leaderboards';
-import { parseBoardQuery } from '$lib/leaderboard';
+import { parseBoardQuery, PUBLIC_MAX_PAGE } from '$lib/leaderboard';
 
 export const GET = route(async (event) => {
 	const env = getEnv();
 	limitPublicReads(event.request);
 	const ps = await requirePublicServer(env, param(event, 'id'), 'leaderboards');
-	const q = parseBoardQuery(event.url.searchParams);
+	const q = parseBoardQuery(event.url.searchParams, PUBLIC_MAX_PAGE);
 	const ids =
 		q.scope === 'org'
 			? (await publicOrgServers(env, ps.org, 'leaderboards')).map((s) => s.id)
 			: [ps.server.id];
-	return apiJson({ ok: true, ...(await loadBoard(env, ids, q)) }, 200, publicHeaders(30));
+	return apiJson(
+		{ ok: true, ...(await loadBoard(env, ids, q)), maxPage: PUBLIC_MAX_PAGE },
+		200,
+		publicHeaders(30)
+	);
 });

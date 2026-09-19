@@ -43,6 +43,9 @@ const RANGE_KEYS = new Set<string>(BOARD_RANGES.map((r) => r.key));
 export const DEFAULT_FLOOR_MINUTES = 60;
 export const MAX_FLOOR_MINUTES = 100_000;
 export const BOARD_PAGE = 50;
+/** How deep a public board goes (the top thousand): each page is a query over the whole range,
+ *  and nobody without an account needs to walk a server's every player. */
+export const PUBLIC_MAX_PAGE = 20;
 /** The board a career rank is read off: all time, by kills, at the default floor. */
 export const RANK_METRIC: BoardMetric = 'kills';
 
@@ -94,6 +97,8 @@ export interface BoardView {
 	/** players meeting the floor over the whole board */
 	total: number;
 	pageSize: number;
+	/** the last page this reader may ask for (public boards); absent, the board has no ceiling */
+	maxPage?: number;
 	/** whether kills, deaths and the match results can exist at all on these servers */
 	hasFeed: boolean;
 }
@@ -106,7 +111,7 @@ const clampInt = (v: string | null, fallback: number, min: number, max: number):
 };
 
 /** The board a query string asks for; anything unknown falls back to the default. */
-export function parseBoardQuery(params: URLSearchParams): BoardQuery {
+export function parseBoardQuery(params: URLSearchParams, maxPage = 100_000): BoardQuery {
 	const range = params.get('range') ?? '';
 	const sort = params.get('sort') ?? '';
 	return {
@@ -114,7 +119,7 @@ export function parseBoardQuery(params: URLSearchParams): BoardQuery {
 		range: RANGE_KEYS.has(range) ? (range as BoardRange) : DEFAULT_BOARD_QUERY.range,
 		sort: METRIC_KEYS.has(sort) ? (sort as BoardMetric) : DEFAULT_BOARD_QUERY.sort,
 		dir: params.get('dir') === 'asc' ? 'asc' : 'desc',
-		page: clampInt(params.get('page'), 1, 1, 100_000),
+		page: clampInt(params.get('page'), 1, 1, maxPage),
 		minMinutes: clampInt(params.get('minMinutes'), DEFAULT_FLOOR_MINUTES, 0, MAX_FLOOR_MINUTES)
 	};
 }
