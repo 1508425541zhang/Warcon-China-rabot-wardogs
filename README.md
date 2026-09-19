@@ -399,10 +399,16 @@ roster marks these _here_. The organisation's Reserved
 slots tab has the same shape across every server: the roster with who is playing where, how far
 the list has been applied on each server, and the form that hands out a slot everywhere. Ban a player from the
 Players tab or a dossier and choose _every server in the organisation_ (the default, when you may
-edit the org list) or _this server only_. Org owners and
-anyone whose role on one of the org's servers includes _Org lists_ can edit the org lists, and
-_Reserved slots_ on a server covers its own list; a ban can carry a reason and
-an expiry, a reserved slot a note and an expiry.
+edit the org list) or _this server only_. A ban on this server only goes on a ban list of the
+server's own, marked _here_ on its Bans tab with the reason, who placed it and when it lifts. The
+game only bans a player who is connected, so a ban on someone who is away waits on the list
+(_on sight_) and is placed the moment they join. Select a ban the panel holds and choose **Edit**
+to change its reason or expiry; who placed it and when stay as they are. Org owners and
+anyone whose role on one of the org's servers includes _Org lists_ can edit the org lists;
+_Bans_ on a server covers its own ban list and _Reserved slots_ its own slots. A ban can carry a
+reason and an expiry, a reserved slot a note and an expiry. Everyone who can open the server sees who is banned, why and until when, so
+write a reason as something the player could be told; who placed a ban is shown to people who hold
+_Bans_ on the server or may edit the org lists.
 
 Each entry shows where it stands on every server: **applied** by the panel, **pending** the next
 sync, **failed** (hover for the server's answer), or **local**. Local means the player was already
@@ -858,10 +864,11 @@ GET/POST /api/servers/:id/triggers {kind,name,enabled,config}   PATCH/DELETE ...
 GET/POST /api/orgs/:id/webhooks {label,url,events,serverIds,enabled,statusEnabled,statusStyle,statusIntervalS,linkStatus,linkLeaderboard,linkPanel}   PATCH/DELETE .../:webhookId   POST .../:webhookId/test
 GET  /api/public/servers/:id   .../leaderboard (same query as above, page 20 at most)   .../players/:steamId      the public pages' JSON: no session, 404 while the page is off, limited per address
 GET  /api/orgs/:id/lists                                 the org's ban and reserved-slot lists, and the caller's role on them
-GET/POST /api/orgs/:id/lists/:kind/entries {steamId,reason,expiresAt}   DELETE .../entries/:steamId   (kind = ban | reserve; ?includeRemoved=1)
+GET/POST /api/orgs/:id/lists/:kind/entries {steamId,reason,expiresAt}   PATCH {reason,expiresAt} / DELETE .../entries/:steamId   (kind = ban | reserve; ?includeRemoved=1)
 POST /api/orgs/:id/lists/sync                            push the lists to every org server now
 GET  /api/orgs/:id/lists/import                          server entries not on the org list   POST {entries:[{kind,steamId,reason}]} adopts them (owner)
 GET  /api/servers/:id/lists/state                        which bans / reserved slots here come from the org lists or this server's own   POST .../lists/sync
+POST /api/servers/:id/lists/ban/entries {steamId,reason,expiresAt}       ban on this server only, placed on sight if the player is away (Bans)   PATCH {reason,expiresAt} / DELETE .../entries/:steamId
 POST /api/servers/:id/lists/reserve/entries {steamId,reason,expiresAt}   reserve on this server only (Reserved slots)   DELETE .../entries/:steamId
 GET  /api/actions                     lists actions with the capability each needs
 GET  /api/audit?server=&actor=&action=&outcome=&q=&from=&to=&before=&limit=
