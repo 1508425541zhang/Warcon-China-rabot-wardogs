@@ -1,11 +1,12 @@
 // Organisation lists: the ban list and reserved-slot list an org keeps in the panel and pushes to
-// every server it runs, and each server's own reserved-slot list, which only that server takes.
+// every server it runs, and each server's own ban and reserved-slot lists, which only that server
+// takes.
 // This module owns the records, their validation and the views; the per-server sync (what to add
 // or remove on a game server) is in lists-sync.ts.
 //
 // Entries are never hard-deleted: removal stamps removed_at so history and the audit trail stay
 // intact, and re-adding inserts a fresh row. Every org has exactly one list per kind and every
-// server one reserved-slot list of its own; the lists table and server_lists join exist so a
+// server one of each of its own; the lists table and server_lists join exist so a
 // later "subscribe to another org's list" is new rows, not a schema change.
 import { and, asc, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
@@ -45,6 +46,7 @@ import type {
 	ListSyncServer,
 	ListSyncSummary,
 	OrgListsView,
+	BanState,
 	ReservedSlotState,
 	ServerListsState
 } from '$lib/types';
@@ -81,8 +83,8 @@ export async function ensureOrgLists(
 }
 
 /**
- * Subscribes a server to every list of its org and gives it a reserved-slot list of its own
- * (createServer runs this in its transaction; serverListOf repairs older servers).
+ * Subscribes a server to every list of its org and gives it a ban and a reserved-slot list of
+ * its own (createServer runs this in its transaction; serverListOf repairs older servers).
  */
 export async function ensureServerLists(
 	db: DbLike,
@@ -98,7 +100,7 @@ export async function ensureServerLists(
 			.insert(serverLists)
 			.values(rows.map((l) => ({ serverId, listId: l.id })))
 			.onConflictDoNothing();
-	await ensureServerOwnList(db, serverId, orgId, 'reserve');
+	for (const kind of LIST_KINDS) await ensureServerOwnList(db, serverId, orgId, kind);
 }
 
 async function ensureServerOwnList(
@@ -568,11 +570,13 @@ export async function removeEntry(
 	return { sync };
 }
 
-// ---- a server's own reserved slots -------------------------------------------------------------
+// ---- a server's own bans and reserved slots ----------------------------------------------------
 
 /**
- * Reserves a slot on one server through its own list: the panel applies it to the server now and
- * lifts it at the expiry, unlike a slot written straight to the server, which it never touches.
+ * Bans a player or reserves a slot on one server through its own list: the panel applies it to
+ * the server now and lifts it at the expiry, unlike one written straight to the server, which it
+ * never touches. A ban the game refuses because the player is not connected stays on the list,
+ * and lands the moment they are seen (banOnSight).
  */
 export async function addServerEntry(
 	env: Env,
@@ -580,12 +584,13 @@ export async function addServerEntry(
 	actor: SessionUser,
 	server: ServerRow,
 	org: OrgRow,
+	kind: Kind,
 	body: Record<string, unknown>
 ): Promise<{ sync: ListSyncServer }> {
 	const steamId = requireSteamId(body.steamId);
 	const reason = str(body.reason, 200);
 	const expiresAt = parseExpiry(body.expiresAt);
-	const list = await serverListOf(env, server, 'reserve');
+	const list = await serverListOf(env, server, kind);
 	const { added } = await insertEntry(env, list, {
 		steamId,
 		reason,
@@ -596,7 +601,9 @@ export async function addServerEntry(
 	if (!added)
 		throw new ApiError(
 			409,
-			`${steamId} already holds a reserved slot on ${server.name}.`,
+			kind === 'ban'
+				? `${steamId} is already on ${server.name}'s ban list.`
+				: `${steamId} already holds a reserved slot on ${server.name}.`,
 			'duplicate'
 		);
 	await writeAudit(env, req, {
@@ -608,26 +615,27 @@ export async function addServerEntry(
 		target: steamId,
 		outcome: 'ok',
 		message:
-			`Reserved slot on ${server.name}` +
+			`${kind === 'ban' ? 'Banned' : 'Reserved slot'} on ${server.name}` +
 			(reason ? `: ${reason}` : '') +
 			(expiresAt ? ` (until ${expiresAt.toISOString()})` : ''),
-		detail: { kind: 'reserve', listId: list.id, reason, expiresAt: iso(expiresAt) }
+		detail: { kind, listId: list.id, reason, expiresAt: iso(expiresAt) }
 	});
 	const sync = await gateway().syncServer(env, server, org, 15_000);
 	return { sync };
 }
 
-/** Withdraws a slot the server's own list holds; the sync takes it off the server. */
+/** Withdraws a ban or slot the server's own list holds; the sync takes it off the server. */
 export async function removeServerEntry(
 	env: Env,
 	req: Request,
 	actor: SessionUser,
 	server: ServerRow,
 	org: OrgRow,
+	kind: Kind,
 	steamIdIn: unknown
 ): Promise<{ sync: ListSyncServer }> {
 	const steamId = requireSteamId(steamIdIn);
-	const list = await serverListOf(env, server, 'reserve');
+	const list = await serverListOf(env, server, kind);
 	const [row] = await env.db
 		.update(listEntries)
 		.set({
@@ -647,7 +655,9 @@ export async function removeServerEntry(
 	if (!row)
 		throw new ApiError(
 			404,
-			`${steamId} holds no reserved slot of ${server.name}'s own.`,
+			kind === 'ban'
+				? `${steamId} is not on ${server.name}'s own ban list.`
+				: `${steamId} holds no reserved slot of ${server.name}'s own.`,
 			'not_found'
 		);
 	await touch(env.db, list.id);
@@ -659,11 +669,83 @@ export async function removeServerEntry(
 		action: 'list.remove',
 		target: steamId,
 		outcome: 'ok',
-		message: `Reserved slot withdrawn on ${server.name}`,
-		detail: { kind: 'reserve', listId: list.id, entryId: row.id }
+		message:
+			kind === 'ban' ? `Unbanned on ${server.name}` : `Reserved slot withdrawn on ${server.name}`,
+		detail: { kind, listId: list.id, entryId: row.id }
 	});
 	const sync = await gateway().syncServer(env, server, org, 15_000);
 	return { sync };
+}
+
+/**
+ * Changes the reason or the expiry of an active entry, on the org's list or (with `server`) on
+ * that server's own. The row keeps who added it and when. No game call follows: the panel lifts
+ * an entry at its expiry whenever that comes, and the reason shown is the panel's.
+ */
+export async function updateEntry(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow,
+	server: ServerRow | null,
+	kind: Kind,
+	steamIdIn: unknown,
+	body: Record<string, unknown>
+): Promise<{ entry: { steamId: string; reason: string; expiresAt: string | null } }> {
+	const steamId = requireSteamId(steamIdIn);
+	const set: { reason?: string; expiresAt?: Date | null } = {};
+	if ('reason' in body) set.reason = str(body.reason, 200);
+	if ('expiresAt' in body) set.expiresAt = parseExpiry(body.expiresAt);
+	if (!('reason' in set) && !('expiresAt' in set))
+		throw new ApiError(400, 'Nothing to change: send reason, expiresAt or both.');
+	const list = server ? await serverListOf(env, server, kind) : await listOf(env, org.id, kind);
+	const [row] = await env.db
+		.update(listEntries)
+		.set(set)
+		.where(
+			and(
+				eq(listEntries.listId, list.id),
+				eq(listEntries.steamId, steamId),
+				isNull(listEntries.removedAt)
+			)
+		)
+		.returning({
+			id: listEntries.id,
+			reason: listEntries.reason,
+			expiresAt: listEntries.expiresAt
+		});
+	const where = server ? server.name : org.name;
+	if (!row)
+		throw new ApiError(
+			404,
+			`${steamId} is not on the ${KIND_LABEL[kind]} of ${where}.`,
+			'not_found'
+		);
+	await touch(env.db, list.id);
+	await writeAudit(env, req, {
+		actor,
+		...(server ? { server: { id: server.id, name: server.name } } : {}),
+		orgId: org.id,
+		category: server ? 'server' : 'org',
+		action: 'list.update',
+		target: steamId,
+		outcome: 'ok',
+		message:
+			`${kind === 'ban' ? 'Ban' : 'Reserved slot'} changed ${server ? 'on' : 'across'} ${where}` +
+			('expiresAt' in set
+				? set.expiresAt
+					? ` (until ${set.expiresAt.toISOString()})`
+					: ' (permanent)'
+				: ''),
+		detail: {
+			kind,
+			listId: list.id,
+			entryId: row.id,
+			...('reason' in set ? { reason: set.reason } : {}),
+			...('expiresAt' in set ? { expiresAt: iso(set.expiresAt ?? null) } : {})
+		}
+	});
+	return { entry: { steamId, reason: row.reason, expiresAt: iso(row.expiresAt) } };
 }
 
 // ---- import: adopt what servers already hold -----------------------------------------------------
@@ -862,16 +944,59 @@ export async function serverListsState(
 		scope: 'org',
 		expiresAt: null
 	});
-	for (const b of bans) out.bans[b.steamId] = { state: 'local', managed: false };
+	const ban = (state: ListEntryState, managed: boolean): BanState => ({
+		state,
+		managed,
+		scope: 'org',
+		reason: '',
+		addedByName: '',
+		addedAt: null,
+		expiresAt: null
+	});
+	for (const b of bans) out.bans[b.steamId] = ban('local', false);
 	for (const r of reserved) out.reserved[r.steamId] = slot('local', false);
 	for (const s of state) {
-		if (s.kind === 'ban') out.bans[s.steamId] = { state: s.state, managed: true };
+		if (s.kind === 'ban') out.bans[s.steamId] = ban(s.state, true);
 		else out.reserved[s.steamId] = slot(s.state, true);
 	}
 	// wanted but not yet on the server
 	const org = (await getOrg(env, server.orgId)) ?? { membersReserved: false };
 	const desired = await desiredFor(env, server, org);
-	for (const d of desired.bans) out.bans[d.steamId] ??= { state: 'pending', managed: true };
+	for (const d of desired.bans) out.bans[d.steamId] ??= ban('pending', true);
+	// The entry behind each ban the lists want: which list it is on (the org's, or this server's
+	// own), the reason and when it lifts. Who is banned and why is View (the game's own ban list
+	// says as much); who placed it is for those who manage bans here or edit the org's lists.
+	if (desired.bans.length) {
+		const ownBans = await serverListOf(env, server, 'ban');
+		const staff = role !== null || access.caps.has('bans.manage');
+		const sourceOf = new Map(desired.bans.map((d) => [d.steamId, d.listId]));
+		const entries = await env.db
+			.select({
+				listId: listEntries.listId,
+				steamId: listEntries.steamId,
+				reason: listEntries.reason,
+				addedByName: listEntries.addedByName,
+				addedAt: listEntries.addedAt,
+				expiresAt: listEntries.expiresAt
+			})
+			.from(listEntries)
+			.where(
+				and(
+					inArray(listEntries.listId, [...new Set(sourceOf.values())]),
+					inArray(listEntries.steamId, [...sourceOf.keys()]),
+					isNull(listEntries.removedAt)
+				)
+			);
+		for (const e of entries) {
+			if (sourceOf.get(e.steamId) !== e.listId) continue;
+			const b = out.bans[e.steamId];
+			if (e.listId === ownBans.id) b.scope = 'server';
+			b.expiresAt = iso(e.expiresAt);
+			b.addedAt = iso(e.addedAt);
+			b.reason = e.reason;
+			if (staff) b.addedByName = e.addedByName;
+		}
+	}
 	for (const d of desired.reserved) {
 		const s = (out.reserved[d.steamId] ??= slot('pending', true));
 		s.member = d.member;

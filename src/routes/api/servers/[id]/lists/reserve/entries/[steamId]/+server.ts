@@ -20,6 +20,7 @@ export const DELETE = route(async (event) => {
 		user,
 		server,
 		org,
+		'reserve',
 		param(event, 'steamId')
 	);
 	return apiJson({ ok: true, ...result });

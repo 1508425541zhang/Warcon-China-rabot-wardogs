@@ -598,6 +598,21 @@ export interface ImportCandidate {
 	servers: { serverId: string; serverName: string; reason: string; bannedBy: string }[];
 }
 
+/** One ban as the server's Bans page shows it. */
+export interface BanState {
+	state: ListEntryState;
+	managed: boolean;
+	/** the list a managed ban comes from: the organisation's, or this server's own */
+	scope: 'org' | 'server';
+	/** the reason on the list entry */
+	reason: string;
+	/** who added the entry; blank unless the reader manages bans here or edits the org's lists */
+	addedByName: string;
+	addedAt: string | null;
+	/** when the panel lifts the ban; null for a permanent one (or one not managed) */
+	expiresAt: string | null;
+}
+
 /** One reserved slot as the server's Reserved slots page shows it. */
 export interface ReservedSlotState {
 	state: ListEntryState;
@@ -620,7 +635,7 @@ export interface ServerListsState {
 	/** owners may import (adopt) local entries into the org list */
 	orgOwner: boolean;
 	orgId: string;
-	bans: Record<string, { state: ListEntryState; managed: boolean }>;
+	bans: Record<string, BanState>;
 	reserved: Record<string, ReservedSlotState>;
 	sync: {
 		syncedAt: string | null;

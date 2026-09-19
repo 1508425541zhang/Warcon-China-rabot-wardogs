@@ -1,10 +1,16 @@
 // The ban on sight works from a list the worker keeps in memory between syncs. What it bans must
 // still be wanted when the player turns up.
 import { beforeAll, describe, expect, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
-import { listEntries, organizations, servers } from '$lib/server/db/schema';
-import { ensureOrgLists, ensureServerLists, grantEntry, listOf } from '$lib/server/lists';
+import { listEntries, organizations, serverListState, servers } from '$lib/server/db/schema';
+import {
+	ensureOrgLists,
+	ensureServerLists,
+	grantEntry,
+	listOf,
+	serverListOf
+} from '$lib/server/lists';
 import { banOnSight } from '$lib/server/lists-sync';
 import type { RefusedBan } from '$lib/server/lists-plan';
 import type { WardogsClient } from '$lib/server/rcon';
@@ -21,11 +27,13 @@ describe.skipIf(!hasTestDb)('ban on sight', () => {
 	});
 
 	/** A server whose org bans STEAM, the game having refused the ban while the player was away. */
-	async function refusedBan(expiresAt: Date | null = null) {
+	async function refusedBan(expiresAt: Date | null = null, own = false) {
 		const w = await seedWorld(env);
 		await ensureOrgLists(env.db, w.org.id);
 		await ensureServerLists(env.db, w.server.id, w.org.id);
-		const list = await listOf(env, w.org.id, 'ban');
+		const list = own
+			? await serverListOf(env, { id: w.server.id, orgId: w.org.id }, 'ban')
+			: await listOf(env, w.org.id, 'ban');
 		const entry = await grantEntry(env, list, {
 			steamId: STEAM,
 			reason: 'cheating',
@@ -44,7 +52,16 @@ describe.skipIf(!hasTestDb)('ban on sight', () => {
 				return {};
 			}
 		} as unknown as WardogsClient;
-		return { server, org, refused, sent, client, entryId: entry.id };
+		return {
+			server,
+			org,
+			refused,
+			refusedCopy: new Map(refused),
+			otherServerId: w.otherServer.id,
+			sent,
+			client,
+			entryId: entry.id
+		};
 	}
 
 	test('a wanted ban is placed when the player is seen', async () => {
@@ -52,6 +69,28 @@ describe.skipIf(!hasTestDb)('ban on sight', () => {
 		await banOnSight(env, t.server, t.org, t.client, [STEAM], t.refused);
 		expect(t.sent).toEqual(['POST /v1/bans']);
 		expect(t.refused.size).toBe(0);
+	});
+
+	test("a ban on the server's own list is placed when the player is seen, and only there", async () => {
+		const t = await refusedBan(null, true);
+		await banOnSight(env, t.server, t.org, t.client, [STEAM], t.refused);
+		expect(t.sent).toEqual(['POST /v1/bans']);
+		const [state] = await env.db
+			.select()
+			.from(serverListState)
+			.where(and(eq(serverListState.serverId, t.server.id), eq(serverListState.steamId, STEAM)));
+		expect(state).toMatchObject({ kind: 'ban', state: 'applied' });
+
+		// the same refusal handed to another server of the org is dropped: that list is not its own
+		const [other] = await env.db.select().from(servers).where(eq(servers.id, t.otherServerId));
+		const again = new Map(t.refusedCopy);
+		const sent: string[] = [];
+		const client = {
+			json: async (method: string, path: string) => (sent.push(`${method} ${path}`), {})
+		} as unknown as WardogsClient;
+		await banOnSight(env, other, t.org, client, [STEAM], again);
+		expect(sent).toEqual([]);
+		expect(again.size).toBe(0);
 	});
 
 	test('a ban taken off the list since the last sync is not placed', async () => {
