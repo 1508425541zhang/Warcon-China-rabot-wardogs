@@ -138,6 +138,16 @@ export async function seenPlayers(
 	const where = conds.length ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``;
 	const order = sql.raw(`${ORDER[f.sort]} ${f.dir === 'asc' ? 'ASC' : 'DESC'} NULLS LAST`);
 	const serverFilter = f.serverId || '';
+	// "Seen in the last N days" is decided before the grouping, not after it: the players with a
+	// session that recent come off the (server, last_seen) index, and only their histories are
+	// read, rather than every session the servers ever had. The totals still span all their time.
+	// A whole SteamID64 names one player: only that player's sessions are read.
+	const one = /^\d{17}$/.test(f.q) ? sql`AND steam_id = ${f.q}` : sql``;
+	const recent = f.since
+		? sql`AND steam_id IN (SELECT steam_id FROM player_sessions
+		                        WHERE server_id IN ${ids}
+		                          AND last_seen >= now() - (${f.since} * interval '1 day'))`
+		: sql``;
 
 	const rows = await env.db.execute<Row>(sql`
 		WITH agg AS (
@@ -155,7 +165,7 @@ export async function seenPlayers(
 			       BOOL_OR(left_at IS NULL) AS online,
 			       BOOL_OR(server_id = ${serverFilter}) AS on_server
 			  FROM player_sessions
-			 WHERE server_id IN ${ids}
+			 WHERE server_id IN ${ids} ${one} ${recent}
 			 GROUP BY steam_id
 		), flagged AS (
 			SELECT a.*, s.name AS last_server_name,
