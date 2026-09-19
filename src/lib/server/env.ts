@@ -9,7 +9,7 @@ import {
 	type Db,
 	type SqlClient
 } from './db';
-import { authSecretProblem } from './crypto';
+import { authSecretProblem, relaySecretProblem } from './crypto';
 
 export interface Env {
 	db: Db;
@@ -154,10 +154,8 @@ export async function initEnv(opts: { role?: Role } = {}): Promise<Env> {
 	const secretProblem = authSecretProblem(processEnv.BETTER_AUTH_SECRET);
 	if (secretProblem) throw new Error(secretProblem);
 	if (role !== 'all') {
-		if (!processEnv.RELAY_SECRET || processEnv.RELAY_SECRET.length < 16)
-			throw new Error(
-				'RELAY_SECRET (16+ characters, shared by web and worker) is required for the web and worker roles.'
-			);
+		const relayProblem = relaySecretProblem(processEnv.RELAY_SECRET);
+		if (relayProblem) throw new Error(relayProblem);
 		if (role === 'web' && !processEnv.RELAY_URL)
 			throw new Error('RELAY_URL (e.g. http://worker:7700) is required for the web role.');
 	}

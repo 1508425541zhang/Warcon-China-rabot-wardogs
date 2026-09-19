@@ -27,6 +27,29 @@ const ME = '76561198000000101';
 const VICTIM = '76561198000000102';
 
 describe('outside review: no database needed', () => {
+	test('the .env.example RELAY_SECRET does not pass the boot gate of a split role', async () => {
+		const example = /^RELAY_SECRET=(\S+)/m.exec(read('.env.example'))![1];
+		const { initEnv } = await import('$lib/server/env');
+		const before = { ...process.env };
+		Object.assign(process.env, {
+			ORIGIN: 'http://localhost:5173',
+			BETTER_AUTH_SECRET: 'x'.repeat(44),
+			RELAY_SECRET: example
+		});
+		delete process.env.RELAY_URL;
+		try {
+			await expect(initEnv({ role: 'web' })).rejects.toThrow(
+				/RELAY_SECRET is still the placeholder/
+			);
+			// A real secret gets as far as the next check, so the refusal above is the placeholder's.
+			process.env.RELAY_SECRET = 'r'.repeat(48);
+			await expect(initEnv({ role: 'web' })).rejects.toThrow(/RELAY_URL/);
+		} finally {
+			for (const k of Object.keys(process.env)) if (!(k in before)) delete process.env[k];
+			Object.assign(process.env, before);
+		}
+	});
+
 	test('the relay and metrics bearers are compared in constant time', () => {
 		for (const file of [
 			'src/routes/api/health/+server.ts',
