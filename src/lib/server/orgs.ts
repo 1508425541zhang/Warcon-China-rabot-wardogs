@@ -22,6 +22,12 @@ import { ensureOrgRoles, roleInOrg, rolesOf } from './roles';
 import { gateway } from './gateway';
 import type { InviteStatus, InviteView, ListSyncSummary, OrgMemberView, OrgView } from '$lib/types';
 import { parseDiscordInvite } from '$lib/discord-invite';
+import {
+	BAN_MESSAGE_VARS,
+	DEFAULT_BAN_MESSAGE,
+	MAX_BAN_MESSAGE,
+	unknownBanVars
+} from '$lib/ban-message';
 
 /** A Drizzle transaction handle (what `db.transaction(async (tx) => ...)` passes). */
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
@@ -219,6 +225,43 @@ export async function setMembersReserved(
 		detail: { orgId: org.id, membersReserved: on }
 	});
 	return gateway().syncOrg(env, { ...org, membersReserved: on });
+}
+
+/**
+ * Owners: the text a banned player is shown across the org. Bans placed from now on carry it; a
+ * ban already on a server keeps the text it went out with, so nothing is pushed.
+ */
+export async function setBanMessage(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow,
+	value: unknown
+): Promise<string> {
+	const banMessage = str(value, MAX_BAN_MESSAGE).replace(/\s+/g, ' ') || DEFAULT_BAN_MESSAGE;
+	const unknown = unknownBanVars(banMessage);
+	if (unknown.length)
+		throw new ApiError(
+			400,
+			`Unknown placeholder ${unknown.map((k) => `{${k}}`).join(', ')}. Use ${BAN_MESSAGE_VARS.map((k) => `{${k}}`).join(', ')}.`,
+			'unknown_placeholder'
+		);
+	if (banMessage !== org.banMessage)
+		await env.db
+			.update(organizations)
+			.set({ banMessage, updatedAt: new Date() })
+			.where(eq(organizations.id, org.id));
+	await writeAudit(env, req, {
+		actor,
+		orgId: org.id,
+		category: 'org',
+		action: 'list.ban_message',
+		outcome: 'ok',
+		target: org.name,
+		message: 'Ban message changed',
+		detail: { orgId: org.id, banMessage }
+	});
+	return banMessage;
 }
 
 /** Creates an org with the actor as its first owner. */

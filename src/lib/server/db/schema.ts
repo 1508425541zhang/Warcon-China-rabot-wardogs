@@ -196,6 +196,8 @@ export const organizations = pgTable('organizations', {
 	allowPublicLeaderboards: boolean('allow_public_leaderboards').notNull().default(true),
 	/** a discord.gg or discord.com/invite link, shown as a button on the org's public pages; '' = none */
 	discordInviteUrl: text('discord_invite_url').notNull().default(''),
+	/** what a banned player is shown: the reason and facts about the ban, see $lib/ban-message */
+	banMessage: text('ban_message').notNull().default('{reason}'),
 	createdAt: ts('created_at').notNull().defaultNow(),
 	updatedAt: ts('updated_at').notNull().defaultNow()
 });
