@@ -7,10 +7,19 @@
 // the worker exports observation, delivery and scheduler figures. WARCON_ROLE=all exports both.
 // Scraped at /metrics on either process, behind the METRICS_TOKEN bearer; off when it is unset.
 import { collectDefaultMetrics, Counter, Gauge, Histogram, Registry } from 'prom-client';
+import { buildInfo, type BuildInfo } from './build-info';
 import { timingSafeEqualStr } from './crypto';
 
 export const registry = new Registry();
 collectDefaultMetrics({ register: registry });
+
+// The usual build_info shape: always 1, the build in the labels.
+new Gauge({
+	name: 'warcon_build_info',
+	help: 'The build this process runs: package version and commit.',
+	labelNames: ['version', 'commit'] as const,
+	registers: [registry]
+}).set(buildInfo(), 1);
 
 // ---- worker: observation and delivery ----------------------------------------------------------
 
@@ -135,6 +144,8 @@ export const fleet = new Gauge({
 export interface ProcessSnapshot {
 	/** epoch ms of the reading */
 	at: number;
+	/** the build this process runs; the web and the worker can differ mid-deploy */
+	build: BuildInfo;
 	observations: { ok: number; failed: number; seconds: number };
 	requests: { total: number; public: number; errors: number; seconds: number };
 	feed: {
@@ -170,6 +181,7 @@ export async function snapshot(): Promise<ProcessSnapshot> {
 	const lagValue = lag ? (await lag.get()).values[0]?.value : undefined;
 	return {
 		at: Date.now(),
+		build: buildInfo(),
 		observations: {
 			ok: await total(observations, (l) => l.outcome === 'ok'),
 			failed: await total(observations, (l) => l.outcome === 'failed'),

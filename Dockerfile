@@ -19,4 +19,8 @@ EXPOSE 3000 7700
 # The web (and single-process) roles answer on 3000; the worker on WORKER_PORT (7700). Probing every
 # 2 s while starting lets a rolling deploy switch to a new container seconds after it is ready.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --start-interval=2s CMD bun -e "const w = (process.env.WARCON_ROLE || 'all') === 'worker'; fetch(w ? 'http://127.0.0.1:' + (process.env.WORKER_PORT || 7700) + '/health' : 'http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+# The commit shown on the Admin overview is read from .git during the build (build/commit). This
+# argument is only for a context that arrives without .git; last, so it re-uses every layer above.
+ARG WARCON_COMMIT=""
+ENV WARCON_COMMIT=$WARCON_COMMIT
 CMD ["./docker-entrypoint.sh"]

@@ -85,6 +85,10 @@
 		)
 	);
 
+	const build = (b: typeof web.build) => (b.commit ? `${b.version} (${b.commit})` : b.version);
+	/** mid-deploy, or one host left on an old image */
+	const buildsDiffer = $derived(!!wp && build(wp.build) !== build(web.build));
+
 	const players = $derived(worker ? worker.players : live.fleet.players);
 	const unreachable = $derived(live.fleet.servers - live.fleet.serversOk);
 	const unobserved = $derived(live.fleet.servers - live.fleet.serversObserved);
@@ -116,6 +120,7 @@
 		>{:else}<Badge tone="err">worker not running</Badge>{/if}
 	{#if worker?.behind}<Badge tone="err">{worker.behind} behind</Badge>{/if}
 	{#if worker?.stuck}<Badge tone="err">{worker.stuck} stuck</Badge>{/if}
+	{#if buildsDiffer}<Badge tone="warn">web and worker on different builds</Badge>{/if}
 	{#if !live.metricsOn}<Badge tone="warn">metrics off: set METRICS_TOKEN</Badge>{/if}
 	<span class="ml-auto text-[12px] text-mist-600"
 		>Updated {fmtAgo(live.at)} · refreshes every 5 s</span
@@ -171,6 +176,11 @@
 			{#if worker?.owner}<Badge tone="ok">holds the lease</Badge>{/if}
 		</div>
 		{#if worker}
+			<div class="kv">
+				<span class="text-mist-400">Build</span><span class={buildsDiffer ? 'text-warn' : ''}
+					>{build(worker.process.build)}</span
+				>
+			</div>
 			<div class="kv">
 				<span class="text-mist-400">Tiers</span><span class="text-right"
 					>{worker.tiers.watched} watched · {worker.tiers.hot} busy · {worker.tiers.idle} idle · {worker
@@ -241,6 +251,11 @@
 	<div class="panel px-5 py-4">
 		<div class="mb-1 flex items-center gap-2">
 			<span class="caps text-mist-400">Web</span><Badge>web process</Badge>
+		</div>
+		<div class="kv">
+			<span class="text-mist-400">Build</span><span class={buildsDiffer ? 'text-warn' : ''}
+				>{build(web.build)}</span
+			>
 		</div>
 		<div class="kv">
 			<span class="text-mist-400">Requests</span><span
