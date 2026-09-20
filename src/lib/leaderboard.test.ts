@@ -24,7 +24,11 @@ describe('matchResult', () => {
 	test('win or loss against the winner', () => {
 		expect(matchResult('Valkyra', scores, 'Valkyra')).toBe('win');
 		expect(matchResult('Valkyra', scores, 'Lonestar')).toBe('loss');
-		expect(matchResult('Valkyra', scores, 'Manticore')).toBe('loss');
+		expect(matchResult('Valkyra', null, 'Lonestar')).toBe('loss');
+	});
+	test('a faction that is not on the scoreboard (the holding team) has no result', () => {
+		expect(matchResult('Valkyra', scores, 'White')).toBeNull();
+		expect(matchResult(null, scores, 'White')).toBeNull();
 	});
 	test('no winner but a score is a draw', () => {
 		expect(

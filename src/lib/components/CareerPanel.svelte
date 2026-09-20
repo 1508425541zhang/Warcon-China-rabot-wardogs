@@ -31,7 +31,7 @@
 </script>
 
 <div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-	{#each [['Rank here', rank(career.rank.server)], [`Rank in ${orgName}`, rank(career.rank.org)], ['Streak', career.streak ? `${career.streak.n} ${career.streak.kind === 'win' ? 'win' : 'loss'}${career.streak.n === 1 ? '' : career.streak.kind === 'win' ? 's' : 'es'}` : '—'], ['Matches', `${fmtNum(career.matches)} · ${career.wins}-${career.losses}-${career.draws}`]] as [label, value] (label)}
+	{#each [['Rank here', rank(career.rank.server)], [`Rank, all ${orgName} servers`, rank(career.rank.org)], ['Streak', career.streak ? `${career.streak.n} ${career.streak.kind === 'win' ? 'win' : 'loss'}${career.streak.n === 1 ? '' : career.streak.kind === 'win' ? 's' : 'es'}` : '—'], ['Matches', `${fmtNum(career.matches)} · ${career.wins}-${career.losses}-${career.draws}`]] as [label, value] (label)}
 		<div class="rounded-ctl border border-black bg-ink-950 px-3.5 py-3">
 			<div class="caps text-mist-400">{label}</div>
 			<div class="mt-1 font-display text-xl font-semibold tabular">{value}</div>
@@ -39,8 +39,8 @@
 	{/each}
 </div>
 <p class="mb-3 text-[12.5px] text-mist-600">
-	Rank is the all-time kills board with at least {career.rank.floorMinutes} minutes played; a dash means
-	under the floor. Matches are wins-losses-draws.
+	Rank is the place among every player seen on the servers, by all-time kills, with at least
+	{career.rank.floorMinutes} minutes played; a dash means under the floor. Matches are wins-losses-draws.
 </p>
 {#if children}{@render children()}{/if}
 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">

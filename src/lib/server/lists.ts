@@ -211,8 +211,9 @@ export async function namesFor(
 type Standing = { state: ListEntryState; error: string; managed: boolean };
 
 /**
- * Where each SteamID stands on each server: a state row means Warcon put it there (applied or
- * failed); otherwise present on the server means local, absent means pending.
+ * Where each SteamID stands on each server. A reserved slot: a state row means Warcon put it
+ * there (applied or failed); otherwise present on the server means local, absent means pending.
+ * A ban is applied everywhere: the panel enforces it, nothing is placed on the server.
  */
 export async function standings(
 	env: Env,
@@ -223,23 +224,20 @@ export async function standings(
 	const out = new Map<string, Map<string, Standing>>();
 	for (const id of serverIds) out.set(id, new Map());
 	if (!serverIds.length || !steamIds.length) return out;
-	const observed =
-		kind === 'ban'
-			? env.db
-					.select({ serverId: serverBans.serverId, steamId: serverBans.steamId })
-					.from(serverBans)
-					.where(
-						and(inArray(serverBans.serverId, serverIds), inArray(serverBans.steamId, steamIds))
-					)
-			: env.db
-					.select({ serverId: serverReserved.serverId, steamId: serverReserved.steamId })
-					.from(serverReserved)
-					.where(
-						and(
-							inArray(serverReserved.serverId, serverIds),
-							inArray(serverReserved.steamId, steamIds)
-						)
-					);
+	// A ban is the panel's to enforce (kickBanned): it is in force on every server of the list
+	// the moment it is on the list, whatever the game's own ban list holds.
+	if (kind === 'ban') {
+		for (const standing of out.values())
+			for (const steamId of steamIds)
+				standing.set(steamId, { state: 'applied', error: '', managed: true });
+		return out;
+	}
+	const observed = env.db
+		.select({ serverId: serverReserved.serverId, steamId: serverReserved.steamId })
+		.from(serverReserved)
+		.where(
+			and(inArray(serverReserved.serverId, serverIds), inArray(serverReserved.steamId, steamIds))
+		);
 	const [seen, state] = await Promise.all([
 		observed,
 		env.db
@@ -961,10 +959,7 @@ export async function serverListsState(
 	});
 	for (const b of bans) out.bans[b.steamId] = ban('local', false);
 	for (const r of reserved) out.reserved[r.steamId] = slot('local', false);
-	for (const s of state) {
-		if (s.kind === 'ban') out.bans[s.steamId] = ban(s.state, true);
-		else out.reserved[s.steamId] = slot(s.state, true);
-	}
+	for (const s of state) if (s.kind === 'reserve') out.reserved[s.steamId] = slot(s.state, true);
 	// wanted but not yet on the server
 	const org = (await getOrg(env, server.orgId)) ?? {
 		membersReserved: false,
@@ -972,7 +967,9 @@ export async function serverListsState(
 	};
 	if (staff) out.banMessage = org.banMessage;
 	const desired = await desiredFor(env, server, org);
-	for (const d of desired.bans) out.bans[d.steamId] ??= ban('pending', true);
+	// a ban on the lists is in force: the panel removes the player itself. One the game also
+	// holds in its own list shows as the panel's.
+	for (const d of desired.bans) out.bans[d.steamId] = ban('applied', true);
 	// The entry behind each ban the lists want: which list it is on (the org's, or this server's
 	// own), the reason and when it lifts. Who is banned and why is View (the game's own ban list
 	// says as much); who placed it is for those who manage bans here or edit the org's lists.

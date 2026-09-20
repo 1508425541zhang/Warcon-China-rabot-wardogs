@@ -10,7 +10,7 @@ import { touchInterest } from './interest';
 import { fanOut, reconcileServer } from './lists-sync';
 import { liveView, readLiveRows } from './live';
 import { memoryOf, requestIdentityRefresh } from './observe';
-import { observeNow, observeSoon, pollerStats } from './poller';
+import { observeNow, observeSoon, pollerStats, resyncSoon } from './poller';
 import { loadSettings, settings } from './settings';
 import { invalidateTriggers } from './triggers';
 import { nudgeStatusMirror } from './webhook-status';
@@ -64,11 +64,19 @@ export const localGateway: Gateway = {
 	observeNow(env: Env, serverId: string) {
 		return observeNow(env, serverId);
 	},
-	syncOrg(env: Env, org: OrgRow) {
-		return fanOut(env, org);
+	async syncOrg(env: Env, org: OrgRow) {
+		const summary = await fanOut(env, org);
+		for (const s of summary.servers) resyncSoon(s.serverId);
+		return summary;
 	},
-	syncServer(env: Env, server: ServerRow, org: OrgRow, waitMs: number) {
-		return reconcileServer(env, server, org, { reason: 'api', waitMs, lane: PRIORITY.command });
+	async syncServer(env: Env, server: ServerRow, org: OrgRow, waitMs: number) {
+		const result = await reconcileServer(env, server, org, {
+			reason: 'api',
+			waitMs,
+			lane: PRIORITY.command
+		});
+		resyncSoon(server.id);
+		return result;
 	},
 	async settingsChanged(env: Env) {
 		await loadSettings(env);

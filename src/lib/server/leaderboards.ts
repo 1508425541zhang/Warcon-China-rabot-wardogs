@@ -29,6 +29,7 @@ import {
 	type CareerView,
 	type MatchResult
 } from '$lib/leaderboard';
+import { mapId } from '$lib/format';
 
 const num = (v: unknown): number => (v === null || v === undefined ? 0 : Number(v));
 const iso = (v: unknown): string | null =>
@@ -105,6 +106,9 @@ const matchPairs = (ids: string[], from: Date, steamId: string | string[] | null
 		       m.winner, m.final_scores,
 		       -- the rule of matchResult() in $lib/leaderboard, for the aggregates
 		       CASE WHEN b.faction IS NULL THEN NULL
+		            WHEN jsonb_typeof(m.final_scores) = 'array' AND jsonb_array_length(m.final_scores) > 0
+		                 AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(m.final_scores) e WHERE e->>'name' = b.faction)
+		                 THEN NULL
 		            WHEN m.winner IS NOT NULL THEN CASE WHEN m.winner = b.faction THEN 'win' ELSE 'loss' END
 		            WHEN jsonb_typeof(m.final_scores) = 'array'
 		                 AND (SELECT MAX((e->>'score')::numeric) FROM jsonb_array_elements(m.final_scores) e) > 0 THEN 'draw'
@@ -385,7 +389,7 @@ export async function loadCareer(
 		draws: count('draw'),
 		maps: groupCareer(
 			results.map((r) => ({ key: r.map, result: r.result })),
-			combat.map((c) => ({ key: c.map, kills: num(c.kills), deaths: num(c.deaths) }))
+			combat.map((c) => ({ key: mapId(c.map), kills: num(c.kills), deaths: num(c.deaths) }))
 		),
 		factions: groupCareer(
 			results.map((r) => ({ key: r.faction, result: r.result })),
