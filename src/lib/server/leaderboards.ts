@@ -13,6 +13,7 @@
 import { sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { servers } from './db/schema';
+import type { RiskPerformance } from './risk';
 import {
 	BOARD_PAGE,
 	DEFAULT_FLOOR_MINUTES,
@@ -82,12 +83,12 @@ const base = (ids: string[], from: Date) => sql`
  * session in it and the match's outcome. `steamId` narrows it to one player (a career), else
  * every player seen since `from`.
  */
-const matchPairs = (ids: string[], from: Date, steamId: string | null) => sql`
+const matchPairs = (ids: string[], from: Date, steamId: string | string[] | null) => sql`
 	s AS (
 		SELECT id, server_id, steam_id, faction, joined_at, COALESCE(left_at, now()) AS left_at, last_seen
 		  FROM player_sessions
 		 WHERE server_id IN ${ids} AND last_seen >= ${from}
-		   ${steamId === null ? sql`` : sql`AND steam_id = ${steamId}`}),
+		   ${steamId === null ? sql`` : Array.isArray(steamId) ? sql`AND steam_id IN ${steamId}` : sql`AND steam_id = ${steamId}`}),
 	bounds AS (
 		SELECT s.*, a.id AS last_id,
 		       CASE WHEN p.id IS NOT NULL AND COALESCE(p.ended_at, now()) > s.joined_at THEN p.id ELSE n.id END AS first_id
@@ -112,6 +113,50 @@ const matchPairs = (ids: string[], from: Date, steamId: string | null) => sql`
 		  JOIN matches m ON m.server_id = b.server_id AND m.id BETWEEN b.first_id AND b.last_id
 		 WHERE b.first_id <= b.last_id AND m.started_at >= ${from}
 		 ORDER BY b.steam_id, m.id, b.last_seen DESC)`;
+
+/** All recorded games on these servers, batched for the connected-player risk badges. */
+export async function riskPerformanceFor(
+	env: Env,
+	serverIds: string[],
+	steamIds: string[]
+): Promise<Map<string, RiskPerformance>> {
+	const result = new Map<string, RiskPerformance>();
+	if (!serverIds.length || !steamIds.length) return result;
+	const blank = (): RiskPerformance => ({
+		matches: 0, wins: 0, losses: 0, draws: 0,
+		kills: 0, deaths: 0, feedKills: 0, headshots: 0
+	});
+	const [sessions, feed, matches] = await Promise.all([
+		env.db.execute<{ steamId: string; kills: string; deaths: string }>(sql`
+			SELECT steam_id AS "steamId", SUM(kills) AS kills, SUM(deaths) AS deaths
+			  FROM player_sessions WHERE server_id IN ${serverIds} AND steam_id IN ${steamIds}
+			 GROUP BY steam_id`),
+		env.db.execute<{ steamId: string; feedKills: string; headshots: string }>(sql`
+			SELECT killer_steam_id AS "steamId",
+			       COUNT(*) FILTER (WHERE NOT suicide) AS "feedKills",
+			       COUNT(*) FILTER (WHERE headshot AND NOT suicide) AS headshots
+			  FROM kills WHERE server_id IN ${serverIds} AND killer_steam_id IN ${steamIds}
+			 GROUP BY killer_steam_id`),
+		env.db.execute<{ steamId: string; matches: string; wins: string; losses: string; draws: string }>(sql`
+			WITH ${matchPairs(serverIds, EPOCH, steamIds)}
+			SELECT steam_id AS "steamId", COUNT(*) AS matches,
+			       COUNT(*) FILTER (WHERE result = 'win') AS wins,
+			       COUNT(*) FILTER (WHERE result = 'loss') AS losses,
+			       COUNT(*) FILTER (WHERE result = 'draw') AS draws
+			  FROM pairs GROUP BY steam_id`)
+	]);
+	const of = (steamId: string) => {
+		let value = result.get(steamId);
+		if (!value) result.set(steamId, (value = blank()));
+		return value;
+	};
+	for (const row of sessions) Object.assign(of(row.steamId), { kills: num(row.kills), deaths: num(row.deaths) });
+	for (const row of feed) Object.assign(of(row.steamId), { feedKills: num(row.feedKills), headshots: num(row.headshots) });
+	for (const row of matches) Object.assign(of(row.steamId), {
+		matches: num(row.matches), wins: num(row.wins), losses: num(row.losses), draws: num(row.draws)
+	});
+	return result;
+}
 
 /** How each metric orders the board (see metricValue in $lib/leaderboard). */
 const METRIC_SQL: Record<BoardMetric, ReturnType<typeof sql>> = {

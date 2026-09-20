@@ -10,6 +10,7 @@ import {
 	matchBoundary,
 	matchBroadcastMessages,
 	matchReplay,
+	pingKickStep,
 	riskKickVerdict,
 	seedRule,
 	seedReplay,
@@ -93,12 +94,26 @@ describe('validateConfig', () => {
 		expect(() => validateConfig('risk_kick', {})).toThrow('at least one rule');
 		const c = validateConfig('risk_kick', { vacBans: true }) as RiskKickConfig;
 		expect(c.spareReserved).toBe(true);
+		expect(c.maxBanAgeDays).toBe(0);
 		expect(c.kickAtLevel).toBeNull();
 		expect(c.reason).toContain('requirements');
 		expect(validateConfig('risk_kick', { kickAtLevel: 'medium' })).toMatchObject({
 			kickAtLevel: 'medium'
 		});
 		expect(() => validateConfig('risk_kick', { kickAtLevel: 'low' })).toThrow('at least one rule');
+	});
+	test('ping_kick validates the ping and duration and supplies a reason', () => {
+		expect(validateConfig('ping_kick', {})).toEqual({
+			maxPingMs: 200,
+			durationSeconds: 60,
+			reason: 'Ping too high for too long.'
+		});
+		expect(() => validateConfig('ping_kick', { maxPingMs: 0 })).toThrow('ping limit');
+		expect(() => validateConfig('ping_kick', { durationSeconds: 0 })).toThrow('duration');
+		expect(validateConfig('ping_kick', { maxPingMs: 250, durationSeconds: 30 })).toMatchObject({
+			maxPingMs: 250,
+			durationSeconds: 30
+		});
 	});
 	test('seed_reward needs a seed time that fits its window, and fills in the rest', () => {
 		expect(() => validateConfig('seed_reward', {})).toThrow('minutes');
@@ -151,6 +166,39 @@ describe('validateConfig', () => {
 		expect(validateConfig('seed_reward', { minutes: 60, scope: 'everywhere' })).toMatchObject({
 			scope: 'org'
 		});
+	});
+});
+
+describe('pingKickStep', () => {
+	const cfg = { maxPingMs: 200, durationSeconds: 30, reason: 'High ping' };
+	const high = [{ steamId: 'a', ping: 250 }];
+	const step = (state: Parameters<typeof pingKickStep>[1], players: typeof high, now: number) =>
+		pingKickStep(cfg, state, players, now, 5000);
+	test('fires only after a continuous high-ping duration, and only once per streak', () => {
+		const first = step(null, high, 1000);
+		expect(first.kicks).toEqual([]);
+		const early = step(first.state, high, 29_000);
+		// A gap in player sampling restarts the timer.
+		expect(early.kicks).toEqual([]);
+		expect(early.state.players.a.since).toBe(29_000);
+		let state = step(null, high, 0).state;
+		for (const at of [5000, 10_000, 15_000, 20_000, 25_000]) state = step(state, high, at).state;
+		const due = step(state, high, 30_000);
+		expect(due.kicks).toEqual(['a']);
+		expect(step(due.state, high, 35_000).kicks).toEqual([]);
+		const recovered = step(due.state, [{ steamId: 'a', ping: 100 }], 35_000);
+		let again = step(recovered.state, high, 40_000).state;
+		for (const at of [45_000, 50_000, 55_000, 60_000, 65_000])
+			again = step(again, high, at).state;
+		expect(step(again, high, 70_000).kicks).toEqual(['a']);
+	});
+	test('normal or missing ping and leaving reset the streak', () => {
+		const first = step(null, high, 0);
+		for (const players of [[{ steamId: 'a', ping: 200 }], [{ steamId: 'a', ping: null }], []]) {
+			const reset = pingKickStep(cfg, first.state, players, 1000, 5000);
+			expect(reset.state.players.a).toBeUndefined();
+			expect(step(reset.state, high, 2000).state.players.a.since).toBe(2000);
+		}
 	});
 });
 
@@ -350,6 +398,7 @@ describe('riskKickVerdict', () => {
 	const cfg: RiskKickConfig = {
 		vacBans: true,
 		gameBans: false,
+		maxBanAgeDays: 0,
 		minAccountDays: 30,
 		privateProfiles: false,
 		bannedElsewhere: true,
@@ -371,6 +420,11 @@ describe('riskKickVerdict', () => {
 		daysSinceLastBan: null,
 		communityBanned: false,
 		economyBan: 'none',
+		friendsState: 'unknown',
+		friendsTotal: 0,
+		friendsChecked: 0,
+		bannedFriends: 0,
+		friendsCheckedAt: null,
 		fetchedAt: now,
 		error: ''
 	};
@@ -401,6 +455,44 @@ describe('riskKickVerdict', () => {
 				profile: { ...profile, accountCreatedAt: new Date('2020-01-01') }
 			})
 		).toBeNull();
+	});
+	test('ban age window ignores older VAC and game bans, while 0 means forever', () => {
+		const oldVac = { ...profile, vacBans: 1, daysSinceLastBan: 366 };
+		expect(
+			riskKickVerdict({ ...cfg, maxBanAgeDays: 365, minAccountDays: 0 }, { ...base, profile: oldVac })
+		).toBeNull();
+		expect(
+			riskKickVerdict({ ...cfg, maxBanAgeDays: 366, minAccountDays: 0 }, { ...base, profile: oldVac })
+		).toBe('1 VAC ban on record');
+		expect(
+			riskKickVerdict({ ...cfg, maxBanAgeDays: 0, minAccountDays: 0 }, { ...base, profile: oldVac })
+		).toBe('1 VAC ban on record');
+
+		const oldGame = { ...profile, gameBans: 2, daysSinceLastBan: 500 };
+		expect(
+			riskKickVerdict(
+				{ ...cfg, vacBans: false, gameBans: true, maxBanAgeDays: 30, minAccountDays: 0 },
+				{ ...base, profile: oldGame }
+			)
+		).toBeNull();
+	});
+	test('a ban with unknown age is still enforced when an age window is set', () => {
+		expect(
+			riskKickVerdict(
+				{ ...cfg, maxBanAgeDays: 30, minAccountDays: 0 },
+				{ ...base, profile: { ...profile, vacBans: 1, daysSinceLastBan: null } }
+			)
+		).toBe('1 VAC ban on record');
+	});
+	test('a rule saved before the ban age field existed still considers all bans', () => {
+		const legacy = { ...cfg } as Partial<RiskKickConfig>;
+		delete legacy.maxBanAgeDays;
+		expect(
+			riskKickVerdict(legacy as RiskKickConfig, {
+				...base,
+				profile: { ...profile, vacBans: 1, daysSinceLastBan: 5000 }
+			})
+		).toBe('1 VAC ban on record');
 	});
 	test('private profiles pass unless asked to fail', () => {
 		const priv = { ...profile, public: false, accountCreatedAt: null };
@@ -442,6 +534,19 @@ describe('riskKickVerdict', () => {
 				{ ...base, profile: { ...profile, vacBans: 1 } }
 			)
 		).toBe('1 VAC ban on record');
+	});
+	test('a stored join-time score controls the risk-level rule without recalculation', () => {
+		const levelOnly = {
+			...cfg,
+			vacBans: false,
+			minAccountDays: 0,
+			bannedElsewhere: false,
+			watchlist: false,
+			kickAtLevel: 'high' as const
+		};
+		const high = { score: 70, level: 'high' as const, reasons: [{ code: 'vac', text: 'Recent ban at join', weight: 70 }], steamChecked: true };
+		expect(riskKickVerdict(levelOnly, { ...base, risk: high })).toBe('high risk (70): Recent ban at join');
+		expect(riskKickVerdict(levelOnly, { ...base, risk: null })).toBeNull();
 	});
 	test('the risk level works from local signals alone and says when Steam was not checked', () => {
 		const v = riskKickVerdict(

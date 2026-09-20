@@ -2,7 +2,7 @@
 // kick-on-connect verdict. No database, no game server, so it is unit-testable on its own;
 // triggers.ts holds the engine that runs these against live ticks.
 import { ApiError, int, str } from './http';
-import { accountAgeDays, assessRisk, type RiskLevel } from './risk';
+import { accountAgeDays, assessRisk, type Risk, type RiskLevel, type RiskPerformance } from './risk';
 import { validateNameFilter, type NameFilterConfig } from './name-filter';
 import { RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 import type { SteamProfileRow } from './db/schema';
@@ -14,6 +14,7 @@ export const TRIGGER_KINDS: TriggerKind[] = [
 	'broadcast',
 	'empty_reset',
 	'risk_kick',
+	'ping_kick',
 	'restart_notice',
 	'team_kill',
 	'seed_reward',
@@ -26,6 +27,7 @@ export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	broadcast: 'Scheduled broadcast',
 	empty_reset: 'Empty-server map reset',
 	risk_kick: 'Kick on connect risk',
+	ping_kick: 'High ping kick',
 	restart_notice: 'Restart notice',
 	team_kill: 'Team kill limit',
 	seed_reward: 'Seeding reward',
@@ -62,6 +64,8 @@ export interface EmptyResetConfig {
 export interface RiskKickConfig {
 	vacBans: boolean;
 	gameBans: boolean;
+	/** only consider bans this recent; 0 means any ban on record */
+	maxBanAgeDays: number;
 	minAccountDays: number;
 	privateProfiles: boolean;
 	bannedElsewhere: boolean;
@@ -70,6 +74,46 @@ export interface RiskKickConfig {
 	kickAtLevel: Exclude<RiskLevel, 'low'> | null;
 	spareReserved: boolean;
 	reason: string;
+}
+export interface PingKickConfig {
+	maxPingMs: number;
+	durationSeconds: number;
+	reason: string;
+}
+
+export interface PingKickState {
+	lastAt: number;
+	players: Record<string, { since: number; fired: boolean }>;
+}
+
+/** Advance one fresh player-list sample. Missing/normal pings end a streak. */
+export function pingKickStep(
+	cfg: PingKickConfig,
+	previous: PingKickState | null,
+	players: { steamId: string; ping: number | null }[],
+	now: number,
+	maxGapMs: number
+): { state: PingKickState; kicks: string[] } {
+	const old: PingKickState['players'] =
+		previous &&
+		Number.isFinite(previous.lastAt) &&
+		now >= previous.lastAt &&
+		now - previous.lastAt <= maxGapMs &&
+		previous.players
+			? previous.players
+			: {};
+	const next: PingKickState = { lastAt: now, players: {} };
+	const kicks: string[] = [];
+	for (const p of players) {
+		if (p.ping === null || !Number.isFinite(p.ping) || p.ping <= cfg.maxPingMs) continue;
+		const streak = old[p.steamId] ? { ...old[p.steamId] } : { since: now, fired: false };
+		if (!streak.fired && now - streak.since >= cfg.durationSeconds * 1000) {
+			streak.fired = true;
+			kicks.push(p.steamId);
+		}
+		next.players[p.steamId] = streak;
+	}
+	return { state: next, kicks };
 }
 /**
  * Tells players about the game's own restart: WARDOGS restarts a server once it has been up for
@@ -132,6 +176,7 @@ export type TriggerConfig =
 	| BroadcastConfig
 	| EmptyResetConfig
 	| RiskKickConfig
+	| PingKickConfig
 	| RestartNoticeConfig
 	| TeamKillConfig
 	| SeedRewardConfig
@@ -199,6 +244,7 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 			const cfg: RiskKickConfig = {
 				vacBans: !!c.vacBans,
 				gameBans: !!c.gameBans,
+				maxBanAgeDays: int(c.maxBanAgeDays, 0, 0, 36500),
 				minAccountDays: int(c.minAccountDays, 0, 0, 3650),
 				privateProfiles: !!c.privateProfiles,
 				bannedElsewhere: !!c.bannedElsewhere,
@@ -218,6 +264,17 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 			)
 				throw new ApiError(400, 'Turn on at least one rule.');
 			return cfg;
+		}
+		case 'ping_kick': {
+			const maxPingMs = int(c.maxPingMs, 200, 0, 2000);
+			const durationSeconds = int(c.durationSeconds, 60, 0, 3600);
+			if (!maxPingMs) throw new ApiError(400, 'Set a ping limit from 1 to 2000 ms.');
+			if (!durationSeconds) throw new ApiError(400, 'Set a duration from 1 to 3600 seconds.');
+			return {
+				maxPingMs,
+				durationSeconds,
+				reason: str(c.reason, MAX_MESSAGE) || 'Ping too high for too long.'
+			};
 		}
 		case 'restart_notice': {
 			const message = str(c.message, MAX_MESSAGE);
@@ -633,6 +690,9 @@ export interface RiskKickSignals {
 	/** banned players whose last known name looks like this one; only the risk level uses it */
 	resembles?: { name: string; steamId: string; serverName: string }[];
 	reserved: boolean;
+	performance?: RiskPerformance | null;
+	/** Persisted join-time score; null means no score has been recorded. */
+	risk?: Risk | null;
 	now?: Date;
 }
 
@@ -645,9 +705,16 @@ export function riskKickVerdict(cfg: RiskKickConfig, s: RiskKickSignals): string
 		return `on the watchlist${s.watched.reason ? ` (${s.watched.reason})` : ''}`;
 	if (s.steamEnabled && s.profile && !s.profile.error) {
 		const p = s.profile;
-		if (cfg.vacBans && p.vacBans > 0)
+		// Configs saved before this setting existed have no property; they keep the old
+		// behaviour of considering the player's full ban history.
+		const maxBanAgeDays = cfg.maxBanAgeDays ?? 0;
+		const banIsRecentEnough =
+			maxBanAgeDays === 0 ||
+			p.daysSinceLastBan === null ||
+			p.daysSinceLastBan <= maxBanAgeDays;
+		if (cfg.vacBans && p.vacBans > 0 && banIsRecentEnough)
 			return `${p.vacBans} VAC ban${p.vacBans === 1 ? '' : 's'} on record`;
-		if (cfg.gameBans && p.gameBans > 0)
+		if (cfg.gameBans && p.gameBans > 0 && banIsRecentEnough)
 			return `${p.gameBans} game ban${p.gameBans === 1 ? '' : 's'} on record`;
 		if (cfg.minAccountDays > 0) {
 			const age = accountAgeDays(p.accountCreatedAt, s.now);
@@ -659,14 +726,16 @@ export function riskKickVerdict(cfg: RiskKickConfig, s: RiskKickSignals): string
 		}
 	}
 	if (cfg.kickAtLevel) {
-		const risk = assessRisk({
+		const risk = s.risk === undefined ? assessRisk({
 			profile: s.profile,
 			steamEnabled: s.steamEnabled,
 			watched: s.watched,
 			bannedOn: s.bannedOn,
 			resembles: s.resembles ?? [],
+			performance: s.performance,
 			now: s.now
-		});
+		}) : s.risk;
+		if (!risk) return null;
 		const bad = risk.level === 'high' || (cfg.kickAtLevel === 'medium' && risk.level === 'medium');
 		if (bad) {
 			const why = [...risk.reasons]
