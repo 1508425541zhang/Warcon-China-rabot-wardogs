@@ -174,17 +174,24 @@ export function topScore(finalScores: unknown): number {
 	return top;
 }
 
+/** Whether the faction is one of the match's teams; true when no scoreboard was kept. */
+function onScoreboard(finalScores: unknown, faction: string): boolean {
+	if (!Array.isArray(finalScores) || !finalScores.length) return true;
+	return finalScores.some((f) => f && typeof f === 'object' && f.name === faction);
+}
+
 /**
  * A player's result in a match: their faction against the winner. With no winner, a match
  * somebody scored in is a draw; one nobody scored in, or a player with no faction, has no
- * result. (The board's SQL aggregates mirror this rule.)
+ * result. Nor has a player whose faction is not on the match's scoreboard: the game's holding
+ * team ("White") did not lose. (The board's SQL aggregates mirror this rule.)
  */
 export function matchResult(
 	winner: string | null,
 	finalScores: unknown,
 	faction: string | null
 ): MatchResult {
-	if (!faction) return null;
+	if (!faction || !onScoreboard(finalScores, faction)) return null;
 	if (winner) return winner === faction ? 'win' : 'loss';
 	return topScore(finalScores) > 0 ? 'draw' : null;
 }
