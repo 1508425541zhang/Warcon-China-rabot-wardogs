@@ -32,7 +32,8 @@ const open = (steamId: string): OpenSession => ({
 	lastSeen: 2000,
 	writtenAt: 2000,
 	firstVisit: false,
-	lastFaction: null
+	lastFaction: null,
+	team: null
 });
 
 // The open sessions were last seen at 2000; this look is long after the leave grace.
@@ -174,6 +175,19 @@ describe('followPlayer', () => {
 		followPlayer(s, at(57, 9, 120_000), 5000);
 		expect(totals(s)).toEqual([94, 16, 210_000]);
 		expect(s.lastSeen).toBe(5000);
+	});
+
+	test('the team played is kept when the player ends on the holding team or no side', () => {
+		const teams = ['Lonestar', 'Wagner'];
+		const s = open('76561198000000001');
+		followPlayer(s, at(3, 1, 0), 3000, teams);
+		followPlayer(s, { ...at(0, 0, 0), faction: 'White' }, 4000, teams);
+		expect([s.faction, s.team]).toEqual(['White', 'Lonestar']);
+		followPlayer(s, { ...at(0, 0, 0), faction: null }, 5000, teams);
+		expect(s.team).toBe('Lonestar');
+		// without a scoreboard any side is a team
+		followPlayer(s, { ...at(0, 0, 0), faction: 'Wagner' }, 6000, []);
+		expect(s.team).toBe('Wagner');
 	});
 
 	test('the same look twice counts once, and cash spent within a match comes off', () => {

@@ -34,7 +34,15 @@ export interface OpenSession {
 	/** the last faction seen this session; unlike `faction` it survives the game clearing everyone's
 	 *  side at a match start, so a re-pick of the same side is not a new pick */
 	lastFaction: string | null;
+	/** the last side seen this session that was a team on the scoreboard. This is what the row
+	 *  keeps as the session's faction: the side seen last may be none, or the game's holding team
+	 *  ("White"), when the player leaves between matches */
+	team: string | null;
 }
+
+/** Whether a faction is a team in the match: on the scoreboard, or any side when there is none. */
+export const isTeam = (faction: string | null, teams: readonly string[] | undefined): boolean =>
+	!!faction && (!teams?.length || teams.includes(faction));
 
 export interface Presence {
 	loaded: boolean;
@@ -71,7 +79,8 @@ export async function loadPresence(
 			lastSeen: r.lastSeen.getTime(),
 			writtenAt: r.lastSeen.getTime(),
 			firstVisit: false,
-			lastFaction: r.faction
+			lastFaction: r.faction,
+			team: r.faction
 		});
 	presence.loaded = true;
 }
@@ -147,10 +156,16 @@ export async function firstVisits(
  * session had reached is kept and the new counters are added on top. A session reloaded after a
  * restart has only its totals; what they hold beyond the counters now is taken as earlier matches.
  */
-export function followPlayer(s: OpenSession, p: Player, now: number): void {
+export function followPlayer(
+	s: OpenSession,
+	p: Player,
+	now: number,
+	teams?: readonly string[]
+): void {
 	s.name = p.name;
 	s.faction = p.faction;
 	if (p.faction) s.lastFaction = p.faction;
+	if (isTeam(p.faction, teams)) s.team = p.faction;
 	const g = s.game;
 	const restarted = !!g && (p.kills < g.kills || p.deaths < g.deaths);
 	for (const k of ['kills', 'deaths', 'cash'] as const) {
@@ -173,7 +188,9 @@ export async function persistPresence(
 	diff: PresenceDiff,
 	ts: Date,
 	heartbeatDue: boolean,
-	firstVisit: Set<string> = new Set()
+	firstVisit: Set<string> = new Set(),
+	/** the factions on the scoreboard, when known */
+	teams?: readonly string[]
 ): Promise<void> {
 	const now = ts.getTime();
 
@@ -187,7 +204,7 @@ export async function persistPresence(
 						id: s.id,
 						left_at: new Date(s.lastSeen).toISOString(),
 						name: s.name,
-						faction: s.faction,
+						faction: s.team ?? s.faction,
 						kills: s.kills,
 						deaths: s.deaths,
 						cash: s.cash,
@@ -232,11 +249,12 @@ export async function persistPresence(
 				lastSeen: now,
 				writtenAt: now,
 				firstVisit: firstVisit.has(p.steamId),
-				lastFaction: p.faction || null
+				lastFaction: p.faction || null,
+				team: isTeam(p.faction, teams) ? p.faction : null
 			});
 	}
 
-	for (const { player: p, session: s } of diff.stayed) followPlayer(s, p, now);
+	for (const { player: p, session: s } of diff.stayed) followPlayer(s, p, now, teams);
 	if (heartbeatDue && diff.stayed.length) {
 		await db.execute(sql`
 			UPDATE player_sessions AS s SET last_seen = v.last_seen,
@@ -247,7 +265,7 @@ export async function persistPresence(
 						id: s.id,
 						last_seen: new Date(s.lastSeen).toISOString(),
 						name: s.name,
-						faction: s.faction,
+						faction: s.team ?? s.faction,
 						kills: s.kills,
 						deaths: s.deaths,
 						cash: s.cash,
