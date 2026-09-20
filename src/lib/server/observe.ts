@@ -589,15 +589,20 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 				if (players && presenceDue)
 					await persistPresence(tx, server.id, m.presence, diff, ts, heartbeatDue, firstVisit);
 				if (joined.length)
-					await tx.insert(playerMarks).values(joined.map((p) => ({
-						orgId: server.orgId,
-						steamId: p.steamId,
-						risk: risk.risks.get(p.steamId) ?? null,
-						riskScoredAt: ts
-					}))).onConflictDoUpdate({
-						target: [playerMarks.orgId, playerMarks.steamId],
-						set: { risk: sql`excluded.risk`, riskScoredAt: sql`excluded.risk_scored_at` }
-					});
+					await tx
+						.insert(playerMarks)
+						.values(
+							joined.map((p) => ({
+								orgId: server.orgId,
+								steamId: p.steamId,
+								risk: risk.risks.get(p.steamId) ?? null,
+								riskScoredAt: ts
+							}))
+						)
+						.onConflictDoUpdate({
+							target: [playerMarks.orgId, playerMarks.steamId],
+							set: { risk: sql`excluded.risk`, riskScoredAt: sql`excluded.risk_scored_at` }
+						});
 				if (ev.intents.length) intents = await enqueueIntents(tx, server.id, ev.intents);
 				if (ev.updates.length) await applyTriggerUpdates(tx, ev.updates);
 				if (liveDue) await writeLive(tx, m, ts);

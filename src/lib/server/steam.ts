@@ -75,7 +75,9 @@ async function friendEvidence(key: string, steamId: string): Promise<FriendEvide
 			friendslist?: { friends?: { steamid: string }[] };
 		};
 		if (!body.friendslist) return unknown;
-		const friends = [...new Set((body.friendslist.friends ?? []).map((f) => f.steamid).filter(isSteamId))];
+		const friends = [
+			...new Set((body.friendslist.friends ?? []).map((f) => f.steamid).filter(isSteamId))
+		];
 		const sample = friends.slice(0, FRIEND_LIMIT);
 		let banned = 0;
 		for (let i = 0; i < sample.length; i += CHUNK) {
@@ -84,8 +86,8 @@ async function friendEvidence(key: string, steamId: string): Promise<FriendEvide
 				key,
 				sample.slice(i, i + CHUNK)
 			);
-			banned += (bans.players ?? []).filter((p) =>
-				(p.NumberOfVACBans ?? 0) > 0 || (p.NumberOfGameBans ?? 0) > 0
+			banned += (bans.players ?? []).filter(
+				(p) => (p.NumberOfVACBans ?? 0) > 0 || (p.NumberOfGameBans ?? 0) > 0
 			).length;
 		}
 		return {
@@ -99,14 +101,15 @@ async function friendEvidence(key: string, steamId: string): Promise<FriendEvide
 	}
 }
 
-async function refreshFriendEvidence(env: Env, rows: SteamProfileRow[]): Promise<SteamProfileRow[]> {
+async function refreshFriendEvidence(
+	env: Env,
+	rows: SteamProfileRow[]
+): Promise<SteamProfileRow[]> {
 	const out = [...rows];
 	const todo = rows
 		.map((row, i) => ({ row, i }))
-		.filter(({ row }) =>
-			!row.error &&
-			!friendInFlight.has(row.steamId) &&
-			friendsStale(row, Date.now())
+		.filter(
+			({ row }) => !row.error && !friendInFlight.has(row.steamId) && friendsStale(row, Date.now())
 		);
 	for (const { row } of todo) friendInFlight.add(row.steamId);
 	let next = 0;
@@ -118,7 +121,8 @@ async function refreshFriendEvidence(env: Env, rows: SteamProfileRow[]): Promise
 					const evidence = await friendEvidence(env.STEAM_API_KEY!, row.steamId);
 					if (evidence.state === 'unknown') {
 						if (row.friendsState === 'unknown')
-							await env.db.update(steamProfiles)
+							await env.db
+								.update(steamProfiles)
 								.set({ friendsCheckedAt: new Date() })
 								.where(eq(steamProfiles.steamId, row.steamId));
 						continue;
@@ -166,7 +170,11 @@ async function steamGet<T>(path: string, key: string, ids: string[]): Promise<T>
 }
 
 /** Asks Steam about these ids (both endpoints), stores the answers and returns the rows. */
-export async function fetchSteam(env: Env, ids: string[], opts: { awaitFriends?: boolean } = {}): Promise<SteamProfileRow[]> {
+export async function fetchSteam(
+	env: Env,
+	ids: string[],
+	opts: { awaitFriends?: boolean } = {}
+): Promise<SteamProfileRow[]> {
 	const key = env.STEAM_API_KEY;
 	if (!key)
 		throw new ApiError(
@@ -297,7 +305,8 @@ export async function getProfiles(
 	});
 	if (!stale.length) return map;
 	try {
-		for (const row of await fetchSteam(env, stale, { awaitFriends: opts.awaitFriends })) map.set(row.steamId, row);
+		for (const row of await fetchSteam(env, stale, { awaitFriends: opts.awaitFriends }))
+			map.set(row.steamId, row);
 	} catch (err) {
 		if (opts.refresh) throw err;
 		console.warn('[warcon] steam lookup', err instanceof Error ? err.message : err);

@@ -98,8 +98,7 @@ export function assessRisk(s: RiskSignals): Risk {
 			reasons.push({ code: 'community', text: 'Steam community ban', weight: 10 });
 		if (p.economyBan && p.economyBan !== 'none')
 			reasons.push({ code: 'economy', text: `Steam economy ban (${p.economyBan})`, weight: 5 });
-		if (!p.public)
-			reasons.push({ code: 'private', text: 'Steam profile is private', weight: 12 });
+		if (!p.public) reasons.push({ code: 'private', text: 'Steam profile is private', weight: 12 });
 		const age = accountAgeDays(p.accountCreatedAt, now);
 		if (age !== null && age < 7) {
 			reasons.push({
@@ -165,7 +164,13 @@ export function assessRisk(s: RiskSignals): Risk {
 			text: `On the watchlist${s.watched.reason ? `: ${s.watched.reason}` : ''}`,
 			weight: 15
 		});
-	const score = Math.max(0, Math.min(100, reasons.reduce((n, r) => n + r.weight, 0)));
+	const score = Math.max(
+		0,
+		Math.min(
+			100,
+			reasons.reduce((n, r) => n + r.weight, 0)
+		)
+	);
 	return {
 		score,
 		level: score >= RISK_HIGH ? 'high' : score >= RISK_MEDIUM ? 'medium' : 'low',
