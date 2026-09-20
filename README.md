@@ -419,8 +419,9 @@ the list has been applied on each server, and the form that hands out a slot eve
 Players tab or a dossier and choose _every server in the organisation_ (the default, when you may
 edit the org list) or _this server only_. A ban on this server only goes on a ban list of the
 server's own, marked _here_ on its Bans tab with the reason, who placed it and when it lifts. The
-game only bans a player who is connected, so a ban on someone who is away waits on the list
-(_on sight_) and is placed the moment they join. Select a ban the panel holds and choose **Edit**
+panel enforces its bans itself: the worker removes a banned player the moment it sees them on
+the server, with the organisation's ban message, and writes nothing to the game's own ban list or
+files. Select a ban the panel holds and choose **Edit**
 to change its reason or expiry; who placed it and when stay as they are. Org owners and
 anyone whose role on one of the org's servers includes _Org lists_ can edit the org lists;
 _Bans_ on a server covers its own ban list and _Reserved slots_ its own slots. A ban can carry a
@@ -453,22 +454,31 @@ promoted the same way (owners), or added to the org list while this server's own
 or unban org-wide, or hand out and withdraw a reserved slot, without leaving the page.
 
 A ban or reserved slot with an **expiry** is lifted by the panel when the time comes: the entry
-moves to the list's history as expired and the next sync removes it from every server the panel
-applied it to. With
+moves to the list's history as expired; an expired ban stops being enforced at once, and an
+expired slot is removed from every server the panel applied it to at the next sync. With
 **Members get a reserved slot** on (an owner's switch on the Reserved slots tab), every member of
 the organisation who linked a SteamID on their Account page is reserved a slot on all its servers,
 skipped while the org has them banned. A **Seeding reward** rule (see [Automation](#automation-triggers))
 hands out expiring entries the same way, on the seeded server's own list or the organisation's,
 to players who stayed while a server was low; the entry names the rule that added it.
 
-Sync happens twice over: right away when a list is edited (the toast says on how many servers the
-change landed, and which are unreachable and will be retried), and on every poll, where the
-poller re-applies anything missing, so an org ban that someone lifts on the server directly comes
-back at the next poll; use the org list to lift it everywhere. The live game build only bans a
-player who is connected, so a ban added while the player is elsewhere is refused on that server
-(the entry shows as failed on the list page, with the game's answer); the worker keeps those in
-mind and bans the player the moment it sees them on that server, without waiting for the sync's
-five-minute retry. A reserved slot is a queue skip:
+Bans are enforced by the panel, not by the game. The worker holds each server's bans (the
+organisation's list and the server's own) and, every time it looks at the server's players (every
+two seconds on a server with people on it, up to thirty on an empty one), removes anyone who is
+banned, showing them the ban message as it reads at that moment. A ban, an unban, an edit or an
+expiry therefore takes effect at once and on every server, whether or not the player is connected,
+and no settings file is touched. Each removal is in the audit trail under `system` as
+`ban.enforce`. Two things follow. Bans only hold while Warcon is running and can reach the server:
+if you stop the panel, nobody is kept out. And bans the game holds in its own list (placed with
+the in-game console, another RCON tool, the `ban` action of the API, or by an older Warcon) are
+not the panel's: the Bans tab shows them as _local_ with **Unban**, the panel never adds to or
+lifts them, and on hosts that keep them in `ServerSettings.ini` they come back at a restart until
+you take them out of the file. To move one to the panel, ban the player in the panel and remove
+the local ban.
+
+Reserved slots are synced to the game twice over: right away when a list is edited (the toast
+says on how many servers the change landed, and which are unreachable and will be retried), and on
+every poll, where the poller re-applies anything missing. A reserved slot is a queue skip:
 the game takes the list at any length, and `MaxReservedSlots` only sets how many player slots
 are held back for the people on it (a 100-slot server with 2 held back reports 98 to the public;
 the panel shows the split). Live builds have no reserved-slot routes,
