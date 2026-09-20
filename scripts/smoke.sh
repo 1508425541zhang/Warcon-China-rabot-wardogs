@@ -236,8 +236,8 @@ check lists-editor-add '"steamId":"76561198100000503"' "$(req $J5 POST /api/orgs
 check lists-editor-orgs-link "/orgs/$ORG/bans" "$(curl -s -b $J5 $B/orgs)"
 check page-editor-bans '200' "$(pagecode $J5 "/orgs/$ORG/bans")"
 check page-editor-overview '403' "$(pagecode $J5 "/orgs/$ORG")"
-# sync: adding an entry pushes it to the demo server straight away
-check sync-applied "$L1" "$(req $J1 GET /api/servers/$SID/rcon/bans)"
+# bans are the panel's to enforce: an entry is in force at once and nothing is written to the game
+check ban-not-in-game '0' "$(req $J1 GET /api/servers/$SID/rcon/bans | grep -c $L1)"
 check sync-state-managed "\"$L1\":{\"state\":\"applied\",\"managed\":true" "$(req $J1 GET /api/servers/$SID/lists/state)"
 check sync-reserve-applied '76561198100000601' "$(req $J1 GET /api/servers/$SID/rcon/reserved)"
 check sync-local-ban '"76561198100000301":{"state":"local","managed":false' "$(req $J1 GET /api/servers/$SID/lists/state)"
@@ -267,7 +267,15 @@ check dossier-orglists '"orgLists":{"ban":{' "$(req $J1 GET /api/servers/$SID/pl
 EXP=$(date -u -v+12S +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '+12 seconds' +%Y-%m-%dT%H:%M:%SZ)
 EB="{\"steamId\":\"76561198100000701\",\"expiresAt\":\"$EXP\"}"
 check expiry-add '"expiresAt"' "$(req $J1 POST /api/orgs/$ORG/lists/ban/entries "$EB")"
-check expiry-applied '76561198100000701' "$(req $J1 GET /api/servers/$SID/rcon/bans)"
+check expiry-applied '"76561198100000701":{"state":"applied","managed":true' "$(req $J1 GET /api/servers/$SID/lists/state)"
+# a banned player who is on the server is removed by the worker, with an audit row
+ON=$(req $J1 GET /api/servers/$SID/rcon/players | grep -o '7656119810000010[0-9]' | head -1)
+NB="{\"steamId\":\"$ON\",\"reason\":\"smoke\"}"
+check enforce-add "\"steamId\":\"$ON\"" "$(req $J1 POST /api/orgs/$ORG/lists/ban/entries "$NB")"
+for i in $(seq 1 10); do R=$(req $J1 GET /api/servers/$SID/rcon/players); [[ "$R" != *$ON* ]] && break; sleep 2; done
+check enforce-kicked '0' "$(echo "$R" | grep -c "$ON")"
+check enforce-audit '"action":"ban.enforce"' "$(req $J1 GET '/api/audit?action=ban.enforce')"
+check enforce-no-game-ban '0' "$(req $J1 GET /api/servers/$SID/rcon/bans | grep -c "$ON")"
 check steam-badid '400' "$(form $J1 '/account?/steam' 'steamId=abc')"
 check steam-set '200' "$(form $J1 '/account?/steam' 'steamId=76561198100000801')"
 check steam-dup-carol '409' "$(form $J5 '/account?/steam' 'steamId=76561198100000801')"
@@ -277,7 +285,7 @@ check member-slot '76561198100000801' "$(req $J1 GET /api/servers/$SID/rcon/rese
 check member-entry '"member":true' "$(req $J1 GET /api/orgs/$ORG/lists/reserve/entries)"
 check member-off '"sync"' "$(req $J1 PATCH /api/orgs/$ORG '{"membersReserved":false}')"
 check member-slot-gone '0' "$(req $J1 GET /api/servers/$SID/rcon/reserved | grep -c 76561198100000801)"
-for i in $(seq 1 12); do R=$(req $J1 GET /api/servers/$SID/rcon/bans); [[ "$R" != *76561198100000701* ]] && break; sleep 3; done
+for i in $(seq 1 12); do R=$(req $J1 GET /api/servers/$SID/lists/state); [[ "$R" != *76561198100000701* ]] && break; sleep 3; done
 check expiry-lifted '0' "$(echo "$R" | grep -c 76561198100000701)"
 check expiry-row '"removal":"expired"' "$(req $J1 GET "/api/orgs/$ORG/lists/ban/entries?includeRemoved=1")"
 check audit-expire '"action":"list.expire"' "$(req $J1 GET '/api/audit?action=list.expire')"
