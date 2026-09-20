@@ -383,16 +383,17 @@ Notes and the watchlist are shared by every server in the organisation; roles wi
 watchlist_ can write them, and a note can be deleted by its author or a role with _Others' notes_.
 
 With `STEAM_API_KEY` set, the dossier also shows the Steam persona, account age (public profiles
-only), VAC and game bans, and available friends-list evidence, refreshed daily and on demand.
-The **advisory risk score** is calculated only on a trusted join, stored per organisation and
-player, and served from that snapshot through the player APIs. Refreshing Steam data or recording
-new match stats does not change it until the next join. Existing players without a scored join
-show as unscored. The score is bounded to 0–100. Recent bans weigh more than old ones;
-multiple banned friends, a private profile or friends list, local bans, name resemblance, and
-the watchlist add evidence. Extreme win rate, K/D, and headshot percentage across the
-organisation's recorded games add smaller weights only after minimum match/kill counts. Headshot
-percentage uses kill-feed games only; the other totals use the panel's match and session history.
-At most 200 Steam friends are checked per account, and a partial count is labelled as such.
+only), VAC and game bans, refreshed daily and on demand, and what its friends list shows, looked
+at weekly. The **advisory risk score** is worked out when someone looks, for that reader: a ban on
+another server, or games recorded there, count only if the reader can open that server. The score
+is bounded to 0–100. Recent bans weigh more than old ones; multiple banned friends, a private
+profile or friends list, local bans, name resemblance, and the watchlist add evidence. Extreme
+win rate, K/D, and headshot percentage across recorded games add smaller weights only after
+minimum match/kill counts. Headshot percentage uses kill-feed games only; the other totals use the
+panel's match and session history. A _Kick on connect risk_ rule that kicks at a risk level scores
+each joiner across the whole organisation.
+At most 200 Steam friends are checked per account, and a partial count is labelled as such;
+the friends lookups keep to a fifth of the 100,000 calls a day Steam allows a key.
 Steam provides no documented profile-comments read endpoint to this panel, so comments are not
 scored. Missing data is not treated as clean data or as proof of cheating. The score is a pointer
 for an admin to look closer, not a verdict: the RCON API exposes no aim, position or input data.
