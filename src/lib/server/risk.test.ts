@@ -21,7 +21,10 @@ describe('assessRisk', () => {
 		expect(r.steamChecked).toBe(true);
 	});
 	test('a missing Steam profile is unavailable, not private', () => {
-		const r = assessRisk({ ...base, profile: { ...clean, public: false, accountCreatedAt: null, error: 'Not found on Steam.' } });
+		const r = assessRisk({
+			...base,
+			profile: { ...clean, public: false, accountCreatedAt: null, error: 'Not found on Steam.' }
+		});
 		expect(r.score).toBe(0);
 		expect(r.steamChecked).toBe(false);
 	});
@@ -31,15 +34,22 @@ describe('assessRisk', () => {
 		expect(r.reasons.map((x) => x.code)).toEqual(['vac']);
 	});
 	test('the same ban loses weight as it ages', () => {
-		const scores = [7, 200, 700, 2000].map((daysSinceLastBan) =>
-			assessRisk({ ...base, profile: { ...clean, vacBans: 1, daysSinceLastBan } }).score
+		const scores = [7, 200, 700, 2000].map(
+			(daysSinceLastBan) =>
+				assessRisk({ ...base, profile: { ...clean, vacBans: 1, daysSinceLastBan } }).score
 		);
 		expect(scores).toEqual([60, 53, 45, 30]);
 	});
 	test('banned friends and private friends add bounded, explainable evidence', () => {
 		const publicFriends = assessRisk({
 			...base,
-			profile: { ...clean, friendsState: 'partial', friendsTotal: 320, friendsChecked: 200, bannedFriends: 3 }
+			profile: {
+				...clean,
+				friendsState: 'partial',
+				friendsTotal: 320,
+				friendsChecked: 200,
+				bannedFriends: 3
+			}
 		});
 		expect(publicFriends.reasons[0].code).toBe('banned_friends');
 		expect(publicFriends.reasons[0].text).toContain('among 200 checked of 320');
@@ -49,13 +59,41 @@ describe('assessRisk', () => {
 		expect(privateFriends.score).toBe(8);
 	});
 	test('performance needs enough recorded games or kills and cannot exceed 100', () => {
-		const performance = { matches: 30, wins: 26, losses: 4, draws: 0, kills: 200, deaths: 30, feedKills: 100, headshots: 70 };
+		const performance = {
+			matches: 30,
+			wins: 26,
+			losses: 4,
+			draws: 0,
+			kills: 200,
+			deaths: 30,
+			feedKills: 100,
+			headshots: 70
+		};
 		const risk = assessRisk({ ...base, profile: clean, performance });
 		expect(risk.reasons.map((r) => r.code)).toEqual(['win_rate', 'kd', 'headshots']);
 		expect(risk.score).toBe(28);
-		const sparse = assessRisk({ ...base, profile: clean, performance: { ...performance, wins: 2, matches: 2, losses: 0, kills: 10, deaths: 1, feedKills: 5, headshots: 5 } });
+		const sparse = assessRisk({
+			...base,
+			profile: clean,
+			performance: {
+				...performance,
+				wins: 2,
+				matches: 2,
+				losses: 0,
+				kills: 10,
+				deaths: 1,
+				feedKills: 5,
+				headshots: 5
+			}
+		});
 		expect(sparse.score).toBe(0);
-		expect(assessRisk({ ...base, profile: { ...clean, vacBans: 10, gameBans: 10, bannedFriends: 10 }, performance }).score).toBe(100);
+		expect(
+			assessRisk({
+				...base,
+				profile: { ...clean, vacBans: 10, gameBans: 10, bannedFriends: 10 },
+				performance
+			}).score
+		).toBe(100);
 	});
 	test('a week-old private account stacks age and privacy', () => {
 		const r = assessRisk({

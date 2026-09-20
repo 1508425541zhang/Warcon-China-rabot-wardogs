@@ -649,7 +649,11 @@ function evalPingKick(ctx: TickContext, row: TriggerRow, cfg: PingKickConfig, ou
 	);
 	// The state is written with any intents, and kept in the cached row for the next poll.
 	row.state = state;
-	if (Object.keys(state.players).length || Object.keys(previous?.players ?? {}).length || kicks.length)
+	if (
+		Object.keys(state.players).length ||
+		Object.keys(previous?.players ?? {}).length ||
+		kicks.length
+	)
 		out.updates.push({ id: row.id, state });
 	const kicked = new Set(kicks);
 	for (const p of ctx.players) {
@@ -865,7 +869,11 @@ export async function riskInputs(
 	env: Env,
 	server: ServerRow,
 	joined: Player[]
-): Promise<{ signals: Map<string, LocalSignals>; profiles: Map<string, SteamProfileRow>; risks: Map<string, Risk> }> {
+): Promise<{
+	signals: Map<string, LocalSignals>;
+	profiles: Map<string, SteamProfileRow>;
+	risks: Map<string, Risk>;
+}> {
 	if (!joined.length) return { signals: new Map(), profiles: new Map(), risks: new Map() };
 	const org = await orgServers(env, server.orgId);
 	const [signals, profiles, performance] = await Promise.all([
@@ -879,24 +887,34 @@ export async function riskInputs(
 		steamEnabled(env)
 			? getProfiles(
 					env,
-					joined.map((p) => p.steamId), { awaitFriends: true }
+					joined.map((p) => p.steamId),
+					{ awaitFriends: true }
 				)
 			: new Map<string, SteamProfileRow>(),
-		riskPerformanceFor(env, org.map((s) => s.id), joined.map((p) => p.steamId))
+		riskPerformanceFor(
+			env,
+			org.map((s) => s.id),
+			joined.map((p) => p.steamId)
+		)
 	]);
 	const now = new Date();
-	const risks = new Map(joined.map((p) => {
-		const local = signals.get(p.steamId);
-		return [p.steamId, assessRisk({
-			profile: profiles.get(p.steamId) ?? null,
-			steamEnabled: steamEnabled(env),
-			watched: local?.watched ?? null,
-			bannedOn: local?.bannedOn ?? [],
-			resembles: local?.resembles ?? [],
-			performance: performance.get(p.steamId),
-			now
-		})] as const;
-	}));
+	const risks = new Map(
+		joined.map((p) => {
+			const local = signals.get(p.steamId);
+			return [
+				p.steamId,
+				assessRisk({
+					profile: profiles.get(p.steamId) ?? null,
+					steamEnabled: steamEnabled(env),
+					watched: local?.watched ?? null,
+					bannedOn: local?.bannedOn ?? [],
+					resembles: local?.resembles ?? [],
+					performance: performance.get(p.steamId),
+					now
+				})
+			] as const;
+		})
+	);
 	return { signals, profiles, risks };
 }
 
@@ -1031,11 +1049,23 @@ export async function dryRun(
 				players
 			),
 			steamEnabled(env)
-				? getProfiles(env, players.slice(0, 200).map((p) => p.steamId))
+				? getProfiles(
+						env,
+						players.slice(0, 200).map((p) => p.steamId)
+					)
 				: new Map(),
-			env.db.select({ steamId: playerMarks.steamId, risk: playerMarks.risk })
+			env.db
+				.select({ steamId: playerMarks.steamId, risk: playerMarks.risk })
 				.from(playerMarks)
-				.where(and(eq(playerMarks.orgId, server.orgId), inArray(playerMarks.steamId, players.map((p) => p.steamId))))
+				.where(
+					and(
+						eq(playerMarks.orgId, server.orgId),
+						inArray(
+							playerMarks.steamId,
+							players.map((p) => p.steamId)
+						)
+					)
+				)
 		]);
 		const storedRisks = new Map(stored.map((row) => [row.steamId, row.risk as Risk | null]));
 		for (const p of players) {
@@ -1059,7 +1089,9 @@ export async function dryRun(
 		result.notes.push(
 			`${players.length} distinct player${players.length === 1 ? '' : 's'} joined in the window.`
 		);
-		result.notes.push('Risk-level checks use the latest stored join-time score, not a historical replay.');
+		result.notes.push(
+			'Risk-level checks use the latest stored join-time score, not a historical replay.'
+		);
 		return result;
 	}
 	if (kind === 'team_kill') {

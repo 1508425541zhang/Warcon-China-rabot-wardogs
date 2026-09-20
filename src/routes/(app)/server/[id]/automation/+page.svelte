@@ -138,7 +138,7 @@
 			label: 'Kick on connect risk',
 			blurb: 'Kick joiners the panel already distrusts, before they get a slot.'
 		},
-			{
+		{
 			kind: 'name_filter',
 			group: 'Players',
 			label: 'Name filter',
@@ -410,8 +410,8 @@
 				kind === 'name_filter'
 					? 'Your name is not allowed on this server: {why}.'
 					: kind === 'ping_kick'
-					? 'Ping too high for too long.'
-					: 'Your account does not meet this server’s requirements.'
+						? 'Ping too high for too long.'
+						: 'Your account does not meet this server’s requirements.'
 			),
 			leadMinutes: n('leadMinutes', 30),
 			leadMessage: s(
@@ -464,7 +464,7 @@
 				? 'Dry run, past players'
 				: kind === 'ping_kick'
 					? 'Check dry-run limits'
-				: 'Dry run, last 24 h';
+					: 'Dry run, last 24 h';
 	const lines = (text: string) =>
 		text
 			.split(/[\n,]/)
@@ -1282,21 +1282,23 @@
 									><input type="checkbox" bind:checked={f.gameBans} disabled={!data.steam} /> game banned</label
 								>
 								{#if f.vacBans || f.gameBans}
-                  <div
-                    class="flex flex-wrap items-center gap-2 pl-5 {data.steam ? '' : 'text-mist-600'}"
-                  >
-                    Only bans from the last
-                    <input
-                      class="input w-24 text-right"
-                      type="number"
-                      min="0"
-                      max="36500"
-                      bind:value={f.maxBanAgeDays}
-                      disabled={!data.steam}
-                    />
-                    days (0 = since forever)
-                  </div>
-                {/if}
+									<div
+										class="flex flex-wrap items-center gap-2 pl-5 {data.steam
+											? ''
+											: 'text-mist-600'}"
+									>
+										Only bans from the last
+										<input
+											class="input w-24 text-right"
+											type="number"
+											min="0"
+											max="36500"
+											bind:value={f.maxBanAgeDays}
+											disabled={!data.steam}
+										/>
+										days (0 = since forever)
+									</div>
+								{/if}
 								<div class="flex flex-wrap items-center gap-2">
 									under
 									<input
@@ -1486,8 +1488,9 @@
 						<input class="input" type="text" bind:value={f.reason} maxlength="200" />
 					</fieldset>
 					<p class="note">
-						The timer starts on the first high-ping sample. It resets when ping drops to the limit or
-						below, is unavailable, the player leaves, or the player list cannot be sampled on time.
+						The timer starts on the first high-ping sample. It resets when ping drops to the limit
+						or below, is unavailable, the player leaves, or the player list cannot be sampled on
+						time.
 					</p>
 				{:else if f.kind === 'team_kill'}
 					<fieldset class="space-y-2">

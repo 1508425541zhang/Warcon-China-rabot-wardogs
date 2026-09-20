@@ -188,8 +188,7 @@ describe('pingKickStep', () => {
 		expect(step(due.state, high, 35_000).kicks).toEqual([]);
 		const recovered = step(due.state, [{ steamId: 'a', ping: 100 }], 35_000);
 		let again = step(recovered.state, high, 40_000).state;
-		for (const at of [45_000, 50_000, 55_000, 60_000, 65_000])
-			again = step(again, high, at).state;
+		for (const at of [45_000, 50_000, 55_000, 60_000, 65_000]) again = step(again, high, at).state;
 		expect(step(again, high, 70_000).kicks).toEqual(['a']);
 	});
 	test('normal or missing ping and leaving reset the streak', () => {
@@ -459,10 +458,16 @@ describe('riskKickVerdict', () => {
 	test('ban age window ignores older VAC and game bans, while 0 means forever', () => {
 		const oldVac = { ...profile, vacBans: 1, daysSinceLastBan: 366 };
 		expect(
-			riskKickVerdict({ ...cfg, maxBanAgeDays: 365, minAccountDays: 0 }, { ...base, profile: oldVac })
+			riskKickVerdict(
+				{ ...cfg, maxBanAgeDays: 365, minAccountDays: 0 },
+				{ ...base, profile: oldVac }
+			)
 		).toBeNull();
 		expect(
-			riskKickVerdict({ ...cfg, maxBanAgeDays: 366, minAccountDays: 0 }, { ...base, profile: oldVac })
+			riskKickVerdict(
+				{ ...cfg, maxBanAgeDays: 366, minAccountDays: 0 },
+				{ ...base, profile: oldVac }
+			)
 		).toBe('1 VAC ban on record');
 		expect(
 			riskKickVerdict({ ...cfg, maxBanAgeDays: 0, minAccountDays: 0 }, { ...base, profile: oldVac })
@@ -544,8 +549,15 @@ describe('riskKickVerdict', () => {
 			watchlist: false,
 			kickAtLevel: 'high' as const
 		};
-		const high = { score: 70, level: 'high' as const, reasons: [{ code: 'vac', text: 'Recent ban at join', weight: 70 }], steamChecked: true };
-		expect(riskKickVerdict(levelOnly, { ...base, risk: high })).toBe('high risk (70): Recent ban at join');
+		const high = {
+			score: 70,
+			level: 'high' as const,
+			reasons: [{ code: 'vac', text: 'Recent ban at join', weight: 70 }],
+			steamChecked: true
+		};
+		expect(riskKickVerdict(levelOnly, { ...base, risk: high })).toBe(
+			'high risk (70): Recent ban at join'
+		);
 		expect(riskKickVerdict(levelOnly, { ...base, risk: null })).toBeNull();
 	});
 	test('the risk level works from local signals alone and says when Steam was not checked', () => {

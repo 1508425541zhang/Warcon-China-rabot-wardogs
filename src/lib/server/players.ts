@@ -199,7 +199,12 @@ export async function marksFor(
 			.from(playerSessions)
 			.where(and(eq(playerSessions.serverId, server.id), inArray(playerSessions.steamId, ids)))
 			.groupBy(playerSessions.steamId),
-		env.db.select({ steamId: playerMarks.steamId, risk: playerMarks.risk, riskScoredAt: playerMarks.riskScoredAt })
+		env.db
+			.select({
+				steamId: playerMarks.steamId,
+				risk: playerMarks.risk,
+				riskScoredAt: playerMarks.riskScoredAt
+			})
 			.from(playerMarks)
 			.where(and(eq(playerMarks.orgId, server.orgId), inArray(playerMarks.steamId, ids)))
 	]);

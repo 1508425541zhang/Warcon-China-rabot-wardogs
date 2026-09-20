@@ -2,7 +2,13 @@
 // kick-on-connect verdict. No database, no game server, so it is unit-testable on its own;
 // triggers.ts holds the engine that runs these against live ticks.
 import { ApiError, int, str } from './http';
-import { accountAgeDays, assessRisk, type Risk, type RiskLevel, type RiskPerformance } from './risk';
+import {
+	accountAgeDays,
+	assessRisk,
+	type Risk,
+	type RiskLevel,
+	type RiskPerformance
+} from './risk';
 import { validateNameFilter, type NameFilterConfig } from './name-filter';
 import { RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 import type { SteamProfileRow } from './db/schema';
@@ -709,9 +715,7 @@ export function riskKickVerdict(cfg: RiskKickConfig, s: RiskKickSignals): string
 		// behaviour of considering the player's full ban history.
 		const maxBanAgeDays = cfg.maxBanAgeDays ?? 0;
 		const banIsRecentEnough =
-			maxBanAgeDays === 0 ||
-			p.daysSinceLastBan === null ||
-			p.daysSinceLastBan <= maxBanAgeDays;
+			maxBanAgeDays === 0 || p.daysSinceLastBan === null || p.daysSinceLastBan <= maxBanAgeDays;
 		if (cfg.vacBans && p.vacBans > 0 && banIsRecentEnough)
 			return `${p.vacBans} VAC ban${p.vacBans === 1 ? '' : 's'} on record`;
 		if (cfg.gameBans && p.gameBans > 0 && banIsRecentEnough)
@@ -726,15 +730,18 @@ export function riskKickVerdict(cfg: RiskKickConfig, s: RiskKickSignals): string
 		}
 	}
 	if (cfg.kickAtLevel) {
-		const risk = s.risk === undefined ? assessRisk({
-			profile: s.profile,
-			steamEnabled: s.steamEnabled,
-			watched: s.watched,
-			bannedOn: s.bannedOn,
-			resembles: s.resembles ?? [],
-			performance: s.performance,
-			now: s.now
-		}) : s.risk;
+		const risk =
+			s.risk === undefined
+				? assessRisk({
+						profile: s.profile,
+						steamEnabled: s.steamEnabled,
+						watched: s.watched,
+						bannedOn: s.bannedOn,
+						resembles: s.resembles ?? [],
+						performance: s.performance,
+						now: s.now
+					})
+				: s.risk;
 		if (!risk) return null;
 		const bad = risk.level === 'high' || (cfg.kickAtLevel === 'medium' && risk.level === 'medium');
 		if (bad) {

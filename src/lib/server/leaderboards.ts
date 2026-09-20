@@ -123,8 +123,14 @@ export async function riskPerformanceFor(
 	const result = new Map<string, RiskPerformance>();
 	if (!serverIds.length || !steamIds.length) return result;
 	const blank = (): RiskPerformance => ({
-		matches: 0, wins: 0, losses: 0, draws: 0,
-		kills: 0, deaths: 0, feedKills: 0, headshots: 0
+		matches: 0,
+		wins: 0,
+		losses: 0,
+		draws: 0,
+		kills: 0,
+		deaths: 0,
+		feedKills: 0,
+		headshots: 0
 	});
 	const [sessions, feed, matches] = await Promise.all([
 		env.db.execute<{ steamId: string; kills: string; deaths: string }>(sql`
@@ -137,7 +143,13 @@ export async function riskPerformanceFor(
 			       COUNT(*) FILTER (WHERE headshot AND NOT suicide) AS headshots
 			  FROM kills WHERE server_id IN ${serverIds} AND killer_steam_id IN ${steamIds}
 			 GROUP BY killer_steam_id`),
-		env.db.execute<{ steamId: string; matches: string; wins: string; losses: string; draws: string }>(sql`
+		env.db.execute<{
+			steamId: string;
+			matches: string;
+			wins: string;
+			losses: string;
+			draws: string;
+		}>(sql`
 			WITH ${matchPairs(serverIds, EPOCH, steamIds)}
 			SELECT steam_id AS "steamId", COUNT(*) AS matches,
 			       COUNT(*) FILTER (WHERE result = 'win') AS wins,
@@ -150,11 +162,20 @@ export async function riskPerformanceFor(
 		if (!value) result.set(steamId, (value = blank()));
 		return value;
 	};
-	for (const row of sessions) Object.assign(of(row.steamId), { kills: num(row.kills), deaths: num(row.deaths) });
-	for (const row of feed) Object.assign(of(row.steamId), { feedKills: num(row.feedKills), headshots: num(row.headshots) });
-	for (const row of matches) Object.assign(of(row.steamId), {
-		matches: num(row.matches), wins: num(row.wins), losses: num(row.losses), draws: num(row.draws)
-	});
+	for (const row of sessions)
+		Object.assign(of(row.steamId), { kills: num(row.kills), deaths: num(row.deaths) });
+	for (const row of feed)
+		Object.assign(of(row.steamId), {
+			feedKills: num(row.feedKills),
+			headshots: num(row.headshots)
+		});
+	for (const row of matches)
+		Object.assign(of(row.steamId), {
+			matches: num(row.matches),
+			wins: num(row.wins),
+			losses: num(row.losses),
+			draws: num(row.draws)
+		});
 	return result;
 }
 
