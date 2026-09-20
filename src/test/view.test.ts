@@ -5,7 +5,13 @@ import { beforeAll, describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
 import type { Env } from '$lib/server/env';
 import { listOf } from '$lib/server/lists';
-import { listEntries, playerMarks, playerNotes, serverBans } from '$lib/server/db/schema';
+import {
+	listEntries,
+	playerMarks,
+	playerNotes,
+	playerSessions,
+	serverBans
+} from '$lib/server/db/schema';
 import { newId } from '$lib/server/http';
 import { hasTestDb, testEnv } from './db';
 import { callApi, callLoad, stubGateway } from './call';
@@ -120,6 +126,34 @@ describe.skipIf(!hasTestDb)('what View shows', () => {
 		const admin = await dossier('admin');
 		expect(admin.orgLists.ban).toMatchObject({ reason: 'org-wide ban reason' });
 		expect(admin.orgLists.canEdit).toBe(true);
+	});
+
+	test('the risk score counts bans and recorded games only on servers the reader can open', async () => {
+		const t = new Date(Date.now() - 3600_000);
+		await env.db.insert(playerSessions).values({
+			serverId: w.otherServer.id,
+			steamId: PLAYER,
+			name: 'someone',
+			joinedAt: t,
+			lastSeen: t,
+			leftAt: t,
+			kills: 500,
+			deaths: 25
+		});
+		const seen = async (who: PrincipalName) => {
+			const marks = (
+				await get(who, 'api/servers/[id]/players/marks', `ids=${PLAYER}&names=someone`)
+			).marks;
+			const dossier = (await get(who, 'api/servers/[id]/players/[steamId]')).dossier;
+			return JSON.stringify([marks[0].risk, dossier.risk]);
+		};
+		const viewer = await seen('viewer');
+		expect(viewer).not.toContain('cheating on the other server');
+		expect(viewer).not.toContain('Banned on');
+		expect(viewer).not.toContain('K/D');
+		const owner = await seen('owner');
+		expect(owner).toContain('cheating on the other server');
+		expect(owner).toContain('20.0 K/D across 500 kills and 25 deaths');
 	});
 
 	test("the players table's marks name bans only on servers the reader can open", async () => {

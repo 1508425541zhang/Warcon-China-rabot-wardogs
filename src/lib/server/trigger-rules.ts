@@ -2,13 +2,7 @@
 // kick-on-connect verdict. No database, no game server, so it is unit-testable on its own;
 // triggers.ts holds the engine that runs these against live ticks.
 import { ApiError, int, str } from './http';
-import {
-	accountAgeDays,
-	assessRisk,
-	type Risk,
-	type RiskLevel,
-	type RiskPerformance
-} from './risk';
+import { accountAgeDays, assessRisk, type RiskLevel, type RiskPerformance } from './risk';
 import { validateNameFilter, type NameFilterConfig } from './name-filter';
 import { RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 import type { SteamProfileRow } from './db/schema';
@@ -697,8 +691,6 @@ export interface RiskKickSignals {
 	resembles?: { name: string; steamId: string; serverName: string }[];
 	reserved: boolean;
 	performance?: RiskPerformance | null;
-	/** Persisted join-time score; null means no score has been recorded. */
-	risk?: Risk | null;
 	now?: Date;
 }
 
@@ -730,19 +722,15 @@ export function riskKickVerdict(cfg: RiskKickConfig, s: RiskKickSignals): string
 		}
 	}
 	if (cfg.kickAtLevel) {
-		const risk =
-			s.risk === undefined
-				? assessRisk({
-						profile: s.profile,
-						steamEnabled: s.steamEnabled,
-						watched: s.watched,
-						bannedOn: s.bannedOn,
-						resembles: s.resembles ?? [],
-						performance: s.performance,
-						now: s.now
-					})
-				: s.risk;
-		if (!risk) return null;
+		const risk = assessRisk({
+			profile: s.profile,
+			steamEnabled: s.steamEnabled,
+			watched: s.watched,
+			bannedOn: s.bannedOn,
+			resembles: s.resembles ?? [],
+			performance: s.performance,
+			now: s.now
+		});
 		const bad = risk.level === 'high' || (cfg.kickAtLevel === 'medium' && risk.level === 'medium');
 		if (bad) {
 			const why = [...risk.reasons]

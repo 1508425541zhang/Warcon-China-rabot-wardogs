@@ -1,5 +1,5 @@
 {
-  "id": "8e76b6cc-a907-4fe5-8ead-38967fedb214",
+  "id": "03fd29e4-7731-40da-960a-fa3ca631905d",
   "prevId": "4470ba22-5390-4a02-8077-4d5b67d768e6",
   "version": "7",
   "dialect": "postgresql",
@@ -2025,18 +2025,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "risk": {
-          "name": "risk",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "risk_scored_at": {
-          "name": "risk_scored_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {},
@@ -3579,20 +3567,6 @@
           "notNull": true,
           "default": "'none'"
         },
-        "fetched_at": {
-          "name": "fetched_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "error": {
-          "name": "error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
         "friends_state": {
           "name": "friends_state",
           "type": "text",
@@ -3626,6 +3600,20 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         }
       },
       "indexes": {},

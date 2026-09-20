@@ -177,11 +177,7 @@
 					>online · {onThisServer ? 'this server' : d.online.serverName}</Badge
 				>{/if}
 			{#if d.watch.watched}<Badge tone="warn">watchlist</Badge>{/if}
-			{#if d.riskScoredAt}
-				<Badge tone={RISK_TONE[d.risk.level]}>risk {d.risk.level} · {d.risk.score}</Badge>
-			{:else}
-				<Badge>risk unscored</Badge>
-			{/if}
+			<Badge tone={RISK_TONE[d.risk.level]}>risk {d.risk.level} · {d.risk.score}</Badge>
 		</h2>
 		<div class="mt-1 flex flex-wrap items-center gap-2 text-[12.5px] text-mist-400">
 			<span class="font-mono">{d.steamId}</span>
@@ -531,13 +527,8 @@
 		<div class="panel">
 			<div class="mb-3 flex items-center gap-2">
 				<span class="label-sm mb-0!">Risk</span>
-				{#if d.riskScoredAt}
-					<Badge tone={RISK_TONE[d.risk.level]} class="ml-auto"
-						>{d.risk.level} · {d.risk.score}</Badge
-					>
-				{:else}
-					<Badge class="ml-auto">unscored</Badge>
-				{/if}
+				<Badge tone={RISK_TONE[d.risk.level]} class="ml-auto">{d.risk.level} · {d.risk.score}</Badge
+				>
 			</div>
 			{#if d.risk.reasons.length}
 				<ul class="space-y-1 text-[13px]">
@@ -548,15 +539,12 @@
 						</li>
 					{/each}
 				</ul>
-			{:else if d.riskScoredAt}
-				<p class="text-[13px] text-mist-400">Nothing stands out.</p>
 			{:else}
-				<p class="text-[13px] text-mist-400">No trusted join has been scored yet.</p>
+				<p class="text-[13px] text-mist-400">Nothing stands out.</p>
 			{/if}
 			<p class="note">
-				{#if d.riskScoredAt}Scored at join on {new Date(d.riskScoredAt).toLocaleString()}.
-				{/if}Advisory only, from the Steam Web API, recorded game stats, this organisation's ban
-				lists and the watchlist. It cannot see aim, position or input.
+				Advisory only, from the Steam Web API, recorded game stats, this organisation's ban lists
+				and the watchlist. It cannot see aim, position or input.
 				{#if !d.steamEnabled}<span class="text-warn"
 						>Steam lookup is off (set STEAM_API_KEY), so account age and VAC status are unknown.</span
 					>{/if}

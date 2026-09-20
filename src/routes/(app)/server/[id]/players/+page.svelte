@@ -261,8 +261,7 @@
 							<td class="whitespace-nowrap">
 								{#if m}
 									{#if m.watched}<Badge tone="warn" class="mr-1">watch</Badge>{/if}
-									{#if !m.riskScoredAt}<Badge class="mr-1">risk unscored</Badge>
-									{:else if m.risk.level === 'high'}<Badge tone="err" class="mr-1"
+									{#if m.risk.level === 'high'}<Badge tone="err" class="mr-1"
 											>risk {m.risk.score}</Badge
 										>{:else if m.risk.level === 'medium'}<Badge tone="warn" class="mr-1"
 											>risk {m.risk.score}</Badge

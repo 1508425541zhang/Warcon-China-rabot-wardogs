@@ -526,7 +526,7 @@ export type KillRow = typeof kills.$inferSelect;
 
 // ---- Player intelligence: org-scoped notes and watchlist, cached Steam data, ban snapshots ------
 
-/** One row per (org, player): watchlist and the last join-time risk snapshot. */
+/** One row per (org, player): the watchlist flag and why. */
 export const playerMarks = pgTable(
 	'player_marks',
 	{
@@ -538,9 +538,7 @@ export const playerMarks = pgTable(
 		reason: text('reason').notNull().default(''),
 		updatedBy: text('updated_by'),
 		updatedByName: text('updated_by_name').notNull().default(''),
-		updatedAt: ts('updated_at').notNull().defaultNow(),
-		risk: jsonb('risk'),
-		riskScoredAt: ts('risk_scored_at')
+		updatedAt: ts('updated_at').notNull().defaultNow()
 	},
 	(t) => [primaryKey({ columns: [t.orgId, t.steamId] })]
 );
