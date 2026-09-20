@@ -573,7 +573,8 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 				)
 			: { intents: [], updates: [] };
 	// Memory follows every player observation; the database only when something is due.
-	for (const { player: p, session: s } of diff.stayed) followPlayer(s, p, started);
+	const teams = m.status?.scores.map((f) => f.name);
+	for (const { player: p, session: s } of diff.stayed) followPlayer(s, p, started, teams);
 	const presenceDue =
 		diff.joined.length > 0 || diff.left.length > 0 || (heartbeatDue && diff.stayed.length > 0);
 	const needWrite =
@@ -583,7 +584,16 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 		if (needWrite)
 			await withOwnedTransaction(env, async (tx) => {
 				if (players && presenceDue)
-					await persistPresence(tx, server.id, m.presence, diff, ts, heartbeatDue, firstVisit);
+					await persistPresence(
+						tx,
+						server.id,
+						m.presence,
+						diff,
+						ts,
+						heartbeatDue,
+						firstVisit,
+						teams
+					);
 				if (ev.intents.length) intents = await enqueueIntents(tx, server.id, ev.intents);
 				if (ev.updates.length) await applyTriggerUpdates(tx, ev.updates);
 				if (liveDue) await writeLive(tx, m, ts);
