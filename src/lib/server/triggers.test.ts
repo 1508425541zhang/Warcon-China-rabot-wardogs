@@ -420,6 +420,11 @@ describe('riskKickVerdict', () => {
 		daysSinceLastBan: null,
 		communityBanned: false,
 		economyBan: 'none',
+		friendsState: 'unknown',
+		friendsTotal: 0,
+		friendsChecked: 0,
+		bannedFriends: 0,
+		friendsCheckedAt: null,
 		fetchedAt: now,
 		error: ''
 	};
@@ -529,6 +534,19 @@ describe('riskKickVerdict', () => {
 				{ ...base, profile: { ...profile, vacBans: 1 } }
 			)
 		).toBe('1 VAC ban on record');
+	});
+	test('a stored join-time score controls the risk-level rule without recalculation', () => {
+		const levelOnly = {
+			...cfg,
+			vacBans: false,
+			minAccountDays: 0,
+			bannedElsewhere: false,
+			watchlist: false,
+			kickAtLevel: 'high' as const
+		};
+		const high = { score: 70, level: 'high' as const, reasons: [{ code: 'vac', text: 'Recent ban at join', weight: 70 }], steamChecked: true };
+		expect(riskKickVerdict(levelOnly, { ...base, risk: high })).toBe('high risk (70): Recent ban at join');
+		expect(riskKickVerdict(levelOnly, { ...base, risk: null })).toBeNull();
 	});
 	test('the risk level works from local signals alone and says when Steam was not checked', () => {
 		const v = riskKickVerdict(

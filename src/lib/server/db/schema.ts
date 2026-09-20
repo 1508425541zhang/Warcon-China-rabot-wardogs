@@ -526,7 +526,7 @@ export type KillRow = typeof kills.$inferSelect;
 
 // ---- Player intelligence: org-scoped notes and watchlist, cached Steam data, ban snapshots ------
 
-/** One row per (org, player): the watchlist flag and why. */
+/** One row per (org, player): watchlist and the last join-time risk snapshot. */
 export const playerMarks = pgTable(
 	'player_marks',
 	{
@@ -538,7 +538,9 @@ export const playerMarks = pgTable(
 		reason: text('reason').notNull().default(''),
 		updatedBy: text('updated_by'),
 		updatedByName: text('updated_by_name').notNull().default(''),
-		updatedAt: ts('updated_at').notNull().defaultNow()
+		updatedAt: ts('updated_at').notNull().defaultNow(),
+		risk: jsonb('risk'),
+		riskScoredAt: ts('risk_scored_at')
 	},
 	(t) => [primaryKey({ columns: [t.orgId, t.steamId] })]
 );
@@ -574,6 +576,12 @@ export const steamProfiles = pgTable('steam_profiles', {
 	daysSinceLastBan: integer('days_since_last_ban'),
 	communityBanned: boolean('community_banned').notNull().default(false),
 	economyBan: text('economy_ban').notNull().default('none'),
+	/** unknown, public, private, or partial (only the first 200 friends checked) */
+	friendsState: text('friends_state').notNull().default('unknown'),
+	friendsTotal: integer('friends_total').notNull().default(0),
+	friendsChecked: integer('friends_checked').notNull().default(0),
+	bannedFriends: integer('banned_friends').notNull().default(0),
+	friendsCheckedAt: ts('friends_checked_at'),
 	fetchedAt: ts('fetched_at').notNull().defaultNow(),
 	error: text('error').notNull().default('')
 });

@@ -345,6 +345,10 @@ export interface SteamView {
 	daysSinceLastBan: number | null;
 	communityBanned: boolean;
 	economyBan: string;
+	friendsState: string;
+	friendsTotal: number;
+	friendsChecked: number;
+	bannedFriends: number;
 	fetchedAt: string;
 	error: string;
 }
@@ -363,6 +367,7 @@ export interface PlayerMark {
 	reason: string;
 	firstVisit: boolean;
 	risk: RiskView;
+	riskScoredAt: string | null;
 }
 
 export interface PlayerNoteView {
@@ -419,6 +424,7 @@ export interface DossierView {
 	steamEnabled: boolean;
 	steam: SteamView | null;
 	risk: RiskView;
+	riskScoredAt: string | null;
 	watch: { watched: boolean; reason: string; updatedByName: string; updatedAt: string | null };
 	bannedOn: { serverId: string; serverName: string; reason: string; bannedBy: string }[];
 	/** how many servers the organisation runs (for "banned on N of M") */

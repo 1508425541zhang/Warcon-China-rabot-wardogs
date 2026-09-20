@@ -6,21 +6,20 @@
 // something changed or the heartbeat is due, an analytics sample. Nothing is sent to the game
 // from here; outbox.ts does that afterwards. Then the slower housekeeping runs, each part on its
 // own: match bookkeeping, ban-list snapshot, org-list sync, Steam warm-up.
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { publicMessage } from './http';
 import type { OrgRow, ServerRow } from './access';
 import { ACTIONS, readConfig } from './actions';
 import { reservedSlotsHeld } from '../reserved-doc';
 import { GameError, WardogsClient } from './rcon';
-import { matches, samples, serverLive } from './db/schema';
+import { matches, playerMarks, samples, serverLive } from './db/schema';
 import type { DbOrTx } from './db';
 import { getProfiles, steamEnabled } from './steam';
 import {
 	enabledTriggers,
 	evaluateTriggers,
 	invalidateTriggers,
-	needsRiskInputs,
 	riskInputs,
 	matchBoundary,
 	seedRule,
@@ -495,10 +494,9 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 			]
 		: [];
 	const rows = m.status ? await enabledTriggers(env, server.id) : [];
-	const risk =
-		joined.length && needsRiskInputs(rows)
-			? await riskInputs(env, server, joined)
-			: { signals: new Map(), profiles: new Map() };
+	const risk = joined.length
+		? await riskInputs(env, server, joined)
+		: { signals: new Map(), profiles: new Map(), risks: new Map() };
 
 	// Seed time: while a seeding rule is on and the server is at or under its threshold, everyone
 	// still on earns the time since the previous look at the list (on the same terms as a join is
@@ -562,6 +560,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 								: new Map([...m.presence.open.values()].map((s) => [s.steamId, s.seedMs])),
 						signals: risk.signals,
 						profiles: risk.profiles,
+						risks: risk.risks,
 						startedAt: m.startedAt,
 						matchEnd,
 						ts
@@ -589,6 +588,16 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 			await withOwnedTransaction(env, async (tx) => {
 				if (players && presenceDue)
 					await persistPresence(tx, server.id, m.presence, diff, ts, heartbeatDue, firstVisit);
+				if (joined.length)
+					await tx.insert(playerMarks).values(joined.map((p) => ({
+						orgId: server.orgId,
+						steamId: p.steamId,
+						risk: risk.risks.get(p.steamId) ?? null,
+						riskScoredAt: ts
+					}))).onConflictDoUpdate({
+						target: [playerMarks.orgId, playerMarks.steamId],
+						set: { risk: sql`excluded.risk`, riskScoredAt: sql`excluded.risk_scored_at` }
+					});
 				if (ev.intents.length) intents = await enqueueIntents(tx, server.id, ev.intents);
 				if (ev.updates.length) await applyTriggerUpdates(tx, ev.updates);
 				if (liveDue) await writeLive(tx, m, ts);
