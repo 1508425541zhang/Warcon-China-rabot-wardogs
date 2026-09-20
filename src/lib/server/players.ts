@@ -16,7 +16,7 @@ import {
 import { orgListMembership } from './lists';
 import { kills, playerMarks, playerNotes, playerSessions, serverBans, servers } from './db/schema';
 import { getProfiles, isSteamId, steamEnabled, type SteamProfileRow } from './steam';
-import { accountAgeDays, assessRisk, namesResemble, type Risk } from './risk';
+import { accountAgeDays, namesResemble, type Risk } from './risk';
 import type {
 	DossierView,
 	PlayerCombat,
@@ -46,6 +46,10 @@ export function steamView(row: SteamProfileRow | undefined | null): SteamView | 
 		daysSinceLastBan: row.daysSinceLastBan,
 		communityBanned: row.communityBanned,
 		economyBan: row.economyBan,
+		friendsState: row.friendsState,
+		friendsTotal: row.friendsTotal,
+		friendsChecked: row.friendsChecked,
+		bannedFriends: row.bannedFriends,
 		fetchedAt: row.fetchedAt.toISOString(),
 		error: row.error
 	};
@@ -160,20 +164,19 @@ export async function localSignals(
 	return out;
 }
 
-export function riskFor(
-	env: Env,
-	profile: SteamProfileRow | undefined,
-	local: LocalSignals | undefined,
-	/** false leaves the watchlist reason out of the risk line: it is a staff note */
-	staff = true
-): Risk {
-	return assessRisk({
-		profile: profile ?? null,
-		steamEnabled: steamEnabled(env),
-		watched: local?.watched ? { reason: staff ? local.watched.reason : '' } : null,
-		bannedOn: local?.bannedOn ?? [],
-		resembles: local?.resembles ?? []
-	});
+const unscoredRisk: Risk = { score: 0, level: 'low', reasons: [], steamChecked: false };
+
+function storedRisk(value: unknown, staff: boolean): Risk {
+	if (!value || typeof value !== 'object') return unscoredRisk;
+	const risk = value as Risk;
+	if (typeof risk.score !== 'number' || !Array.isArray(risk.reasons)) return unscoredRisk;
+	if (staff) return risk;
+	return {
+		...risk,
+		reasons: risk.reasons.map((r) =>
+			r.code === 'watchlist' ? { ...r, text: 'On the watchlist' } : r
+		)
+	};
 }
 
 /** Marks for the players table: watchlist, first visit, risk. One batch per refresh. */
@@ -189,16 +192,19 @@ export async function marksFor(
 	// Bans elsewhere in the org count only where the reader could open them, as in the dossier.
 	const orgIds = (await accessibleServers(env, user, server.orgId)).map((s) => s.id);
 	const staff = access.caps.has('players.notes') || access.caps.has('players.notes.manage');
-	const [profiles, local, counts] = await Promise.all([
-		getProfiles(env, ids),
+	const [local, counts, stored] = await Promise.all([
 		localSignals(env, server.orgId, orgIds, server.id, players),
 		env.db
 			.select({ steamId: playerSessions.steamId, n: sql<number>`count(*)` })
 			.from(playerSessions)
 			.where(and(eq(playerSessions.serverId, server.id), inArray(playerSessions.steamId, ids)))
-			.groupBy(playerSessions.steamId)
+			.groupBy(playerSessions.steamId),
+		env.db.select({ steamId: playerMarks.steamId, risk: playerMarks.risk, riskScoredAt: playerMarks.riskScoredAt })
+			.from(playerMarks)
+			.where(and(eq(playerMarks.orgId, server.orgId), inArray(playerMarks.steamId, ids)))
 	]);
 	const visits = new Map(counts.map((c) => [c.steamId, num(c.n)]));
+	const byId = new Map(stored.map((row) => [row.steamId, row]));
 	return ids.map((steamId) => {
 		const l = local.get(steamId);
 		return {
@@ -206,7 +212,8 @@ export async function marksFor(
 			watched: !!l?.watched,
 			reason: staff ? (l?.watched?.reason ?? '') : '',
 			firstVisit: (visits.get(steamId) ?? 0) <= 1,
-			risk: riskFor(env, profiles.get(steamId), l, staff)
+			risk: storedRisk(byId.get(steamId)?.risk, staff),
+			riskScoredAt: iso(byId.get(steamId)?.riskScoredAt)
 		};
 	});
 }
@@ -316,7 +323,8 @@ export async function dossier(
 		orgLists: { ...membership, canEdit: listsRole !== null },
 		steamEnabled: steamEnabled(env),
 		steam: steamView(profiles.get(steamId)),
-		risk: riskFor(env, profiles.get(steamId), l, staff),
+		risk: storedRisk(mark?.risk, staff),
+		riskScoredAt: iso(mark?.riskScoredAt),
 		watch: {
 			watched: !!mark?.watched,
 			reason: staff ? (mark?.reason ?? '') : '',
