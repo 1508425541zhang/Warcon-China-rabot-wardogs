@@ -5,6 +5,12 @@ build
 .env.*
 !.env.example
 .playwright-mcp
-.git
+# Of .git only what names the commit being built, for the build shown on the Admin overview.
+.git/*
+!.git/HEAD
+!.git/packed-refs
+!.git/refs
+.git/refs/*
+!.git/refs/heads
 docs
 *.md
