@@ -31,13 +31,13 @@ import {
 } from './triggers';
 import { applyTriggerUpdates, enqueueIntents, wakeDelivery } from './outbox';
 import {
-	banOnSight,
+	kickBanned,
 	liveObserved,
 	reconcileServer,
 	writeSnapshot,
 	type Observed
 } from './lists-sync';
-import type { RefusedBan } from './lists-plan';
+import type { PanelBan } from './lists-plan';
 import {
 	closeAllSessions,
 	diffPresence,
@@ -95,8 +95,8 @@ export interface ServerMemory {
 	/** the previous look at the match (map, scores, clock); null until one is remembered */
 	lastMatch: MatchLook | null;
 	reserved: Set<string>;
-	/** bans the lists want here that the game refused (the player was not on): applied on sight */
-	refusedBans: Map<string, RefusedBan>;
+	/** the bans the lists put on this server, from the last sync: these players are removed on sight */
+	bans: Map<string, PanelBan>;
 	listsAt: number;
 	syncAt: number;
 	liveKey: string;
@@ -160,7 +160,7 @@ export function memoryFor(server: ServerRow, org: OrgRow): ServerMemory {
 			presence: newPresence(),
 			lastMatch: null,
 			reserved: new Set(),
-			refusedBans: new Map(),
+			bans: new Map(),
 			listsAt: 0,
 			syncAt: 0,
 			liveKey: '',
@@ -622,14 +622,15 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 
 	// Housekeeping, each part on its own, and only while this process still owns the worker. A
 	// player the lists want banned here, seen on the list: banned now, not at the sync's retry.
-	const seen = players?.map((p) => p.steamId) ?? [];
-	if (isOwner() && seen.length && m.refusedBans.size)
-		await stage('bans', m, () => banOnSight(env, server, m.org, client, seen, m.refusedBans));
 	if (look)
 		await stage('match', m, () =>
 			withOwnedTransaction(env, (tx) => reconcileMatch(tx, m, ts, look, matchEnd))
 		);
 	if (isOwner()) await stage('lists', m, () => keepLists(env, m, client, started, ts));
+	// After the lists, so a ban just placed removes the player at this look, not the next.
+	const seen = players?.map((p) => p.steamId) ?? [];
+	if (isOwner() && seen.length && m.bans.size)
+		await stage('bans', m, () => kickBanned(env, server, m.org, client, seen, m.bans));
 	if (diff.joined.length && steamEnabled(env))
 		void getProfiles(
 			env,
@@ -764,7 +765,7 @@ async function keepLists(
 			lane: 'held'
 		});
 		if (synced.observed) m.reserved = new Set(synced.observed.reserved);
-		if (synced.refusedBans) m.refusedBans = new Map(synced.refusedBans.map((r) => [r.steamId, r]));
+		if (synced.bans) m.bans = new Map(synced.bans.map((b) => [b.steamId, b]));
 	}
 }
 
