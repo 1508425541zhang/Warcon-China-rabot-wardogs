@@ -10,6 +10,7 @@ import {
 	matchBoundary,
 	matchBroadcastMessages,
 	matchReplay,
+	pingKickStep,
 	riskKickVerdict,
 	seedRule,
 	seedReplay,
@@ -101,6 +102,19 @@ describe('validateConfig', () => {
 		});
 		expect(() => validateConfig('risk_kick', { kickAtLevel: 'low' })).toThrow('at least one rule');
 	});
+	test('ping_kick validates the ping and duration and supplies a reason', () => {
+		expect(validateConfig('ping_kick', {})).toEqual({
+			maxPingMs: 200,
+			durationSeconds: 60,
+			reason: 'Ping too high for too long.'
+		});
+		expect(() => validateConfig('ping_kick', { maxPingMs: 0 })).toThrow('ping limit');
+		expect(() => validateConfig('ping_kick', { durationSeconds: 0 })).toThrow('duration');
+		expect(validateConfig('ping_kick', { maxPingMs: 250, durationSeconds: 30 })).toMatchObject({
+			maxPingMs: 250,
+			durationSeconds: 30
+		});
+	});
 	test('seed_reward needs a seed time that fits its window, and fills in the rest', () => {
 		expect(() => validateConfig('seed_reward', {})).toThrow('minutes');
 		expect(() => validateConfig('seed_reward', { minutes: 60 * 24 * 8, windowDays: 7 })).toThrow(
@@ -152,6 +166,39 @@ describe('validateConfig', () => {
 		expect(validateConfig('seed_reward', { minutes: 60, scope: 'everywhere' })).toMatchObject({
 			scope: 'org'
 		});
+	});
+});
+
+describe('pingKickStep', () => {
+	const cfg = { maxPingMs: 200, durationSeconds: 30, reason: 'High ping' };
+	const high = [{ steamId: 'a', ping: 250 }];
+	const step = (state: Parameters<typeof pingKickStep>[1], players: typeof high, now: number) =>
+		pingKickStep(cfg, state, players, now, 5000);
+	test('fires only after a continuous high-ping duration, and only once per streak', () => {
+		const first = step(null, high, 1000);
+		expect(first.kicks).toEqual([]);
+		const early = step(first.state, high, 29_000);
+		// A gap in player sampling restarts the timer.
+		expect(early.kicks).toEqual([]);
+		expect(early.state.players.a.since).toBe(29_000);
+		let state = step(null, high, 0).state;
+		for (const at of [5000, 10_000, 15_000, 20_000, 25_000]) state = step(state, high, at).state;
+		const due = step(state, high, 30_000);
+		expect(due.kicks).toEqual(['a']);
+		expect(step(due.state, high, 35_000).kicks).toEqual([]);
+		const recovered = step(due.state, [{ steamId: 'a', ping: 100 }], 35_000);
+		let again = step(recovered.state, high, 40_000).state;
+		for (const at of [45_000, 50_000, 55_000, 60_000, 65_000])
+			again = step(again, high, at).state;
+		expect(step(again, high, 70_000).kicks).toEqual(['a']);
+	});
+	test('normal or missing ping and leaving reset the streak', () => {
+		const first = step(null, high, 0);
+		for (const players of [[{ steamId: 'a', ping: 200 }], [{ steamId: 'a', ping: null }], []]) {
+			const reset = pingKickStep(cfg, first.state, players, 1000, 5000);
+			expect(reset.state.players.a).toBeUndefined();
+			expect(step(reset.state, high, 2000).state.players.a.since).toBe(2000);
+		}
 	});
 });
 

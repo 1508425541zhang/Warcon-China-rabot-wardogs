@@ -549,6 +549,8 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 						server,
 						status: m.status,
 						players: m.players,
+						playersObserved: players !== null,
+						playersIntervalMs: m.playersIntervalMs,
 						joined,
 						factioned,
 						firstVisit,
@@ -604,6 +606,9 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 		// Nothing was committed, but the presence map may have moved: reload it next time so the
 		// joins are seen (and their triggers evaluated) again.
 		m.presence = newPresence();
+		// A ping rule advances its cached streak before the transaction. Reload the persisted state
+		// after a failed write so a failed enqueue cannot suppress its eventual kick.
+		invalidateTriggers(server.id);
 		if (err instanceof LostOwnership) throw err;
 		console.warn(`[warcon] observation of ${server.name} not saved:`, publicMessage(err));
 	}
