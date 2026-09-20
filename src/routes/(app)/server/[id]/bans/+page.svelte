@@ -38,13 +38,10 @@
 
 	let editing = $state(false);
 
-	/** One line of the table: the game's ban, told in the panel's words where a list placed it. */
+	/** One line of the table: a ban on the panel's lists, or one the game holds in its own list. */
 	interface Row {
 		steamId: string;
 		source: 'org' | 'here' | 'local';
-		/** wanted by a list and not on the server: placed the moment the player is seen */
-		onSight: boolean;
-		failed: boolean;
 		bannedAt: string;
 		by: string;
 		reason: string;
@@ -59,8 +56,6 @@
 			return {
 				steamId,
 				source: !managed ? 'local' : src.scope === 'server' ? 'here' : 'org',
-				onSight: managed && !b,
-				failed: managed && !!b && src.state === 'failed',
 				bannedAt: (managed && src.addedAt ? utc(src.addedAt) : '') || utc(b?.bannedAtUtc ?? ''),
 				by: (managed && src.addedByName) || b?.bannedBy || '',
 				reason: (managed && src.reason) || b?.reason || '',
@@ -345,9 +340,7 @@
 							{#if b.source === 'local'}
 								<Badge>local</Badge>
 							{:else}
-								<Badge tone={b.onSight ? 'warn' : b.failed ? 'err' : 'ok'}
-									>{b.source}{b.onSight ? ' · on sight' : b.failed ? ' · failed' : ''}</Badge
-								>
+								<Badge tone="ok">{b.source}</Badge>
 							{/if}
 						</td>
 						<td class="font-mono text-[12px] whitespace-nowrap text-mist-400"
@@ -377,11 +370,12 @@
 		</table>
 	</div>
 	<p class="note">
-		<Badge tone="ok">org</Badge> bans come from the organisation's ban list.
-		<Badge tone="ok">here</Badge> bans are on this server's own list: the panel places them, lifts them
-		when they expire, and bans a player who was not connected the moment they join (<Badge
-			tone="warn">here · on sight</Badge
-		>). <Badge>local</Badge> bans were written straight to the game and the panel leaves them alone.
+		<Badge tone="ok">org</Badge> bans come from the organisation's ban list and
+		<Badge tone="ok">here</Badge> bans are on this server's own list. The panel enforces both itself:
+		a banned player is removed the moment they are seen on the server, and nothing is written to the game's
+		files, so an unban or an expiry takes effect at once. <Badge>local</Badge> bans are held by the game
+		in its own list; the panel leaves them alone, and some hosts only forget one when it is taken out
+		of the server's settings file.
 	</p>
 </div>
 
