@@ -12,9 +12,13 @@ export interface OpenSession {
 	steamId: string;
 	name: string;
 	faction: string | null;
+	/** the session's totals: the game starts its counters again every match, so these carry what
+	 *  earlier matches of the session reached plus the counters as they stand (followPlayer) */
 	kills: number;
 	deaths: number;
 	cash: number;
+	/** the game's own counters at the last look; null on a session reloaded after a restart */
+	game: { kills: number; deaths: number; cash: number } | null;
 	/** seed time banked: time on with the player count at or under the seeding threshold, counted
 	 *  once the server climbed past the threshold with the player still on (observe.ts) */
 	seedMs: number;
@@ -60,6 +64,7 @@ export async function loadPresence(
 			kills: r.kills,
 			deaths: r.deaths,
 			cash: r.cash,
+			game: null,
 			seedMs: r.seedSeconds * 1000,
 			pendingSeedMs: 0,
 			joinedAt: r.joinedAt.getTime(),
@@ -137,6 +142,26 @@ export async function firstVisits(
 }
 
 /**
+ * Brings a session in line with the player as just seen. Kills and deaths only climb within a
+ * match, so either one falling means the game started its counters again (a new match): what the
+ * session had reached is kept and the new counters are added on top. A session reloaded after a
+ * restart has only its totals; what they hold beyond the counters now is taken as earlier matches.
+ */
+export function followPlayer(s: OpenSession, p: Player, now: number): void {
+	s.name = p.name;
+	s.faction = p.faction;
+	if (p.faction) s.lastFaction = p.faction;
+	const g = s.game;
+	const restarted = !!g && (p.kills < g.kills || p.deaths < g.deaths);
+	for (const k of ['kills', 'deaths', 'cash'] as const) {
+		const before = !g ? Math.max(0, s[k] - p[k]) : restarted ? s[k] : s[k] - g[k];
+		s[k] = before + p[k];
+	}
+	s.game = { kills: p.kills, deaths: p.deaths, cash: p.cash };
+	s.lastSeen = now;
+}
+
+/**
  * Applies a diff to the database and to the in-memory presence: inserts joins, closes leaves,
  * and (when the heartbeat is due) refreshes everyone else. `firstVisit` (from firstVisits, read
  * before the transaction) is remembered on the new sessions for rules that fire later on.
@@ -200,6 +225,7 @@ export async function persistPresence(
 				kills: p.kills,
 				deaths: p.deaths,
 				cash: p.cash,
+				game: { kills: p.kills, deaths: p.deaths, cash: p.cash },
 				seedMs: 0,
 				pendingSeedMs: 0,
 				joinedAt: now,
@@ -210,15 +236,7 @@ export async function persistPresence(
 			});
 	}
 
-	for (const { player: p, session: s } of diff.stayed) {
-		s.name = p.name;
-		s.faction = p.faction;
-		if (p.faction) s.lastFaction = p.faction;
-		s.kills = p.kills;
-		s.deaths = p.deaths;
-		s.cash = p.cash;
-		s.lastSeen = now;
-	}
+	for (const { player: p, session: s } of diff.stayed) followPlayer(s, p, now);
 	if (heartbeatDue && diff.stayed.length) {
 		await db.execute(sql`
 			UPDATE player_sessions AS s SET last_seen = v.last_seen,
