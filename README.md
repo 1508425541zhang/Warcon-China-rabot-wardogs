@@ -162,6 +162,11 @@ takes precedence over those) and delete the `db` service together with the `depe
 automatic retention on the analytics samples (plain Postgres works too, the app prunes old samples
 itself).
 
+The Admin page's Overview shows the build each process runs, the version and the commit, so an
+install on an old build is easy to spot. There is nothing to set: the build reads the commit from
+the checkout. Only a build whose source arrives without `.git` needs it passed in, as the
+`WARCON_COMMIT` build argument.
+
 Open the URL. The first visit shows the **owner setup** form; after that it is a normal login. Then,
 as owner:
 
