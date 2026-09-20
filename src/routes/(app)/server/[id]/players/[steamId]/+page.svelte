@@ -143,6 +143,7 @@
 		}, '');
 	}
 
+	const SCOREBOARD_NOTE = "The game's scoreboard counters, added up over the player's sessions.";
 	const minutes = (m: number) => (m >= 90 ? `${(m / 60).toFixed(1)} h` : `${m} min`);
 	const kd = (k: number, dd: number) => (dd ? (k / dd).toFixed(2) : k ? `${k}.00` : '—');
 	const RISK_TONE = { low: 'ok', medium: 'warn', high: 'err' } as const;
@@ -195,8 +196,8 @@
 </div>
 
 <div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-	{#each [['Sessions', fmtNum(d.summary.sessions)], ['Playtime', d.summary.sessions ? minutes(d.summary.minutes) : '—'], ['Kills', fmtNum(d.summary.kills)], ['Deaths', fmtNum(d.summary.deaths)], ['K/D', kd(d.summary.kills, d.summary.deaths)], ['First seen', d.summary.firstSeen ? fmtTime(d.summary.firstSeen) : '—']] as [label, value] (label)}
-		<div class="panel py-4">
+	{#each [['Sessions', fmtNum(d.summary.sessions), 'A session is one stay on a server, from joining to leaving.'], ['Playtime', d.summary.sessions ? minutes(d.summary.minutes) : '—', ''], ['Kills', fmtNum(d.summary.kills), SCOREBOARD_NOTE], ['Deaths', fmtNum(d.summary.deaths), SCOREBOARD_NOTE], ['K/D', kd(d.summary.kills, d.summary.deaths), SCOREBOARD_NOTE], ['First seen', d.summary.firstSeen ? fmtTime(d.summary.firstSeen) : '—', '']] as [label, value, note] (label)}
+		<div class="panel py-4" title={note || undefined}>
 			<div class="caps text-mist-400">{label}</div>
 			<div class="mt-1 font-display text-2xl font-semibold tabular">{value}</div>
 		</div>
@@ -304,7 +305,9 @@
 			<div class="panel">
 				<span class="label-sm">Combat</span>
 				<p class="mb-3 text-[12.5px] text-mist-600">
-					From the game's kill feed, across the organisation's servers you can see.
+					From the game's kill feed, across the organisation's servers you can see. A team kill
+					counts as a kill here and a suicide as a death, and the feed only knows the time since it
+					was set up, so these differ from the scoreboard totals at the top.
 					<a
 						href="/server/{encodeURIComponent(data.server.id)}/kills?player={encodeURIComponent(
 							d.steamId

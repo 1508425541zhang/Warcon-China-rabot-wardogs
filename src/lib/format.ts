@@ -94,6 +94,15 @@ export const MAP_DISPLAY: Record<string, string> = {
 	Europe: 'Ozeti',
 	NorthAmerica: 'Zestafona'
 };
+/**
+ * The catalog id of a map however it was named: the status route gives the id ("NorthAmerica"),
+ * the kill feed has been seen giving the name players know ("Zestafona"). Unknown names pass.
+ */
+export function mapId(name: string): string {
+	if (MAP_DISPLAY[name]) return name;
+	const shown = prettify(name).toLowerCase();
+	return Object.keys(MAP_DISPLAY).find((id) => MAP_DISPLAY[id].toLowerCase() === shown) ?? name;
+}
 export const isMod = (id: string) => /infantry|hardcore/i.test(id);
 
 export const mapLabel = (catalog: Catalog, id: string) =>

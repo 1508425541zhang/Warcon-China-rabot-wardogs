@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { fmtAgo, fmtSpan } from './format';
+import { fmtAgo, fmtSpan, mapId } from './format';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -34,4 +34,12 @@ describe('fmtAgo', () => {
 		expect(fmtAgo(now - 47 * DAY, now)).not.toContain('ago');
 		expect(fmtAgo('not a date', now)).toBe('not a date');
 	});
+});
+
+test('mapId: the name players know and the catalog id are one map', () => {
+	expect(mapId('NorthAmerica')).toBe('NorthAmerica');
+	expect(mapId('Zestafona')).toBe('NorthAmerica');
+	expect(mapId('bakurani')).toBe('Kavkazi');
+	expect(mapId('SomeNewMap')).toBe('SomeNewMap');
+	expect(mapId('')).toBe('');
 });

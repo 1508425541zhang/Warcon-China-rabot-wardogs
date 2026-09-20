@@ -47,6 +47,19 @@ describe('parseKill', () => {
 		});
 	});
 
+	test('a map given by the name players know is kept under its catalog id', () => {
+		const k = parseKill({
+			eventId: 'DB88E2F2-D969-41B7-A765-FE83AE15D802',
+			type: 'killed',
+			eventTime: 1,
+			matchId: 'm',
+			mapName: 'Zestafona',
+			victimName: 'Phantom',
+			victimSteamId: '76561198000000003'
+		});
+		expect(k?.map).toBe('NorthAmerica');
+	});
+
 	test('an environment death has no killer, no cause and no distance', () => {
 		const k = parseKill({
 			eventId: 'DB88E2F2-D969-41B7-A765-FE83AE15D801',
