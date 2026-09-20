@@ -138,11 +138,17 @@
 			label: 'Kick on connect risk',
 			blurb: 'Kick joiners the panel already distrusts, before they get a slot.'
 		},
-		{
+			{
 			kind: 'name_filter',
 			group: 'Players',
 			label: 'Name filter',
 			blurb: 'Kick or flag joiners whose name uses characters or words this server does not allow.'
+		},
+		{
+			kind: 'ping_kick',
+			group: 'Players',
+			label: 'High ping kick',
+			blurb: 'Kick players whose ping stays too high for a configured time.'
 		},
 		{
 			kind: 'team_kill',
@@ -272,6 +278,9 @@
 		cooldownMinutes: number;
 		vacBans: boolean;
 		gameBans: boolean;
+		maxBanAgeDays: number;
+		maxPingMs: number;
+		durationSeconds: number;
 		minAccountDays: number;
 		privateProfiles: boolean;
 		bannedElsewhere: boolean;
@@ -387,6 +396,9 @@
 			cooldownMinutes: n('cooldownMinutes', 30),
 			vacBans: b('vacBans', true),
 			gameBans: b('gameBans', false),
+			maxBanAgeDays: n('maxBanAgeDays', 0),
+			maxPingMs: n('maxPingMs', 200),
+			durationSeconds: n('durationSeconds', 60),
 			minAccountDays: n('minAccountDays', 0),
 			privateProfiles: b('privateProfiles', false),
 			bannedElsewhere: b('bannedElsewhere', true),
@@ -397,6 +409,8 @@
 				'reason',
 				kind === 'name_filter'
 					? 'Your name is not allowed on this server: {why}.'
+					: kind === 'ping_kick'
+					? 'Ping too high for too long.'
 					: 'Your account does not meet this server’s requirements.'
 			),
 			leadMinutes: n('leadMinutes', 30),
@@ -448,6 +462,8 @@
 			? 'Preview next cycle'
 			: kind === 'name_filter'
 				? 'Dry run, past players'
+				: kind === 'ping_kick'
+					? 'Check dry-run limits'
 				: 'Dry run, last 24 h';
 	const lines = (text: string) =>
 		text
@@ -482,6 +498,7 @@
 				return {
 					vacBans: f.vacBans,
 					gameBans: f.gameBans,
+					maxBanAgeDays: Number(f.maxBanAgeDays),
 					minAccountDays: Number(f.minAccountDays),
 					privateProfiles: f.privateProfiles,
 					bannedElsewhere: f.bannedElsewhere,
@@ -501,6 +518,12 @@
 					allowed: lines(f.allowed),
 					action: f.nameAction,
 					spareReserved: f.spareReserved,
+					reason: f.reason
+				};
+			case 'ping_kick':
+				return {
+					maxPingMs: Number(f.maxPingMs),
+					durationSeconds: Number(f.durationSeconds),
 					reason: f.reason
 				};
 			case 'restart_notice':
@@ -621,9 +644,10 @@
 			case 'empty_reset':
 				return `to ${c.map ? mapLabel(data.catalog, String(c.map)) : 'the chosen map'} after ${c.afterMinutes} min empty`;
 			case 'risk_kick': {
+				const banAge = c.maxBanAgeDays ? ` in the last ${c.maxBanAgeDays} days` : '';
 				const rules = [
-					c.vacBans && 'VAC ban',
-					c.gameBans && 'game ban',
+					c.vacBans && `VAC ban${banAge}`,
+					c.gameBans && `game ban${banAge}`,
 					c.minAccountDays &&
 						`account under ${c.minAccountDays} days${c.privateProfiles ? ' or private' : ''}`,
 					c.bannedElsewhere && 'banned elsewhere in the org',
@@ -659,6 +683,8 @@
 					.filter(Boolean)
 					.join(' · ');
 			}
+			case 'ping_kick':
+				return `ping over ${c.maxPingMs} ms for ${c.durationSeconds} s`;
 			case 'restart_notice':
 				return `"${c.message}"${c.leadMinutes ? ` · heads-up ${c.leadMinutes} min before` : ''}${c.repeatMinutes ? ` · again every ${c.repeatMinutes} min` : ''} · at least ${c.minPlayers} on`;
 			case 'match_broadcast':
@@ -1255,6 +1281,22 @@
 								<label class="flex items-center gap-2"
 									><input type="checkbox" bind:checked={f.gameBans} disabled={!data.steam} /> game banned</label
 								>
+								{#if f.vacBans || f.gameBans}
+                  <div
+                    class="flex flex-wrap items-center gap-2 pl-5 {data.steam ? '' : 'text-mist-600'}"
+                  >
+                    Only bans from the last
+                    <input
+                      class="input w-24 text-right"
+                      type="number"
+                      min="0"
+                      max="36500"
+                      bind:value={f.maxBanAgeDays}
+                      disabled={!data.steam}
+                    />
+                    days (0 = since forever)
+                  </div>
+                {/if}
 								<div class="flex flex-wrap items-center gap-2">
 									under
 									<input
@@ -1412,6 +1454,40 @@
 					<p class="note">
 						Names are checked as players join; a player who renames mid-session is caught on their
 						next join. Run the dry run before turning a word list loose.
+					</p>
+				{:else if f.kind === 'ping_kick'}
+					<fieldset class="space-y-2">
+						<legend class="field-label">Kick when ping stays above</legend>
+						<div class="flex flex-wrap items-center gap-2 text-[13px]">
+							<input
+								class="input w-24 text-right"
+								type="number"
+								min="1"
+								max="2000"
+								bind:value={f.maxPingMs}
+								aria-label="Maximum ping, milliseconds"
+								required
+							/>
+							ms for at least
+							<input
+								class="input w-24 text-right"
+								type="number"
+								min="1"
+								max="3600"
+								bind:value={f.durationSeconds}
+								aria-label="High ping duration, seconds"
+								required
+							/>
+							seconds
+						</div>
+					</fieldset>
+					<fieldset class="space-y-2">
+						<legend class="field-label">Kick reason, shown to the player</legend>
+						<input class="input" type="text" bind:value={f.reason} maxlength="200" />
+					</fieldset>
+					<p class="note">
+						The timer starts on the first high-ping sample. It resets when ping drops to the limit or
+						below, is unavailable, the player leaves, or the player list cannot be sampled on time.
 					</p>
 				{:else if f.kind === 'team_kill'}
 					<fieldset class="space-y-2">

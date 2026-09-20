@@ -1,10 +1,11 @@
-// Automation: per-server triggers the worker evaluates on every observation. Four kinds, all
+// Automation: per-server triggers the worker evaluates on every observation, all
 // built on what the worker already sees (joins, player counts, empty stretches) plus the Steam cache:
 //   welcome      whisper a message to players as they join (or once they have picked a faction)
 //   faction_change  whisper a message to players who switch from one faction to another
 //   broadcast    rotate through messages every N minutes while the player count is in its band
 //   empty_reset  send an empty server back to a chosen map after N minutes
 //   risk_kick    kick joiners who match Steam / ban-list rules (see risk.ts)
+//   ping_kick    kick players whose ping stays above a limit
 //   team_kill    whisper or kick a player over team kills the kill feed reports (feed-events.ts)
 //   seed_reward  hand players who stay through a low population a reserved slot, on this server
 //                or across the org
@@ -18,6 +19,7 @@ import { ApiError, int, newId, str } from './http';
 import { writeAudit } from './audit';
 import {
 	kills,
+	playerMarks,
 	playerSessions,
 	samples,
 	serverLive,
@@ -42,6 +44,7 @@ import {
 	renderTemplate,
 	restartNoticeStage,
 	riskKickVerdict,
+	pingKickStep,
 	teamKillStage,
 	TRIGGER_LABELS,
 	validateConfig,
@@ -60,6 +63,8 @@ import {
 	type MatchBroadcastConfig,
 	type MatchEnd,
 	type RiskKickConfig,
+	type PingKickConfig,
+	type PingKickState,
 	type SeedRewardConfig,
 	type TeamKillConfig,
 	type WelcomeConfig
@@ -68,6 +73,8 @@ import { NAME_FLAG, nameFilterTargets, nameVerdict, type NameFilterConfig } from
 import { fmtUptime, RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 import { DEFAULT_SCORE_CAP, scoreCapOf } from '$lib/match';
 import { settings } from './settings';
+import { riskPerformanceFor } from './leaderboards';
+import { assessRisk, type Risk } from './risk';
 
 export * from './trigger-rules';
 
@@ -119,6 +126,7 @@ const RULE_NEEDS: Record<Exclude<TriggerKind, 'seed_reward'>, [Capability, strin
 	empty_reset: ['match.control', 'changes the map'],
 	risk_kick: ['players.moderate', 'kicks players'],
 	name_filter: ['players.moderate', 'kicks players'],
+	ping_kick: ['players.moderate', 'kicks players'],
 	team_kill: ['players.moderate', 'kicks players']
 };
 
@@ -213,6 +221,8 @@ export async function updateTrigger(
 	if (body.name !== undefined) set.name = str(body.name, 60) || row.name;
 	if (body.enabled !== undefined) set.enabled = !!body.enabled;
 	if (body.config !== undefined) set.config = validateConfig(row.kind, body.config);
+	if (row.kind === 'ping_kick' && (body.config !== undefined || body.enabled !== undefined))
+		set.state = null;
 	requireRuleCaps(row.kind, set.config ?? row.config, server, access);
 	if (!Object.keys(set).length) throw new ApiError(400, 'Nothing to update.');
 	set.updatedAt = new Date();
@@ -266,6 +276,9 @@ export interface TickContext {
 	server: ServerRow;
 	status: Status;
 	players: Player[];
+	/** true only when this observation fetched a fresh player list */
+	playersObserved: boolean;
+	playersIntervalMs: number;
 	/** players with no open session before this observation (empty when joins are not trusted) */
 	joined: Player[];
 	/** players whose faction is new since the last look (joiners arriving with one included;
@@ -282,6 +295,7 @@ export interface TickContext {
 	/** pre-fetched for risk rules: the panel's own signals and Steam profiles of the joiners */
 	signals: Map<string, LocalSignals>;
 	profiles: Map<string, SteamProfileRow>;
+	risks: Map<string, Risk>;
 	/** when the game process started (ms), from GET /v1/health; 0 while unknown */
 	startedAt: number;
 	/** the match that ended between the previous look and this one, or null */
@@ -349,10 +363,6 @@ export async function enabledTriggers(env: Env, serverId: string): Promise<Trigg
 	return rows;
 }
 
-/** True when any enabled rule needs the risk inputs (so the worker only fetches them then). */
-export const needsRiskInputs = (rows: TriggerRow[]): boolean =>
-	rows.some((r) => r.kind === 'risk_kick');
-
 /** Evaluates the rules against one observation. Never throws; a broken rule records its error. */
 export async function evaluateTriggers(
 	env: Env,
@@ -377,6 +387,9 @@ export async function evaluateTriggers(
 					break;
 				case 'risk_kick':
 					evalRiskKick(env, ctx, row, row.config as RiskKickConfig, out);
+					break;
+				case 'ping_kick':
+					evalPingKick(ctx, row, row.config as PingKickConfig, out);
 					break;
 				case 'restart_notice':
 					evalRestartNotice(ctx, row, row.config as RestartNoticeConfig, out);
@@ -565,6 +578,7 @@ function evalRiskKick(
 			watched: l?.watched ?? null,
 			resembles: l?.resembles ?? [],
 			reserved: ctx.reserved.has(p.steamId),
+			risk: ctx.risks.get(p.steamId) ?? null,
 			now: ctx.ts
 		});
 		if (!verdict) continue;
@@ -621,6 +635,48 @@ function evalNameFilter(ctx: TickContext, row: TriggerRow, cfg: NameFilterConfig
 			lastResult: n === 1 ? `${doing} ${last}` : `${doing} ${n} players`
 		});
 	}
+}
+
+function evalPingKick(ctx: TickContext, row: TriggerRow, cfg: PingKickConfig, out: Evaluation) {
+	if (!ctx.playersObserved) return;
+	const previous = row.state as PingKickState | null;
+	const { state, kicks } = pingKickStep(
+		cfg,
+		previous,
+		ctx.players,
+		ctx.ts.getTime(),
+		2 * Math.max(ctx.playersIntervalMs, 1000) + 1000
+	);
+	// The state is written with any intents, and kept in the cached row for the next poll.
+	row.state = state;
+	if (Object.keys(state.players).length || Object.keys(previous?.players ?? {}).length || kicks.length)
+		out.updates.push({ id: row.id, state });
+	const kicked = new Set(kicks);
+	for (const p of ctx.players) {
+		if (!kicked.has(p.steamId)) continue;
+		const steamId = p.steamId;
+		const verdict = `ping ${p.ping} ms above ${cfg.maxPingMs} ms for ${cfg.durationSeconds} s`;
+		out.intents.push({
+			trigger: row,
+			action: 'kick',
+			params: { steamId, reason: cfg.reason },
+			target: steamId,
+			okMessage: `Kicked ${p.name}: ${verdict}`,
+			detail: { name: p.name, pingMs: p.ping, verdict },
+			steamId,
+			dedupeKey: key(row, steamId, state.players[steamId].since)
+		});
+	}
+	if (kicks.length)
+		out.updates[out.updates.length - 1] = {
+			id: row.id,
+			state,
+			lastFiredAt: ctx.ts,
+			lastResult:
+				kicks.length === 1
+					? `Kicking ${ctx.players.find((p) => p.steamId === kicks[0])?.name}: high ping`
+					: `Kicking ${kicks.length} players: high ping`
+		};
 }
 
 function evalRestartNotice(
@@ -804,15 +860,15 @@ async function evalSeedReward(
 		});
 }
 
-/** The risk inputs a risk_kick rule needs for these joiners (DB and Steam; call before the transaction). */
+/** Compute one org-scoped score for each trusted join, before the fenced transaction. */
 export async function riskInputs(
 	env: Env,
 	server: ServerRow,
 	joined: Player[]
-): Promise<{ signals: Map<string, LocalSignals>; profiles: Map<string, SteamProfileRow> }> {
-	if (!joined.length) return { signals: new Map(), profiles: new Map() };
+): Promise<{ signals: Map<string, LocalSignals>; profiles: Map<string, SteamProfileRow>; risks: Map<string, Risk> }> {
+	if (!joined.length) return { signals: new Map(), profiles: new Map(), risks: new Map() };
 	const org = await orgServers(env, server.orgId);
-	const [signals, profiles] = await Promise.all([
+	const [signals, profiles, performance] = await Promise.all([
 		localSignals(
 			env,
 			server.orgId,
@@ -823,11 +879,25 @@ export async function riskInputs(
 		steamEnabled(env)
 			? getProfiles(
 					env,
-					joined.map((p) => p.steamId)
+					joined.map((p) => p.steamId), { awaitFriends: true }
 				)
-			: new Map<string, SteamProfileRow>()
+			: new Map<string, SteamProfileRow>(),
+		riskPerformanceFor(env, org.map((s) => s.id), joined.map((p) => p.steamId))
 	]);
-	return { signals, profiles };
+	const now = new Date();
+	const risks = new Map(joined.map((p) => {
+		const local = signals.get(p.steamId);
+		return [p.steamId, assessRisk({
+			profile: profiles.get(p.steamId) ?? null,
+			steamEnabled: steamEnabled(env),
+			watched: local?.watched ?? null,
+			bannedOn: local?.bannedOn ?? [],
+			resembles: local?.resembles ?? [],
+			performance: performance.get(p.steamId),
+			now
+		})] as const;
+	}));
+	return { signals, profiles, risks };
 }
 
 /** Records a delivery outcome on the trigger row and in the audit trail. */
@@ -929,6 +999,12 @@ export async function dryRun(
 		);
 		return result;
 	}
+	if (kind === 'ping_kick') {
+		result.notes.push(
+			'Ping is not stored in historical samples, so past high-ping streaks cannot be replayed. The live rule checks each fresh player-list sample and resets a streak when ping recovers, becomes unavailable, or sampling is interrupted.'
+		);
+		return result;
+	}
 	if (kind === 'risk_kick') {
 		const c = cfg as RiskKickConfig;
 		const rows = await joins();
@@ -946,7 +1022,7 @@ export async function dryRun(
 				result.notes.push('Could not read the reserved slots; nobody was spared for one.');
 			}
 		}
-		const [signals, profiles] = await Promise.all([
+		const [signals, profiles, stored] = await Promise.all([
 			localSignals(
 				env,
 				server.orgId,
@@ -955,12 +1031,13 @@ export async function dryRun(
 				players
 			),
 			steamEnabled(env)
-				? getProfiles(
-						env,
-						players.slice(0, 200).map((p) => p.steamId)
-					)
-				: new Map()
+				? getProfiles(env, players.slice(0, 200).map((p) => p.steamId))
+				: new Map(),
+			env.db.select({ steamId: playerMarks.steamId, risk: playerMarks.risk })
+				.from(playerMarks)
+				.where(and(eq(playerMarks.orgId, server.orgId), inArray(playerMarks.steamId, players.map((p) => p.steamId))))
 		]);
+		const storedRisks = new Map(stored.map((row) => [row.steamId, row.risk as Risk | null]));
 		for (const p of players) {
 			const l = signals.get(p.steamId);
 			const verdict = riskKickVerdict(c, {
@@ -970,6 +1047,7 @@ export async function dryRun(
 				watched: l?.watched ?? null,
 				resembles: l?.resembles ?? [],
 				reserved: reserved.has(p.steamId),
+				risk: storedRisks.get(p.steamId) ?? null,
 				now: to
 			});
 			if (verdict) push(seen.get(p.steamId)!.joinedAt, `kick ${p.name} (${p.steamId}): ${verdict}`);
@@ -981,6 +1059,7 @@ export async function dryRun(
 		result.notes.push(
 			`${players.length} distinct player${players.length === 1 ? '' : 's'} joined in the window.`
 		);
+		result.notes.push('Risk-level checks use the latest stored join-time score, not a historical replay.');
 		return result;
 	}
 	if (kind === 'team_kill') {
