@@ -29,6 +29,7 @@ import {
 	type CareerView,
 	type MatchResult
 } from '$lib/leaderboard';
+import { mapId } from '$lib/format';
 
 const num = (v: unknown): number => (v === null || v === undefined ? 0 : Number(v));
 const iso = (v: unknown): string | null =>
@@ -388,7 +389,7 @@ export async function loadCareer(
 		draws: count('draw'),
 		maps: groupCareer(
 			results.map((r) => ({ key: r.map, result: r.result })),
-			combat.map((c) => ({ key: c.map, kills: num(c.kills), deaths: num(c.deaths) }))
+			combat.map((c) => ({ key: mapId(c.map), kills: num(c.kills), deaths: num(c.deaths) }))
 		),
 		factions: groupCareer(
 			results.map((r) => ({ key: r.faction, result: r.result })),

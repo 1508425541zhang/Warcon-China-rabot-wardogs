@@ -1,6 +1,7 @@
 // The pure part of the kill feed: what the game POSTs to [WDServerFeed] Url (docs/wardogs-api.md)
 // and how one batch becomes rows. No database, so it is unit-tested with plain objects; feed.ts
 // adds what only the database knows (the open match, both factions) and writes.
+import { mapId } from '$lib/format';
 
 export const FEED_TOKEN_PREFIX = 'wkf_';
 const FEED_TOKEN_RE = /^wkf_[A-Za-z0-9_-]{43}$/;
@@ -83,7 +84,7 @@ export function parseKill(e: unknown): ParsedKill | null {
 		eventId,
 		matchId: str(o.matchId, 64),
 		eventTime,
-		map: str(o.mapName, 64),
+		map: mapId(str(o.mapName, 64)),
 		killerSteamId: STEAM_RE.test(killerSteamId) ? killerSteamId : null,
 		killerName: STEAM_RE.test(killerSteamId) ? str(o.killerName) : null,
 		victimSteamId,
