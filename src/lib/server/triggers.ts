@@ -1,10 +1,11 @@
-// Automation: per-server triggers the worker evaluates on every observation. Four kinds, all
+// Automation: per-server triggers the worker evaluates on every observation, all
 // built on what the worker already sees (joins, player counts, empty stretches) plus the Steam cache:
 //   welcome      whisper a message to players as they join (or once they have picked a faction)
 //   faction_change  whisper a message to players who switch from one faction to another
 //   broadcast    rotate through messages every N minutes while the player count is in its band
 //   empty_reset  send an empty server back to a chosen map after N minutes
 //   risk_kick    kick joiners who match Steam / ban-list rules (see risk.ts)
+//   ping_kick    kick players whose ping stays above a limit
 //   team_kill    whisper or kick a player over team kills the kill feed reports (feed-events.ts)
 //   seed_reward  hand players who stay through a low population a reserved slot, on this server
 //                or across the org
@@ -42,6 +43,7 @@ import {
 	renderTemplate,
 	restartNoticeStage,
 	riskKickVerdict,
+	pingKickStep,
 	teamKillStage,
 	TRIGGER_LABELS,
 	validateConfig,
@@ -60,6 +62,8 @@ import {
 	type MatchBroadcastConfig,
 	type MatchEnd,
 	type RiskKickConfig,
+	type PingKickConfig,
+	type PingKickState,
 	type SeedRewardConfig,
 	type TeamKillConfig,
 	type WelcomeConfig
@@ -119,6 +123,7 @@ const RULE_NEEDS: Record<Exclude<TriggerKind, 'seed_reward'>, [Capability, strin
 	empty_reset: ['match.control', 'changes the map'],
 	risk_kick: ['players.moderate', 'kicks players'],
 	name_filter: ['players.moderate', 'kicks players'],
+	ping_kick: ['players.moderate', 'kicks players'],
 	team_kill: ['players.moderate', 'kicks players']
 };
 
@@ -213,6 +218,8 @@ export async function updateTrigger(
 	if (body.name !== undefined) set.name = str(body.name, 60) || row.name;
 	if (body.enabled !== undefined) set.enabled = !!body.enabled;
 	if (body.config !== undefined) set.config = validateConfig(row.kind, body.config);
+	if (row.kind === 'ping_kick' && (body.config !== undefined || body.enabled !== undefined))
+		set.state = null;
 	requireRuleCaps(row.kind, set.config ?? row.config, server, access);
 	if (!Object.keys(set).length) throw new ApiError(400, 'Nothing to update.');
 	set.updatedAt = new Date();
@@ -266,6 +273,9 @@ export interface TickContext {
 	server: ServerRow;
 	status: Status;
 	players: Player[];
+	/** true only when this observation fetched a fresh player list */
+	playersObserved: boolean;
+	playersIntervalMs: number;
 	/** players with no open session before this observation (empty when joins are not trusted) */
 	joined: Player[];
 	/** players whose faction is new since the last look (joiners arriving with one included;
@@ -377,6 +387,9 @@ export async function evaluateTriggers(
 					break;
 				case 'risk_kick':
 					evalRiskKick(env, ctx, row, row.config as RiskKickConfig, out);
+					break;
+				case 'ping_kick':
+					evalPingKick(ctx, row, row.config as PingKickConfig, out);
 					break;
 				case 'restart_notice':
 					evalRestartNotice(ctx, row, row.config as RestartNoticeConfig, out);
@@ -621,6 +634,48 @@ function evalNameFilter(ctx: TickContext, row: TriggerRow, cfg: NameFilterConfig
 			lastResult: n === 1 ? `${doing} ${last}` : `${doing} ${n} players`
 		});
 	}
+}
+
+function evalPingKick(ctx: TickContext, row: TriggerRow, cfg: PingKickConfig, out: Evaluation) {
+	if (!ctx.playersObserved) return;
+	const previous = row.state as PingKickState | null;
+	const { state, kicks } = pingKickStep(
+		cfg,
+		previous,
+		ctx.players,
+		ctx.ts.getTime(),
+		2 * Math.max(ctx.playersIntervalMs, 1000) + 1000
+	);
+	// The state is written with any intents, and kept in the cached row for the next poll.
+	row.state = state;
+	if (Object.keys(state.players).length || Object.keys(previous?.players ?? {}).length || kicks.length)
+		out.updates.push({ id: row.id, state });
+	const kicked = new Set(kicks);
+	for (const p of ctx.players) {
+		if (!kicked.has(p.steamId)) continue;
+		const steamId = p.steamId;
+		const verdict = `ping ${p.ping} ms above ${cfg.maxPingMs} ms for ${cfg.durationSeconds} s`;
+		out.intents.push({
+			trigger: row,
+			action: 'kick',
+			params: { steamId, reason: cfg.reason },
+			target: steamId,
+			okMessage: `Kicked ${p.name}: ${verdict}`,
+			detail: { name: p.name, pingMs: p.ping, verdict },
+			steamId,
+			dedupeKey: key(row, steamId, state.players[steamId].since)
+		});
+	}
+	if (kicks.length)
+		out.updates[out.updates.length - 1] = {
+			id: row.id,
+			state,
+			lastFiredAt: ctx.ts,
+			lastResult:
+				kicks.length === 1
+					? `Kicking ${ctx.players.find((p) => p.steamId === kicks[0])?.name}: high ping`
+					: `Kicking ${kicks.length} players: high ping`
+		};
 }
 
 function evalRestartNotice(
@@ -926,6 +981,12 @@ export async function dryRun(
 	if (kind === 'faction_change') {
 		result.notes.push(
 			'Faction switches are not kept in the session history, so there is nothing to replay; the rule fires live when a player moves from one faction to another.'
+		);
+		return result;
+	}
+	if (kind === 'ping_kick') {
+		result.notes.push(
+			'Ping is not stored in historical samples, so past high-ping streaks cannot be replayed. The live rule checks each fresh player-list sample and resets a streak when ping recovers, becomes unavailable, or sampling is interrupted.'
 		);
 		return result;
 	}

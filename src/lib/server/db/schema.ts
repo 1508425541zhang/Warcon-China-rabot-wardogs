@@ -614,6 +614,7 @@ export const triggers = pgTable(
 				'broadcast',
 				'empty_reset',
 				'risk_kick',
+				'ping_kick',
 				'restart_notice',
 				'team_kill',
 				'seed_reward',

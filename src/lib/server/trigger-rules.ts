@@ -14,6 +14,7 @@ export const TRIGGER_KINDS: TriggerKind[] = [
 	'broadcast',
 	'empty_reset',
 	'risk_kick',
+	'ping_kick',
 	'restart_notice',
 	'team_kill',
 	'seed_reward',
@@ -26,6 +27,7 @@ export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	broadcast: 'Scheduled broadcast',
 	empty_reset: 'Empty-server map reset',
 	risk_kick: 'Kick on connect risk',
+	ping_kick: 'High ping kick',
 	restart_notice: 'Restart notice',
 	team_kill: 'Team kill limit',
 	seed_reward: 'Seeding reward',
@@ -72,6 +74,46 @@ export interface RiskKickConfig {
 	kickAtLevel: Exclude<RiskLevel, 'low'> | null;
 	spareReserved: boolean;
 	reason: string;
+}
+export interface PingKickConfig {
+	maxPingMs: number;
+	durationSeconds: number;
+	reason: string;
+}
+
+export interface PingKickState {
+	lastAt: number;
+	players: Record<string, { since: number; fired: boolean }>;
+}
+
+/** Advance one fresh player-list sample. Missing/normal pings end a streak. */
+export function pingKickStep(
+	cfg: PingKickConfig,
+	previous: PingKickState | null,
+	players: { steamId: string; ping: number | null }[],
+	now: number,
+	maxGapMs: number
+): { state: PingKickState; kicks: string[] } {
+	const old: PingKickState['players'] =
+		previous &&
+		Number.isFinite(previous.lastAt) &&
+		now >= previous.lastAt &&
+		now - previous.lastAt <= maxGapMs &&
+		previous.players
+			? previous.players
+			: {};
+	const next: PingKickState = { lastAt: now, players: {} };
+	const kicks: string[] = [];
+	for (const p of players) {
+		if (p.ping === null || !Number.isFinite(p.ping) || p.ping <= cfg.maxPingMs) continue;
+		const streak = old[p.steamId] ? { ...old[p.steamId] } : { since: now, fired: false };
+		if (!streak.fired && now - streak.since >= cfg.durationSeconds * 1000) {
+			streak.fired = true;
+			kicks.push(p.steamId);
+		}
+		next.players[p.steamId] = streak;
+	}
+	return { state: next, kicks };
 }
 /**
  * Tells players about the game's own restart: WARDOGS restarts a server once it has been up for
@@ -134,6 +176,7 @@ export type TriggerConfig =
 	| BroadcastConfig
 	| EmptyResetConfig
 	| RiskKickConfig
+	| PingKickConfig
 	| RestartNoticeConfig
 	| TeamKillConfig
 	| SeedRewardConfig
@@ -221,6 +264,17 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 			)
 				throw new ApiError(400, 'Turn on at least one rule.');
 			return cfg;
+		}
+		case 'ping_kick': {
+			const maxPingMs = int(c.maxPingMs, 200, 0, 2000);
+			const durationSeconds = int(c.durationSeconds, 60, 0, 3600);
+			if (!maxPingMs) throw new ApiError(400, 'Set a ping limit from 1 to 2000 ms.');
+			if (!durationSeconds) throw new ApiError(400, 'Set a duration from 1 to 3600 seconds.');
+			return {
+				maxPingMs,
+				durationSeconds,
+				reason: str(c.reason, MAX_MESSAGE) || 'Ping too high for too long.'
+			};
 		}
 		case 'restart_notice': {
 			const message = str(c.message, MAX_MESSAGE);
