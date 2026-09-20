@@ -44,6 +44,7 @@ import {
 	firstVisits,
 	loadPresence,
 	newPresence,
+	followPlayer,
 	persistPresence,
 	type Presence,
 	type PresenceDiff
@@ -572,15 +573,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 				)
 			: { intents: [], updates: [] };
 	// Memory follows every player observation; the database only when something is due.
-	for (const { player: p, session: s } of diff.stayed) {
-		s.name = p.name;
-		s.faction = p.faction;
-		if (p.faction) s.lastFaction = p.faction;
-		s.kills = p.kills;
-		s.deaths = p.deaths;
-		s.cash = p.cash;
-		s.lastSeen = started;
-	}
+	for (const { player: p, session: s } of diff.stayed) followPlayer(s, p, started);
 	const presenceDue =
 		diff.joined.length > 0 || diff.left.length > 0 || (heartbeatDue && diff.stayed.length > 0);
 	const needWrite =
