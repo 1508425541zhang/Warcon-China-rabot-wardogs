@@ -1,13 +1,14 @@
 // The org's ban message: what it renders to, who may change it, who may read it, and that it is
-// what the sync sends to the game.
+// what a banned player is removed with.
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
 import { getOrg } from '$lib/server/access';
-import { listEntries, organizations } from '$lib/server/db/schema';
+import { listEntries, organizations, servers } from '$lib/server/db/schema';
 import { listOf } from '$lib/server/lists';
-import { desiredFor } from '$lib/server/lists-sync';
+import { kickBanned } from '$lib/server/lists-sync';
+import type { WardogsClient } from '$lib/server/rcon';
 import { banUid, renderBanMessage, unknownBanVars } from '$lib/ban-message';
 import { hasTestDb, testEnv } from './db';
 import { callApi, stubGateway } from './call';
@@ -124,7 +125,7 @@ describe.skipIf(!hasTestDb)("an org's ban message", () => {
 		await patch('owner', TEMPLATE);
 	});
 
-	test('the sync sends the message, the list keeps the reason', async () => {
+	test('the kick carries the message, the list keeps the reason', async () => {
 		const bans = await listOf(env, w.org.id, 'ban');
 		const entryId = 'abc123de-0000-4000-8000-000000000000';
 		await env.db.insert(listEntries).values({
@@ -137,10 +138,24 @@ describe.skipIf(!hasTestDb)("an org's ban message", () => {
 			expiresAt: new Date('2099-09-20T09:12:00Z')
 		});
 		const org = (await getOrg(env, w.org.id))!;
-		const desired = await desiredFor(env, { id: w.server.id, orgId: w.org.id }, org);
-		expect(desired.bans.find((b) => b.steamId === PLAYER)?.reason).toBe(
-			`aimbot | Expires 20 Sep 2099 09:12 UTC | ${Math.round((Date.UTC(2099, 8, 20) - Date.UTC(2026, 8, 19)) / 86400_000)}d | B-ABC123`
+		const [server] = await env.db.select().from(servers).where(eq(servers.id, w.server.id));
+		const bodies: unknown[] = [];
+		const client = {
+			json: async (_m: string, _p: string, body?: unknown) => (bodies.push(body), {})
+		} as unknown as WardogsClient;
+		await kickBanned(
+			env,
+			server,
+			org,
+			client,
+			[PLAYER],
+			new Map([[PLAYER, { steamId: PLAYER, listId: bans.id }]])
 		);
+		expect(bodies).toEqual([
+			{
+				reason: `aimbot | Expires 20 Sep 2099 09:12 UTC | ${Math.round((Date.UTC(2099, 8, 20) - Date.UTC(2026, 8, 19)) / 86400_000)}d | B-ABC123`
+			}
+		]);
 		const [row] = await env.db.select().from(listEntries).where(eq(listEntries.id, entryId));
 		expect(row.reason).toBe('aimbot');
 	});

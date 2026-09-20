@@ -6,7 +6,6 @@ import {
 	isGone,
 	isUnreachable,
 	planSync,
-	refusedBansAfter,
 	type PlanInput,
 	type StateLike
 } from './lists-plan';
@@ -64,7 +63,7 @@ const input = (p: Partial<PlanInput> = {}): PlanInput => ({
 	now,
 	retryAfterMs: 5 * 60_000,
 	desired: { bans: [], reserved: [] },
-	observed: { bans: [], reserved: [] },
+	observed: { reserved: [] },
 	state: [],
 	...p
 });
@@ -73,41 +72,48 @@ const ban = (steamId: string, reason = '') => ({ steamId, reason, listId: 'L' })
 const slot = (steamId: string, member = false) => ({ steamId, listId: 'L', member });
 
 describe('planSync', () => {
+	const want = (...ids: string[]) => ({ bans: [], reserved: ids.map((id) => slot(id)) });
+
 	test('wanted and absent → add', () => {
-		const p = planSync(input({ desired: { bans: [ban('1', 'cheat')], reserved: [] } }));
-		expect(p.adds).toEqual([{ kind: 'ban', steamId: '1', listId: 'L', reason: 'cheat' }]);
+		const p = planSync(input({ desired: want('1') }));
+		expect(p.adds).toEqual([{ kind: 'reserve', steamId: '1', listId: 'L', reason: '' }]);
 		expect(p.removes).toEqual([]);
+	});
+
+	test("bans are never planned: the panel enforces them and leaves the game's list alone", () => {
+		const p = planSync(
+			input({
+				desired: { bans: [ban('1', 'cheat')], reserved: [] },
+				state: [state({ kind: 'ban', steamId: '2' })]
+			})
+		);
+		expect(p).toEqual({ adds: [], removes: [], confirms: [], deletes: [], local: [] });
 	});
 
 	test('managed, present, no longer wanted → remove; managed and absent → drop the row', () => {
 		const p = planSync(
 			input({
-				observed: { bans: ['1'], reserved: [] },
-				state: [state({ kind: 'ban', steamId: '1' }), state({ kind: 'ban', steamId: '2' })]
+				observed: { reserved: ['1'] },
+				state: [state({ kind: 'reserve', steamId: '1' }), state({ kind: 'reserve', steamId: '2' })]
 			})
 		);
-		expect(p.removes).toEqual([{ kind: 'ban', steamId: '1' }]);
-		expect(p.deletes).toEqual([{ kind: 'ban', steamId: '2' }]);
+		expect(p.removes).toEqual([{ kind: 'reserve', steamId: '1' }]);
+		expect(p.deletes).toEqual([{ kind: 'reserve', steamId: '2' }]);
 	});
 
 	test('a coincidental local entry stays local: no add, no state row', () => {
-		const p = planSync(
-			input({
-				desired: { bans: [ban('1')], reserved: [] },
-				observed: { bans: ['1'], reserved: [] }
-			})
-		);
+		const p = planSync(input({ desired: want('1'), observed: { reserved: ['1'] } }));
 		expect(p.adds).toEqual([]);
 		expect(p.confirms).toEqual([]);
-		expect(p.local).toEqual([{ kind: 'ban', steamId: '1' }]);
+		expect(p.local).toEqual([{ kind: 'reserve', steamId: '1' }]);
 	});
 
 	test('managed and present but recorded as failed → confirm applied', () => {
 		const p = planSync(
 			input({
-				desired: { bans: [ban('1')], reserved: [] },
-				observed: { bans: ['1'], reserved: [] },
-				state: [state({ kind: 'ban', steamId: '1', state: 'failed', error: 'x' })]
+				desired: want('1'),
+				observed: { reserved: ['1'] },
+				state: [state({ kind: 'reserve', steamId: '1', state: 'failed', error: 'x' })]
 			})
 		);
 		expect(p.confirms.map((c) => c.steamId)).toEqual(['1']);
@@ -116,32 +122,19 @@ describe('planSync', () => {
 
 	test('managed but gone from the server → re-add (someone removed it by hand)', () => {
 		const p = planSync(
-			input({
-				desired: { bans: [ban('1')], reserved: [] },
-				state: [state({ kind: 'ban', steamId: '1' })]
-			})
+			input({ desired: want('1'), state: [state({ kind: 'reserve', steamId: '1' })] })
 		);
 		expect(p.adds.map((a) => a.steamId)).toEqual(['1']);
 	});
 
 	test('a failed add waits out the backoff, then retries', () => {
-		const failed = state({
-			kind: 'ban',
-			steamId: '1',
-			state: 'failed',
-			error: 'Bad request',
-			attemptedAt: ago(60_000)
-		});
+		const failed = (attemptedAt: Date) =>
+			state({ kind: 'reserve', steamId: '1', state: 'failed', error: 'Bad request', attemptedAt });
+		expect(planSync(input({ desired: want('1'), state: [failed(ago(60_000))] })).adds).toEqual([]);
 		expect(
-			planSync(input({ desired: { bans: [ban('1')], reserved: [] }, state: [failed] })).adds
-		).toEqual([]);
-		expect(
-			planSync(
-				input({
-					desired: { bans: [ban('1')], reserved: [] },
-					state: [{ ...failed, attemptedAt: ago(10 * 60_000) }]
-				})
-			).adds.map((a) => a.steamId)
+			planSync(input({ desired: want('1'), state: [failed(ago(6 * 60_000))] })).adds.map(
+				(a) => a.steamId
+			)
 		).toEqual(['1']);
 	});
 
@@ -152,7 +145,7 @@ describe('planSync', () => {
 					bans: [],
 					reserved: [slot('a'), slot('b'), slot('c'), slot('member', true)]
 				},
-				observed: { bans: [], reserved: ['local', 'b'] }
+				observed: { reserved: ['local', 'b'] }
 			})
 		);
 		expect(p.adds.map((a) => a.steamId)).toEqual(['a', 'c', 'member']);
@@ -163,7 +156,7 @@ describe('planSync', () => {
 		const p = planSync(
 			input({
 				desired: { bans: [], reserved: [slot('new')] },
-				observed: { bans: [], reserved: ['local', 'stale'] },
+				observed: { reserved: ['local', 'stale'] },
 				state: [state({ kind: 'reserve', steamId: 'stale' })]
 			})
 		);
@@ -198,43 +191,5 @@ describe('desiredOf', () => {
 			{ steamId: '2', listId: 'srv', member: false }
 		]);
 		expect(want.bans).toEqual([{ steamId: '3', reason: 'cheating', listId: 'bans' }]);
-	});
-});
-
-describe('refusedBansAfter', () => {
-	const refused = (steamId: string) =>
-		state({
-			kind: 'ban',
-			steamId,
-			state: 'failed',
-			error: `Error: no player matching '${steamId}'.`
-		});
-	const desired = [ban('1', 'cheat'), ban('2'), ban('3'), ban('4')];
-	const rows = [
-		refused('1'),
-		refused('2'),
-		state({ kind: 'ban', steamId: '3' }),
-		refused('9'),
-		state({ kind: 'reserve', steamId: '4', state: 'failed', error: 'x' })
-	];
-
-	test('the wanted bans whose last attempt failed; a lifted ban and a reserved slot are not', () => {
-		expect(refusedBansAfter(desired, rows)).toEqual([
-			{ steamId: '1', reason: 'cheat', listId: 'L' },
-			{ steamId: '2', reason: '', listId: 'L' }
-		]);
-	});
-
-	test('a run takes out what it added or confirmed and brings in what it failed to add', () => {
-		expect(
-			refusedBansAfter(desired, rows, {
-				added: [{ kind: 'ban', steamId: '1' }],
-				confirms: [{ kind: 'ban', steamId: '2' }],
-				failedAdds: [
-					{ kind: 'ban', steamId: '3' },
-					{ kind: 'reserve', steamId: '4' }
-				]
-			})
-		).toEqual([{ steamId: '3', reason: '', listId: 'L' }]);
 	});
 });

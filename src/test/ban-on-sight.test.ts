@@ -1,9 +1,10 @@
-// The ban on sight works from a list the worker keeps in memory between syncs. What it bans must
-// still be wanted when the player turns up.
+// The panel enforces its bans itself: the worker keeps each server's bans in memory between syncs
+// and removes a banned player it finds on the server. Nothing is written to the game's own ban
+// list, and the ban must still be in force when the player turns up.
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
-import { listEntries, organizations, serverListState, servers } from '$lib/server/db/schema';
+import { auditLog, listEntries, organizations, servers } from '$lib/server/db/schema';
 import {
 	ensureOrgLists,
 	ensureServerLists,
@@ -11,23 +12,23 @@ import {
 	listOf,
 	serverListOf
 } from '$lib/server/lists';
-import { banOnSight } from '$lib/server/lists-sync';
-import type { RefusedBan } from '$lib/server/lists-plan';
-import type { WardogsClient } from '$lib/server/rcon';
+import { kickBanned, reconcileServer } from '$lib/server/lists-sync';
+import type { PanelBan } from '$lib/server/lists-plan';
+import { GameError, type WardogsClient } from '$lib/server/rcon';
 import { hasTestDb, testEnv } from './db';
 import { seedWorld } from './world';
 
 const STEAM = '76561198000000042';
 
-describe.skipIf(!hasTestDb)('ban on sight', () => {
+describe.skipIf(!hasTestDb)('bans enforced by the panel', () => {
 	let env: Env;
 
 	beforeAll(async () => {
 		env = await testEnv();
 	});
 
-	/** A server whose org bans STEAM, the game having refused the ban while the player was away. */
-	async function refusedBan(expiresAt: Date | null = null, own = false) {
+	/** A server whose org (or, with `own`, the server's own list) bans STEAM. */
+	async function banned(expiresAt: Date | null = null, own = false) {
 		const w = await seedWorld(env);
 		await ensureOrgLists(env.db, w.org.id);
 		await ensureServerLists(env.db, w.server.id, w.org.id);
@@ -42,21 +43,22 @@ describe.skipIf(!hasTestDb)('ban on sight', () => {
 		});
 		const [server] = await env.db.select().from(servers).where(eq(servers.id, w.server.id));
 		const [org] = await env.db.select().from(organizations).where(eq(organizations.id, w.org.id));
-		const refused = new Map<string, RefusedBan>([
-			[STEAM, { steamId: STEAM, reason: 'cheating', listId: list.id }]
-		]);
+		const bans = new Map<string, PanelBan>([[STEAM, { steamId: STEAM, listId: list.id }]]);
 		const sent: string[] = [];
+		const bodies: unknown[] = [];
 		const client = {
-			json: async (method: string, path: string) => {
+			json: async (method: string, path: string, body?: unknown) => {
 				sent.push(`${method} ${path}`);
+				bodies.push(body);
 				return {};
 			}
 		} as unknown as WardogsClient;
 		return {
 			server,
 			org,
-			refused,
-			refusedCopy: new Map(refused),
+			bans,
+			bansCopy: new Map(bans),
+			bodies,
 			otherServerId: w.otherServer.id,
 			sent,
 			client,
@@ -64,54 +66,83 @@ describe.skipIf(!hasTestDb)('ban on sight', () => {
 		};
 	}
 
-	test('a wanted ban is placed when the player is seen', async () => {
-		const t = await refusedBan();
-		await banOnSight(env, t.server, t.org, t.client, [STEAM], t.refused);
-		expect(t.sent).toEqual(['POST /v1/bans']);
-		expect(t.refused.size).toBe(0);
+	test('a banned player seen on the server is kicked with the ban message, and it is audited', async () => {
+		const t = await banned();
+		await kickBanned(env, t.server, t.org, t.client, [STEAM, '76561198000000043'], t.bans);
+		expect(t.sent).toEqual([`POST /v1/players/${STEAM}/kick`]);
+		expect(t.bodies[0]).toEqual({ reason: 'cheating' });
+		// still banned: the next join is kicked again
+		expect(t.bans.size).toBe(1);
+		const rows = await env.db
+			.select()
+			.from(auditLog)
+			.where(and(eq(auditLog.serverId, t.server.id), eq(auditLog.action, 'ban.enforce')));
+		expect(rows.map((r) => [r.target, r.outcome])).toEqual([[STEAM, 'ok']]);
 	});
 
-	test("a ban on the server's own list is placed when the player is seen, and only there", async () => {
-		const t = await refusedBan(null, true);
-		await banOnSight(env, t.server, t.org, t.client, [STEAM], t.refused);
-		expect(t.sent).toEqual(['POST /v1/bans']);
-		const [state] = await env.db
-			.select()
-			.from(serverListState)
-			.where(and(eq(serverListState.serverId, t.server.id), eq(serverListState.steamId, STEAM)));
-		expect(state).toMatchObject({ kind: 'ban', state: 'applied' });
+	test('the sync hands the worker the bans and writes nothing to the game', async () => {
+		const t = await banned();
+		const result = await reconcileServer(env, t.server, t.org, {
+			reason: 'poll',
+			waitMs: 0,
+			lane: 'held',
+			client: t.client,
+			observed: { bans: [], reserved: [] }
+		});
+		expect(t.sent).toEqual([]);
+		expect(result.bans?.map((b) => b.steamId)).toEqual([STEAM]);
+	});
 
-		// the same refusal handed to another server of the org is dropped: that list is not its own
+	test("a ban on the server's own list is enforced there, and only there", async () => {
+		const t = await banned(null, true);
+		await kickBanned(env, t.server, t.org, t.client, [STEAM], t.bans);
+		expect(t.sent).toEqual([`POST /v1/players/${STEAM}/kick`]);
+
+		// the same ban handed to another server of the org is dropped: that list is not its own
 		const [other] = await env.db.select().from(servers).where(eq(servers.id, t.otherServerId));
-		const again = new Map(t.refusedCopy);
+		const again = new Map(t.bansCopy);
 		const sent: string[] = [];
 		const client = {
 			json: async (method: string, path: string) => (sent.push(`${method} ${path}`), {})
 		} as unknown as WardogsClient;
-		await banOnSight(env, other, t.org, client, [STEAM], again);
+		await kickBanned(env, other, t.org, client, [STEAM], again);
 		expect(sent).toEqual([]);
 		expect(again.size).toBe(0);
 	});
 
-	test('a ban taken off the list since the last sync is not placed', async () => {
-		const t = await refusedBan();
+	test('a ban taken off the list since the last sync kicks nobody', async () => {
+		const t = await banned();
 		await env.db
 			.update(listEntries)
 			.set({ removedAt: new Date(), removal: 'manual' })
 			.where(eq(listEntries.id, t.entryId));
-		await banOnSight(env, t.server, t.org, t.client, [STEAM], t.refused);
+		await kickBanned(env, t.server, t.org, t.client, [STEAM], t.bans);
 		expect(t.sent).toEqual([]);
-		expect(t.refused.size).toBe(0);
+		expect(t.bans.size).toBe(0);
 	});
 
-	test('a ban that ran out since the last sync is not placed', async () => {
-		const t = await refusedBan(new Date(Date.now() + 60_000));
+	test('a ban that ran out since the last sync kicks nobody', async () => {
+		const t = await banned(new Date(Date.now() + 60_000));
 		await env.db
 			.update(listEntries)
 			.set({ expiresAt: new Date(Date.now() - 1000) })
 			.where(eq(listEntries.id, t.entryId));
-		await banOnSight(env, t.server, t.org, t.client, [STEAM], t.refused);
+		await kickBanned(env, t.server, t.org, t.client, [STEAM], t.bans);
 		expect(t.sent).toEqual([]);
-		expect(t.refused.size).toBe(0);
+		expect(t.bans.size).toBe(0);
+	});
+
+	test('a kick the game refuses is not tried again at every look', async () => {
+		const t = await banned();
+		let calls = 0;
+		const client = {
+			json: async () => {
+				calls++;
+				throw new GameError(400, 'Bad request', 'bad_request');
+			}
+		} as unknown as WardogsClient;
+		await kickBanned(env, t.server, t.org, client, [STEAM], t.bans);
+		await kickBanned(env, t.server, t.org, client, [STEAM], t.bans);
+		expect(calls).toBe(1);
 	});
 });

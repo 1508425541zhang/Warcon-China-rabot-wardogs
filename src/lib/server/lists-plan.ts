@@ -104,7 +104,7 @@ export interface PlanInput {
 	/** how long a failed add or remove waits before it is tried again */
 	retryAfterMs: number;
 	desired: { bans: DesiredBan[]; reserved: DesiredReserve[] };
-	observed: { bans: string[]; reserved: string[] };
+	observed: { reserved: string[] };
 	state: StateLike[];
 }
 
@@ -178,14 +178,8 @@ export function planSync(i: PlanInput): SyncPlan {
 		return toAdd;
 	};
 
-	const banAdds = settle(
-		'ban',
-		i.desired.bans.map((d) => ({ kind: 'ban', ...d })),
-		new Set(i.observed.bans),
-		byKind(i.state, 'ban')
-	);
-	plan.adds.push(...banAdds);
-
+	// Bans are not planned: the panel enforces them itself (kickBanned in lists-sync.ts) and leaves
+	// the game's own ban list to whoever runs the server.
 	// The reserved list is unbounded on the game server (MaxReservedSlots holds player slots back
 	// for its members; it does not cap the list), so every wanted slot is added.
 	plan.adds.push(
@@ -206,35 +200,10 @@ export function planSync(i: PlanInput): SyncPlan {
 
 export const planHasWork = (p: SyncPlan): boolean => p.adds.length > 0 || p.removes.length > 0;
 
-export interface RefusedBan {
+/** A ban the lists put on a server, as the worker holds it between syncs (see kickBanned). */
+export interface PanelBan {
 	steamId: string;
-	reason: string;
 	listId: string;
-}
-
-/**
- * The bans the lists want on a server that the game refused at its last attempt (the live build
- * only bans a connected player), as they stand after a run: the failed rows before it, less what
- * the run added or confirmed, plus what it failed to add. The worker keeps them in memory and
- * bans the player the moment they are seen on the server.
- */
-export function refusedBansAfter(
-	desired: DesiredBan[],
-	state: StateLike[],
-	run: { added: PlanRef[]; confirms: PlanRef[]; failedAdds: PlanRef[] } = {
-		added: [],
-		confirms: [],
-		failedAdds: []
-	}
-): RefusedBan[] {
-	const failed = new Set(
-		state.filter((s) => s.kind === 'ban' && s.state === 'failed').map((s) => s.steamId)
-	);
-	const bansOf = (rows: PlanRef[]) => rows.filter((r) => r.kind === 'ban').map((r) => r.steamId);
-	for (const id of bansOf(run.added)) failed.delete(id);
-	for (const id of bansOf(run.confirms)) failed.delete(id);
-	for (const id of bansOf(run.failedAdds)) failed.add(id);
-	return desired
-		.filter((d) => failed.has(d.steamId))
-		.map(({ steamId, reason, listId }) => ({ steamId, reason, listId }));
+	/** a kick the game refused: not tried again before this time */
+	retryAt?: number;
 }

@@ -168,6 +168,18 @@ export function observeSoon(serverId: string, opts?: { lists?: boolean }): void 
 }
 
 /**
+ * The server's lists were just edited: its next look, which comes at once, takes the lists again,
+ * so the worker holds the new bans and removes a banned player who is on now rather than at the
+ * next scheduled sync.
+ */
+export function resyncSoon(serverId: string): void {
+	const m = memoryOf(serverId);
+	if (!m) return;
+	m.syncAt = 0;
+	observeSoon(serverId);
+}
+
+/**
  * Observes one server right now (through its lane, ahead of background work) and returns the
  * view: for a server that was just added, or a read that cannot wait for the schedule. Without
  * the lease this returns whatever is in memory.

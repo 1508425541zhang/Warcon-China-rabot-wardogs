@@ -150,6 +150,7 @@ const ACTION_TITLES: Record<string, string> = {
 	'list.import': 'Org list · imported from a server',
 	'list.expire': 'Org list · expired',
 	'lists.sync': 'Org list · sync',
+	'ban.enforce': 'Ban · banned player removed',
 	login: 'Sign-in',
 	'login.failed': 'Sign-in failed'
 };
