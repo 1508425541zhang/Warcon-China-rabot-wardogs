@@ -1300,7 +1300,7 @@
 									</div>
 								{/if}
 								<div class="flex flex-wrap items-center gap-2">
-									under
+									on a Steam account under
 									<input
 										class="input w-20 text-right"
 										type="number"
