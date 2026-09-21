@@ -93,6 +93,9 @@ export interface PresenceDiff {
 	/** the players still on who are in a faction other than the last one seen this session;
 	 *  `from` is that last one (null: their first pick of the session) */
 	factioned: { player: Player; from: string | null }[];
+	/** the players still on whose name is not the one their session holds: the game can show a
+	 *  joiner's name first and the clan tag in front of it a look or two later */
+	renamed: Player[];
 }
 
 /** How long a player may be missing from the list before their session closes. The game empties
@@ -115,6 +118,7 @@ export function diffPresence(
 	const joined: Player[] = [];
 	const stayed: PresenceDiff['stayed'] = [];
 	const factioned: PresenceDiff['factioned'] = [];
+	const renamed: Player[] = [];
 	for (const p of players) {
 		if (!p.steamId || seen.has(p.steamId)) continue;
 		seen.add(p.steamId);
@@ -123,12 +127,13 @@ export function diffPresence(
 			stayed.push({ player: p, session: s });
 			if (p.faction && p.faction !== s.lastFaction)
 				factioned.push({ player: p, from: s.lastFaction });
+			if (p.name !== s.name) renamed.push(p);
 		} else joined.push(p);
 	}
 	const left = [...presence.open.values()].filter(
 		(s) => !seen.has(s.steamId) && now - s.lastSeen > graceMs
 	);
-	return { joined, left, stayed, factioned };
+	return { joined, left, stayed, factioned, renamed };
 }
 
 const json = (v: unknown) => sql`(${JSON.stringify(v)}::text)::jsonb`;
@@ -286,7 +291,7 @@ export async function closeAllSessions(db: DbOrTx, presence: Presence): Promise<
 			db,
 			'',
 			presence,
-			{ joined: [], left: open, stayed: [], factioned: [] },
+			{ joined: [], left: open, stayed: [], factioned: [], renamed: [] },
 			new Date(),
 			false
 		);
