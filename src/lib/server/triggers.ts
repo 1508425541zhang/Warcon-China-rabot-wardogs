@@ -280,6 +280,8 @@ export interface TickContext {
 	playersIntervalMs: number;
 	/** players with no open session before this observation (empty when joins are not trusted) */
 	joined: Player[];
+	/** players still on under a name their session did not hold at the last look */
+	renamed: Player[];
 	/** players whose faction is new since the last look (joiners arriving with one included;
 	 *  empty when joins are not trusted) */
 	factioned: FactionPick<Player>[];
@@ -611,10 +613,13 @@ function evalRiskKick(
 }
 
 function evalNameFilter(ctx: TickContext, row: TriggerRow, cfg: NameFilterConfig, out: Evaluation) {
-	if (!ctx.joined.length) return;
+	if (!ctx.joined.length && !ctx.renamed.length) return;
+	// A name is judged when it is first seen, at the join or later: the clan tag is part of the
+	// name, and the game may only show it once the player is in.
+	const named = ctx.renamed.length ? [...ctx.joined, ...ctx.renamed] : ctx.joined;
 	let n = 0;
 	let last = '';
-	for (const { player: p, verdict: v } of nameFilterTargets(cfg, ctx.joined, ctx.reserved)) {
+	for (const { player: p, verdict: v } of nameFilterTargets(cfg, named, ctx.reserved)) {
 		const kick = cfg.action === 'kick';
 		out.intents.push({
 			trigger: row,
