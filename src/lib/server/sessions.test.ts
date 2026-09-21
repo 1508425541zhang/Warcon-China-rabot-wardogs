@@ -49,6 +49,25 @@ describe('diffPresence', () => {
 		expect(d.left.map((x) => x.steamId)).toEqual(['76561198100000001']);
 	});
 
+	test('reports a player still on under a name the session does not hold', () => {
+		const p = newPresence();
+		for (const id of ['76561198100000001', '76561198100000002'])
+			p.open.set(id, { ...open(id), name: 'Player' });
+		const d = diffPresence(
+			p,
+			[
+				player('76561198100000001', '[TAG] Player'),
+				player('76561198100000002', 'Player'),
+				player('76561198100000003', '[TAG] New')
+			],
+			LATER
+		);
+		expect(d.renamed.map((x) => [x.steamId, x.name])).toEqual([
+			['76561198100000001', '[TAG] Player']
+		]);
+		expect(d.joined.map((x) => x.steamId)).toEqual(['76561198100000003']);
+	});
+
 	test('ignores duplicates and players without a SteamID', () => {
 		const p = newPresence();
 		const d = diffPresence(

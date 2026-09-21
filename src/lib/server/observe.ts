@@ -486,7 +486,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 		gapMs <= 2 * Math.max(m.playersIntervalMs, 1000) + 1000;
 	const diff: PresenceDiff = players
 		? diffPresence(m.presence, players, started)
-		: { joined: [], left: [], stayed: [], factioned: [] };
+		: { joined: [], left: [], stayed: [], factioned: [], renamed: [] };
 	const joined = joinsTrusted ? diff.joined : [];
 	// Players pick a faction after joining; rules that wait for it see the change here. A joiner
 	// who arrives with one (a reconnect) counts as a first pick on the spot.
@@ -554,6 +554,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 						playersObserved: players !== null,
 						playersIntervalMs: m.playersIntervalMs,
 						joined,
+						renamed: diff.renamed,
 						factioned,
 						firstVisit,
 						reserved: m.reserved,
