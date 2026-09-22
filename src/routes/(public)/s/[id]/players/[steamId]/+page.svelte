@@ -34,6 +34,7 @@
 			serverName={data.heading.name}
 			orgName={data.heading.orgName}
 			multiServer={data.multiServer}
+			matchHref={(m) => `/s/${encodeURIComponent(m.serverId)}/matches/${m.matchId}`}
 		>
 			{#if data.combat}
 				<span class="field-label">Combat</span>

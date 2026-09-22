@@ -56,6 +56,10 @@
 						? 'tab-link-active'
 						: ''}">Leaderboard</a
 				>
+				<a
+					href="{base}/matches"
+					class="tab-link {active(`${base}/matches`, false) ? 'tab-link-active' : ''}">Matches</a
+				>
 			{/if}
 		</nav>
 	{/if}

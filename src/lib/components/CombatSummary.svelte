@@ -1,28 +1,19 @@
 <script lang="ts">
 	// A player's kill-feed record: the headline tiles, then weapons, most-killed and nemeses.
 	// Shared by the dossier's Combat section and the public career page; `hrefFor` decides where
-	// a name in the lists goes (dossier or public career).
+	// a name in the lists goes (dossier or public career). Kills, deaths and K/D are not here:
+	// the career tiles carry them from the game's own scoreboard.
 	import { causeLabel } from '$lib/causes';
 	import { fmtNum } from '$lib/format';
-	import { kdRatio } from '$lib/leaderboard';
 	import type { CombatSummary } from '$lib/types';
 
 	let { combat, hrefFor }: { combat: CombatSummary; hrefFor: (steamId: string) => string } =
 		$props();
 
 	let maxCause = $derived(Math.max(1, ...combat.causes.map((c) => c.kills)));
-	const pct = (part: number, whole: number) =>
-		whole ? `${Math.round((part / whole) * 100)}%` : '—';
-	const kd = (k: number, d: number) => {
-		const v = kdRatio(k, d);
-		return v === null ? '—' : v.toFixed(2);
-	};
 	const metres = (m: number | null) => (m === null ? '—' : `${fmtNum(m)} m`);
 	let tiles = $derived<[string, string][]>([
-		['Kills', fmtNum(combat.kills)],
-		['Deaths', fmtNum(combat.deaths)],
-		['K/D', kd(combat.kills, combat.deaths)],
-		['Headshots', `${fmtNum(combat.headshots)} · ${pct(combat.headshots, combat.kills)}`],
+		['Headshots', fmtNum(combat.headshots)],
 		['Longest shot', metres(combat.longestM)],
 		['Average shot', metres(combat.avgDistanceM)],
 		[
