@@ -211,6 +211,13 @@
       "when": 1789945728462,
       "tag": "0029_panel_bans",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790081560841,
+      "tag": "0030_keep_everything",
+      "breakpoints": true
     }
   ]
 }

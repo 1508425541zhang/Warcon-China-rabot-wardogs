@@ -893,8 +893,8 @@ export const outbox = pgTable(
 );
 
 /**
- * Hourly rollups of samples (rollups.ts fills them; analytics.ts reads them for ranges longer than
- * the raw retention). Durations are seconds of cover; player_s is player-count × seconds while up.
+ * Hourly rollups of samples (rollups.ts fills them; analytics.ts reads them for the long ranges).
+ * Durations are seconds of cover; player_s is player-count × seconds while up. Kept for good.
  */
 export const sampleRollups = pgTable(
 	'sample_rollups',

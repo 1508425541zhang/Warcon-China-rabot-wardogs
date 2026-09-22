@@ -25,8 +25,8 @@
 		},
 		{
 			id: 'housekeeping',
-			title: 'Housekeeping and retention',
-			blurb: 'Database writes that are not observations, and how long history is kept.'
+			title: 'Housekeeping',
+			blurb: 'Database writes that are not observations. History is never deleted.'
 		},
 		{
 			id: 'accounts',

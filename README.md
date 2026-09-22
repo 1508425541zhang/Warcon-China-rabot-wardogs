@@ -159,8 +159,8 @@ Compose starts `migrate` (runs once), `warcon` (the web), `worker` and `db` (Tim
 can contain any characters. To use an external Postgres instead, set `DATABASE_URL` in `.env` (it
 takes precedence over those) and delete the `db` service together with the `depends_on` block in
 `docker-compose.yml`; install the `timescaledb` extension there before the first start if you want
-automatic retention on the analytics samples (plain Postgres works too, the app prunes old samples
-itself).
+the analytics samples compressed as they age (plain Postgres works too; the samples table then
+grows uncompressed, about 1.5 MB per game server per day).
 
 The Admin page's Overview shows the build each process runs, the version and the commit, so an
 install on an old build is easy to spot. There is nothing to set: the build reads the commit from
@@ -261,7 +261,7 @@ scraped as job `postgres`, which is optional.
 | `WARCON_ROLE`                                                | `all`                  | `all` serves, migrates and runs the worker in one process; `web` and `worker` split them (Compose does); `migrate` applies migrations and exits.                                  |
 | `RELAY_SECRET` / `RELAY_URL` / `WORKER_PORT`                 | unset / unset / `7700` | Split roles only: the secret web and worker share, where the web finds the worker (`http://worker:7700`), and the worker's port.                                                  |
 | `METRICS_TOKEN`                                              | unset                  | Bearer for `GET /metrics` (Prometheus) on the web and worker processes; the endpoint answers 404 until it is set. See [Metrics](#metrics-prometheus).                             |
-| `POLL_SECONDS` / `POLL_CONCURRENCY`                          | `20` / `128`           | Seeds for two of the runtime settings on a fresh install only; after that the owner edits cadences, budgets and retention under **Admin → Settings** without a restart.           |
+| `POLL_SECONDS` / `POLL_CONCURRENCY`                          | `20` / `128`           | Seeds for two of the runtime settings on a fresh install only; after that the owner edits cadences and budgets under **Admin → Settings** without a restart.                      |
 | `APP_NAME`                                                   | `Warcon`               | Name shown in the UI.                                                                                                                                                             |
 | `AUDIT_LOG_READS`                                            | `false`                | Also audit read-only calls (status polls etc.). Noisy.                                                                                                                            |
 | `ALLOW_ORG_SIGNUP`                                           | `false`                | Anyone may create an account and their own organisation at `/sign-up` (3 orgs per person). For hosted, multi-clan instances.                                                      |
@@ -845,7 +845,7 @@ src/lib/server/feed-events.ts  what the worker does with a batch: publish to bro
 src/lib/server/observe.ts      one observation: status/players, session diff, trigger evaluation, one fenced transaction, live snapshot, samples
 src/lib/server/sessions.ts     player presence in memory, batched session writes (join, leave, heartbeat)
 src/lib/server/outbox.ts       trigger delivery loop: claim with a lease, send through the lane, record the outcome
-src/lib/server/rollups.ts      hourly sample rollups behind the long ranges, and the retention policy
+src/lib/server/rollups.ts      hourly sample rollups behind the long ranges
 src/lib/server/dispatcher.ts   one lane per game server: one request in flight, humans ahead of the worker
 src/lib/server/leadership.ts   the worker lease and the fenced transaction every worker write uses
 src/lib/server/live.ts / events.ts / interest.ts   live snapshot rows, the in-process event bus, watch leases
@@ -932,9 +932,9 @@ settings) · `serverLog` (Audit trail) · `raw` (Raw RCON).
   (a second or two on a busy server). A player missing from the list for under a minute is still
   in their session (the game reports nobody while a new map loads), and a leave is dated to the
   last time they were seen. Match boundaries are inferred from map changes, the
-  faction scores falling back to zero and, on builds that send one, the match clock. Raw samples are kept for 14 days by default (a TimescaleDB retention policy, or the
-  worker's own prune on plain Postgres) with hourly rollups behind the 30-day charts; sessions and
-  matches for a year. Both are settings.
+  faction scores falling back to zero and, on builds that send one, the match clock. Nothing is
+  deleted: raw samples, their hourly rollups (behind the 30-day charts), sessions and matches are
+  kept for good. On TimescaleDB, samples older than two weeks are compressed in place.
 - Several `web` processes can share one database and one worker; the worker's lease makes exactly
   one process observe, and a second worker takes over within seconds if the first stops renewing.
   Run `WARCON_ROLE=all` as a single replica only: two `all` processes would each keep their own
