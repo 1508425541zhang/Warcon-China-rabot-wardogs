@@ -63,6 +63,7 @@ import { isWatched } from './interest';
 import { emit } from './events';
 import { liveView, writeLive } from './live';
 import { observations, observationSeconds } from './metrics';
+import { notifyWatchedJoins } from './webhook-delivery';
 import { nextDue, withHold } from './poller-schedule';
 import { cashByFaction } from '$lib/cash';
 import type { Features, LiveView, Player, Status } from '$lib/types';
@@ -609,6 +610,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	const needWrite =
 		presenceDue || ev.intents.length > 0 || ev.updates.length > 0 || liveDue || sampleDue;
 	let intents = 0;
+	let saved = false;
 	try {
 		if (needWrite)
 			await withOwnedTransaction(env, async (tx) => {
@@ -636,6 +638,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 			m.sampleKey = sampleKey;
 			m.sampleWrittenAt = started;
 		}
+		saved = true;
 	} catch (err) {
 		// Nothing was committed, but the presence map may have moved: reload it next time so the
 		// joins are seen (and their triggers evaluated) again.
@@ -648,6 +651,9 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	}
 	emit({ type: 'live', live: liveView(m) });
 	if (intents) wakeDelivery();
+	// After the write: a failed one reloads the presence and sees the same joins again.
+	if (saved && joined.length && isOwner())
+		void notifyWatchedJoins(env, server.id, m.status?.serverName || server.name, joined);
 
 	// Housekeeping, each part on its own, and only while this process still owns the worker. A
 	// player the lists want banned here, seen on the list: banned now, not at the sync's retry.

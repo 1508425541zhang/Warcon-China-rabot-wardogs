@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { validateWebhookUrl } from './webhooks';
-import { buildEmbed, buildTeamKillEmbed, classify } from './webhook-delivery';
+import {
+	buildEmbed,
+	buildTeamKillEmbed,
+	buildWatchedJoinEmbed,
+	classify,
+	dossierUrl
+} from './webhook-delivery';
 
 const token = 'a'.repeat(68);
 
@@ -124,5 +130,32 @@ describe('buildTeamKillEmbed', () => {
 		);
 		expect(e.timestamp).toBe('2026-09-16T20:00:00.000Z');
 		expect(e.footer?.text).toBe('Warcon');
+	});
+});
+
+describe('watched join and dossier links', () => {
+	test("a player's page, only with an origin and a SteamID", () => {
+		expect(dossierUrl('https://rcon.example.com/', 's 1', '76561198000000001')).toBe(
+			'https://rcon.example.com/server/s%201/players/76561198000000001'
+		);
+		expect(dossierUrl('', 's1', '76561198000000001')).toBeUndefined();
+		expect(dossierUrl('https://rcon.example.com', 's1', 'not-an-id')).toBeUndefined();
+	});
+	test('the post names the player, why, and where, and opens their page', () => {
+		const e = buildWatchedJoinEmbed(
+			'Warcon',
+			'TLR #1',
+			{ steamId: '76561198000000001', name: 'Krieger', reason: 'alt of a banned player' },
+			'2026-09-22T00:00:00.000Z',
+			'https://rcon.example.com/server/s1/players/76561198000000001'
+		);
+		expect(e.title).toBe('Watched player joined');
+		expect(e.url).toBe('https://rcon.example.com/server/s1/players/76561198000000001');
+		expect(e.description).toContain('Krieger');
+		expect(e.description).toContain('alt of a banned player');
+		expect(e.description).toContain('TLR #1');
+		expect(
+			buildWatchedJoinEmbed('Warcon', 'x', { steamId: '1', name: 'a', reason: '' }, 't').url
+		).toBeUndefined();
 	});
 });
