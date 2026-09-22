@@ -357,12 +357,12 @@ describe('uptime', () => {
 		const e = buildStatusEmbed(opts, server, live());
 		expect(e.fields?.at(-1)?.value.startsWith('Updated')).toBe(true);
 	});
-	test('past twelve hours the card says the server restarts after this round', () => {
+	test('past 24 hours the card says the server restarts after this round', () => {
 		const early = buildStatusEmbed(opts, server, live({ startedAt }));
 		expect(early.fields?.at(-1)?.value).not.toContain('Restarts');
-		const late = buildStatusEmbed(opts, server, live({ startedAt: '2026-09-12T23:30:00Z' }));
+		const late = buildStatusEmbed(opts, server, live({ startedAt: '2026-09-12T11:30:00Z' }));
 		expect(late.fields?.at(-1)?.value.split('\n')[0]).toBe(
-			`Up since <t:${ts('2026-09-12T23:30:00Z')}:R> · 🔁 Restarts after this round`
+			`Up since <t:${ts('2026-09-12T11:30:00Z')}:R> · 🔁 Restarts after this round`
 		);
 	});
 	test('the start time and the restart note are in the change key; the ticking uptime is not', () => {
@@ -371,8 +371,8 @@ describe('uptime', () => {
 		expect(k(opts.now, null)).not.toBe(k(opts.now, startedAt));
 		// nine hours up, then ten: same card
 		expect(k(opts.now, startedAt)).toBe(k(opts.now + 3600_000, startedAt));
-		// crossing twelve hours: one edit
-		expect(k(opts.now + 2 * 3600_000, startedAt)).not.toBe(k(opts.now + 4 * 3600_000, startedAt));
+		// crossing 24 hours: one edit
+		expect(k(opts.now + 14 * 3600_000, startedAt)).not.toBe(k(opts.now + 16 * 3600_000, startedAt));
 		// a restart is a new start time
 		expect(k(opts.now, startedAt)).not.toBe(k(opts.now, '2026-09-13T11:00:00Z'));
 	});

@@ -117,7 +117,7 @@ export function pingKickStep(
 }
 /**
  * Tells players about the game's own restart: WARDOGS restarts a server once it has been up for
- * twelve hours, at the end of the round then in progress. Two broadcasts per uptime cycle: a
+ * 24 hours, at the end of the round then in progress. Two broadcasts per uptime cycle: a
  * heads-up `leadMinutes` before the window opens (0 = none) and `message` once it has, repeated
  * every `repeatMinutes` while the round drags on (0 = once).
  */

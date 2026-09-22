@@ -124,7 +124,7 @@
 			kind: 'restart_notice',
 			group: 'Messages',
 			label: 'Restart notice',
-			blurb: 'Warn players before the twelve-hour restart and tell them when it lands.'
+			blurb: 'Warn players before the 24-hour restart and tell them when it lands.'
 		},
 		{
 			kind: 'match_broadcast',
@@ -1149,7 +1149,7 @@
 								class="input w-20 text-right"
 								type="number"
 								min="0"
-								max="719"
+								max="1439"
 								bind:value={f.leadMinutes}
 								aria-label="Heads-up, minutes before"
 							/>
@@ -1203,7 +1203,7 @@
 					</fieldset>
 					{@render placeholders(['minutes', 'uptime', 'server', 'map', 'players', 'max'])}
 					<p class="note">
-						The game restarts twelve hours after it started, once the round then in progress ends.
+						The game restarts 24 hours after it started, once the round then in progress ends.
 					</p>
 				{:else if f.kind === 'match_broadcast'}
 					<fieldset class="space-y-2">
