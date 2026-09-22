@@ -16,9 +16,10 @@ export interface OpenSession {
 	 *  earlier matches of the session reached plus the counters as they stand (followPlayer) */
 	kills: number;
 	deaths: number;
+	/** the player's balance at the last look: the game keeps cash across matches */
 	cash: number;
 	/** the game's own counters at the last look; null on a session reloaded after a restart */
-	game: { kills: number; deaths: number; cash: number } | null;
+	game: { kills: number; deaths: number } | null;
 	/** seed time banked: time on with the player count at or under the seeding threshold, counted
 	 *  once the server climbed past the threshold with the player still on (observe.ts) */
 	seedMs: number;
@@ -160,6 +161,8 @@ export async function firstVisits(
  * match, so either one falling means the game started its counters again (a new match): what the
  * session had reached is kept and the new counters are added on top. A session reloaded after a
  * restart has only its totals; what they hold beyond the counters now is taken as earlier matches.
+ * Cash is the player's balance, which the game keeps across matches and the season wipes: the
+ * session holds the balance as last seen, and a match's profit is on its match row.
  */
 export function followPlayer(
 	s: OpenSession,
@@ -173,11 +176,12 @@ export function followPlayer(
 	if (isTeam(p.faction, teams)) s.team = p.faction;
 	const g = s.game;
 	const restarted = !!g && (p.kills < g.kills || p.deaths < g.deaths);
-	for (const k of ['kills', 'deaths', 'cash'] as const) {
+	for (const k of ['kills', 'deaths'] as const) {
 		const before = !g ? Math.max(0, s[k] - p[k]) : restarted ? s[k] : s[k] - g[k];
 		s[k] = before + p[k];
 	}
-	s.game = { kills: p.kills, deaths: p.deaths, cash: p.cash };
+	s.cash = p.cash;
+	s.game = { kills: p.kills, deaths: p.deaths };
 	s.lastSeen = now;
 }
 
@@ -247,7 +251,7 @@ export async function persistPresence(
 				kills: p.kills,
 				deaths: p.deaths,
 				cash: p.cash,
-				game: { kills: p.kills, deaths: p.deaths, cash: p.cash },
+				game: { kills: p.kills, deaths: p.deaths },
 				seedMs: 0,
 				pendingSeedMs: 0,
 				joinedAt: now,
