@@ -1222,6 +1222,8 @@
 							'scores',
 							'cap',
 							'previous',
+							'mvp',
+							'top',
 							'map',
 							'server',
 							'players'

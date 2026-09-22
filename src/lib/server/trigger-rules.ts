@@ -586,14 +586,37 @@ export function matchBoundary(prev: MatchLook | null, next: MatchLook): MatchEnd
 	};
 }
 
-/** The placeholders a match boundary fills: the result of the match that ended. */
-export function matchVars(end: MatchEnd): Record<string, string | number> {
+/** A player's line of the match that ended, as far as the placeholders need it. */
+export interface MatchLineVars {
+	name: string;
+	kills: number;
+}
+
+/**
+ * The placeholders a match boundary fills: the result of the match that ended, and from the
+ * players' lines of it, `{mvp}` (the most kills, tied players named together) and `{top}` (the
+ * top three with their kills). Both are empty when nobody killed anyone.
+ */
+export function matchVars(
+	end: MatchEnd,
+	lines: MatchLineVars[] = []
+): Record<string, string | number> {
 	const top = end.scores[0]?.score ?? 0;
+	const ranked = lines.filter((l) => l.kills > 0).sort((a, b) => b.kills - a.kills);
+	const best = ranked[0]?.kills ?? 0;
 	return {
 		faction: end.leaders.join(' and '),
 		score: top,
 		scores: end.scores.map((f) => `${f.name} ${f.score}`).join(' · '),
-		previous: end.map
+		previous: end.map,
+		mvp: ranked
+			.filter((l) => l.kills === best)
+			.map((l) => l.name)
+			.join(' and '),
+		top: ranked
+			.slice(0, 3)
+			.map((l) => `${l.name} ${l.kills}`)
+			.join(' · ')
 	};
 }
 
@@ -605,10 +628,11 @@ export function matchBroadcastMessages(
 	cfg: MatchBroadcastConfig,
 	end: MatchEnd,
 	playerCount: number,
-	vars: Record<string, string | number>
+	vars: Record<string, string | number>,
+	lines: MatchLineVars[] = []
 ): { stage: 'end' | 'start'; message: string }[] {
 	if (playerCount < cfg.minPlayers) return [];
-	const all = { ...vars, ...matchVars(end) };
+	const all = { ...vars, ...matchVars(end, lines) };
 	const out: { stage: 'end' | 'start'; message: string }[] = [];
 	if (cfg.endMessage && end.leaders.length)
 		out.push({ stage: 'end', message: renderTemplate(cfg.endMessage, all) });
@@ -673,7 +697,7 @@ export function welcomeTargets<P extends { steamId: string }>(
 export const factionChangeTargets = <P>(tick: { factioned: FactionPick<P>[] }): FactionPick<P>[] =>
 	tick.factioned.filter((f) => !!f.from);
 
-/** Fills {name}, {faction}, {previous}, {server}, {map}, {players} and {max}; unknown ones stay. */
+/** Fills {name}, {faction}, {previous}, {server}, {map}, {players}, {max} and the rest; unknown ones stay. */
 export function renderTemplate(text: string, vars: Record<string, string | number>): string {
 	const lower: Record<string, string> = {};
 	for (const [k, v] of Object.entries(vars)) lower[k.toLowerCase()] = String(v);
