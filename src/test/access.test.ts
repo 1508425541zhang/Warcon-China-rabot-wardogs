@@ -163,6 +163,31 @@ describe.skipIf(!hasTestDb)('access', () => {
 			);
 		});
 
+		test("the watchlist is the org's: Notes on one server marks a player seen on another", async () => {
+			const w = await seedWorld(env);
+			const player = '76561198000000093';
+			// View here, Notes on the other server: the org's Players page sends Watch through the
+			// other server, since this one refuses it, and the mark shows here all the same
+			await env.db.insert(serverGrants).values({
+				serverId: w.otherServer.id,
+				userId: w.users.viewer!.id,
+				roleId: w.roles.operator
+			});
+			const watch = (serverId: string) =>
+				api(w, 'viewer', 'PUT api/servers/[id]/players/[steamId]/watch', {
+					params: { id: serverId, steamId: player },
+					body: { watched: true, reason: '' }
+				});
+			expect((await watch(w.server.id)).status).toBe(403);
+			expect((await watch(w.otherServer.id)).status).toBe(200);
+			const here = await api(w, 'viewer', 'GET api/servers/[id]/players/[steamId]', {
+				params: { id: w.server.id, steamId: player }
+			});
+			expect(
+				(here.body as { dossier: { watch: { watched: boolean } } }).dossier.watch.watched
+			).toBe(true);
+		});
+
 		test('the org lists and audit.read are found in the stored role', async () => {
 			const w = await seedWorld(env);
 			const lists = async (who: PrincipalName) =>
