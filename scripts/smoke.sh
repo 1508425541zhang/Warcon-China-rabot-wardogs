@@ -281,10 +281,13 @@ check steam-set '200' "$(form $J1 '/account?/steam' 'steamId=76561198100000801')
 check steam-dup-carol '409' "$(form $J5 '/account?/steam' 'steamId=76561198100000801')"
 check steam-shown '76561198100000801' "$(curl -s -b $J1 $B/account)"
 check members-reserved '"sync"' "$(req $J1 PATCH /api/orgs/$ORG '{"membersReserved":true}')"
-check member-slot '76561198100000801' "$(req $J1 GET /api/servers/$SID/rcon/reserved)"
+# the switch fans out to the org's servers; the answer comes back before a slow sync has landed
+for i in $(seq 1 10); do R=$(req $J1 GET /api/servers/$SID/rcon/reserved); [[ "$R" == *76561198100000801* ]] && break; sleep 2; done
+check member-slot '76561198100000801' "$R"
 check member-entry '"member":true' "$(req $J1 GET /api/orgs/$ORG/lists/reserve/entries)"
 check member-off '"sync"' "$(req $J1 PATCH /api/orgs/$ORG '{"membersReserved":false}')"
-check member-slot-gone '0' "$(req $J1 GET /api/servers/$SID/rcon/reserved | grep -c 76561198100000801)"
+for i in $(seq 1 10); do R=$(req $J1 GET /api/servers/$SID/rcon/reserved); [[ "$R" != *76561198100000801* ]] && break; sleep 2; done
+check member-slot-gone '0' "$(echo "$R" | grep -c 76561198100000801)"
 for i in $(seq 1 12); do R=$(req $J1 GET /api/servers/$SID/lists/state); [[ "$R" != *76561198100000701* ]] && break; sleep 3; done
 check expiry-lifted '0' "$(echo "$R" | grep -c 76561198100000701)"
 # the view drops a lapsed entry at once; the worker's sweep marks it expired and writes the audit row within its next five seconds
