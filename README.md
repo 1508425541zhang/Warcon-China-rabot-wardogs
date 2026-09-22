@@ -390,6 +390,8 @@ of the organisation's servers, the names they have used, the admin actions taken
 bans, whispers, trigger actions), notes admins have left, and a watchlist flag with a reason.
 Notes and the watchlist are shared by every server in the organisation; roles with _Notes &
 watchlist_ can write them, and a note can be deleted by its author or a role with _Others' notes_.
+A [Discord webhook](#discord-webhooks) ticked for _Watched players joining_ posts each time a
+watched player joins one of the organisation's servers.
 
 With `STEAM_API_KEY` set, the dossier also shows the Steam persona, account age (public profiles
 only), VAC and game bans, refreshed daily and on demand, and what its friends list shows, looked
@@ -562,7 +564,8 @@ A webhook is one Discord channel, and each one carries what is ticked for it. On
 organisation's overview an owner adds channel webhooks (in Discord: channel settings →
 Integrations → Webhooks → copy URL) and chooses what to mirror: bans (including org list changes), other game commands, trigger
 actions, player notes and watchlist changes, management changes, sign-ins, team kills from the
-[kill feed](#kill-feed); for every server or a subset. A separate team-kill channel is a second
+[kill feed](#kill-feed), watched players joining (with why they are watched, a poll after they
+connect; the post opens their page in the panel); for every server or a subset. A separate team-kill channel is a second
 webhook with only that box ticked; the server's **Settings** tab connects one in a click. Events are batched into one message per burst, and the URL
 (which lets anyone post to the channel) is stored encrypted with `ENCRYPTION_KEY` and never shown
 again. **Test** posts a message right away; delivery failures show on the org page.
