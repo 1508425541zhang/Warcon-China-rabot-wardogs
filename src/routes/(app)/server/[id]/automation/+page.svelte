@@ -806,7 +806,9 @@
 <div class="space-y-2">
 	{#each rows as t (t.id)}
 		{@const h = health.get(t.id)}
-		<div class="panel py-3.5 {t.enabled ? '' : 'opacity-60'}">
+		<!-- An off row fades its contents, not the panel: opacity on the panel would fade the ⋯ menu
+		     too and trap it under the next row. -->
+		<div class="panel py-3.5">
 			<div class="flex items-start gap-3">
 				<button
 					type="button"
@@ -815,7 +817,7 @@
 					aria-label="{t.name}: {t.enabled ? 'on' : 'off'}"
 					class="mt-1 h-[18px] w-8 shrink-0 cursor-pointer rounded-full border border-black transition disabled:cursor-not-allowed {t.enabled
 						? 'bg-accent'
-						: 'bg-ink-700'}"
+						: 'bg-ink-700 opacity-60'}"
 					disabled={!admin || busy}
 					onclick={() => toggle(t)}
 				>
@@ -825,7 +827,7 @@
 							: 'translate-x-[2px]'}"
 					></span>
 				</button>
-				<div class="min-w-0 flex-1">
+				<div class="min-w-0 flex-1 {t.enabled ? '' : 'opacity-60'}">
 					<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
 						{#if admin}
 							<button

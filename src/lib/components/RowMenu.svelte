@@ -1,6 +1,7 @@
 <script lang="ts">
 	// A "⋯" button that drops a small menu of the rarer actions on a row, so a list of rows does
-	// not carry three buttons each. Items are rendered by the caller; any click inside closes it.
+	// not carry three buttons each. Items are rendered by the caller; any click inside closes it,
+	// and so does any click outside, including on another row's ⋯.
 	import type { Snippet } from 'svelte';
 	let {
 		label = 'More actions',
@@ -10,24 +11,24 @@
 		children: Snippet;
 	} = $props();
 	let open = $state(false);
+	let wrap: HTMLDivElement;
 </script>
 
 <svelte:window
-	onclick={() => (open = false)}
+	onclick={(e) => {
+		if (!wrap.contains(e.target as Node)) open = false;
+	}}
 	onkeydown={(e) => e.key === 'Escape' && (open = false)}
 />
 
-<div class="relative shrink-0">
+<div class="relative shrink-0" bind:this={wrap}>
 	<button
 		type="button"
 		class="btn btn-sm w-8 px-0 text-[15px] leading-none tracking-[0.1em] {open ? 'bg-ink-700' : ''}"
 		aria-label={label}
 		aria-haspopup="menu"
 		aria-expanded={open}
-		onclick={(e) => {
-			e.stopPropagation();
-			open = !open;
-		}}>⋯</button
+		onclick={() => (open = !open)}>⋯</button
 	>
 	{#if open}
 		<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
