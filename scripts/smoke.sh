@@ -248,6 +248,14 @@ check orgbans-no-reserve 'Org reserved slots' "$(req $J6 POST /api/orgs/$ORG/lis
 check page-orgbans-bans '200' "$(pagecode $J6 "/orgs/$ORG/bans")"
 check page-orgbans-reserved '403' "$(pagecode $J6 "/orgs/$ORG/reserved")"
 check orgbans-no-reserved-tab '0' "$(curl -s -b $J6 $B/orgs/$ORG/bans | grep -c "/orgs/$ORG/reserved")"
+# the org's Players page offers each action to whoever may take it: dave bans, but keeps no notes,
+# so no Watch (wait for the worker to have seen players, or the table is empty for everyone)
+for i in $(seq 1 15); do R=$(curl -s -b $J1 "$B/orgs/$ORG/players"); [[ "$R" == *'Watch</button>'* ]] && break; sleep 2; done
+check page-players-owner-watch 'Watch</button>' "$R"
+R=$(curl -s -b $J6 "$B/orgs/$ORG/players")
+check page-players-orgbans-ban 'Ban</button>' "$R"
+check page-players-orgbans-no-watch '0' "$(echo "$R" | grep -c 'atch</button>')"
+check page-players-orgbans-no-reserve '0' "$(echo "$R" | grep -c 'Reserve</button>')"
 # bans are the panel's to enforce: an entry is in force at once and nothing is written to the game
 check ban-not-in-game '0' "$(req $J1 GET /api/servers/$SID/rcon/bans | grep -c $L1)"
 check sync-state-managed "\"$L1\":{\"state\":\"applied\",\"managed\":true" "$(req $J1 GET /api/servers/$SID/lists/state)"
