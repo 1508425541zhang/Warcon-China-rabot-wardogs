@@ -285,23 +285,24 @@ org's **Roles** tab (a change applies at once to everyone holding the role), res
 what it shipped with, and add roles of their own, say a `Trial staff` that may kick but not ban.
 Org owners and the site owner hold every capability on every server in scope.
 
-| Capability        | Unlocks                                                                                                                                                                   | viewer | operator | admin |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------- | ----- |
-| View              | what is happening on the server: status, players, kills, rotation, who is banned and who holds a reserved slot, analytics, leaderboards, player stats. Every role has it. | ✓      | ✓        | ✓     |
-| Chat              | broadcast, whisper                                                                                                                                                        |        | ✓        | ✓     |
-| Kick, kill, move  | kick, kill, change team                                                                                                                                                   |        | ✓        | ✓     |
-| Match control     | end/restart match, change map, next map, weather                                                                                                                          |        | ✓        | ✓     |
-| Live rotation     | add, remove and reorder rotation entries on the running server                                                                                                            |        | ✓        | ✓     |
-| Notes & watchlist | read and add player notes (delete your own), watch and unwatch, the reason a player is watched                                                                            |        | ✓        | ✓     |
-| Bans              | ban and unban on the server                                                                                                                                               |        |          | ✓     |
-| Reserved slots    | reserve and unreserve on this server, with a note and an expiry, and read the notes; a Seeding reward rule that hands out slots here                                      |        |          | ✓     |
-| Org lists         | the organisation's ban and reserved-slot lists, pushed to every server; sync; a player's entry on them in the dossier                                                     |        |          | ✓     |
-| Others' notes     | delete anyone's note                                                                                                                                                      |        |          | ✓     |
-| Save rotation     | save the rotation, rotation mode on and off                                                                                                                               |        |          | ✓     |
-| Config & settings | read, validate and apply the config document; score tick, sponsor image, connection test, the game's raw status                                                           |        |          | ✓     |
-| Automation        | see the triggers and what they did; create, edit, dry-run and delete them                                                                                                 |        |          | ✓     |
-| Audit trail       | everyone's actions on the server in the audit log, not just your own; the game server's own RCON log                                                                      |        |          | ✓     |
-| Raw RCON          | any /v1 route on the game server directly, except the config document                                                                                                     |        |          | ✓     |
+| Capability         | Unlocks                                                                                                                                                                   | viewer | operator | admin |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------- | ----- |
+| View               | what is happening on the server: status, players, kills, rotation, who is banned and who holds a reserved slot, analytics, leaderboards, player stats. Every role has it. | ✓      | ✓        | ✓     |
+| Chat               | broadcast, whisper                                                                                                                                                        |        | ✓        | ✓     |
+| Kick, kill, move   | kick, kill, change team                                                                                                                                                   |        | ✓        | ✓     |
+| Match control      | end/restart match, change map, next map, weather                                                                                                                          |        | ✓        | ✓     |
+| Live rotation      | add, remove and reorder rotation entries on the running server                                                                                                            |        | ✓        | ✓     |
+| Notes & watchlist  | read and add player notes (delete your own), watch and unwatch, the reason a player is watched                                                                            |        | ✓        | ✓     |
+| Bans               | ban and unban on the server                                                                                                                                               |        |          | ✓     |
+| Reserved slots     | reserve and unreserve on this server, with a note and an expiry, and read the notes; a Seeding reward rule that hands out slots here                                      |        |          | ✓     |
+| Org ban list       | the organisation's ban list, enforced on every server; sync; a player's entry on it in the dossier                                                                        |        |          | ✓     |
+| Org reserved slots | the organisation's reserved-slot list, handed out on every server; sync; a player's entry on it in the dossier; a Seeding reward rule that hands out slots everywhere     |        |          | ✓     |
+| Others' notes      | delete anyone's note                                                                                                                                                      |        |          | ✓     |
+| Save rotation      | save the rotation, rotation mode on and off                                                                                                                               |        |          | ✓     |
+| Config & settings  | read, validate and apply the config document; score tick, sponsor image, connection test, the game's raw status                                                           |        |          | ✓     |
+| Automation         | see the triggers and what they did; create, edit, dry-run and delete them                                                                                                 |        |          | ✓     |
+| Audit trail        | everyone's actions on the server in the audit log, not just your own; the game server's own RCON log                                                                      |        |          | ✓     |
+| Raw RCON           | any /v1 route on the game server directly, except the config document                                                                                                     |        |          | ✓     |
 
 View is what is happening on the server and nothing about how it is run. The config document, the
 triggers, staff notes on players and the game's RCON log each need the capability that manages
@@ -323,7 +324,10 @@ roles, per-server grants and invite links and Discord webhooks, and sees the org
 
 Members see the audit trail for their own actions plus everything on servers where their role
 includes _Audit trail_. Existing installs keep their access on upgrade: every grant is mapped to
-the matching built-in role of its organisation.
+the matching built-in role of its organisation. _Org lists_ has since been split into _Org ban
+list_ and _Org reserved slots_, so an org can hand out one without the other: every role, and
+every API key over the whole organisation, that held it was given both; a key limited to some
+servers, which could never open the org lists, was given neither.
 
 ### Self-service sign-up
 
@@ -422,12 +426,14 @@ server's own, marked _here_ on its Bans tab with the reason, who placed it and w
 panel enforces its bans itself: the worker removes a banned player the moment it sees them on
 the server, with the organisation's ban message, and writes nothing to the game's own ban list or
 files. Select a ban the panel holds and choose **Edit**
-to change its reason or expiry; who placed it and when stay as they are. Org owners and
-anyone whose role on one of the org's servers includes _Org lists_ can edit the org lists;
+to change its reason or expiry; who placed it and when stay as they are. Org owners can edit
+both org lists; anyone whose role on one of the org's servers includes _Org ban list_ or _Org
+reserved slots_ can edit that list, and either one opens the org's Players and Servers tabs.
 _Bans_ on a server covers its own ban list and _Reserved slots_ its own slots. A ban can carry a
 reason and an expiry, a reserved slot a note and an expiry. Everyone who can open the server sees who is banned, why and until when, so
 write a reason as something the player could be told; who placed a ban is shown to people who hold
-_Bans_ on the server or may edit the org lists.
+_Bans_ on the server or may edit the org's ban list, and the note on a reserved slot to people who
+hold _Reserved slots_ on the server or may edit the org's reserved-slot list.
 
 An org owner can set a **ban message** on the Ban list tab: the text a banned player is shown,
 built from the reason and facts about the ban, for example
@@ -450,8 +456,9 @@ Bans and reserved slots that your servers already hold show up on the list pages
 **import**: an owner reviews them, and importing puts them on the org list, marks them as managed
 on the servers that have them, and applies them to the rest. On a server's Bans tab a local ban can be
 promoted the same way (owners), or added to the org list while this server's own copy stays local
-(list editors). Every dossier shows the player's standing on the org lists and lets an editor ban
-or unban org-wide, or hand out and withdraw a reserved slot, without leaving the page.
+(ban list editors). Every dossier shows the player's entry on each org list the reader may edit,
+and lets them ban or unban org-wide, or hand out and withdraw a reserved slot, without leaving the
+page.
 
 A ban or reserved slot with an **expiry** is lifted by the panel when the time comes: the entry
 moves to the list's history as expired; an expired ban stops being enforced at once, and an
@@ -494,7 +501,7 @@ create them; every action they take is in the audit trail under the `trigger` ca
 rule that fired, and can be mirrored to Discord. A rule acts with nobody at the controls, so
 saving or dry-running one needs, besides _Automation_, the capability for what it does: _Chat_ for
 the rules that message players, _Match control_ for the map reset, _Kick, kill, move_ for the three
-that kick, and for the Seeding reward _Reserved slots_ or _Org lists_ (see its row). A custom role
+that kick, and for the Seeding reward _Reserved slots_ or _Org reserved slots_ (see its row). A custom role
 or API key with _Automation_ alone can read the rules and delete them.
 
 | Trigger                | Does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -507,7 +514,7 @@ or API key with _Automation_ alone can read the rules and delete them.
 | High ping kick         | Kicks a player whose reported ping remains above a configurable limit for a configurable number of seconds. Normal or unavailable ping, leaving, or interrupted player-list polling resets the timer. Historical ping is not stored, so this rule cannot be replayed in a dry run.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Team kill limit        | Whispers a player from N team kills in their current session, and kicks them at M. Needs the [kill feed](#kill-feed); acted on as each kill arrives, not per poll.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Match broadcast        | Announces the result when a match ends and the map as the next one starts, either message optional, with at least N players on. A match ends when the map changes or the faction scores fall back to zero (a faction reached the cap, or an admin ended the round; live builds send no score cap or match clock, so Warcon assumes the game's default of 100), so `{faction}` is whoever led at that moment, tied factions named together. Placeholders `{faction}` `{score}` `{scores}` `{cap}` `{previous}` `{map}` `{server}` `{players}` `{max}`, and from the players' lines of the match that ended `{mvp}` (the most kills, tied players named together) and `{top}` (the top three with their kills). Sent one poll after the round ends.                                                                                                                                                                                                                                                                                                                                   |
-| Seeding reward         | Time a player spends on with at most N players counts as seed time, by default banked only once the server has filled (a count the rule sets, else the limit the server reports) with the player still on, so staying until the threshold and leaving, or a few minutes on an empty server, earns nothing (a switch on the rule counts every low minute instead); M minutes of it over the sessions that ended in the last D days earns a reserved slot for E days, with an optional whisper: on this server only (its own reserved-slot list, which needs the Reserved slots capability) or on every server in the organisation (the org list, which needs Org lists), chosen on the rule. The seeded server applies it at once and, for an org-wide slot, the other servers at their next sync; it lapses on its own and can be earned again; players who already hold a slot here are skipped. Seed time is kept on each session, so the dossier history, the leaderboard's Seed time column and the dry run show it.                                                            |
+| Seeding reward         | Time a player spends on with at most N players counts as seed time, by default banked only once the server has filled (a count the rule sets, else the limit the server reports) with the player still on, so staying until the threshold and leaving, or a few minutes on an empty server, earns nothing (a switch on the rule counts every low minute instead); M minutes of it over the sessions that ended in the last D days earns a reserved slot for E days, with an optional whisper: on this server only (its own reserved-slot list, which needs the Reserved slots capability) or on every server in the organisation (the org list, which needs Org reserved slots), chosen on the rule. The seeded server applies it at once and, for an org-wide slot, the other servers at their next sync; it lapses on its own and can be earned again; players who already hold a slot here are skipped. Seed time is kept on each session, so the dossier history, the leaderboard's Seed time column and the dry run show it.                                                   |
 
 **Dry run** replays the last 24 hours of the server's own history (joins, player counts, empty
 stretches, cached Steam data) against a rule and lists what it would have done, so you can tune a
@@ -701,7 +708,8 @@ A Discord bot or a script talks to the same `/api` routes as the panel, with an 
 **API key** instead of a session. An org owner mints one on the org page under **API keys**: a
 label, the capabilities it carries (the same list roles use), which servers it may touch (or every
 server the org has, now and later), and an optional expiry. The token is shown once; only its
-hash is stored. Keys can read and act on servers and edit the org lists, but never manage the
+hash is stored. Keys can read and act on servers and edit the org lists (a key limited to some
+servers carries neither _Org ban list_ nor _Org reserved slots_), but never manage the
 organisation, its members or its keys, and never reach the site owner's routes.
 
 ```sh
@@ -935,8 +943,8 @@ POST /api/servers/:id/players/:steamId/notes {body}     DELETE .../notes/:noteId
 GET/POST /api/servers/:id/triggers {kind,name,enabled,config}   PATCH/DELETE .../:triggerId   POST .../dry-run {kind,config}
 GET/POST /api/orgs/:id/webhooks {label,url,events,serverIds,enabled,statusEnabled,statusStyle,statusIntervalS,linkStatus,linkLeaderboard,linkPanel}   PATCH/DELETE .../:webhookId   POST .../:webhookId/test
 GET  /api/public/servers/:id   .../leaderboard (same query as above, page 20 at most)   .../players/:steamId      the public pages' JSON: no session, 404 while the page is off, limited per address
-GET  /api/orgs/:id/lists                                 the org's ban and reserved-slot lists, and the caller's role on them
-GET/POST /api/orgs/:id/lists/:kind/entries {steamId,reason,expiresAt}   PATCH {reason,expiresAt} / DELETE .../entries/:steamId   (kind = ban | reserve; ?includeRemoved=1)
+GET  /api/orgs/:id/lists                                 the org lists the caller edits (kinds), with counts, and the caller's role on them
+GET/POST /api/orgs/:id/lists/:kind/entries {steamId,reason,expiresAt}   PATCH {reason,expiresAt} / DELETE .../entries/:steamId   (kind = ban | reserve, needing Org ban list or Org reserved slots; ?includeRemoved=1)
 POST /api/orgs/:id/lists/sync                            push the lists to every org server now
 GET  /api/orgs/:id/lists/import                          server entries not on the org list   POST {entries:[{kind,steamId,reason}]} adopts them (owner)
 GET  /api/servers/:id/players/seen?q=&since=&flag=&sort=&dir=&offset=&limit=   everyone who has played on this server, by name, alias or SteamID (View; 60 a minute)
