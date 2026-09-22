@@ -332,8 +332,8 @@
 			</table>
 		</div>
 		<p class="note">
-			Samples grow by about 4,300 rows per server per day and roll up hourly after the raw retention
-			window; sessions, matches and kills are kept for good.
+			Samples grow by about 4,300 rows per server per day and roll up hourly; nothing is deleted. On
+			TimescaleDB, samples and kills are compressed as they age.
 		</p>
 	</div>
 

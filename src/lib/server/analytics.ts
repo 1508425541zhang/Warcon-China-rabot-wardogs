@@ -20,6 +20,8 @@ const RANGE_MS: Record<Range, number> = {
 };
 /** Bucket width per range so a chart gets roughly 300 points. */
 const BUCKET_S: Record<Range, number> = { '24h': 300, '7d': 1800, '30d': 7200 };
+/** Ranges longer than this read the hourly rollups (the 30-day charts); shorter ones read raw rows. */
+const ROLLED_BEYOND_MS = 14 * 86400_000;
 
 export const parseRange = (v: string | null): Range => (v === '7d' || v === '30d' ? v : '24h');
 
@@ -177,8 +179,9 @@ export async function loadAnalytics(env: Env, serverId: string, range: Range): P
 	const from = new Date(to.getTime() - RANGE_MS[range]);
 	const bucket = BUCKET_S[range];
 	const db = env.db;
-	// Longer than the raw retention: the hourly rollups carry the older part of the range.
-	const rolled = RANGE_MS[range] > settings().rawRetentionDays * 86400000;
+	// The hourly rollups carry the older part of a long range: far fewer rows, the same numbers,
+	// and on TimescaleDB the raw rows beyond two weeks sit in compressed chunks.
+	const rolled = RANGE_MS[range] > ROLLED_BEYOND_MS;
 	const covered = (serverId: string, from: Date) =>
 		rolled ? rolledRows(serverId, from) : rawRows(serverId, from);
 

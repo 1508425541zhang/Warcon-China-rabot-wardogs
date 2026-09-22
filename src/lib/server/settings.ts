@@ -1,5 +1,5 @@
 // Runtime settings the site owner may change without a deploy: observation cadences, budgets,
-// retention. Stored in site_settings (key + JSON), bounds enforced here, audited by the caller,
+// sign-in rules. Stored in site_settings (key + JSON), bounds enforced here, audited by the caller,
 // re-read by the worker every few seconds. Env vars only seed the defaults on a fresh install.
 import { eq } from 'drizzle-orm';
 import type { Env } from './env';
@@ -156,24 +156,6 @@ export const SETTINGS = {
 		min: 10_000,
 		max: 3_600_000,
 		group: 'delivery'
-	},
-	rawRetentionDays: {
-		label: 'Raw samples kept',
-		help: 'Days of per-observation samples to keep; charts beyond this use the hourly rollups.',
-		unit: 'days',
-		default: 14,
-		min: 1,
-		max: 365,
-		group: 'housekeeping'
-	},
-	sessionRetentionDays: {
-		label: 'Sessions and matches kept',
-		help: 'Days of player sessions and match history to keep.',
-		unit: 'days',
-		default: 365,
-		min: 7,
-		max: 3650,
-		group: 'housekeeping'
 	},
 	authEnforce: {
 		label: 'Sign-in rules',

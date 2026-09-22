@@ -1,10 +1,10 @@
-// Hourly rollups of the samples table and the raw retention policy. The worker runs rollupSamples
-// once an hour: it re-derives every complete hour since the last rollup (recomputing the newest
-// one, whose trailing sample's cover was cut short last time) with the same duration weighting
-// analytics.ts uses on raw rows, so the 30-day charts read the same numbers from far fewer rows.
+// Hourly rollups of the samples table. The worker runs rollupSamples once an hour: it re-derives
+// every complete hour since the last rollup (recomputing the newest one, whose trailing sample's
+// cover was cut short last time) with the same duration weighting analytics.ts uses on raw rows,
+// so the 30-day charts read the same numbers from far fewer rows. Nothing here deletes: raw
+// samples and rollups are kept for good (on TimescaleDB, samples are compressed as they age).
 import { sql } from 'drizzle-orm';
 import type { Env } from './env';
-import { settings } from './settings';
 
 /** A sample never covers more than this (matches analytics.ts). */
 export const MAX_COVER_S = 600;
@@ -12,8 +12,7 @@ export const MAX_COVER_S = 600;
 export async function rollupSamples(env: Env): Promise<void> {
 	// One window for both statements: from the newest rollup (recomputed, since its trailing
 	// sample's cover was cut short last time) or else the oldest raw sample, to the last complete
-	// hour. Starting from the oldest sample means an upgrade rolls up everything it still holds
-	// before the shorter raw retention takes effect.
+	// hour. Starting from the oldest sample means an upgrade rolls up everything it holds.
 	const [b] = await env.db.execute<{ since: Date | null; until: Date }>(sql`
 		SELECT COALESCE((SELECT MAX(bucket) - interval '1 hour' FROM sample_rollups), (SELECT MIN(ts) FROM samples)) AS since,
 		       date_trunc('hour', now()) AS until`);
@@ -47,45 +46,4 @@ export async function rollupSamples(env: Env): Promise<void> {
 		 GROUP BY server_id, date_trunc('hour', ts), map
 		ON CONFLICT (server_id, bucket, map) DO UPDATE SET secs = EXCLUDED.secs`);
 	});
-	const keep = settings().sessionRetentionDays;
-	await env.db.execute(
-		sql`DELETE FROM sample_rollups WHERE bucket < now() - (${keep} || ' days')::interval`
-	);
-	await env.db.execute(
-		sql`DELETE FROM sample_map_rollups WHERE bucket < now() - (${keep} || ' days')::interval`
-	);
-}
-
-/**
- * Makes TimescaleDB's retention policy on samples follow the rawRetentionDays setting (plain
- * Postgres installs prune in poller.ts instead). Returns whether the policy was (re)created.
- */
-export async function applyRetentionPolicy(env: Env): Promise<boolean> {
-	if (!env.timescale) return false;
-	const days = settings().rawRetentionDays;
-	const [job] = await env.db.execute<{ drop_after: string | null }>(sql`
-		SELECT config->>'drop_after' AS drop_after FROM timescaledb_information.jobs
-		 WHERE proc_name = 'policy_retention' AND hypertable_name = 'samples' LIMIT 1`);
-	const want = `${days} days`;
-	if (job && job.drop_after && sameInterval(job.drop_after, want)) return false;
-	await env.db.execute(sql`SELECT remove_retention_policy('samples', true)`);
-	await env.db.execute(
-		sql`SELECT add_retention_policy('samples', (${want})::interval, if_not_exists => true)`
-	);
-	console.log(`[warcon] samples retention policy set to ${want}`);
-	return true;
-}
-
-/** "14 days" and "14 days" match; so do "2 weeks"-style spellings Postgres may echo back. */
-function sameInterval(a: string, b: string): boolean {
-	const norm = (s: string) =>
-		s
-			.replace(/\s+/g, ' ')
-			.trim()
-			.toLowerCase()
-			.replace(/^1 day$/, '1 days');
-	if (norm(a) === norm(b)) return true;
-	const m = /^(\d+) days?$/.exec(norm(a));
-	const n = /^(\d+) days?$/.exec(norm(b));
-	return !!m && !!n && m[1] === n[1];
 }
