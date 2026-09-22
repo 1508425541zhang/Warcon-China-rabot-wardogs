@@ -73,7 +73,7 @@ export const DEFAULT_BOARD_QUERY: BoardQuery = {
  * One player's row: everything the board can rank by, as stored counts. Kills, deaths and the
  * match results are summed from the player's match rows (the game's own scoreboard, per match);
  * headshots, team kills, suicides, vehicle kills and streaks are the feed's columns of those
- * rows; playtime, seed time, the name and the cash balance come from sessions.
+ * rows; playtime, seed time, the name and cash come from sessions.
  */
 export interface BoardRow {
 	rank: number;
@@ -96,7 +96,7 @@ export interface BoardRow {
 	wins: number;
 	losses: number;
 	draws: number;
-	/** the balance as last seen (the game keeps cash across matches), not a sum */
+	/** cash over the range: the sum of the sessions' cash, each banked across its matches */
 	cash: number;
 	lastSeen: string | null;
 }

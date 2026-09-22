@@ -612,10 +612,11 @@ function resetScores(s: State): void {
 		f.score = 0;
 	}
 	s.matchStart = Date.now();
-	// Kills and deaths start again; cash is the player's balance and carries over, as in the game.
+	// Kills, deaths and cash start again, as on the game's scoreboard.
 	for (const p of s.players) {
 		p.kills = 0;
 		p.deaths = 0;
+		p.cash = 0;
 	}
 }
 

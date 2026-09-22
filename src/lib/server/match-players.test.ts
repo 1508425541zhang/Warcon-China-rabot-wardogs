@@ -42,15 +42,17 @@ describe('a match tally', () => {
 		});
 	});
 
-	test('banks what was reached when a counter drops, and cash never banks', () => {
+	test('banks what was reached when a counter drops, cash included', () => {
 		const t: Tallies = new Map();
-		look(t, [player('a', 5, 2, 1000)], 1000);
-		look(t, [player('a', 1, 0, 1000)], 3000, ['a']);
-		look(t, [player('a', 2, 0, 1100)], 5000, ['a']);
+		look(t, [player('a', 3, 1, 200)], 500);
+		look(t, [player('a', 5, 2, 1000)], 1000, ['a']);
+		// the counters start again: the 800 earned so far is banked, the 50 is the new start
+		look(t, [player('a', 1, 0, 50)], 3000, ['a']);
+		look(t, [player('a', 2, 0, 150)], 5000, ['a']);
 		const row = tallyRow(t.get('a')!);
 		expect(row.kills).toBe(7);
 		expect(row.deaths).toBe(2);
-		expect(row.cashDelta).toBe(100);
+		expect(row.cashDelta).toBe(900);
 		expect(t.get('a')!.droppedAt).toBe(3000);
 	});
 
@@ -91,15 +93,15 @@ describe('closing a match', () => {
 		look(t, [player('a', 9, 4, 1000)], 1000);
 		look(t, [player('a', 9, 4, 1200)], 5000, ['a']);
 		// the status looked at 6000 and saw the old match; the list at 7000 already shows the new one
-		look(t, [player('a', 1, 0, 1250)], 7000, ['a']);
+		look(t, [player('a', 1, 0, 50)], 7000, ['a']);
 		const { rows, carried } = closeTallies(t, 6000);
 		expect(rows).toEqual([
-			{ steamId: 'a', name: 'a', faction: 'Red', seconds: 6, kills: 9, deaths: 4, cashDelta: 250 }
+			{ steamId: 'a', name: 'a', faction: 'Red', seconds: 6, kills: 9, deaths: 4, cashDelta: 200 }
 		]);
 		const next = carried.get('a')!;
-		expect(next.banked).toEqual({ kills: 0, deaths: 0 });
+		expect(next.banked).toEqual({ kills: 0, deaths: 0, cash: 0 });
 		expect(next.last).toEqual({ kills: 1, deaths: 0 });
-		expect(next.cashFirst).toBe(1250);
+		expect(next.cashFirst).toBe(50);
 		expect(next.droppedAt).toBe(0);
 		expect(tallyRow(next)).toMatchObject({ kills: 1, deaths: 0, cashDelta: 0 });
 	});

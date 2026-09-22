@@ -600,7 +600,7 @@ streaks. A match counts once it has ended (the match in progress is on the live 
 result (win, loss, draw) is read from the match's winner and final scores against the side the
 player played; a match with no winner and nobody scoring, or one abandoned by a restart, has no
 result. Playtime and seed time come from player sessions; kills per hour leaves seed time out;
-cash is the balance as last seen, since the game keeps it across matches. Names link to the dossier.
+cash is summed over sessions, each banked across its matches like kills. Names link to the dossier.
 
 Each dossier has a **Career** section: rank on the all-time kills board for this server and the
 organisation, the current win or loss streak, matches with wins, losses and draws, K/D, kills per

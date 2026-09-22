@@ -7,8 +7,9 @@
 // The tally follows the rule followPlayer applies to a session: the game's per-match counters
 // only climb, so a counter below the last look means the game started it again (a reconnect with
 // fresh counters, or the next match reaching the player list before the status shows it). What
-// was reached is banked and the new counters add on top. Cash is the player's balance, kept by
-// the game across matches, so it never banks: the row carries the change over the match.
+// was reached is banked and the new counters add on top. Cash banks the same way: the scoreboard
+// starts it again with the counters (seen on the live game, 2026-09-22), so the row carries what
+// each run of the counters earned, the cash at the last look less the cash at the first.
 import { sql } from 'drizzle-orm';
 import type { DbOrTx } from './db';
 import { isTeam } from './sessions';
@@ -21,15 +22,14 @@ export interface MatchTally {
 	name: string;
 	/** the last side seen that was a team on the scoreboard */
 	faction: string | null;
-	/** counters the game reset since the match began, as they stood when it did */
-	banked: { kills: number; deaths: number };
+	/** counters the game reset since the match began, as they stood when it did; for cash, what
+	 *  each earlier run of the counters earned */
+	banked: { kills: number; deaths: number; cash: number };
 	/** the game's counters at the last look */
 	last: { kills: number; deaths: number };
-	/** the balance at the first look of the match, and at the last */
+	/** the cash at the first look of this run of the counters, and at the last */
 	cashFirst: number;
 	cashLast: number;
-	/** the balance at the look that saw the counters drop */
-	cashAtDrop: number;
 	/** when the counters last dropped; 0 never */
 	droppedAt: number;
 	/** time on during the match: the gaps between trusted looks the player was on for */
@@ -50,7 +50,7 @@ export interface TallyRow {
 	seconds: number;
 	kills: number;
 	deaths: number;
-	/** the balance at the end less the balance at the start */
+	/** the cash earned over the match: each run of the counters' last look less its first */
 	cashDelta: number;
 }
 
@@ -72,11 +72,10 @@ export function tallyLook(
 				steamId: p.steamId,
 				name: p.name,
 				faction: isTeam(p.faction, opts.teams) ? p.faction : null,
-				banked: { kills: 0, deaths: 0 },
+				banked: { kills: 0, deaths: 0, cash: 0 },
 				last: { kills: p.kills, deaths: p.deaths },
 				cashFirst: p.cash,
 				cashLast: p.cash,
-				cashAtDrop: p.cash,
 				droppedAt: 0,
 				ms: 0,
 				lastSeen: opts.now,
@@ -87,8 +86,9 @@ export function tallyLook(
 		if (p.kills < t.last.kills || p.deaths < t.last.deaths) {
 			t.banked.kills += t.last.kills;
 			t.banked.deaths += t.last.deaths;
+			t.banked.cash += t.cashLast - t.cashFirst;
+			t.cashFirst = p.cash;
 			t.droppedAt = opts.now;
-			t.cashAtDrop = p.cash;
 		}
 		t.last = { kills: p.kills, deaths: p.deaths };
 		t.cashLast = p.cash;
@@ -107,7 +107,7 @@ export const tallyRow = (t: MatchTally): TallyRow => ({
 	seconds: Math.round(t.ms / 1000),
 	kills: t.banked.kills + t.last.kills,
 	deaths: t.banked.deaths + t.last.deaths,
-	cashDelta: t.cashLast - t.cashFirst
+	cashDelta: t.banked.cash + t.cashLast - t.cashFirst
 });
 
 /**
@@ -136,13 +136,12 @@ export function closeTallies(
 			seconds: Math.round(t.ms / 1000),
 			kills: t.banked.kills,
 			deaths: t.banked.deaths,
-			cashDelta: t.cashAtDrop - t.cashFirst
+			cashDelta: t.banked.cash
 		});
 		carried.set(t.steamId, {
 			...t,
-			banked: { kills: 0, deaths: 0 },
+			banked: { kills: 0, deaths: 0, cash: 0 },
 			last: { ...t.last },
-			cashFirst: t.cashAtDrop,
 			droppedAt: 0,
 			ms: 0,
 			dirty: false
