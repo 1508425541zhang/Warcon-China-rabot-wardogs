@@ -8,6 +8,7 @@ import {
 	eq,
 	gt,
 	gte,
+	lte,
 	ilike,
 	inArray,
 	isNull,
@@ -304,9 +305,25 @@ export interface KillsBefore {
 	eventTime: number | null;
 }
 
-/** The rows of one server the filter asks for, older than `before` when given. */
-function killWhere(serverId: string, before: KillsBefore | null, f: KillFilter): SQL {
+/** One match's kills: the rows carrying its match row, within its window on (server_id, ts). */
+export interface KillsOfMatch {
+	matchRow: number;
+	from: Date;
+	to: Date | null;
+}
+
+/** The rows of one server the filter asks for, older than `before` when given, of one match when given. */
+function killWhere(
+	serverId: string,
+	before: KillsBefore | null,
+	f: KillFilter,
+	match: KillsOfMatch | null = null
+): SQL {
 	const conds: (SQL | undefined)[] = [eq(kills.serverId, serverId)];
+	if (match) {
+		conds.push(eq(kills.matchRow, match.matchRow), gte(kills.ts, match.from));
+		if (match.to) conds.push(lte(kills.ts, match.to));
+	}
 	// A batch's kills share a receipt time, so a page boundary is the pair the feed sorts by.
 	if (before)
 		conds.push(
@@ -357,22 +374,28 @@ export async function recentKills(
 	serverId: string,
 	before: KillsBefore | null,
 	limit: number,
-	filter: KillFilter
+	filter: KillFilter,
+	match: KillsOfMatch | null = null
 ): Promise<KillView[]> {
 	const rows = await env.db
 		.select()
 		.from(kills)
-		.where(killWhere(serverId, before, filter))
+		.where(killWhere(serverId, before, filter, match))
 		.orderBy(desc(kills.ts), desc(kills.eventTime))
 		.limit(limit);
 	return rows.map(killView);
 }
 
 /** How many kills on the server the filter asks for, over the whole history. */
-export async function countKills(env: Env, serverId: string, filter: KillFilter): Promise<number> {
+export async function countKills(
+	env: Env,
+	serverId: string,
+	filter: KillFilter,
+	match: KillsOfMatch | null = null
+): Promise<number> {
 	const [row] = await env.db
 		.select({ n: count() })
 		.from(kills)
-		.where(killWhere(serverId, null, filter));
+		.where(killWhere(serverId, null, filter, match));
 	return row?.n ?? 0;
 }

@@ -374,6 +374,7 @@
 				serverName={data.server.name}
 				orgName={data.server.orgName}
 				multiServer={data.multiServer}
+				matchHref={(m) => `/server/${encodeURIComponent(m.serverId)}/matches/${m.matchId}`}
 			/>
 		</div>
 

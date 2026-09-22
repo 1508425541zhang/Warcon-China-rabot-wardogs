@@ -45,6 +45,7 @@ const MATRIX: Record<string, Policy> = {
 	'server/[id]/bans/+page.server.ts': 'cap:server.view',
 	'server/[id]/slots/+page.server.ts': 'cap:server.view',
 	'server/[id]/settings/+page.server.ts': 'cap:server.view',
+	'server/[id]/matches/[matchId]/+page.server.ts': 'cap:server.view',
 	'server/[id]/players/[steamId]/+page.server.ts': 'cap:server.view'
 };
 

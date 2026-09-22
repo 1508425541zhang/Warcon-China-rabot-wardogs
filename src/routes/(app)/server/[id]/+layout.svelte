@@ -16,6 +16,7 @@
 		['', 'Overview'],
 		['/players', 'Players'],
 		['/kills', 'Kills'],
+		['/matches', 'Matches'],
 		['/bans', 'Bans'],
 		['/slots', 'Reserved slots'],
 		['/rotation', 'Map rotation'],
