@@ -144,6 +144,7 @@ const ACTION_TITLES: Record<string, string> = {
 	'trigger.team_kill': 'Trigger · team kill limit',
 	'trigger.match_broadcast': 'Trigger · match broadcast',
 	'trigger.name_filter': 'Trigger · name filter',
+	'trigger.kill_rate': 'Trigger · kill rate watch',
 	'player.note': 'Player note',
 	'player.watch': 'Watchlist',
 	'list.add': 'Org list · added',
@@ -180,6 +181,13 @@ export function buildEmbed(appName: string, row: AuditRow): Embed {
 		timestamp: row.ts.toISOString(),
 		footer: { text: appName }
 	};
+}
+
+/** A Kill rate flag is a prompt to go and look: its post opens the player's page. */
+function withDossierLink(env: Env, row: AuditRow, embed: Embed): Embed {
+	if (row.action !== 'trigger.kill_rate' || !row.serverId || !row.target) return embed;
+	const url = dossierUrl(env.ORIGIN, row.serverId, row.target);
+	return url ? { ...embed, url } : embed;
 }
 
 const TEAM_KILL_COLOR = 0xe0a83a;
@@ -451,7 +459,7 @@ export async function notifyWebhooks(env: Env, row: AuditRow): Promise<void> {
 			if (!events.includes(event)) continue;
 			const only = hook.serverIds as string[] | null;
 			if (only && only.length && (!row.serverId || !only.includes(row.serverId))) continue;
-			embed ??= buildEmbed(env.APP_NAME || 'Warcon', row);
+			embed ??= withDossierLink(env, row, buildEmbed(env.APP_NAME || 'Warcon', row));
 			enqueue(env, hook, embed);
 		}
 	} catch (err) {
