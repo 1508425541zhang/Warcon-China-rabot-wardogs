@@ -3,6 +3,7 @@
 	import { api, errorMessage } from '$lib/api';
 	import { fmtAgo, fmtSpan, fmtTime, mapLabel } from '$lib/format';
 	import { can } from '$lib/capabilities';
+	import { isSteamId } from '$lib/steam-profiles';
 	import { toast } from '$lib/toast.svelte';
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import Badge from '$lib/components/Badge.svelte';
@@ -157,6 +158,12 @@
 			blurb: 'Whisper a player about team kills and kick them past a limit.'
 		},
 		{
+			kind: 'kill_rate',
+			group: 'Players',
+			label: 'Kill rate watch',
+			blurb: 'Flag players who get kills too fast, or too many headshots, for staff to check.'
+		},
+		{
 			kind: 'seed_reward',
 			group: 'Players',
 			label: 'Seeding reward',
@@ -170,12 +177,16 @@
 		}
 	];
 	const GROUPS: Group[] = ['Messages', 'Players', 'Server'];
+	/** The outbox action as the table shows it: a flag sends nothing to the game, so it reads as one. */
+	const actionLabel = (action: string) =>
+		action === 'name_flag' || action === 'kill_rate_flag' ? 'flag' : action;
 	const label = (kind: TriggerKind) => KINDS.find((k) => k.kind === kind)?.label ?? kind;
 	const blurb = (kind: TriggerKind) => KINDS.find((k) => k.kind === kind)?.blurb ?? '';
 	/** Why a kind cannot run on this server yet, or '' when it can. */
 	let needs = $derived((kind: TriggerKind): string => {
 		switch (kind) {
 			case 'team_kill':
+			case 'kill_rate':
 				return data.feed
 					? ''
 					: 'Needs the kill feed, which is off on this server. Turn it on under Config.';
@@ -199,7 +210,11 @@
 	let canSlotOrg = $derived(can(data.server.caps, 'lists.reserve'));
 	/** A kind that lacks what it needs stays in the menu, greyed, with the reason in a few words. */
 	const short = (kind: TriggerKind): string =>
-		kind === 'team_kill' ? 'needs the kill feed' : kind === 'risk_kick' ? 'needs a Steam key' : '';
+		kind === 'team_kill' || kind === 'kill_rate'
+			? 'needs the kill feed'
+			: kind === 'risk_kick'
+				? 'needs a Steam key'
+				: '';
 	let addOpen = $state(false);
 
 	// The status lines count up on their own: a minute clock, only while the page is open.
@@ -315,6 +330,10 @@
 		blocked: string;
 		allowed: string;
 		nameAction: 'kick' | 'alert';
+		windowMinutes: number;
+		maxKills: number;
+		headshotPct: number;
+		headshotMinKills: number;
 	}
 	/** The alphabets a Latin policy can let in, by the name the rule stores and the one people use. */
 	const SCRIPTS: [string, string][] = [
@@ -446,7 +465,11 @@
 			builtinWords: b('builtinWords', !t),
 			blocked: Array.isArray(c.blocked) ? (c.blocked as string[]).join('\n') : '',
 			allowed: Array.isArray(c.allowed) ? (c.allowed as string[]).join('\n') : '',
-			nameAction: c.action === 'alert' ? 'alert' : 'kick'
+			nameAction: c.action === 'alert' ? 'alert' : 'kick',
+			windowMinutes: n('windowMinutes', 5),
+			maxKills: n('maxKills', 25),
+			headshotPct: n('headshotPct', 70),
+			headshotMinKills: n('headshotMinKills', 15)
 		};
 		dry = null;
 		pendingSel =
@@ -549,6 +572,14 @@
 					warnMessage: f.warnMessage,
 					kickAt: Number(f.kickAt),
 					kickReason: f.kickReason
+				};
+			case 'kill_rate':
+				return {
+					windowMinutes: Number(f.windowMinutes),
+					maxKills: Number(f.maxKills),
+					headshotPct: Number(f.headshotPct),
+					headshotMinKills: Number(f.headshotMinKills),
+					cooldownMinutes: Number(f.cooldownMinutes)
 				};
 			case 'seed_reward':
 				return {
@@ -706,6 +737,14 @@
 					.filter(Boolean)
 					.join(' · ')
 					.concat(' · per session');
+			case 'kill_rate':
+				return [
+					c.maxKills ? `${c.maxKills} kills` : '',
+					c.headshotPct ? `${c.headshotPct}% headshots from ${c.headshotMinKills} kills` : ''
+				]
+					.filter(Boolean)
+					.join(' or ')
+					.concat(` in ${c.windowMinutes} min · flag only · again after ${c.cooldownMinutes} min`);
 			case 'seed_reward':
 				return `${c.minutes} min with ${c.lowAt} or fewer on${c.untilFull === false ? '' : `, staying until ${typeof c.fullAt === 'number' ? `${c.fullAt}+ on` : 'it fills'}`}, within ${c.windowDays} day${c.windowDays === 1 ? '' : 's'} · slot ${c.scope === 'server' ? 'here' : 'on every server'} for ${c.slotDays} day${c.slotDays === 1 ? '' : 's'}${c.message ? ' · with a whisper' : ''}`;
 		}
@@ -1551,6 +1590,75 @@
 						Team kills come from the game's kill feed and are counted per player within their
 						current session.
 					</p>
+				{:else if f.kind === 'kill_rate'}
+					<fieldset class="space-y-1.5 text-[13px]">
+						<legend class="field-label">Flag a player at</legend>
+						<div class="flex flex-wrap items-center gap-2">
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="0"
+								max="1000"
+								bind:value={f.maxKills}
+								aria-label="Flag at, kills in the window"
+							/>
+							kills <span class="text-mist-600">(0 turns it off)</span>
+						</div>
+						<div class="flex flex-wrap items-center gap-2">
+							or
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="0"
+								max="100"
+								bind:value={f.headshotPct}
+								aria-label="Flag at, percent headshots"
+							/>
+							% headshots, from
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="1"
+								max="1000"
+								bind:value={f.headshotMinKills}
+								aria-label="Headshot share judged from, kills"
+								disabled={!Number(f.headshotPct)}
+							/>
+							kills <span class="text-mist-600">(0 % turns it off)</span>
+						</div>
+						<div class="flex flex-wrap items-center gap-2">
+							within
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="1"
+								max="60"
+								bind:value={f.windowMinutes}
+								aria-label="Within, minutes"
+								required
+							/>
+							minutes
+						</div>
+					</fieldset>
+					<fieldset class="space-y-1.5 text-[13px]">
+						<legend class="field-label">Flag the same player again after</legend>
+						<div class="flex flex-wrap items-center gap-2">
+							<input
+								class="input w-20 text-right"
+								type="number"
+								min="1"
+								max="1440"
+								bind:value={f.cooldownMinutes}
+								aria-label="Flag again after, minutes"
+								required
+							/>
+							minutes
+						</div>
+					</fieldset>
+					<p class="note">
+						Counts kills with hand-held weapons from the kill feed. A flag goes to the audit trail
+						and Discord; nobody is kicked.
+					</p>
 				{:else if f.kind === 'seed_reward'}
 					<fieldset class="space-y-1.5 text-[13px]">
 						<legend class="field-label">Counts as seeding</legend>
@@ -1734,8 +1842,12 @@
 						<tr>
 							<td class="whitespace-nowrap">{fmtTime(d.createdAt)}</td>
 							<td>{d.triggerName}</td>
-							<td class="font-mono text-[12px]">{d.action}</td>
-							<td class="font-mono text-[12px]">{d.target}</td>
+							<td class="font-mono text-[12px]">{actionLabel(d.action)}</td>
+							<td class="font-mono text-[12px]"
+								>{#if isSteamId(d.target)}<a class="link" href="/server/{id}/players/{d.target}"
+										>{d.target}</a
+									>{:else}{d.target}{/if}</td
+							>
 							<td
 								><Badge
 									tone={stateTone(d.state)}
