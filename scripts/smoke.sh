@@ -287,8 +287,11 @@ check member-off '"sync"' "$(req $J1 PATCH /api/orgs/$ORG '{"membersReserved":fa
 check member-slot-gone '0' "$(req $J1 GET /api/servers/$SID/rcon/reserved | grep -c 76561198100000801)"
 for i in $(seq 1 12); do R=$(req $J1 GET /api/servers/$SID/lists/state); [[ "$R" != *76561198100000701* ]] && break; sleep 3; done
 check expiry-lifted '0' "$(echo "$R" | grep -c 76561198100000701)"
-check expiry-row '"removal":"expired"' "$(req $J1 GET "/api/orgs/$ORG/lists/ban/entries?includeRemoved=1")"
-check audit-expire '"action":"list.expire"' "$(req $J1 GET '/api/audit?action=list.expire')"
+# the view drops a lapsed entry at once; the worker's sweep marks it expired and writes the audit row within its next five seconds
+for i in $(seq 1 10); do R=$(req $J1 GET "/api/orgs/$ORG/lists/ban/entries?includeRemoved=1"); [[ "$R" == *'"removal":"expired"'* ]] && break; sleep 2; done
+check expiry-row '"removal":"expired"' "$R"
+for i in $(seq 1 5); do R=$(req $J1 GET '/api/audit?action=list.expire'); [[ "$R" == *'"action":"list.expire"'* ]] && break; sleep 1; done
+check audit-expire '"action":"list.expire"' "$R"
 
 echo "== analytics"
 sleep 12
