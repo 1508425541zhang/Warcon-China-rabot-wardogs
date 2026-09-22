@@ -134,8 +134,8 @@ describe.skipIf(!hasTestDb)('career and boards from the match rows', () => {
 			minutes: 120,
 			seedMinutes: 30
 		});
-		// the balance as last seen, not the sum of the sessions
-		expect(row?.cash).toBe(12_000);
+		// the sessions' cash summed: each session banks its matches' cash like kills
+		expect(row?.cash).toBe(21_000);
 		// no feed on the seeded server: the scoreboard's kills show all the same
 		expect(board.hasFeed).toBe(false);
 

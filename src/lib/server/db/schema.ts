@@ -443,7 +443,8 @@ export const playerSessions = pgTable(
 		leftAt: ts('left_at'),
 		kills: integer('kills').notNull().default(0),
 		deaths: integer('deaths').notNull().default(0),
-		/** the player's balance at the last look: the game keeps cash across matches */
+		/** cash, banked across the session's matches like kills: the scoreboard starts it again
+		 *  with the counters (followPlayer) */
 		cash: integer('cash').notNull().default(0),
 		/** seconds of this session spent with the player count at or under the server's seeding
 		 *  threshold (0 while no seeding rule is on); what a Seeding reward rule adds up */
@@ -547,7 +548,7 @@ export const matchPlayers = pgTable(
 		seconds: integer('seconds').notNull().default(0),
 		kills: integer('kills').notNull().default(0),
 		deaths: integer('deaths').notNull().default(0),
-		/** the balance at the last look less the balance at the first: the match's profit or loss */
+		/** the cash earned over the match: each run of the counters' last look less its first */
 		cashDelta: integer('cash_delta').notNull().default(0),
 		headshots: integer('headshots').notNull().default(0),
 		teamKills: integer('team_kills').notNull().default(0),

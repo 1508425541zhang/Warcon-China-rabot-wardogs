@@ -1,7 +1,7 @@
 // Leaderboards and careers, read at page load from what the worker writes: each player's line
 // of every match (match_players: the game's own kills and deaths, the feed's headshots, team
 // kills, suicides, vehicle kills and streaks, time on and the side played) joined to its match
-// for the result, and the sessions for playtime, seed time, the last name and the cash balance.
+// for the result, and the sessions for playtime, seed time, the last name and cash.
 // Nothing is precomputed. The queries ride the existing indexes: matches (server_id,
 // started_at), match_players (match_id, steam_id) and (steam_id, match_id), player_sessions
 // (server_id, last_seen) and (steam_id, joined_at). Only matches that have ended count, and a
@@ -59,7 +59,7 @@ const lines = (ids: string[], from: Date, steamId: string | string[] | null) => 
 
 /**
  * Per-player totals over these servers since `from`: playtime, seed time, the last look and
- * the cash balance from sessions; matches, results, kills, deaths and the feed's columns from
+ * cash summed over sessions; matches, results, kills, deaths and the feed's columns from
  * the match lines; joined on the SteamID, so a player seen by one source only still gets a row.
  */
 const base = (ids: string[], from: Date) => sql`
@@ -67,7 +67,7 @@ const base = (ids: string[], from: Date) => sql`
 		SELECT steam_id,
 		       SUM(EXTRACT(EPOCH FROM (COALESCE(left_at, now()) - GREATEST(joined_at, ${from}::timestamptz)))) / 60 AS minutes,
 		       SUM(seed_seconds) / 60.0 AS seed_minutes, MAX(last_seen) AS last_seen,
-		       (array_agg(cash ORDER BY last_seen DESC))[1] AS cash
+		       SUM(cash) AS cash
 		  FROM player_sessions WHERE server_id IN ${ids} AND last_seen >= ${from}
 		 GROUP BY steam_id),
 	${lines(ids, from, null)},
