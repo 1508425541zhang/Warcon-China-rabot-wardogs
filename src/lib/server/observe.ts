@@ -580,6 +580,8 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 						performance: risk.performance,
 						startedAt: m.startedAt,
 						matchEnd,
+						// the lines the match stage will write, for the broadcast's {mvp} and {top}
+						matchLines: matchEnd ? closeTallies(m.tallies, prevStatusAt).rows : [],
 						ts
 					},
 					rows

@@ -57,6 +57,7 @@ import {
 	fullMoments,
 	lowStretches,
 	matchBroadcastMessages,
+	type MatchLineVars,
 	matchReplay,
 	seedReplay,
 	type MatchBroadcastConfig,
@@ -301,6 +302,8 @@ export interface TickContext {
 	startedAt: number;
 	/** the match that ended between the previous look and this one, or null */
 	matchEnd: MatchEnd | null;
+	/** at a boundary, every player's line of the match that ended, from the worker's tallies */
+	matchLines: MatchLineVars[];
 	ts: Date;
 }
 
@@ -742,7 +745,13 @@ function evalMatchBroadcast(
 	out: Evaluation
 ) {
 	if (!ctx.matchEnd) return;
-	const sends = matchBroadcastMessages(cfg, ctx.matchEnd, ctx.status.playerCount, vars(ctx));
+	const sends = matchBroadcastMessages(
+		cfg,
+		ctx.matchEnd,
+		ctx.status.playerCount,
+		vars(ctx),
+		ctx.matchLines
+	);
 	if (!sends.length) return;
 	for (const { stage, message } of sends)
 		out.intents.push({
@@ -1314,12 +1323,15 @@ export async function dryRun(
 			2 * settings().sampleMs + 1000
 		);
 		for (const e of ends)
+			// The samples hold no player lines, so the dry run cannot name anyone.
 			for (const { message } of matchBroadcastMessages(c, e.end, e.count, {
 				server: server.name,
 				map: e.map,
 				players: e.count,
 				max: '…',
-				cap: DEFAULT_SCORE_CAP
+				cap: DEFAULT_SCORE_CAP,
+				mvp: '…',
+				top: '…'
 			}))
 				push(new Date(e.ts), `broadcast (${e.count} on): ${message}`);
 		result.notes.push(

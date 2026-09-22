@@ -771,6 +771,21 @@ describe('matchBroadcastMessages', () => {
 	test('nothing under the player floor', () => {
 		expect(matchBroadcastMessages(cfg, end, 1, vars)).toEqual([]);
 	});
+	test("{mvp} and {top} come from the players' lines; a tie names both; nobody killing leaves them empty", () => {
+		const c = { ...cfg, endMessage: 'MVP {mvp} · top {top}' };
+		const lines = [
+			{ name: 'Nomad', kills: 20 },
+			{ name: 'Dutchie', kills: 17 },
+			{ name: 'Willowisp', kills: 20 },
+			{ name: 'Brick', kills: 0 }
+		];
+		expect(matchBroadcastMessages(c, end, 40, vars, lines)[0].message).toBe(
+			'MVP Nomad and Willowisp · top Nomad 20 · Willowisp 20 · Dutchie 17'
+		);
+		expect(matchBroadcastMessages(c, end, 40, vars, [{ name: 'Brick', kills: 0 }])[0].message).toBe(
+			'MVP  · top '
+		);
+	});
 });
 
 describe('matchReplay', () => {
