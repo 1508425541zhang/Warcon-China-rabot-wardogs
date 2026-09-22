@@ -23,7 +23,7 @@
 	let { data }: PageProps = $props();
 	let id = $derived(data.server.id);
 	let admin = $derived(can(data.server.caps, 'slots.manage'));
-	let listsEdit = $derived(can(data.server.caps, 'lists.edit'));
+	let listsEdit = $derived(can(data.server.caps, 'lists.reserve'));
 	let orgPath = $derived(`/orgs/${encodeURIComponent(data.server.orgId)}`);
 	// Builds without the live routes take reserved slots through the config document instead.
 	let viaConfig = $derived(!data.features.reservedSlots && data.features.configDocument);
@@ -309,7 +309,7 @@
 		<div class="mb-3 flex flex-wrap items-center gap-2">
 			<span class="label-sm mb-0!">From the organisation · {data.server.orgName}</span>
 			<span class="ml-auto inline-flex flex-wrap gap-1.5">
-				{#if listState?.canEditOrg}
+				{#if listState?.canEditOrgSlots}
 					<a class="btn btn-sm" href="{orgPath}/reserved">Organisation list</a>
 				{/if}
 				{#if listsEdit}
@@ -414,7 +414,8 @@
 					This build has no live reserved-slot routes, so the panel writes the slot to
 					+DefaultReservedPlayerIds in its config document, taken up at the next restart.
 				{/if}
-				{#if listState?.canEditOrg}To reserve a slot on every server, use the organisation list.{/if}
+				{#if listState?.canEditOrgSlots}To reserve a slot on every server, use the organisation
+					list.{/if}
 			{/if}
 		</p>
 	</div>
@@ -549,8 +550,8 @@
 			<b>Nobody holds a reserved slot here yet.</b>
 			<span class="block text-mist-400"
 				>A reserved slot lets your admins, donors and clan members skip the queue when the server is
-				full. Reserve one above{#if listState?.canEditOrg}, or hand them out across every server
-					from the organisation's list{/if}.</span
+				full. Reserve one above{#if listState?.canEditOrgSlots}, or hand them out across every
+					server from the organisation's list{/if}.</span
 			>
 		</div>
 	{/if}

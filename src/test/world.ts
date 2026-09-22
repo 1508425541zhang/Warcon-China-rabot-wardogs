@@ -28,11 +28,14 @@ export const PRINCIPALS = [
 	'operator',
 	'admin',
 	'elsewhere',
+	'orgBans',
+	'orgSlots',
 	'owner',
 	'site',
 	'keyView',
 	'keyAll',
-	'keyElsewhere'
+	'keyElsewhere',
+	'keyBans'
 ] as const;
 export type PrincipalName = (typeof PRINCIPALS)[number];
 
@@ -45,10 +48,11 @@ export interface World {
 	/** another tenant: `outsider` owns it */
 	otherOrg: { id: string };
 	otherOrgServer: { id: string };
-	roles: Record<'viewer' | 'operator' | 'admin', string>;
+	/** the three built-ins, and the two custom roles that hold one org list each (with View) */
+	roles: Record<'viewer' | 'operator' | 'admin' | 'orgBans' | 'orgSlots', string>;
 	users: Record<PrincipalName, SessionUser | null>;
-	/** bearer tokens of the three keys, for tests that go through resolveBearer */
-	tokens: Record<'keyView' | 'keyAll' | 'keyElsewhere', string>;
+	/** bearer tokens of the keys, for tests that go through resolveBearer */
+	tokens: Record<'keyView' | 'keyAll' | 'keyElsewhere' | 'keyBans', string>;
 }
 
 const tag = () => randomBytes(4).toString('hex');
@@ -99,6 +103,13 @@ async function addServer(env: Env, orgId: string, name: string) {
 	return { id };
 }
 
+/** A custom role of the org's, as an owner would make it in the role editor. */
+async function addRole(env: Env, orgId: string, name: string, caps: Capability[]) {
+	const id = `r_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+	await env.db.insert(orgRoles).values({ id, orgId, name, capabilities: caps, sortOrder: 3 });
+	return id;
+}
+
 async function addKey(env: Env, orgId: string, label: string, caps: Capability[], only?: string) {
 	const token = mintToken();
 	const [row] = await env.db
@@ -131,6 +142,10 @@ export async function seedWorld(env: Env): Promise<World> {
 		await addUser(env, n('admin'), 'member'),
 		await addUser(env, n('elsewhere'), 'member')
 	];
+	const [orgBans, orgSlots] = [
+		await addUser(env, n('orgbans'), 'member'),
+		await addUser(env, n('orgslots'), 'member')
+	];
 	const org = await addOrg(env, n('org'), owner);
 	const otherOrg = await addOrg(env, n('other'), outsider);
 	const server = await addServer(env, org.id, n('one'));
@@ -139,9 +154,16 @@ export async function seedWorld(env: Env): Promise<World> {
 
 	const roleRows = await env.db.select().from(orgRoles).where(eq(orgRoles.orgId, org.id));
 	const roleId = (b: string) => roleRows.find((r) => r.builtin === b)!.id;
-	const roles = { viewer: roleId('viewer'), operator: roleId('operator'), admin: roleId('admin') };
+	const roles = {
+		viewer: roleId('viewer'),
+		operator: roleId('operator'),
+		admin: roleId('admin'),
+		// one org list each: what the split of 'Org lists' was for
+		orgBans: await addRole(env, org.id, n('Org bans'), ['server.view', 'lists.ban']),
+		orgSlots: await addRole(env, org.id, n('Org slots'), ['server.view', 'lists.reserve'])
+	};
 
-	const members = [member, viewer, operator, admin, elsewhere];
+	const members = [member, viewer, operator, admin, elsewhere, orgBans, orgSlots];
 	await env.db
 		.insert(orgMembers)
 		.values(members.map((u) => ({ orgId: org.id, userId: u.id, role: 'member' as const })));
@@ -149,12 +171,15 @@ export async function seedWorld(env: Env): Promise<World> {
 		{ serverId: server.id, userId: viewer.id, roleId: roles.viewer },
 		{ serverId: server.id, userId: operator.id, roleId: roles.operator },
 		{ serverId: server.id, userId: admin.id, roleId: roles.admin },
-		{ serverId: otherServer.id, userId: elsewhere.id, roleId: roles.admin }
+		{ serverId: otherServer.id, userId: elsewhere.id, roleId: roles.admin },
+		{ serverId: server.id, userId: orgBans.id, roleId: roles.orgBans },
+		{ serverId: server.id, userId: orgSlots.id, roleId: roles.orgSlots }
 	]);
 
 	const keyView = await addKey(env, org.id, n('view'), ['server.view']);
 	const keyAll = await addKey(env, org.id, n('all'), [...CAPABILITIES]);
 	const keyElsewhere = await addKey(env, org.id, n('else'), [...CAPABILITIES], otherServer.id);
+	const keyBans = await addKey(env, org.id, n('bans'), ['server.view', 'lists.ban']);
 
 	return {
 		org,
@@ -172,13 +197,21 @@ export async function seedWorld(env: Env): Promise<World> {
 			operator,
 			admin,
 			elsewhere,
+			orgBans,
+			orgSlots,
 			owner,
 			site,
 			keyView: keyView.user,
 			keyAll: keyAll.user,
-			keyElsewhere: keyElsewhere.user
+			keyElsewhere: keyElsewhere.user,
+			keyBans: keyBans.user
 		},
-		tokens: { keyView: keyView.token, keyAll: keyAll.token, keyElsewhere: keyElsewhere.token }
+		tokens: {
+			keyView: keyView.token,
+			keyAll: keyAll.token,
+			keyElsewhere: keyElsewhere.token,
+			keyBans: keyBans.token
+		}
 	};
 }
 

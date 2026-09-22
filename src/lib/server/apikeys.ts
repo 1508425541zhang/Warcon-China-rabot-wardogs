@@ -6,7 +6,7 @@ import { ApiError, int, newId, str } from './http';
 import { writeAudit } from './audit';
 import type { OrgRow, SessionUser } from './access';
 import { apiKeys, organizations, servers, user, type ApiKeyRow } from './db/schema';
-import { parseCapabilities } from '../capabilities';
+import { CAPABILITY_INFO, LIST_CAPABILITY, parseCapabilities } from '../capabilities';
 import { parseServerScope } from './server-scope';
 import {
 	hashToken,
@@ -69,10 +69,11 @@ export async function createKey(
 	const serverIds = await parseServerScope(env, org.id, body.serverIds);
 	// The org lists are pushed to every server, so they are not something a key held to some
 	// servers can be given (access.ts refuses such a key the lists either way).
-	if (serverIds && capabilities.includes('lists.edit'))
+	const list = serverIds && capabilities.find((c) => Object.values(LIST_CAPABILITY).includes(c));
+	if (list)
 		throw new ApiError(
 			400,
-			"'Org lists' reaches every server in the organisation; a key limited to some servers cannot hold it."
+			`'${CAPABILITY_INFO[list].label}' reaches every server in the organisation; a key limited to some servers cannot hold it.`
 		);
 	const days = int(body.expiresDays, 0, 0, 3650);
 	const expiresAt = days ? new Date(Date.now() + days * 86400_000) : null;

@@ -21,7 +21,7 @@
 	let { data }: PageProps = $props();
 	let id = $derived(data.server.id);
 	let admin = $derived(can(data.server.caps, 'bans.manage'));
-	let listsEdit = $derived(can(data.server.caps, 'lists.edit'));
+	let listsEdit = $derived(can(data.server.caps, 'lists.ban'));
 	let orgPath = $derived(`/orgs/${encodeURIComponent(data.server.orgId)}`);
 
 	let listState = $state<ServerListsState | null>(null);
@@ -84,11 +84,11 @@
 		)
 	);
 	let selectedRow = $derived(rows.find((r) => r.steamId === selectedBan) ?? null);
-	/** A ban on the server's own list is edited with Bans, one on the org's with a lists role. */
+	/** A ban on the server's own list is edited with Bans, one on the org's with the org ban list. */
 	let canEdit = $derived(
 		!!selectedRow &&
 			((selectedRow.source === 'here' && admin) ||
-				(selectedRow.source === 'org' && !!listState?.canEditOrg))
+				(selectedRow.source === 'org' && !!listState?.canEditOrgBans))
 	);
 	let entryPath = $derived(
 		!selectedRow
@@ -245,7 +245,7 @@
 	<div class="mb-2 flex flex-wrap items-center gap-2">
 		<span class="label-sm mb-0!">Organisation lists · {data.server.orgName}</span>
 		<span class="ml-auto inline-flex flex-wrap gap-1.5">
-			{#if listState?.canEditOrg}
+			{#if listState?.canEditOrgBans}
 				<a class="btn btn-sm" href="{orgPath}/bans">Ban list</a>
 			{/if}
 			{#if listsEdit}
@@ -254,7 +254,7 @@
 		</span>
 	</div>
 	<div class="flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
-		{#if data.orgLists}
+		{#if orgBanCount !== null}
 			<span
 				><b>{orgBanCount}</b> org ban{orgBanCount === 1 ? '' : 's'}, <b>{managedBans}</b> applied here</span
 			>
@@ -296,7 +296,7 @@
 			<button class="btn" onclick={refreshBans}>Refresh</button>
 		</div>
 		<span class="inline-flex gap-1.5 sm:ml-auto">
-			{#if selectedBan && listState?.canEditOrg && !banSource(selectedBan)?.managed}
+			{#if selectedBan && listState?.canEditOrgBans && !banSource(selectedBan)?.managed}
 				<button class="btn" disabled={busy} onclick={promoteSelected}
 					>{listState.orgOwner ? 'Promote to org list' : 'Add to org list'}</button
 				>
@@ -396,7 +396,7 @@
 		orgId={data.server.orgId}
 		orgName={data.server.orgName}
 		server={{ id, name: data.server.name }}
-		canOrg={listState?.canEditOrg ?? false}
+		canOrg={listState?.canEditOrgBans ?? false}
 		banMessage={listState?.banMessage}
 		onclose={() => (banning = false)}
 		ondone={refreshAll}

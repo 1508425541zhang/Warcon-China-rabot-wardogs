@@ -236,6 +236,18 @@ check lists-editor-add '"steamId":"76561198100000503"' "$(req $J5 POST /api/orgs
 check lists-editor-orgs-link "/orgs/$ORG/bans" "$(curl -s -b $J5 $B/orgs)"
 check page-editor-bans '200' "$(pagecode $J5 "/orgs/$ORG/bans")"
 check page-editor-overview '403' "$(pagecode $J5 "/orgs/$ORG")"
+# dave: a role with the org's ban list alone opens that list and not the reserved-slot list
+R=$(req $J1 POST /api/orgs/$ORG/roles '{"name":"Org bans","capabilities":["server.view","lists.ban"]}'); RID_ORGBANS=$(echo "$R" | sed -E 's/.*"id":"([^"]+)".*/\1/')
+R=$(req $J1 POST /api/users '{"username":"dave","password":"daves-long-password","displayName":"Dave","role":"member","mustChangePassword":false}'); UID_DAVE=$(echo "$R" | sed -E 's/.*"id":"([^"]+)".*/\1/')
+GD="{\"grants\":[{\"serverId\":\"$SID\",\"roleId\":\"$RID_ORGBANS\"}]}"
+check dave-orgbans '"roleName":"Org bans"' "$(req $J1 PUT /api/users/$UID_DAVE/grants "$GD")"
+J6=$(mktemp); form $J6 '/sign-in?/password' 'username=dave&password=daves-long-password' >/dev/null
+check orgbans-lists '"kinds":["ban"]' "$(req $J6 GET /api/orgs/$ORG/lists)"
+check orgbans-add '"steamId":"76561198100000504"' "$(req $J6 POST /api/orgs/$ORG/lists/ban/entries '{"steamId":"76561198100000504"}')"
+check orgbans-no-reserve 'Org reserved slots' "$(req $J6 POST /api/orgs/$ORG/lists/reserve/entries '{"steamId":"76561198100000504"}')"
+check page-orgbans-bans '200' "$(pagecode $J6 "/orgs/$ORG/bans")"
+check page-orgbans-reserved '403' "$(pagecode $J6 "/orgs/$ORG/reserved")"
+check orgbans-no-reserved-tab '0' "$(curl -s -b $J6 $B/orgs/$ORG/bans | grep -c "/orgs/$ORG/reserved")"
 # bans are the panel's to enforce: an entry is in force at once and nothing is written to the game
 check ban-not-in-game '0' "$(req $J1 GET /api/servers/$SID/rcon/bans | grep -c $L1)"
 check sync-state-managed "\"$L1\":{\"state\":\"applied\",\"managed\":true" "$(req $J1 GET /api/servers/$SID/lists/state)"

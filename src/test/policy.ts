@@ -6,6 +6,7 @@
 //   403  they can see it, and may not do this
 //   ok   the check let them through (whatever the handler then made of an empty request)
 import { BUILTIN_CAPABILITIES, CAPABILITIES, type Capability } from '$lib/capabilities';
+import type { ListKind } from '$lib/types';
 import type { PrincipalName } from './world';
 
 export type Expect = 401 | 403 | 404 | 'ok';
@@ -17,8 +18,10 @@ export type Policy =
 	| 'person' // a signed-in person; keys are refused
 	| 'site' // the site owner
 	| 'orgOwner' // an owner of the org (or the site owner); never a key
-	| 'lists' // an org owner, or lists.edit on any server of the org
+	| 'lists' // an org owner, or either org list's capability on any server of the org
+	| `lists:${ListKind}` // an org owner, or that list's capability on any server of the org
 	| 'listsOwner' // an org owner, among those who can open the lists
+	| 'listsHere' // either org list's capability on this server
 	| 'manager' // an owner of the server's org (or the site owner); never a key
 	| `cap:${Capability}`; // the capability on this server
 
@@ -32,18 +35,34 @@ const CAPS: Partial<Record<PrincipalName, readonly Capability[]>> = {
 	owner: ALL,
 	site: ALL,
 	keyView: ['server.view'],
-	keyAll: ALL
+	keyAll: ALL,
+	orgBans: ['server.view', 'lists.ban'],
+	orgSlots: ['server.view', 'lists.reserve'],
+	keyBans: ['server.view', 'lists.ban']
 };
 
-const KEYS: PrincipalName[] = ['keyView', 'keyAll', 'keyElsewhere'];
+const KEYS: PrincipalName[] = ['keyView', 'keyAll', 'keyElsewhere', 'keyBans'];
 const RUNS_ORG: PrincipalName[] = ['owner', 'site'];
-const IN_ORG: PrincipalName[] = ['member', 'viewer', 'operator', 'admin', 'elsewhere'];
+const IN_ORG: PrincipalName[] = [
+	'member',
+	'viewer',
+	'operator',
+	'admin',
+	'elsewhere',
+	'orgBans',
+	'orgSlots'
+];
 /**
- * lists.edit somewhere in the org: the admin role, on this server or the other one, and a key
- * over the whole org. The org lists reach every server, so a key held to some servers
- * (`keyElsewhere`) cannot open them whatever it carries.
+ * Who edits each org list besides its owners: a role holding the list's capability somewhere in
+ * the org (the admin role, on this server or the other one, or a role with that one list), and a
+ * key over the whole org that carries it. The org lists reach every server, so a key held to
+ * some servers (`keyElsewhere`) cannot open them whatever it carries.
  */
-const LIST_EDITORS: PrincipalName[] = ['admin', 'elsewhere', 'keyAll'];
+const LIST_EDITORS: Record<ListKind, PrincipalName[]> = {
+	ban: ['admin', 'elsewhere', 'orgBans', 'keyAll', 'keyBans'],
+	reserve: ['admin', 'elsewhere', 'orgSlots', 'keyAll']
+};
+const ANY_LIST: PrincipalName[] = [...new Set([...LIST_EDITORS.ban, ...LIST_EDITORS.reserve])];
 
 export function expected(policy: Policy, who: PrincipalName): Expect {
 	if (policy === 'open') return 'ok';
@@ -62,10 +81,22 @@ export function expected(policy: Policy, who: PrincipalName): Expect {
 			if (RUNS_ORG.includes(who)) return 'ok';
 			return KEYS.includes(who) || IN_ORG.includes(who) ? 403 : 404;
 		case 'lists':
-			return RUNS_ORG.includes(who) || LIST_EDITORS.includes(who) ? 'ok' : 404;
+			return RUNS_ORG.includes(who) || ANY_LIST.includes(who) ? 'ok' : 404;
+		case 'lists:ban':
+		case 'lists:reserve': {
+			const kind = policy.slice('lists:'.length) as ListKind;
+			if (RUNS_ORG.includes(who) || LIST_EDITORS[kind].includes(who)) return 'ok';
+			// the other list's editors can see the org, and may not do this
+			return ANY_LIST.includes(who) ? 403 : 404;
+		}
 		case 'listsOwner':
 			if (RUNS_ORG.includes(who)) return 'ok';
-			return LIST_EDITORS.includes(who) ? 403 : 404;
+			return ANY_LIST.includes(who) ? 403 : 404;
+		case 'listsHere': {
+			const held = CAPS[who];
+			if (!held) return 404;
+			return held.includes('lists.ban') || held.includes('lists.reserve') ? 'ok' : 403;
+		}
 		case 'manager':
 			if (RUNS_ORG.includes(who)) return 'ok';
 			if (KEYS.includes(who)) return 403;

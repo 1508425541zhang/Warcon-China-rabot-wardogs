@@ -7,7 +7,15 @@ import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { isDemoServer } from './env';
 import { ApiError } from './http';
-import { CAPABILITY_INFO, type Capability } from '../capabilities';
+import {
+	CAPABILITIES,
+	CAPABILITY_INFO,
+	knownCapabilities,
+	LIST_CAPABILITY,
+	listKindsIn,
+	type Capability
+} from '../capabilities';
+import type { ListKind } from '../types';
 import { accessFromCaps, resolveAccess, type ServerAccess } from './access-resolve';
 import { keyActorId, keyActorName, keyCoversServer, type ApiKeyPrincipal } from './apikeys-core';
 import {
@@ -164,8 +172,8 @@ export interface OrgSummary {
 	role: OrgRole;
 	/** frozen by the site owner: members cannot open its servers, owners cannot add or invite */
 	suspended: boolean;
-	/** may open the org's ban and reserved lists: owners, and anyone whose role on one of its servers includes lists.edit */
-	lists: boolean;
+	/** the org lists they may open: every one for owners, else those their roles on its servers hold */
+	listKinds: ListKind[];
 	/** site-owner allowances for the public surfaces ($lib/features) */
 	allowPublicStatus: boolean;
 	allowPublicLeaderboards: boolean;
@@ -188,75 +196,114 @@ async function grantedWith(
 
 /** Orgs the user belongs to, with their role; the site owner sees every org as owner. */
 export async function userOrgs(env: Env, user: SessionUser): Promise<OrgSummary[]> {
-	const shape = (o: OrgRow, role: OrgRole, lists: boolean): OrgSummary => ({
+	const shape = (o: OrgRow, role: OrgRole, listKinds: ListKind[]): OrgSummary => ({
 		id: o.id,
 		name: o.name,
 		slug: o.slug,
 		role,
 		suspended: !!o.suspendedAt,
-		lists,
+		listKinds,
 		allowPublicStatus: o.allowPublicStatus,
 		allowPublicLeaderboards: o.allowPublicLeaderboards
 	});
 	if (user.apiKey) {
 		const o = await getOrg(env, user.apiKey.orgId);
-		return o && !o.suspendedAt ? [shape(o, 'member', keyEditsLists(user.apiKey))] : [];
+		return o && !o.suspendedAt ? [shape(o, 'member', keyListKinds(user.apiKey))] : [];
 	}
 	if (user.role === 'owner') {
 		const all = await env.db.select().from(organizations).orderBy(asc(organizations.name));
-		return all.map((o) => shape(o, 'owner', true));
+		return all.map((o) => shape(o, 'owner', everyList()));
 	}
-	const [mine, adminOrgs] = await Promise.all([
+	const [mine, granted] = await Promise.all([
 		env.db
 			.select({ org: organizations, role: orgMembers.role })
 			.from(orgMembers)
 			.innerJoin(organizations, eq(organizations.id, orgMembers.orgId))
 			.where(eq(orgMembers.userId, user.id))
 			.orderBy(asc(organizations.name)),
-		grantedWith(env, user, 'lists.edit').then((rows) => new Set(rows.map((r) => r.orgId)))
+		listsGranted(env, user)
 	]);
 	return mine.map((r) =>
-		shape(r.org, r.role, !r.org.suspendedAt && (r.role === 'owner' || adminOrgs.has(r.org.id)))
+		shape(
+			r.org,
+			r.role,
+			r.org.suspendedAt ? [] : r.role === 'owner' ? everyList() : (granted.get(r.org.id) ?? [])
+		)
 	);
 }
 
 // --- org lists (bans and reserved slots) ---
 
+/** An owner runs every list (the capabilities they hold are all of them). */
+const everyList = (): ListKind[] => listKindsIn(CAPABILITIES);
+
+/** A list's capability, found in the role a grant points at. */
+const holdsAList = () => or(hasCap(LIST_CAPABILITY.ban), hasCap(LIST_CAPABILITY.reserve));
+
+/** The lists the user's grants open, by org; a suspended org opens none. One query for every org. */
+async function listsGranted(env: Env, user: SessionUser): Promise<Map<string, ListKind[]>> {
+	const rows = await env.db
+		.select({ orgId: servers.orgId, capabilities: orgRoles.capabilities })
+		.from(serverGrants)
+		.innerJoin(servers, eq(servers.id, serverGrants.serverId))
+		.innerJoin(organizations, eq(organizations.id, servers.orgId))
+		.innerJoin(orgRoles, eq(orgRoles.id, serverGrants.roleId))
+		.where(and(eq(serverGrants.userId, user.id), isNull(organizations.suspendedAt), holdsAList()));
+	const caps = new Map<string, Capability[]>();
+	for (const r of rows)
+		caps.set(r.orgId, [...(caps.get(r.orgId) ?? []), ...knownCapabilities(r.capabilities)]);
+	return new Map([...caps].map(([orgId, held]) => [orgId, listKindsIn(held)]));
+}
+
 /**
  * The org lists are pushed to every server of the org, so a key held to some of its servers
- * cannot edit them, whatever capabilities it carries. (A person with lists.edit on one server
- * can: that is what the capability says, and an owner chose to give it.)
+ * cannot edit them, whatever capabilities it carries. (A person with a list's capability on one
+ * server can: that is what the capability says, and an owner chose to give it.)
  */
-const keyEditsLists = (key: ApiKeyPrincipal): boolean =>
-	key.capabilities.includes('lists.edit') && key.serverIds === null;
+const keyListKinds = (key: ApiKeyPrincipal): ListKind[] =>
+	key.serverIds === null ? listKindsIn(key.capabilities) : [];
 
-/** owner: the org's owners; editor: holds lists.edit on at least one of its servers. Both may add and remove entries. */
-export type ListsRole = 'owner' | 'editor';
+/**
+ * What someone may do with the org's lists. Owners run every list, and alone import into them,
+ * set the members switch and the ban message; anyone else edits the lists whose capability ('Org
+ * ban list', 'Org reserved slots') their role holds on at least one of the org's servers.
+ */
+export interface ListsRole {
+	owner: boolean;
+	/** the lists they may open and edit; never empty (no list at all is no role) */
+	kinds: ListKind[];
+}
 
 export async function listsRoleFor(
 	env: Env,
 	user: SessionUser,
 	orgId: string
 ): Promise<ListsRole | null> {
-	if (user.apiKey)
-		return keyEditsLists(user.apiKey) && user.apiKey.orgId === orgId ? 'editor' : null;
-	if ((await orgRoleFor(env, user, orgId)) === 'owner') return 'owner';
-	const [row] = await env.db
-		.select({ serverId: serverGrants.serverId })
+	if (user.apiKey) {
+		const kinds = user.apiKey.orgId === orgId ? keyListKinds(user.apiKey) : [];
+		return kinds.length ? { owner: false, kinds } : null;
+	}
+	if ((await orgRoleFor(env, user, orgId)) === 'owner') return { owner: true, kinds: everyList() };
+	const rows = await env.db
+		.select({ capabilities: orgRoles.capabilities })
 		.from(serverGrants)
 		.innerJoin(servers, eq(servers.id, serverGrants.serverId))
 		.innerJoin(orgRoles, eq(orgRoles.id, serverGrants.roleId))
-		.where(and(eq(serverGrants.userId, user.id), eq(servers.orgId, orgId), hasCap('lists.edit')))
-		.limit(1);
-	return row ? 'editor' : null;
+		.where(and(eq(serverGrants.userId, user.id), eq(servers.orgId, orgId), holdsAList()));
+	const kinds = listKindsIn(rows.flatMap((r) => knownCapabilities(r.capabilities)));
+	return kinds.length ? { owner: false, kinds } : null;
 }
 
-/** Like requireOrgRole, for the ban and reserved lists: lists.edit holders count as editors. */
+/**
+ * Like requireOrgRole, for the ban and reserved lists. `need` is what the request touches: the
+ * org's list pages as a whole ('any', which either list opens), one list, or something only
+ * owners do. Someone who may open no list is answered as if the org were not there.
+ */
 export async function requireListsRole(
 	env: Env,
 	locals: App.Locals,
 	orgId: string,
-	need: ListsRole = 'editor'
+	need: 'any' | ListKind | 'owner'
 ): Promise<{ org: OrgRow; role: ListsRole; user: SessionUser }> {
 	const user = requireUser(locals);
 	const org = await getOrg(env, orgId);
@@ -264,8 +311,14 @@ export async function requireListsRole(
 	if (!org || !role) throw new ApiError(404, 'Organisation not found.', 'not_found');
 	if (org.suspendedAt && user.role !== 'owner')
 		throw new ApiError(403, `${org.name} is suspended. Contact the site owner.`, 'suspended');
-	if (need === 'owner' && role !== 'owner')
+	if (need === 'owner' && !role.owner)
 		throw new ApiError(403, `Only an owner of ${org.name} can do that.`, 'forbidden');
+	if ((need === 'ban' || need === 'reserve') && !role.kinds.includes(need))
+		throw new ApiError(
+			403,
+			`This needs '${CAPABILITY_INFO[LIST_CAPABILITY[need]].label}' on a server of ${org.name}.`,
+			'forbidden'
+		);
 	return { org, role, user };
 }
 

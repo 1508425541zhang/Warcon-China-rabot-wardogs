@@ -6,7 +6,7 @@ import { seenFilters, seenPlayers } from '$lib/server/seen';
 
 export const GET = route(async (event) => {
 	const env = getEnv();
-	const { org, user } = await requireListsRole(env, event.locals, param(event, 'id'));
+	const { org, user } = await requireListsRole(env, event.locals, param(event, 'id'), 'any');
 	const serverIds = (await accessibleServers(env, user, org.id)).map((s) => s.id);
 	const p = event.url.searchParams;
 	const { players, total } = await seenPlayers(env, {

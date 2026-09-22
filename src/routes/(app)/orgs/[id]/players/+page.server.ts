@@ -10,7 +10,7 @@ const PAGE_SIZE = 100;
 export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const env = getEnv();
 	try {
-		const { org, user } = await requireListsRole(env, locals, params.id);
+		const { org, user } = await requireListsRole(env, locals, params.id, 'any');
 		const serverIds = (await accessibleServers(env, user, org.id)).map((s) => s.id);
 		const filters = seenFilters(url.searchParams);
 		const { players, total } = await seenPlayers(env, {

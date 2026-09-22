@@ -163,14 +163,18 @@ describe.skipIf(!hasTestDb)('access', () => {
 			);
 		});
 
-		test('lists.edit and audit.read are found in the stored role', async () => {
+		test('the org lists and audit.read are found in the stored role', async () => {
 			const w = await seedWorld(env);
 			const lists = async (who: PrincipalName) =>
-				(await userOrgs(env, w.users[who]!)).find((o) => o.id === w.org.id)?.lists;
-			expect(await lists('admin')).toBe(true);
-			expect(await lists('elsewhere')).toBe(true);
-			expect(await lists('viewer')).toBe(false);
-			expect(await lists('operator')).toBe(false);
+				(await userOrgs(env, w.users[who]!)).find((o) => o.id === w.org.id)?.listKinds;
+			expect(await lists('admin')).toEqual(['ban', 'reserve']);
+			expect(await lists('elsewhere')).toEqual(['ban', 'reserve']);
+			expect(await lists('orgBans')).toEqual(['ban']);
+			expect(await lists('orgSlots')).toEqual(['reserve']);
+			expect(await lists('keyBans')).toEqual(['ban']);
+			expect(await lists('keyElsewhere')).toEqual([]);
+			expect(await lists('viewer')).toEqual([]);
+			expect(await lists('operator')).toEqual([]);
 			expect((await auditVisibility(env, w.users.admin!))?.adminServerIds).toEqual([w.server.id]);
 			expect((await auditVisibility(env, w.users.viewer!))?.adminServerIds).toEqual([]);
 			expect(await auditVisibility(env, w.users.site!)).toBeNull();
@@ -489,7 +493,7 @@ describe.skipIf(!hasTestDb)('access', () => {
 				['name_filter', { characters: 'ascii', action: 'alert' }, 'players.moderate'],
 				['team_kill', { kickAt: 3 }, 'players.moderate'],
 				['seed_reward', { minutes: 60, scope: 'server' }, 'slots.manage'],
-				['seed_reward', { minutes: 60, scope: 'org' }, 'lists.edit']
+				['seed_reward', { minutes: 60, scope: 'org' }, 'lists.reserve']
 			];
 			for (const [kind, config, cap] of rules) {
 				await holds([]);
@@ -506,6 +510,14 @@ describe.skipIf(!hasTestDb)('access', () => {
 					await holds([]);
 				}
 			}
+			// an org-wide slot is the reserved-slot list's, which the ban list does not reach
+			await holds(['lists.ban']);
+			const orgSlot = { kind: 'seed_reward', config: { minutes: 60, scope: 'org' } };
+			const refused = await api(w, 'viewer', 'POST api/servers/[id]/triggers', {
+				params,
+				body: orgSlot
+			});
+			expect(refused.status).toBe(403);
 		});
 
 		test('a Name filter rule: who may save, dry-run and switch it on', async () => {
@@ -531,11 +543,14 @@ describe.skipIf(!hasTestDb)('access', () => {
 				operator: 403,
 				admin: 200,
 				elsewhere: 404,
+				orgBans: 403,
+				orgSlots: 403,
 				owner: 200,
 				site: 200,
 				keyView: 403,
 				keyAll: 200,
-				keyElsewhere: 404
+				keyElsewhere: 404,
+				keyBans: 403
 			};
 			for (const [who, status] of Object.entries(expected) as [PrincipalName, number][]) {
 				const got = [
@@ -701,19 +716,21 @@ describe.skipIf(!hasTestDb)('access', () => {
 			expect((await run(viaKey, 'keyView', 'broadcast')).status).toBe(403);
 		});
 
-		test('a key limited to some servers cannot be given the org lists', async () => {
+		test('a key limited to some servers cannot be given either org list', async () => {
 			const w = await seedWorld(env);
-			const body = { label: 'one server', capabilities: ['server.view', 'lists.edit'] };
-			const limited = await api(w, 'owner', 'POST api/orgs/[id]/keys', {
-				params: { id: w.org.id },
-				body: { ...body, serverIds: [w.server.id] }
-			});
-			expect(limited.status).toBe(400);
-			const whole = await api(w, 'owner', 'POST api/orgs/[id]/keys', {
-				params: { id: w.org.id },
-				body
-			});
-			expect(whole.status).toBe(201);
+			for (const cap of ['lists.ban', 'lists.reserve']) {
+				const body = { label: `one server ${cap}`, capabilities: ['server.view', cap] };
+				const limited = await api(w, 'owner', 'POST api/orgs/[id]/keys', {
+					params: { id: w.org.id },
+					body: { ...body, serverIds: [w.server.id] }
+				});
+				expect({ cap, status: limited.status }).toEqual({ cap, status: 400 });
+				const whole = await api(w, 'owner', 'POST api/orgs/[id]/keys', {
+					params: { id: w.org.id },
+					body
+				});
+				expect({ cap, status: whole.status }).toEqual({ cap, status: 201 });
+			}
 		});
 
 		test('an empty or malformed server selection is refused, not read as every server', async () => {

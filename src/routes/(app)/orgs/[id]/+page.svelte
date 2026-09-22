@@ -982,8 +982,9 @@
 				</select>
 			</label>
 			<p class="note">
-				The org lists (bans, reserved slots) need <b>Org lists</b>; reading servers needs
-				<b>View</b>. The token is shown once and stored hashed.
+				The org's ban list needs <b>Org ban list</b> and its reserved slots
+				<b>Org reserved slots</b>, each with every server; reading servers needs <b>View</b>. The
+				token is shown once and stored hashed.
 			</p>
 			<div class="flex justify-end gap-2 pt-2">
 				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>

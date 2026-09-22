@@ -15,6 +15,7 @@ import { writeAudit } from './audit';
 import {
 	getOrg,
 	listsRoleFor,
+	type ListsRole,
 	type OrgRow,
 	type ServerAccess,
 	type ServerRow,
@@ -290,12 +291,13 @@ function shapeEntry(
 
 // ---- views -------------------------------------------------------------------------------------
 
-export async function orgListsView(
-	env: Env,
-	org: OrgRow,
-	role: 'owner' | 'editor'
-): Promise<OrgListsView> {
-	const rows = await orgLists(env, org.id);
+/**
+ * The org's lists as one person may see them: the lists they edit with their counts, where the
+ * sync stands on each server (it pushes every list), and the ban message for the ban list's
+ * editors.
+ */
+export async function orgListsView(env: Env, org: OrgRow, role: ListsRole): Promise<OrgListsView> {
+	const rows = (await orgLists(env, org.id)).filter((l) => role.kinds.includes(l.kind));
 	const [counts, srv] = await Promise.all([
 		env.db
 			.select({ listId: listEntries.listId, n: count() })
@@ -326,9 +328,10 @@ export async function orgListsView(
 	const syncOf = new Map(syncRows.map((s) => [s.serverId, s]));
 	const n = new Map(counts.map((c) => [c.listId, c.n]));
 	return {
-		role,
+		role: role.owner ? 'owner' : 'editor',
+		kinds: role.kinds,
 		membersReserved: org.membersReserved,
-		banMessage: org.banMessage,
+		banMessage: role.kinds.includes('ban') ? org.banMessage : null,
 		servers: srv.map((s) => {
 			const y = syncOf.get(s.id);
 			return {
@@ -884,15 +887,16 @@ export async function importEntries(
 	return { imported, skipped: picks.length - imported, sync };
 }
 
-/** The org's active ban and reserved entries for one player, for the dossier. */
+/** The player's active entries on the org lists named (those the reader edits), for the dossier. */
 export async function orgListMembership(
 	env: Env,
 	org: OrgRow,
-	steamId: string
+	steamId: string,
+	kinds: ListKind[]
 ): Promise<{ ban: ListEntryView | null; reserve: ListEntryView | null }> {
 	const [bans, reserved] = await Promise.all([
-		entriesView(env, org, 'ban'),
-		entriesView(env, org, 'reserve')
+		kinds.includes('ban') ? entriesView(env, org, 'ban') : [],
+		kinds.includes('reserve') ? entriesView(env, org, 'reserve') : []
 	]);
 	return {
 		ban: bans.find((e) => e.steamId === steamId) ?? null,
@@ -922,12 +926,15 @@ export async function serverListsState(
 		env.db.select().from(serverListSync).where(eq(serverListSync.serverId, server.id)).limit(1),
 		listsRoleFor(env, user, server.orgId)
 	]);
+	const orgBans = !!role?.kinds.includes('ban');
+	const orgSlots = !!role?.kinds.includes('reserve');
 	// who placed a ban, and the message the org wraps its bans in, are for those who manage bans
-	// here or edit the org's lists
-	const staff = role !== null || access.caps.has('bans.manage');
+	// here or edit the org's ban list
+	const staff = orgBans || access.caps.has('bans.manage');
 	const out: ServerListsState = {
-		canEditOrg: role !== null,
-		orgOwner: role === 'owner',
+		canEditOrgBans: orgBans,
+		canEditOrgSlots: orgSlots,
+		orgOwner: !!role?.owner,
 		orgId: server.orgId,
 		banMessage: null,
 		bans: {},
@@ -972,7 +979,7 @@ export async function serverListsState(
 	for (const d of desired.bans) out.bans[d.steamId] = ban('applied', true);
 	// The entry behind each ban the lists want: which list it is on (the org's, or this server's
 	// own), the reason and when it lifts. Who is banned and why is View (the game's own ban list
-	// says as much); who placed it is for those who manage bans here or edit the org's lists.
+	// says as much); who placed it is for those who manage bans here or edit the org's ban list.
 	if (desired.bans.length) {
 		const ownBans = await serverListOf(env, server, 'ban');
 		const sourceOf = new Map(desired.bans.map((d) => [d.steamId, d.listId]));
@@ -1042,8 +1049,9 @@ export async function serverListsState(
 		for (const e of entries) {
 			if (sourceOf.get(e.steamId) !== e.listId) continue;
 			const s = out.reserved[e.steamId];
-			// Who holds a slot is View; what staff wrote about it is for those who manage slots.
-			s.note = role !== null || access.caps.has('slots.manage') ? e.reason : '';
+			// Who holds a slot is View; what staff wrote about it is for those who manage slots here
+			// or edit the org's reserved-slot list.
+			s.note = orgSlots || access.caps.has('slots.manage') ? e.reason : '';
 			s.expiresAt = iso(e.expiresAt);
 			if (e.listId === own.id) s.scope = 'server';
 		}

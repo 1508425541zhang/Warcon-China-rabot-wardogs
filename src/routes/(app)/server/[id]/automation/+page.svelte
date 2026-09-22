@@ -186,14 +186,17 @@
 			case 'seed_reward':
 				return canSlotHere || canSlotOrg
 					? ''
-					: 'Saving needs the Reserved slots capability (or Org lists, for a slot on every server) as well as Automation.';
+					: 'Saving needs the Reserved slots capability (or Org reserved slots, for a slot on every server) as well as Automation.';
 			default:
 				return '';
 		}
 	});
-	/** what a Seeding reward may hand out: a slot on this server (Reserved slots) or org-wide (Org lists) */
+	/**
+	 * what a Seeding reward may hand out: a slot on this server (Reserved slots) or on every server
+	 * (Org reserved slots)
+	 */
 	let canSlotHere = $derived(can(data.server.caps, 'slots.manage'));
-	let canSlotOrg = $derived(can(data.server.caps, 'lists.edit'));
+	let canSlotOrg = $derived(can(data.server.caps, 'lists.reserve'));
 	/** A kind that lacks what it needs stays in the menu, greyed, with the reason in a few words. */
 	const short = (kind: TriggerKind): string =>
 		kind === 'team_kill' ? 'needs the kill feed' : kind === 'risk_kick' ? 'needs a Steam key' : '';

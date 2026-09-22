@@ -13,7 +13,7 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
-	let owner = $derived(data.listsRole === 'owner');
+	let owner = $derived(data.listsRole.owner);
 	let live = $state<Record<string, LiveView>>({});
 	$effect(() => {
 		const ids = data.orgServers.map((s) => s.id);

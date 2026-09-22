@@ -134,7 +134,7 @@ const RULE_NEEDS: Record<Exclude<TriggerKind, 'seed_reward'>, [Capability, strin
 export function ruleNeeds(kind: TriggerKind, config: unknown): [Capability, string] {
 	if (kind !== 'seed_reward') return RULE_NEEDS[kind];
 	return (config as Partial<SeedRewardConfig> | null)?.scope !== 'server'
-		? ['lists.edit', "edits the organisation's reserved-slot list"]
+		? ['lists.reserve', "edits the organisation's reserved-slot list"]
 		: ['slots.manage', 'reserves slots on this server'];
 }
 

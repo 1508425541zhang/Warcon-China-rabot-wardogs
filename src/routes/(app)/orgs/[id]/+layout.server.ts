@@ -7,13 +7,14 @@ import { listOrgs } from '$lib/server/orgs';
 import { orgListsView } from '$lib/server/lists';
 
 /**
- * The org section: owners see everything; admins of one of its servers may open the ban and
- * reserved-slot lists (the overview page applies its own owner-only check on top).
+ * The org section: owners see everything; someone whose role on one of its servers holds an org
+ * list's capability opens that list, the org's servers and its players (each page applies its own
+ * check on top: the overview is owners only, each list page wants its own list).
  */
 export const load: LayoutServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
 	try {
-		const { org, role, user } = await requireListsRole(env, locals, params.id);
+		const { org, role, user } = await requireListsRole(env, locals, params.id, 'any');
 		// This org's servers regardless of the header scope: managing an org must not depend on it.
 		const [servers, [view], lists] = await Promise.all([
 			accessibleServers(env, user, org.id),
@@ -23,7 +24,7 @@ export const load: LayoutServerLoad = async ({ locals, params }) => {
 		return {
 			org: view,
 			orgServers: servers,
-			/** owner: runs the org; editor: admin on one of its servers, lists only */
+			/** owner: runs the org; otherwise the lists their roles on its servers open */
 			listsRole: role,
 			lists
 		};
