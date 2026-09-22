@@ -102,9 +102,12 @@ describe.skipIf(!hasTestDb)("an org's ban message", () => {
 			'operator',
 			'admin',
 			'elsewhere',
+			'orgBans',
+			'orgSlots',
 			'keyView',
 			'keyAll',
-			'keyElsewhere'
+			'keyElsewhere',
+			'keyBans'
 		] as PrincipalName[]) {
 			const answer = await patch(who, 'pwned {reason}');
 			expect({ who, refused: answer.status >= 400 }).toEqual({ who, refused: true });
@@ -168,7 +171,10 @@ describe.skipIf(!hasTestDb)("an org's ban message", () => {
 			((await state(who)).body as { banMessage?: string | null }).banMessage;
 
 		expect(await seen('owner')).toBe(TEMPLATE);
+		expect(await seen('orgBans')).toBe(TEMPLATE);
+		expect(await seen('keyBans')).toBe(TEMPLATE);
 		expect(await seen('viewer')).toBeNull();
+		expect(await seen('orgSlots')).toBeNull();
 		expect(await seen('keyView')).toBeNull();
 		for (const who of ['anon', 'stranger', 'elsewhere', 'keyElsewhere'] as PrincipalName[])
 			expect({ who, refused: (await state(who)).status >= 400 }).toEqual({ who, refused: true });

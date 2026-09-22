@@ -76,7 +76,8 @@ export const statusFor = (u: EnrolmentSubject): EnrolmentStatus => enrolmentStat
 export const PRIVILEGED_CAPS: Capability[] = [
 	'bans.manage',
 	'slots.manage',
-	'lists.edit',
+	'lists.ban',
+	'lists.reserve',
 	'config.apply',
 	'automation.manage',
 	'rcon.raw',

@@ -427,8 +427,16 @@ export interface DossierView {
 	bannedOn: { serverId: string; serverName: string; reason: string; bannedBy: string }[];
 	/** how many servers the organisation runs (for "banned on N of M") */
 	orgServerCount: number;
-	/** the player's standing on the organisation's lists, and whether the viewer may change it */
-	orgLists: { ban: ListEntryView | null; reserve: ListEntryView | null; canEdit: boolean };
+	/**
+	 * the player's entry on each organisation list the viewer edits (null on the others, whatever
+	 * they hold), and which lists those are
+	 */
+	orgLists: {
+		ban: ListEntryView | null;
+		reserve: ListEntryView | null;
+		canBan: boolean;
+		canReserve: boolean;
+	};
 	summary: {
 		sessions: number;
 		minutes: number;
@@ -585,9 +593,11 @@ export interface ListSyncSummary {
 
 export interface OrgListsView {
 	role: 'owner' | 'editor';
+	/** the lists the reader edits; `lists` holds only these */
+	kinds: ListKind[];
 	membersReserved: boolean;
-	/** what a banned player is shown, see $lib/ban-message */
-	banMessage: string;
+	/** what a banned player is shown, see $lib/ban-message; null unless the reader edits the ban list */
+	banMessage: string | null;
 	servers: {
 		id: string;
 		name: string;
@@ -614,7 +624,7 @@ export interface BanState {
 	scope: 'org' | 'server';
 	/** the reason on the list entry */
 	reason: string;
-	/** who added the entry; blank unless the reader manages bans here or edits the org's lists */
+	/** who added the entry; blank unless the reader manages bans here or edits the org's ban list */
 	addedByName: string;
 	addedAt: string | null;
 	/** when the panel lifts the ban; null for a permanent one (or one not managed) */
@@ -639,11 +649,14 @@ export interface ReservedSlotState {
 
 /** Per-server view of which bans and reserved slots the org lists manage; for the players page. */
 export interface ServerListsState {
-	canEditOrg: boolean;
+	/** may edit the organisation's ban list ('Org ban list' on a server of the org, or an owner) */
+	canEditOrgBans: boolean;
+	/** may edit the organisation's reserved-slot list ('Org reserved slots', or an owner) */
+	canEditOrgSlots: boolean;
 	/** owners may import (adopt) local entries into the org list */
 	orgOwner: boolean;
 	orgId: string;
-	/** the org's ban message, for those who can ban here; null for everyone else */
+	/** the org's ban message, for those who manage bans here or edit the org's ban list; else null */
 	banMessage: string | null;
 	bans: Record<string, BanState>;
 	reserved: Record<string, ReservedSlotState>;

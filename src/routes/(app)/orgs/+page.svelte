@@ -152,9 +152,11 @@
 								href="/orgs/{encodeURIComponent(o.id)}"
 								class="font-medium text-accent hover:underline">{o.name}</a
 							>
-						{:else if o.lists}
+						{:else if o.listKinds.length}
 							<a
-								href="/orgs/{encodeURIComponent(o.id)}/bans"
+								href="/orgs/{encodeURIComponent(o.id)}/{o.listKinds.includes('ban')
+									? 'bans'
+									: 'reserved'}"
 								class="font-medium text-accent hover:underline">{o.name}</a
 							>
 						{:else}
@@ -208,8 +210,10 @@
 							{#if o.role === 'owner' && (!o.suspended || siteOwner)}
 								<a class="btn btn-sm" href="/orgs/{encodeURIComponent(o.id)}">Manage</a>
 							{/if}
-							{#if o.lists}
+							{#if o.listKinds.includes('ban')}
 								<a class="btn btn-sm" href="/orgs/{encodeURIComponent(o.id)}/bans">Ban list</a>
+							{/if}
+							{#if o.listKinds.includes('reserve')}
 								<a class="btn btn-sm" href="/orgs/{encodeURIComponent(o.id)}/reserved"
 									>Reserved slots</a
 								>

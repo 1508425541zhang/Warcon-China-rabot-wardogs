@@ -2,6 +2,7 @@
 // server; an organisation's roles are named sets of them, and org owners and the site owner hold
 // every one. This module is pure and client-safe: pages, the role editor and the server all read
 // the same list, so the browser can hide a button for exactly the reason the API refuses it.
+import type { ListKind } from './types';
 
 export const CAPABILITIES = [
 	'server.view',
@@ -14,7 +15,8 @@ export const CAPABILITIES = [
 	'players.notes.manage',
 	'bans.manage',
 	'slots.manage',
-	'lists.edit',
+	'lists.ban',
+	'lists.reserve',
 	'config.apply',
 	'automation.manage',
 	'audit.read',
@@ -79,9 +81,14 @@ export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
 		hint: 'Reserve and unreserve slots on this server (through its config document on builds without the live routes), and read the note on each.',
 		group: 'moderate'
 	},
-	'lists.edit': {
-		label: 'Org lists',
-		hint: "Edit the organisation's ban and reserved-slot lists and push them to servers; see a player's entry on them in the dossier.",
+	'lists.ban': {
+		label: 'Org ban list',
+		hint: "Ban and unban on every server through the organisation's ban list, and push the lists to servers; see a player's entry on it in the dossier.",
+		group: 'moderate'
+	},
+	'lists.reserve': {
+		label: 'Org reserved slots',
+		hint: "Reserve and withdraw slots on every server through the organisation's reserved-slot list, and push the lists to servers; see a player's entry on it in the dossier.",
 		group: 'moderate'
 	},
 	'players.notes.manage': {
@@ -114,6 +121,21 @@ export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
 		hint: 'Call any /v1 route on the game server directly, except the config document.',
 		group: 'manage'
 	}
+};
+
+/**
+ * Each of the organisation's lists has a capability of its own: holding it on any server of the
+ * org opens that list, which then applies on every server of it.
+ */
+export const LIST_CAPABILITY: Record<ListKind, Capability> = {
+	ban: 'lists.ban',
+	reserve: 'lists.reserve'
+};
+
+/** The org lists a set of capabilities may edit, ban list first. */
+export const listKindsIn = (caps: Iterable<string>): ListKind[] => {
+	const held = new Set(caps);
+	return (['ban', 'reserve'] as const).filter((k) => held.has(LIST_CAPABILITY[k]));
 };
 
 /** Capabilities in display order, grouped for the role editor. */

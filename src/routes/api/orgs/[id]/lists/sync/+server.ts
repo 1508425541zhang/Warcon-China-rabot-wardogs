@@ -3,9 +3,12 @@ import { apiJson, param, route } from '$lib/server/http';
 import { requireListsRole } from '$lib/server/access';
 import { fanOut } from '$lib/server/lists';
 
-/** Push the org's lists to every one of its servers right now. */
+/**
+ * Push the org's lists to every one of its servers right now. Either list's editors may: a sync
+ * changes no entry, it only applies what the lists hold.
+ */
 export const POST = route(async (event) => {
 	const env = getEnv();
-	const { org } = await requireListsRole(env, event.locals, param(event, 'id'));
+	const { org } = await requireListsRole(env, event.locals, param(event, 'id'), 'any');
 	return apiJson({ ok: true, sync: await fanOut(env, org) });
 });

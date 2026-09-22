@@ -6,7 +6,7 @@ import { addEntry, entriesView, parseKind } from '$lib/server/lists';
 export const GET = route(async (event) => {
 	const env = getEnv();
 	const kind = parseKind(param(event, 'kind'));
-	const { org } = await requireListsRole(env, event.locals, param(event, 'id'));
+	const { org } = await requireListsRole(env, event.locals, param(event, 'id'), kind);
 	const includeRemoved = event.url.searchParams.get('includeRemoved') === '1';
 	return apiJson({ ok: true, entries: await entriesView(env, org, kind, { includeRemoved }) });
 });
@@ -14,7 +14,7 @@ export const GET = route(async (event) => {
 export const POST = route(async (event) => {
 	const env = getEnv();
 	const kind = parseKind(param(event, 'kind'));
-	const { org, user } = await requireListsRole(env, event.locals, param(event, 'id'));
+	const { org, user } = await requireListsRole(env, event.locals, param(event, 'id'), kind);
 	const result = await addEntry(env, event.request, user, org, kind, await readJson(event.request));
 	return apiJson({ ok: true, ...result }, 201);
 });

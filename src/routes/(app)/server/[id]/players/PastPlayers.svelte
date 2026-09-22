@@ -21,6 +21,7 @@
 		canBan: boolean;
 		/** holds Notes here: the row's Watch puts the player on the org's watchlist */
 		canWatch: boolean;
+		/** may edit the org's ban list: the Ban dialog then offers every server */
 		canOrg: boolean;
 	} = $props();
 

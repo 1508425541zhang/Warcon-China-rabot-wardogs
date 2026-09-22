@@ -136,7 +136,7 @@
 	</div>
 {/if}
 
-<BanMessagePanel {org} banMessage={lists.banMessage} {owner} />
+{#if lists.banMessage !== null}<BanMessagePanel {org} banMessage={lists.banMessage} {owner} />{/if}
 
 <div class="mb-3 flex flex-wrap items-center gap-2">
 	<input

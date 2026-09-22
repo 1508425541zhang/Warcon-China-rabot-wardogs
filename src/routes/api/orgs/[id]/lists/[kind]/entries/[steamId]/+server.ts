@@ -7,7 +7,7 @@ import { parseKind, removeEntry, updateEntry } from '$lib/server/lists';
 export const PATCH = route(async (event) => {
 	const env = getEnv();
 	const kind = parseKind(param(event, 'kind'));
-	const { org, user } = await requireListsRole(env, event.locals, param(event, 'id'));
+	const { org, user } = await requireListsRole(env, event.locals, param(event, 'id'), kind);
 	const result = await updateEntry(
 		env,
 		event.request,
@@ -24,7 +24,7 @@ export const PATCH = route(async (event) => {
 export const DELETE = route(async (event) => {
 	const env = getEnv();
 	const kind = parseKind(param(event, 'kind'));
-	const { org, user } = await requireListsRole(env, event.locals, param(event, 'id'));
+	const { org, user } = await requireListsRole(env, event.locals, param(event, 'id'), kind);
 	const result = await removeEntry(env, event.request, user, org, kind, param(event, 'steamId'));
 	return apiJson({ ok: true, ...result });
 });

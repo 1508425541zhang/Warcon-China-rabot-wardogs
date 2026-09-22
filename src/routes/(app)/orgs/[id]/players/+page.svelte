@@ -16,6 +16,9 @@
 
 	let { data }: PageProps = $props();
 	let orgId = $derived(data.org.id);
+	/** each row action goes on one org list, and is offered to that list's editors */
+	let canBan = $derived(data.listsRole.kinds.includes('ban'));
+	let canReserve = $derived(data.listsRole.kinds.includes('reserve'));
 	let apiBase = $derived(`/api/orgs/${encodeURIComponent(orgId)}/players`);
 
 	let extra = $state<SeenPlayer[]>([]);
@@ -265,18 +268,22 @@
 									<button class="btn btn-sm" disabled={busy === p.steamId} onclick={() => watch(p)}
 										>{p.watched ? 'Unwatch' : 'Watch'}</button
 									>
-									<button
-										class="btn btn-sm"
-										disabled={busy === p.steamId}
-										onclick={() => reserve(p)}>Reserve</button
-									>
+									{#if canReserve}
+										<button
+											class="btn btn-sm"
+											disabled={busy === p.steamId}
+											onclick={() => reserve(p)}>Reserve</button
+										>
+									{/if}
 								</div>
-								<button
-									class="btn btn-sm btn-danger"
-									disabled={busy === p.steamId || p.banned === 'org'}
-									title={p.banned === 'org' ? 'Already on the organisation ban list' : ''}
-									onclick={() => (banning = p)}>Ban</button
-								>
+								{#if canBan}
+									<button
+										class="btn btn-sm btn-danger"
+										disabled={busy === p.steamId || p.banned === 'org'}
+										title={p.banned === 'org' ? 'Already on the organisation ban list' : ''}
+										onclick={() => (banning = p)}>Ban</button
+									>
+								{/if}
 							</div>
 						</td>
 					</tr>
@@ -303,8 +310,9 @@
 	<p class="note">
 		Built from the sessions the worker records on servers you can open, so only players who have
 		joined one of them appear, and only the names they used there. Playtime is the sum of session
-		lengths. Ban goes on the organisation's ban list; Reserve on its reserved slots; Watch marks the
-		player across the organisation.
+		lengths.{#if canBan}
+			Ban goes on the organisation's ban list.{/if}{#if canReserve}
+			Reserve goes on its reserved slots.{/if} Watch marks the player across the organisation.
 	</p>
 </div>
 
@@ -315,7 +323,7 @@
 			orgName={data.org.name}
 			steamId={banning.steamId}
 			name={banning.name}
-			canOrg={true}
+			canOrg={canBan}
 			onclose={() => (banning = null)}
 			ondone={() => invalidateAll()}
 		/>

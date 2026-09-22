@@ -77,13 +77,44 @@ describe.skipIf(!hasTestDb)('what View shows', () => {
 		});
 	});
 
-	test('who holds a reserved slot is View; the note on it needs Reserved slots or Org lists', async () => {
+	test('who holds a reserved slot is View; the note on it needs Reserved slots or Org reserved slots', async () => {
 		const slot = async (who: PrincipalName) =>
 			(await get(who, 'api/servers/[id]/lists/state')).reserved[PLAYER];
 		expect(await slot('viewer')).toMatchObject({ state: 'pending', note: '' });
 		expect(await slot('operator')).toMatchObject({ note: '' });
+		expect(await slot('orgBans')).toMatchObject({ state: 'pending', note: '' });
+		expect(await slot('orgSlots')).toMatchObject({ note: 'sponsor, paid until March' });
 		expect(await slot('admin')).toMatchObject({ note: 'sponsor, paid until March' });
 		expect(await slot('owner')).toMatchObject({ note: 'sponsor, paid until March' });
+	});
+
+	test('the org lists view carries the lists the reader edits; the ban message goes with the ban list', async () => {
+		const { GET } = await import(join(ROUTES, 'api/orgs/[id]/lists', '+server.ts'));
+		const view = async (who: PrincipalName) => {
+			const answer = await callApi(GET, w.users[who], { params: { id: w.org.id } });
+			expect({ who, status: answer.status }).toEqual({ who, status: 200 });
+			const v = answer.body as Record<string, any>;
+			return {
+				kinds: v.kinds,
+				lists: v.lists.map((l: { kind: string }) => l.kind),
+				banMessage: v.banMessage
+			};
+		};
+		expect(await view('orgBans')).toEqual({
+			kinds: ['ban'],
+			lists: ['ban'],
+			banMessage: '{reason}'
+		});
+		expect(await view('orgSlots')).toEqual({
+			kinds: ['reserve'],
+			lists: ['reserve'],
+			banMessage: null
+		});
+		expect(await view('owner')).toEqual({
+			kinds: ['ban', 'reserve'],
+			lists: ['ban', 'reserve'],
+			banMessage: '{reason}'
+		});
 	});
 
 	test('where the server listens and what its owners noted are for its owners', async () => {
@@ -107,14 +138,14 @@ describe.skipIf(!hasTestDb)('what View shows', () => {
 		});
 	});
 
-	test('staff notes and the watch reason need Notes; the org list entry needs Org lists', async () => {
+	test('staff notes and the watch reason need Notes; an org list entry needs that list', async () => {
 		const dossier = async (who: PrincipalName) =>
 			(await get(who, 'api/servers/[id]/players/[steamId]')).dossier;
 
 		const viewer = await dossier('viewer');
 		expect(viewer.notes).toEqual([]);
 		expect(viewer.watch).toMatchObject({ watched: true, reason: '', updatedByName: '' });
-		expect(viewer.orgLists).toEqual({ ban: null, reserve: null, canEdit: false });
+		expect(viewer.orgLists).toEqual({ ban: null, reserve: null, canBan: false, canReserve: false });
 		expect(JSON.stringify(viewer)).not.toContain('suspected alt');
 		expect(JSON.stringify(viewer)).not.toContain('org-wide ban reason');
 
@@ -127,7 +158,21 @@ describe.skipIf(!hasTestDb)('what View shows', () => {
 
 		const admin = await dossier('admin');
 		expect(admin.orgLists.ban).toMatchObject({ reason: 'org-wide ban reason' });
-		expect(admin.orgLists.canEdit).toBe(true);
+		expect(admin.orgLists.reserve).toMatchObject({ reason: 'sponsor, paid until March' });
+		expect(admin.orgLists).toMatchObject({ canBan: true, canReserve: true });
+
+		// one list's editor reads that list's entry and nothing of the other's
+		const bans = await dossier('orgBans');
+		expect(bans.orgLists).toMatchObject({ reserve: null, canBan: true, canReserve: false });
+		expect(bans.orgLists.ban).toMatchObject({
+			reason: 'org-wide ban reason',
+			addedByName: 'admin'
+		});
+		expect(JSON.stringify(bans)).not.toContain('sponsor, paid until March');
+		const slots = await dossier('orgSlots');
+		expect(slots.orgLists).toMatchObject({ ban: null, canBan: false, canReserve: true });
+		expect(slots.orgLists.reserve).toMatchObject({ reason: 'sponsor, paid until March' });
+		expect(JSON.stringify(slots)).not.toContain('org-wide ban reason');
 	});
 
 	test('the risk score counts bans and recorded games only on servers the reader can open', async () => {

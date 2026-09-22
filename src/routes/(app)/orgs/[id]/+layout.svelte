@@ -9,21 +9,26 @@
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
-	let owner = $derived(data.listsRole === 'owner');
+	let owner = $derived(data.listsRole.owner);
 	let base = $derived(`/orgs/${encodeURIComponent(data.org.id)}`);
 	let orgPath = $derived(`/api/orgs/${encodeURIComponent(data.org.id)}`);
 	let current = $derived(page.url.pathname.slice(base.length) || '');
 
+	/** path, label, and who sees it: owners only, anyone who opens a list, or one list's editors */
 	const TABS = [
-		['', 'Overview', true],
-		['/servers', 'Servers', false],
-		['/access', 'Access', true],
-		['/roles', 'Roles', true],
-		['/players', 'Players', false],
-		['/bans', 'Ban list', false],
-		['/reserved', 'Reserved slots', false]
+		['', 'Overview', 'owner'],
+		['/servers', 'Servers', 'any'],
+		['/access', 'Access', 'owner'],
+		['/roles', 'Roles', 'owner'],
+		['/players', 'Players', 'any'],
+		['/bans', 'Ban list', 'ban'],
+		['/reserved', 'Reserved slots', 'reserve']
 	] as const;
-	let tabs = $derived(TABS.filter(([, , ownerOnly]) => owner || !ownerOnly));
+	let tabs = $derived(
+		TABS.filter(
+			([, , who]) => who === 'any' || (who === 'owner' ? owner : data.listsRole.kinds.includes(who))
+		)
+	);
 
 	let renaming = $state<string | null>(null);
 	let busy = $state(false);

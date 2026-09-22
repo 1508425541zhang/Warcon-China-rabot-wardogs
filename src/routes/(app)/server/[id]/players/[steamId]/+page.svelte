@@ -452,78 +452,78 @@
 			</div>
 		{/if}
 
-		<!-- the entry, its reason and who added it are for those who may open the lists -->
-		{#if d.orgLists.canEdit}
+		<!-- an entry, its reason and who added it are for those who may edit that list -->
+		{#if d.orgLists.canBan || d.orgLists.canReserve}
 			<div class="panel">
 				<div class="mb-3 flex items-center gap-2">
 					<span class="label-sm mb-0!">Organisation lists</span>
 					<a
-						href="/orgs/{encodeURIComponent(data.server.orgId)}/bans"
+						href="/orgs/{encodeURIComponent(data.server.orgId)}/{d.orgLists.canBan
+							? 'bans'
+							: 'reserved'}"
 						class="ml-auto text-[12px] text-accent hover:underline">Open the lists →</a
 					>
 				</div>
 				<div class="space-y-3 text-[13px]">
-					<div class="flex flex-wrap items-center gap-2">
-						{#if d.orgLists.ban}
-							{@const b = d.orgLists.ban}
-							<Badge tone="err">banned org-wide</Badge>
-							<span class="min-w-0 flex-1 truncate text-mist-400"
-								>{b.reason || 'no reason'} · by {b.addedByName || '—'}{#if b.expiresAt}
-									· until {fmtTime(b.expiresAt)}{/if}</span
-							>
-							<span class="inline-flex flex-wrap gap-1">
-								{#each b.servers as s (s.serverId)}
-									<span title="{s.serverName}: {s.state}{s.error ? ` — ${s.error}` : ''}"
-										><Badge tone={STATE_TONE[s.state]}>{s.serverName}</Badge></span
-									>
-								{/each}
-							</span>
-							{#if d.orgLists.canEdit}
+					{#if d.orgLists.canBan}
+						<div class="flex flex-wrap items-center gap-2">
+							{#if d.orgLists.ban}
+								{@const b = d.orgLists.ban}
+								<Badge tone="err">banned org-wide</Badge>
+								<span class="min-w-0 flex-1 truncate text-mist-400"
+									>{b.reason || 'no reason'} · by {b.addedByName || '—'}{#if b.expiresAt}
+										· until {fmtTime(b.expiresAt)}{/if}</span
+								>
+								<span class="inline-flex flex-wrap gap-1">
+									{#each b.servers as s (s.serverId)}
+										<span title="{s.serverName}: {s.state}{s.error ? ` — ${s.error}` : ''}"
+											><Badge tone={STATE_TONE[s.state]}>{s.serverName}</Badge></span
+										>
+									{/each}
+								</span>
 								<button class="btn btn-sm" disabled={busy} onclick={() => orgRemove('ban')}
 									>Unban org-wide</button
 								>
-							{/if}
-						{:else}
-							<span class="text-mist-400">Not on the organisation's ban list.</span>
-							{#if d.orgLists.canEdit}
+							{:else}
+								<span class="text-mist-400">Not on the organisation's ban list.</span>
 								<button
 									class="ml-auto btn btn-sm btn-danger"
 									disabled={busy}
 									onclick={() => (banning = true)}>Ban org-wide</button
 								>
 							{/if}
-						{/if}
-					</div>
-					<div class="flex flex-wrap items-center gap-2">
-						{#if d.orgLists.reserve}
-							{@const r = d.orgLists.reserve}
-							<Badge tone="accent">reserved slot</Badge>
-							<span class="min-w-0 flex-1 truncate text-mist-400"
-								>{r.reason || 'org-wide'}{#if r.member}
-									· member{/if}{#if r.expiresAt}
-									· until {fmtTime(r.expiresAt)}{/if}</span
-							>
-							<span class="inline-flex flex-wrap gap-1">
-								{#each r.servers as s (s.serverId)}
-									<span title="{s.serverName}: {s.state}{s.error ? ` — ${s.error}` : ''}"
-										><Badge tone={STATE_TONE[s.state]}>{s.serverName}</Badge></span
-									>
-								{/each}
-							</span>
-							{#if d.orgLists.canEdit && !r.member}
-								<button class="btn btn-sm" disabled={busy} onclick={() => orgRemove('reserve')}
-									>Withdraw</button
+						</div>
+					{/if}
+					{#if d.orgLists.canReserve}
+						<div class="flex flex-wrap items-center gap-2">
+							{#if d.orgLists.reserve}
+								{@const r = d.orgLists.reserve}
+								<Badge tone="accent">reserved slot</Badge>
+								<span class="min-w-0 flex-1 truncate text-mist-400"
+									>{r.reason || 'org-wide'}{#if r.member}
+										· member{/if}{#if r.expiresAt}
+										· until {fmtTime(r.expiresAt)}{/if}</span
 								>
-							{/if}
-						{:else}
-							<span class="text-mist-400">No reserved slot from the organisation.</span>
-							{#if d.orgLists.canEdit}
+								<span class="inline-flex flex-wrap gap-1">
+									{#each r.servers as s (s.serverId)}
+										<span title="{s.serverName}: {s.state}{s.error ? ` — ${s.error}` : ''}"
+											><Badge tone={STATE_TONE[s.state]}>{s.serverName}</Badge></span
+										>
+									{/each}
+								</span>
+								{#if !r.member}
+									<button class="btn btn-sm" disabled={busy} onclick={() => orgRemove('reserve')}
+										>Withdraw</button
+									>
+								{/if}
+							{:else}
+								<span class="text-mist-400">No reserved slot from the organisation.</span>
 								<button class="ml-auto btn btn-sm" disabled={busy} onclick={orgReserve}
 									>Reserve a slot</button
 								>
 							{/if}
-						{/if}
-					</div>
+						</div>
+					{/if}
 				</div>
 			</div>
 		{/if}

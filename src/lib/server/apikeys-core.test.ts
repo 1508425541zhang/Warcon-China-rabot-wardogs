@@ -49,12 +49,13 @@ describe('keys', () => {
 			id: 'k1',
 			orgId: 'o1',
 			label: 'bot',
-			capabilities: ['lists.edit', 'bogus'],
+			capabilities: ['lists.ban', 'bogus', 'lists.edit'],
 			serverIds: ['s1', 3],
 			expiresAt: null,
 			revokedAt: null
 		});
-		expect(p.capabilities).toEqual(['lists.edit']);
+		// 'lists.edit' was split in two by migration 0033; a value it missed grants nothing
+		expect(p.capabilities).toEqual(['lists.ban']);
 		expect(p.serverIds).toEqual(['s1']);
 		expect(
 			principalOf({ ...p, capabilities: [], serverIds: null, expiresAt: null, revokedAt: null })

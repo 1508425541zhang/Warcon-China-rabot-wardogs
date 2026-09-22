@@ -8,7 +8,7 @@ import { entriesView } from '$lib/server/lists';
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
 	try {
-		const { org } = await requireListsRole(env, locals, params.id);
+		const { org } = await requireListsRole(env, locals, params.id, 'reserve');
 		return { entries: await entriesView(env, org, 'reserve') };
 	} catch (err) {
 		const known = normalizeError(err);

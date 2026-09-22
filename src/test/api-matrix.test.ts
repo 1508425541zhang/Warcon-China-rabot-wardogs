@@ -9,6 +9,8 @@ import type { Env } from '$lib/server/env';
 import { hasTestDb, testEnv } from './db';
 import { callApi, stubGateway } from './call';
 import { expected, outcomeOf, type Policy } from './policy';
+import { LIST_KINDS } from '$lib/server/lists';
+import type { ListKind } from '$lib/types';
 import { PRINCIPALS, seedWorld, type World } from './world';
 
 const ROUTES = join(import.meta.dir, '..', 'routes');
@@ -35,7 +37,10 @@ const NOT_ROLE_BASED = [
 	'POST sign-out'
 ];
 
-const MATRIX: Record<string, Policy> = {
+/** A route under [kind] answers as the list it names: its line runs once per list, as `lists:<kind>`. */
+const PER_LIST = 'lists:[kind]';
+
+const MATRIX: Record<string, Policy | typeof PER_LIST> = {
 	'GET api/actions': 'user',
 	'GET api/audit': 'user',
 	'GET api/audit/export': 'user',
@@ -87,10 +92,10 @@ const MATRIX: Record<string, Policy> = {
 
 	// its ban and reserved-slot lists
 	'GET api/orgs/[id]/lists': 'lists',
-	'GET api/orgs/[id]/lists/[kind]/entries': 'lists',
-	'POST api/orgs/[id]/lists/[kind]/entries': 'lists',
-	'PATCH api/orgs/[id]/lists/[kind]/entries/[steamId]': 'lists',
-	'DELETE api/orgs/[id]/lists/[kind]/entries/[steamId]': 'lists',
+	'GET api/orgs/[id]/lists/[kind]/entries': PER_LIST,
+	'POST api/orgs/[id]/lists/[kind]/entries': PER_LIST,
+	'PATCH api/orgs/[id]/lists/[kind]/entries/[steamId]': PER_LIST,
+	'DELETE api/orgs/[id]/lists/[kind]/entries/[steamId]': PER_LIST,
 	'GET api/orgs/[id]/lists/import': 'listsOwner',
 	'POST api/orgs/[id]/lists/import': 'listsOwner',
 	'POST api/orgs/[id]/lists/sync': 'lists',
@@ -130,7 +135,7 @@ const MATRIX: Record<string, Policy> = {
 	'DELETE api/servers/[id]/lists/ban/entries/[steamId]': 'cap:bans.manage',
 	'POST api/servers/[id]/lists/reserve/entries': 'cap:slots.manage',
 	'DELETE api/servers/[id]/lists/reserve/entries/[steamId]': 'cap:slots.manage',
-	'POST api/servers/[id]/lists/sync': 'cap:lists.edit',
+	'POST api/servers/[id]/lists/sync': 'listsHere',
 	'POST api/servers/[id]/test': 'cap:config.apply',
 	'GET api/servers/[id]/outbox': 'cap:automation.manage',
 	'GET api/servers/[id]/triggers': 'cap:automation.manage',
@@ -148,7 +153,7 @@ const FRESH_EACH = new Set(['DELETE api/orgs/[id]', 'DELETE api/servers/[id]']);
 
 const STEAM_ID = '76561198000000001';
 
-function paramsFor(path: string, w: World): Record<string, string> {
+function paramsFor(path: string, w: World, kind: ListKind): Record<string, string> {
 	const out: Record<string, string> = {};
 	for (const [, name] of path.matchAll(/\[(\w+)\]/g)) {
 		if (name === 'id')
@@ -158,7 +163,7 @@ function paramsFor(path: string, w: World): Record<string, string> {
 					? w.org.id
 					: 'nobody';
 		else if (name === 'steamId') out.steamId = STEAM_ID;
-		else if (name === 'kind') out.kind = 'ban';
+		else if (name === 'kind') out.kind = kind;
 		else out[name] = 'nothing';
 	}
 	return out;
@@ -204,9 +209,14 @@ describe.skipIf(!hasTestDb)('API permission matrix', () => {
 		reads = await seedWorld(env);
 	});
 
-	for (const [key, policy] of Object.entries(MATRIX)) {
+	const runs = Object.entries(MATRIX).flatMap(([key, line]) =>
+		line === PER_LIST
+			? LIST_KINDS.map((kind) => ({ key, kind, policy: `lists:${kind}` as Policy }))
+			: [{ key, kind: 'ban' as ListKind, policy: line }]
+	);
+	for (const { key, kind, policy } of runs) {
 		const [method, path] = key.split(' ');
-		test(`${key} is ${policy}`, async () => {
+		test(`${key.replace('[kind]', kind)} is ${policy}`, async () => {
 			const mod = await import(join(ROUTES, path, '+server.ts'));
 			let world = method === 'GET' ? reads : await seedWorld(env);
 			const got: Record<string, unknown> = {};
@@ -216,7 +226,7 @@ describe.skipIf(!hasTestDb)('API permission matrix', () => {
 				if (FRESH_EACH.has(key) && want[who] === 'ok') world = await seedWorld(env);
 				const answer = await callApi(mod[method], world.users[who], {
 					method,
-					params: paramsFor(path, world),
+					params: paramsFor(path, world, kind),
 					body: bodyFor(key, world)
 				});
 				got[who] = outcomeOf(answer);

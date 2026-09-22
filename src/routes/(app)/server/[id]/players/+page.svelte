@@ -214,7 +214,7 @@
 			}}
 			canBan={bans}
 			canWatch={notes}
-			canOrg={listState?.canEditOrg ?? false}
+			canOrg={listState?.canEditOrgBans ?? false}
 		/>
 	{:else}
 		<div class="mb-3 flex flex-wrap items-center gap-2">
@@ -352,7 +352,8 @@
 		</div>
 		{#if !anyAction}<p class="note">You have view-only access; player actions are disabled.</p>{/if}
 		<p class="note">
-			{#if listState?.canEditOrg}Everyone who has ever joined is under
+			{#if listState?.canEditOrgBans || listState?.canEditOrgSlots}Everyone who has ever joined is
+				under
 				<a
 					href="/orgs/{encodeURIComponent(data.server.orgId)}/players?server={encodeURIComponent(
 						id
@@ -436,7 +437,7 @@
 			steamId={banning.steamId}
 			name={banning.name}
 			server={{ id, name: data.server.name }}
-			canOrg={listState?.canEditOrg ?? false}
+			canOrg={listState?.canEditOrgBans ?? false}
 			banMessage={listState?.banMessage}
 			onclose={() => (banning = null)}
 			ondone={refreshPlayers}

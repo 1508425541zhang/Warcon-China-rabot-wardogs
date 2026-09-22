@@ -56,7 +56,7 @@ describe.skipIf(!hasTestDb)("a server's own bans", () => {
 		env = await testEnv();
 		w = await seedWorld(env);
 		stubGateway();
-		// Bans on one server, no Org lists: the moderator the org's lists are closed to.
+		// Bans on one server and neither org list: the moderator the org's lists are closed to.
 		const id = `u_mod_${newId().slice(0, 8)}`;
 		await env.db.insert(user).values({
 			id,
@@ -166,7 +166,7 @@ describe.skipIf(!hasTestDb)("a server's own bans", () => {
 		expect(viewer.status).toBe(403);
 	});
 
-	test('who is banned, why and until when is View; who placed it needs Bans or Org lists', async () => {
+	test('who is banned, why and until when is View; who placed it needs Bans or Org ban list', async () => {
 		const state = async (who: SessionUser | null) =>
 			(
 				(await call(who, 'GET', 'servers/[id]/lists/state')).body as {
@@ -199,6 +199,16 @@ describe.skipIf(!hasTestDb)("a server's own bans", () => {
 			reason: 'org reason',
 			addedByName: 'owner'
 		});
+
+		// the org's ban list opens who placed a ban; its reserved-slot list does not
+		expect((await state(w.users.orgBans))[ORG_BANNED]).toMatchObject({ addedByName: 'owner' });
+		const slots = await state(w.users.orgSlots);
+		expect(slots[ORG_BANNED]).toMatchObject({
+			scope: 'org',
+			reason: 'org reason',
+			addedByName: ''
+		});
+		expect(JSON.stringify(slots)).not.toContain(moderator.username);
 	});
 
 	test('an answer says where the sync landed and nothing of what the worker holds', async () => {
