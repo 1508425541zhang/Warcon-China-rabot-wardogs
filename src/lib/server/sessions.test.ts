@@ -25,7 +25,7 @@ const open = (steamId: string): OpenSession => ({
 	kills: 0,
 	deaths: 0,
 	cash: 0,
-	game: { kills: 0, deaths: 0, cash: 0 },
+	game: { kills: 0, deaths: 0 },
 	seedMs: 0,
 	pendingSeedMs: 0,
 	joinedAt: 1000,
@@ -185,14 +185,14 @@ describe('followPlayer', () => {
 	});
 	const totals = (s: OpenSession) => [s.kills, s.deaths, s.cash];
 
-	test('a session over two matches keeps the first match when the counters start again', () => {
+	test('a session over two matches keeps the first match when the counters start again; cash is the balance', () => {
 		const s = open('76561198000000001');
 		followPlayer(s, at(37, 7, 90_000), 3000);
-		// the match ends: the game clears the side and the counters
-		followPlayer(s, { ...at(0, 0, 0), faction: null }, 4000);
+		// the match ends: the game clears the side and the counters, the balance carries
+		followPlayer(s, { ...at(0, 0, 90_000), faction: null }, 4000);
 		expect(totals(s)).toEqual([37, 7, 90_000]);
 		followPlayer(s, at(57, 9, 120_000), 5000);
-		expect(totals(s)).toEqual([94, 16, 210_000]);
+		expect(totals(s)).toEqual([94, 16, 120_000]);
 		expect(s.lastSeen).toBe(5000);
 	});
 
@@ -227,9 +227,9 @@ describe('followPlayer', () => {
 	test('a session reloaded after a restart keeps what earlier matches reached', () => {
 		const s = { ...open('76561198000000001'), kills: 94, deaths: 16, cash: 210_000, game: null };
 		followPlayer(s, at(58, 9, 121_000), 3000);
-		expect(totals(s)).toEqual([94, 16, 210_000]);
+		expect(totals(s)).toEqual([94, 16, 121_000]);
 		followPlayer(s, at(60, 9, 125_000), 4000);
-		expect(totals(s)).toEqual([96, 16, 214_000]);
+		expect(totals(s)).toEqual([96, 16, 125_000]);
 		// a single-match session reloaded simply follows the game
 		const one = { ...open('76561198000000001'), kills: 10, deaths: 2, cash: 5_000, game: null };
 		followPlayer(one, at(12, 2, 6_000), 3000);

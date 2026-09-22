@@ -443,6 +443,7 @@ export const playerSessions = pgTable(
 		leftAt: ts('left_at'),
 		kills: integer('kills').notNull().default(0),
 		deaths: integer('deaths').notNull().default(0),
+		/** the player's balance at the last look: the game keeps cash across matches */
 		cash: integer('cash').notNull().default(0),
 		/** seconds of this session spent with the player count at or under the server's seeding
 		 *  threshold (0 while no seeding rule is on); what a Seeding reward rule adds up */
@@ -523,6 +524,47 @@ export const kills = pgTable(
 	]
 );
 export type KillRow = typeof kills.$inferSelect;
+
+/**
+ * One row per player per match: the game's own scoreboard counters over the match (kills, deaths,
+ * the change in cash) with the player's time on and side, and, on servers with a kill feed, what
+ * the feed adds (headshots, team kills, suicides, vehicle kills, longest shot, best streaks).
+ * Written by the worker when a player leaves and at the match end (match-players.ts); boards,
+ * careers, the dossier and analytics read these rather than the sessions or the feed. Kept for
+ * good; a server's stats purge deletes them with its matches. No foreign key, like kills.
+ */
+export const matchPlayers = pgTable(
+	'match_players',
+	{
+		matchId: bigint('match_id', { mode: 'number' }).notNull(),
+		serverId: text('server_id').notNull(),
+		steamId: text('steam_id').notNull(),
+		/** the name at the last look */
+		name: text('name').notNull(),
+		/** the last side seen that was a team on the scoreboard */
+		faction: text('faction'),
+		/** time on during the match */
+		seconds: integer('seconds').notNull().default(0),
+		kills: integer('kills').notNull().default(0),
+		deaths: integer('deaths').notNull().default(0),
+		/** the balance at the last look less the balance at the first: the match's profit or loss */
+		cashDelta: integer('cash_delta').notNull().default(0),
+		headshots: integer('headshots').notNull().default(0),
+		teamKills: integer('team_kills').notNull().default(0),
+		suicides: integer('suicides').notNull().default(0),
+		vehicleKills: integer('vehicle_kills').notNull().default(0),
+		/** null without a feed or a distance */
+		longestM: real('longest_m'),
+		killStreak: integer('kill_streak').notNull().default(0),
+		deathStreak: integer('death_streak').notNull().default(0)
+	},
+	(t) => [
+		primaryKey({ columns: [t.matchId, t.steamId] }),
+		index('match_players_server_idx').on(t.serverId, t.matchId),
+		index('match_players_steam_idx').on(t.steamId, t.matchId)
+	]
+);
+export type MatchPlayerRow = typeof matchPlayers.$inferSelect;
 
 // ---- Player intelligence: org-scoped notes and watchlist, cached Steam data, ban snapshots ------
 
