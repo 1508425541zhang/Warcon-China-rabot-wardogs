@@ -73,10 +73,12 @@ describe('ratios with zero denominators', () => {
 		expect(kdRatio(0, 0)).toBeNull();
 		expect(kdRatio(0, 3)).toBe(0);
 	});
-	test('kills per hour needs playtime', () => {
+	test('kills per hour needs playtime, and seed time is not playtime', () => {
 		expect(perHour(30, 90)).toBe(20);
 		expect(perHour(30, 0)).toBeNull();
 		expect(perHour(0, 60)).toBe(0);
+		expect(perHour(30, 90, 30)).toBe(30);
+		expect(perHour(30, 90, 90)).toBeNull();
 	});
 	test('win rate needs a match with a result', () => {
 		expect(winRate(3, 1, 0)).toBe(0.75);
@@ -137,6 +139,9 @@ describe('metricValue', () => {
 		headshots: 5,
 		teamKills: 0,
 		suicides: 1,
+		vehicleKills: 0,
+		killStreak: 6,
+		deathStreak: 2,
 		matches: 4,
 		wins: 2,
 		losses: 1,
@@ -146,29 +151,24 @@ describe('metricValue', () => {
 	};
 	test('reads each column through the same maths', () => {
 		expect(metricValue(row, 'kd')).toBe(40);
-		expect(metricValue(row, 'perHour')).toBe(20);
+		// 40 kills over the 75 minutes that were not seed time
+		expect(metricValue(row, 'perHour')).toBe(32);
 		expect(metricValue(row, 'winRate')).toBe(0.5);
 		expect(metricValue(row, 'cash')).toBe(900);
 		expect(metricValue(row, 'seeded')).toBe(45);
 		expect(metricValue({ ...row, minutes: 0 }, 'perHour')).toBeNull();
+		expect(metricValue({ ...row, minutes: 45 }, 'perHour')).toBeNull();
 	});
 });
 
 describe('groupCareer', () => {
-	test('counts matches by result and adds the combat seen under the same key', () => {
-		const groups = groupCareer(
-			[
-				{ key: 'Kavkazi', result: 'win' },
-				{ key: 'Kavkazi', result: 'loss' },
-				{ key: 'Europe', result: 'draw' },
-				{ key: null, result: 'win' }
-			],
-			[
-				{ key: 'Kavkazi', kills: 12, deaths: 3 },
-				{ key: 'Europe', kills: 1, deaths: 9 },
-				{ key: null, kills: 5, deaths: 5 }
-			]
-		);
+	test('counts matches by result and adds the kills and deaths under the same key', () => {
+		const groups = groupCareer([
+			{ key: 'Kavkazi', result: 'win', kills: 10, deaths: 1 },
+			{ key: 'Kavkazi', result: 'loss', kills: 2, deaths: 2 },
+			{ key: 'Europe', result: 'draw', kills: 1, deaths: 9 },
+			{ key: null, result: 'win', kills: 5, deaths: 5 }
+		]);
 		expect(groups).toEqual([
 			{ key: 'Kavkazi', matches: 2, wins: 1, losses: 1, draws: 0, kills: 12, deaths: 3 },
 			{ key: 'Europe', matches: 1, wins: 0, losses: 0, draws: 1, kills: 1, deaths: 9 }

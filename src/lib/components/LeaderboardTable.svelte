@@ -196,7 +196,8 @@
 {/if}
 {#if board && !board.hasFeed}
 	<p class="note">
-		{query.scope === 'org' ? 'None of these servers has' : 'This server has no'} kill feed, so kills,
-		deaths and match results stay at zero; playtime, matches played and cash come from player sessions.
+		{query.scope === 'org' ? 'None of these servers has' : 'This server has no'} kill feed, so headshots,
+		team kills, suicides and streaks are not recorded; kills, deaths and results come from the game's
+		own scoreboard, match by match.
 	</p>
 {/if}

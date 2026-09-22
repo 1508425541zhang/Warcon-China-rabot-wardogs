@@ -7,6 +7,8 @@ import type { Env } from '$lib/server/env';
 import { listOf } from '$lib/server/lists';
 import {
 	listEntries,
+	matches,
+	matchPlayers,
 	playerMarks,
 	playerNotes,
 	playerSessions,
@@ -136,7 +138,20 @@ describe.skipIf(!hasTestDb)('what View shows', () => {
 			name: 'someone',
 			joinedAt: t,
 			lastSeen: t,
-			leftAt: t,
+			leftAt: t
+		});
+		// a recorded game on the other server: the player's line of a match that ended there
+		const [game] = await env.db
+			.insert(matches)
+			.values({ serverId: w.otherServer.id, startedAt: t, endedAt: new Date(), map: 'Europe' })
+			.returning({ id: matches.id });
+		await env.db.insert(matchPlayers).values({
+			matchId: game.id,
+			serverId: w.otherServer.id,
+			steamId: PLAYER,
+			name: 'someone',
+			faction: 'Lonestar',
+			seconds: 3600,
 			kills: 500,
 			deaths: 25
 		});
