@@ -775,6 +775,13 @@ bun run check             # svelte-check
 bun run build && bun run start   # production build, http://localhost:3000 (set ORIGIN to match)
 ```
 
+Before you push, run what CI runs: `scripts/ci.sh` goes through the same steps in the same order
+(install, lint, check, the suites against a throwaway database, the production build and the smoke
+test of that build; `--docker` adds the image build) with nothing from `.env`, since CI has none,
+and stops at the first step CI would fail on. It needs the `warcon-pg-test` container the tests use
+(`CI_DB` names another server) and port 5199 free. To have every push run it first:
+`git config core.hooksPath .githooks`.
+
 To run the split roles locally after `bun run build`: `bun run db:migrate`, then
 `WARCON_ROLE=worker RELAY_SECRET=… bun run worker` in one terminal and
 `WARCON_ROLE=web RELAY_SECRET=… RELAY_URL=http://127.0.0.1:7700 bun run start` in another.
@@ -811,8 +818,9 @@ What a change needs before it is merged:
   [src/test](src/test): they ask every route as every kind of person and key, and fail when one
   is missing. They need a Postgres to make a throwaway database on, named by
   `TEST_DATABASE_URL` (see `.env.example`); without it they are skipped locally, and CI runs them.
-- CI passes: `bun run lint` (Prettier), `bun run check` (svelte-check), `bun test` and
-  `bun run build`, the same four steps [ci.yml](.github/workflows/ci.yml) runs.
+- CI passes: `bun run lint` (Prettier), `bun run check` (svelte-check), `bun test`,
+  `bun run build` and the smoke test of the build, the steps [ci.yml](.github/workflows/ci.yml)
+  runs; `scripts/ci.sh` runs them here first.
 - The commit message says what behaviour changed, in plain words. Small whole commits are easier
   to review than one large one.
 - It keeps data: analytics roll up rather than get pruned, and history stays.
@@ -837,6 +845,7 @@ exposes; anything not in there is unknown to Warcon as well.
 src/hooks.server.ts            startup (role, gateway, worker in-process for `all`), session lookup, Better Auth handler, CSRF header check
 src/worker/worker.ts           the worker process entry (WARCON_ROLE=worker); runtime.ts serves the relay; migrate.ts = bun run db:migrate
 scripts/build-worker.ts        bundles the worker with Bun (shims $env and $app), run by bun run build
+scripts/ci.sh                  what CI runs, step for step, on this machine; scripts/smoke.sh is its end-to-end pass over a fresh instance
 src/lib/server/env.ts          process config + the database connection
 src/lib/server/db/schema.ts    every table, as Drizzle definitions (source of truth for migrations)
 src/lib/server/db/index.ts     Bun SQL client + Drizzle + migration runner

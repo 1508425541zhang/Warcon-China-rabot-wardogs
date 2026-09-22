@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Runs what CI runs before a push leaves this machine (scripts/ci.sh). Off unless turned on once:
+#   git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/scripts/ci.sh"

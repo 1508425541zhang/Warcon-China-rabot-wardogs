@@ -8,3 +8,5 @@ drizzle/meta
 node_modules
 pnpm-lock.yaml
 renovate.json
+/.*/worktrees/
+.playwright-mcp
