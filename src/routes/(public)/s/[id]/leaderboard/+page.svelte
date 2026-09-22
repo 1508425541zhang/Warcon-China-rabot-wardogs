@@ -44,7 +44,8 @@
 		relative
 	/>
 	<p class="note">
-		Kills and deaths from the game's kill feed, playtime from time seen on the server, and a match
-		counted when a player was on while it ran. Names open a player's career.
+		Kills and deaths from the game's scoreboard, match by match; headshots, team kills and streaks
+		from the kill feed; playtime from time seen on the server. A match counts once it has ended.
+		Names open a player's career.
 	</p>
 </div>

@@ -69,7 +69,12 @@ export const DEFAULT_BOARD_QUERY: BoardQuery = {
 	minMinutes: DEFAULT_FLOOR_MINUTES
 };
 
-/** One player's row: everything the board can rank by, as stored counts. */
+/**
+ * One player's row: everything the board can rank by, as stored counts. Kills, deaths and the
+ * match results are summed from the player's match rows (the game's own scoreboard, per match);
+ * headshots, team kills, suicides, vehicle kills and streaks are the feed's columns of those
+ * rows; playtime, seed time, the name and the cash balance come from sessions.
+ */
 export interface BoardRow {
 	rank: number;
 	steamId: string;
@@ -83,10 +88,15 @@ export interface BoardRow {
 	headshots: number;
 	teamKills: number;
 	suicides: number;
+	vehicleKills: number;
+	/** the best runs in any one match of the range */
+	killStreak: number;
+	deathStreak: number;
 	matches: number;
 	wins: number;
 	losses: number;
 	draws: number;
+	/** the balance as last seen (the game keeps cash across matches), not a sum */
 	cash: number;
 	lastSeen: string | null;
 }
@@ -99,7 +109,8 @@ export interface BoardView {
 	pageSize: number;
 	/** the last page this reader may ask for (public boards); absent, the board has no ceiling */
 	maxPage?: number;
-	/** whether kills, deaths and the match results can exist at all on these servers */
+	/** whether the feed's columns (headshots, team kills, suicides, vehicle kills, streaks) can
+	 *  exist at all on these servers; kills, deaths and results come from the scoreboard everywhere */
 	hasFeed: boolean;
 }
 
@@ -148,9 +159,9 @@ export const rangeStart = (range: BoardRange, now = Date.now()): Date | null => 
 export const kdRatio = (kills: number, deaths: number): number | null =>
 	deaths > 0 ? kills / deaths : kills > 0 ? kills : null;
 
-/** Kills per hour of playtime; nothing without playtime. */
-export const perHour = (kills: number, minutes: number): number | null =>
-	minutes > 0 ? kills / (minutes / 60) : null;
+/** Kills per hour of playtime, seed time left out; nothing without playtime beyond it. */
+export const perHour = (kills: number, minutes: number, seedMinutes = 0): number | null =>
+	minutes - seedMinutes > 0 ? kills / ((minutes - seedMinutes) / 60) : null;
 
 /** Wins over the matches that had a result; nothing without one. */
 export const winRate = (wins: number, losses: number, draws: number): number | null => {
@@ -228,7 +239,7 @@ export function metricValue(row: BoardRow, metric: BoardMetric): number | null {
 		case 'kd':
 			return kdRatio(row.kills, row.deaths);
 		case 'perHour':
-			return perHour(row.kills, row.minutes);
+			return perHour(row.kills, row.minutes, row.seedMinutes);
 		case 'playtime':
 			return row.minutes;
 		case 'seeded':
@@ -246,6 +257,7 @@ export function metricValue(row: BoardRow, metric: BoardMetric): number | null {
 
 // ---- careers -----------------------------------------------------------------------------------
 
+/** The player's line of one match, newest first on a career. */
 export interface CareerMatch {
 	matchId: number;
 	serverId: string;
@@ -255,8 +267,14 @@ export interface CareerMatch {
 	map: string | null;
 	faction: string | null;
 	result: MatchResult;
+	/** time on during the match */
+	seconds: number;
 	kills: number;
 	deaths: number;
+	/** the change in the player's cash over the match */
+	cashDelta: number;
+	headshots: number;
+	killStreak: number;
 }
 
 export interface CareerGroup {
@@ -283,39 +301,41 @@ export interface CareerView {
 	wins: number;
 	losses: number;
 	draws: number;
+	/** over every match that ended: the scoreboard's kills and deaths, time on in matches */
+	kills: number;
+	deaths: number;
+	minutes: number;
+	/** the feed's columns, 0 (or null) on servers without a feed */
+	headshots: number;
+	vehicleKills: number;
+	longestM: number | null;
+	/** the best runs in any one match */
+	killStreak: number;
+	deathStreak: number;
 	maps: CareerGroup[];
 	factions: CareerGroup[];
 	/** the last ten matches, newest first */
 	last: CareerMatch[];
 }
 
-/** Matches grouped by map or faction (most played first), with the kills and deaths seen there. */
+/** Match lines grouped by map or faction (most played first): results, kills and deaths. */
 export function groupCareer(
-	matches: { key: string | null; result: MatchResult }[],
-	combat: { key: string | null; kills: number; deaths: number }[]
+	lines: { key: string | null; result: MatchResult; kills: number; deaths: number }[]
 ): CareerGroup[] {
 	const out = new Map<string, CareerGroup>();
-	const of = (key: string) => {
-		let g = out.get(key);
+	for (const l of lines) {
+		if (!l.key) continue;
+		let g = out.get(l.key);
 		if (!g) {
-			g = { key, matches: 0, wins: 0, losses: 0, draws: 0, kills: 0, deaths: 0 };
-			out.set(key, g);
+			g = { key: l.key, matches: 0, wins: 0, losses: 0, draws: 0, kills: 0, deaths: 0 };
+			out.set(l.key, g);
 		}
-		return g;
-	};
-	for (const m of matches) {
-		if (!m.key) continue;
-		const g = of(m.key);
 		g.matches++;
-		if (m.result === 'win') g.wins++;
-		else if (m.result === 'loss') g.losses++;
-		else if (m.result === 'draw') g.draws++;
-	}
-	for (const c of combat) {
-		if (!c.key) continue;
-		const g = of(c.key);
-		g.kills += c.kills;
-		g.deaths += c.deaths;
+		if (l.result === 'win') g.wins++;
+		else if (l.result === 'loss') g.losses++;
+		else if (l.result === 'draw') g.draws++;
+		g.kills += l.kills;
+		g.deaths += l.deaths;
 	}
 	return [...out.values()].sort((a, b) => b.matches - a.matches || b.kills - a.kills);
 }

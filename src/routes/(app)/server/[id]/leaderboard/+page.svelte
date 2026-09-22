@@ -60,9 +60,10 @@
 		showIds
 	/>
 	<p class="note">
-		Kills and deaths are from the kill feed; playtime and cash from player sessions; a match is
-		counted when a session overlapped it, with the result read against the faction of the player's
-		last session in it. Names link to the dossier.
+		Kills and deaths are the game's own scoreboard counters, recorded per match; headshots, team
+		kills and streaks come from the kill feed; playtime from player sessions, cash as last seen. A
+		match counts once it has ended, with the result read against the side the player played. Kills
+		per hour leaves seed time out. Names link to the dossier.
 		{#if publicOn}This board is also public at <a
 				href="/s/{encodeURIComponent(id)}/leaderboard"
 				class="text-accent hover:underline">/s/{id}/leaderboard</a

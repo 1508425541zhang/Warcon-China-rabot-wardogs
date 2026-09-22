@@ -242,31 +242,46 @@ export async function loadAnalytics(env: Env, serverId: string, range: Range): P
 		matches: num(r.matches)
 	}));
 
-	const players = (
-		await db.execute<{
-			steamId: string;
-			name: string;
-			minutes: string;
-			sessions: string;
-			kills: string;
-			deaths: string;
-			lastSeen: Date;
-			online: string;
-		}>(sql`
+	const seen = (await db.execute<{
+		steamId: string;
+		name: string;
+		minutes: string;
+		sessions: string;
+		lastSeen: Date;
+		online: string;
+	}>(sql`
 				SELECT p.steam_id AS "steamId",
 				       (SELECT name FROM player_sessions p2 WHERE p2.steam_id = p.steam_id AND p2.server_id = p.server_id ORDER BY last_seen DESC LIMIT 1) AS name,
 				       SUM(EXTRACT(EPOCH FROM (COALESCE(p.left_at, now()) - GREATEST(p.joined_at, ${from}::timestamptz)))) / 60 AS minutes,
-				       COUNT(*) AS sessions, SUM(p.kills) AS kills, SUM(p.deaths) AS deaths,
+				       COUNT(*) AS sessions,
 				       MAX(p.last_seen) AS "lastSeen", COUNT(*) FILTER (WHERE p.left_at IS NULL) AS online
 				  FROM player_sessions p WHERE p.server_id = ${serverId} AND p.last_seen >= ${from}
-				 GROUP BY p.server_id, p.steam_id ORDER BY minutes DESC LIMIT 50`)
-	).map((r) => ({
+				 GROUP BY p.server_id, p.steam_id ORDER BY minutes DESC LIMIT 50`)) as {
+		steamId: string;
+		name: string;
+		minutes: string;
+		sessions: string;
+		lastSeen: Date;
+		online: string;
+	}[];
+	// Kills and deaths for those players from their match lines (the game's own counters, per
+	// match that ended in the range), the same rows the boards read.
+	const recorded = new Map<string, { kills: number; deaths: number }>();
+	if (seen.length)
+		for (const r of await db.execute<{ steamId: string; kills: string; deaths: string }>(sql`
+				SELECT p.steam_id AS "steamId", SUM(p.kills) AS kills, SUM(p.deaths) AS deaths
+				  FROM match_players p JOIN matches m ON m.id = p.match_id
+				 WHERE p.server_id = ${serverId} AND p.steam_id IN ${seen.map((s) => s.steamId)}
+				   AND m.ended_at IS NOT NULL AND m.ended_at >= ${from}
+				 GROUP BY p.steam_id`))
+			recorded.set(r.steamId, { kills: num(r.kills), deaths: num(r.deaths) });
+	const players = seen.map((r) => ({
 		steamId: r.steamId,
 		name: r.name,
 		minutes: Math.round(num(r.minutes)),
 		sessions: num(r.sessions),
-		kills: num(r.kills),
-		deaths: num(r.deaths),
+		kills: recorded.get(r.steamId)?.kills ?? 0,
+		deaths: recorded.get(r.steamId)?.deaths ?? 0,
 		lastSeen: isoOf(r.lastSeen),
 		online: num(r.online) > 0
 	}));

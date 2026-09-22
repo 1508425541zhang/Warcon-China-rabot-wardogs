@@ -123,7 +123,7 @@
 		</table>
 	</div>
 	<p class="note">
-		A match counts when a session on {serverName === orgName ? 'the server' : 'a server'} overlapped it;
-		kills and deaths in it are from the kill feed.
+		A match counts once it has ended on {serverName === orgName ? 'the server' : 'a server'}; kills
+		and deaths in it are the game's own scoreboard counters.
 	</p>
 {/if}

@@ -592,17 +592,21 @@ organisation you can see, ranked by kills, deaths, K/D, kills per hour of playti
 seed time (time on with the server low, as a [Seeding reward](#automation-triggers) counts it),
 matches played, wins, win rate or cash, over 7, 30 or 90 days or all time, paged, with sortable
 headers. A **playtime floor** (an hour by default) keeps a ten-minute visit off the top of the
-K/D board. Kills, deaths, headshots, team kills and suicides come from the [kill feed](#kill-feed)
-(killer and victim), never from the game's own counters; playtime, seed time and cash from player sessions;
-a match is counted when a session overlapped it, and the result (win, loss, draw) is read from
-the match's winner and final scores against the faction of the player's last session in it. A
-match with no winner and nobody scoring has no result. Names link to the dossier.
+K/D board. Every stat is summed from the player's line of each match: the worker records one
+row per player per match with the game's own kill and death counters over that match, the
+player's time on and side, the change in their cash, and, on servers with a [kill feed](#kill-feed),
+the feed's headshots, team kills, suicides, vehicle kills, longest shot and best kill and death
+streaks. A match counts once it has ended (the match in progress is on the live page), and the
+result (win, loss, draw) is read from the match's winner and final scores against the side the
+player played; a match with no winner and nobody scoring, or one abandoned by a restart, has no
+result. Playtime and seed time come from player sessions; kills per hour leaves seed time out;
+cash is the balance as last seen, since the game keeps it across matches. Names link to the dossier.
 
 Each dossier has a **Career** section: rank on the all-time kills board for this server and the
 organisation, the current win or loss streak, matches with wins, losses and draws, a table per
 map and per faction (matches, wins, K/D), and the last ten matches with map, faction, result,
-kills and deaths. Everything is read at page load from the tables the worker already writes;
-nothing is precomputed.
+kills and deaths. Everything is read at page load from the rows the worker writes; nothing is
+precomputed.
 
 ### Public pages
 
