@@ -1,12 +1,12 @@
 // How long the game process has been up, and where that sits against the game's scheduled
-// restart. A WARDOGS server restarts once its uptime passes twelve hours (fixed in the game, not
+// restart. A WARDOGS server restarts once its uptime passes 24 hours (fixed in the game, not
 // a setting), but not on the mark: the restart happens when the round in progress ends. So past
 // the threshold the server is "restarting after this round", and before it there is a window
 // that opens in so many minutes. The worker derives `startedAt` from `uptimeSeconds` on
 // GET /v1/health; the header, the status cards and (later) the rules read this.
 
 /** Hours of uptime after which WARDOGS restarts the server at the end of the round. Hard-coded in the game. */
-export const RESTART_AFTER_HOURS = 12;
+export const RESTART_AFTER_HOURS = 24;
 
 export interface RestartWindow {
 	/** milliseconds since the game process started */

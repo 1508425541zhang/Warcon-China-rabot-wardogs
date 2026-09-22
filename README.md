@@ -524,7 +524,7 @@ WARDOGS can push every kill to an HTTP endpoint: with `[WDServerFeed] Url` and `
 distance, headshot and other context) a second or two after it happens. Warcon is that endpoint.
 On the server's **Config** tab an org owner clicks **Configure**: Warcon mints a token,
 writes both keys into the config document and applies; the game reads them at its next restart
-(its own twelve-hour one, or a manual restart). `Url` is the panel's origin alone: the game
+(its own 24-hour one, or a manual restart). `Url` is the panel's origin alone: the game
 appends `/api/ingest/events` to it by itself. The card shows when the last batch arrived, so a
 config that did not take is visible.
 
