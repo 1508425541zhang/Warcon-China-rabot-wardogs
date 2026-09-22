@@ -106,8 +106,8 @@ jobs:
             ($compare | fromjson | .commits | map(select(.parents | length < 2))) as $all
             | (if $all == [] then ($compare | fromjson | .commits) else $all end) as $all
             | ($all | length) as $n
-            | ($all | .[:15] | map("• [`\(.sha[:7])`](\(.html_url)) " + (.commit.message | split("\n")[0])))
-              + (if $n > 15 then ["… and \($n - 15) more"] else [] end) as $lines
+            | (($all | .[:15] | map("• [`\(.sha[:7])`](\(.html_url)) " + (.commit.message | split("\n")[0])))
+              + (if $n > 15 then ["… and \($n - 15) more"] else [] end)) as $lines
             | {
                 embeds: [{
                   title: (if $n == 1 then "1 new commit on main" else "\($n) new commits on main" end),
