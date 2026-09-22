@@ -618,6 +618,11 @@ richest match; none for a match under twenty minutes), a sortable scoreboard of 
 line and the match's kill feed. Both are public too under the leaderboards switch, at
 `/s/<id>/matches`.
 
+An org owner can **purge a server's stats** at the foot of its Settings tab: every recorded kill,
+match and match row of the server is deleted, for good, after typing the server's name back.
+Player sessions stay, since they are presence rather than stats. Careers and boards for the
+server start again from the next match, and the match in progress is recorded from the purge on.
+The purge is audited with the counts.
 
 ### Public pages
 
@@ -909,6 +914,7 @@ GET|POST /api/servers/:id/rcon/:action   (GET for reads with query params, POST 
 GET  /api/servers/:id/analytics?range=24h|7d|30d       includes `combat` from the kill feed when the server has one
 GET  /api/servers/:id/kills?before=<iso>&beforeTime=<s>&limit=50&count=1&match=<matchId>   the stored kill feed, newest first; `count=1` adds the total, `match` narrows it to one match; `kills` frames on /api/live/events carry new ones
 GET  /api/servers/:id/matches?page=1                    match history, newest first, fifty a page   GET /api/servers/:id/matches/:matchId   a match that ended: lines, score timeline, awards
+POST /api/servers/:id/stats/purge {name}                 deletes the server's kills, matches and match rows (org owners; the name must be the server's; sessions stay)
      &killer=&victim=&player=&cause=&kind=&minM=            filters: a SteamID exactly, else part of a name; the raw cause tag; kind headshot|teamKill|suicide|vehicle|environment; metres at least
 GET/POST/DELETE /api/servers/:id/feed                   the kill feed setup: token and URL (POST mints or replaces, owners only)
 POST /api/ingest/events                                 where the game posts: [WDServerFeed] Url is the origin, the game adds this path (Authorization: Bearer wkf_…); not a panel route

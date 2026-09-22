@@ -103,6 +103,7 @@ const MATRIX: Record<string, Policy> = {
 	'DELETE api/servers/[id]': 'manager',
 	'POST api/servers/[id]/feed': 'manager',
 	'DELETE api/servers/[id]/feed': 'manager',
+	'POST api/servers/[id]/stats/purge': 'manager',
 	'GET api/servers/[id]/grants': 'manager',
 	'PUT api/servers/[id]/grants': 'manager',
 
