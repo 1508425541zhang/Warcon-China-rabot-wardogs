@@ -482,7 +482,8 @@ export type TriggerKind =
 	| 'team_kill'
 	| 'seed_reward'
 	| 'match_broadcast'
-	| 'name_filter';
+	| 'name_filter'
+	| 'kill_rate';
 
 export interface TriggerView {
 	id: string;
