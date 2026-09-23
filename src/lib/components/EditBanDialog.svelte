@@ -32,12 +32,18 @@
 	let reason = $state(untrack(() => reasonNow));
 	let expiry = $state(untrack(() => (expiresAt ? 'custom' : '0')));
 	let custom = $state(untrack(() => toDatetimeLocal(expiresAt)));
+	// The expiry goes out only when it was touched: the form holds it to the minute, and a ban
+	// already past it would be refused as not in the future.
+	const expiryWas = untrack(() => [expiry, custom].join());
 	let busy = $state(false);
 
 	async function submit() {
 		busy = true;
 		try {
-			await api('PATCH', path, { reason: reason.trim(), expiresAt: expiryIso(expiry, custom) });
+			await api('PATCH', path, {
+				reason: reason.trim(),
+				...([expiry, custom].join() === expiryWas ? {} : { expiresAt: expiryIso(expiry, custom) })
+			});
 			toast(`Ban on ${who} changed.`, 'ok');
 			await ondone();
 			onclose();
