@@ -19,9 +19,14 @@ import { getProfiles, steamEnabled } from './steam';
 import {
 	enabledTriggers,
 	evaluateTriggers,
+	forgetRuleMemory,
 	invalidateTriggers,
 	needsRiskInputs,
 	needsRiskPerformance,
+	RISK_RECHECK_MS,
+	RISK_REKICK_MS,
+	riskCheckTargets,
+	riskSparesReserved,
 	riskInputs,
 	matchBoundary,
 	seedRule,
@@ -42,6 +47,8 @@ import {
 	closeAllSessions,
 	diffPresence,
 	firstVisits,
+	isTeam,
+	LEAVE_GRACE_MS,
 	loadPresence,
 	newPresence,
 	followPlayer,
@@ -101,11 +108,19 @@ export interface ServerMemory {
 	players: Player[];
 	playersAt: number;
 	presence: Presence;
+	/** when everyone on the server was last judged by the risk kick rules; 0 asks for it now */
+	riskSweptAt: number;
+	/** when a risk kick was last asked for each player still on (in memory only) */
+	riskKickedAt: Map<string, number>;
+	/** the risk rules have been told they wait for the reserved slots */
+	riskWaitNoted: boolean;
 	/** the previous look at the match (map, scores, clock); null until one is remembered */
 	lastMatch: MatchLook | null;
 	/** each player's line of the match in progress, from the scoreboard (match-players.ts) */
 	tallies: Tallies;
 	reserved: Set<string>;
+	/** when `reserved` was last read from the game; 0 until a read succeeded */
+	reservedAt: number;
 	/** the bans the lists put on this server, from the last sync: these players are removed on sight */
 	bans: Map<string, PanelBan>;
 	listsAt: number;
@@ -169,9 +184,13 @@ export function memoryFor(server: ServerRow, org: OrgRow): ServerMemory {
 			players: [],
 			playersAt: 0,
 			presence: newPresence(),
+			riskSweptAt: 0,
+			riskKickedAt: new Map(),
+			riskWaitNoted: false,
 			lastMatch: null,
 			tallies: new Map(),
 			reserved: new Set(),
+			reservedAt: 0,
 			bans: new Map(),
 			listsAt: 0,
 			syncAt: 0,
@@ -300,9 +319,12 @@ const START_DRIFT_MS = 5_000;
  * (a transient error must not blank the uptime on the header); a build without the route is not
  * asked again until its identity is re-read; a 429 becomes a hold like any other.
  */
-async function refreshUptime(client: WardogsClient, m: ServerMemory, now: number): Promise<void> {
+async function refreshUptime(client: WardogsClient, m: ServerMemory): Promise<void> {
 	if (m.healthUnserved) return;
 	try {
+		// Timed at the request itself, not the look's start: the identity refresh before it can
+		// take seconds.
+		const now = Date.now();
 		const h = (await ACTIONS.health.run(client, {})) as { uptimeSeconds?: unknown };
 		const up = Number(h?.uptimeSeconds);
 		if (!Number.isFinite(up) || up < 0) return;
@@ -323,8 +345,11 @@ export function forgetRemembered(): void {
 		m.sampleKey = '';
 		m.listsAt = 0;
 		m.syncAt = 0;
+		// judged again only against a reserved list this process has read since
+		m.reservedAt = 0;
 	}
 	invalidateTriggers();
+	forgetRuleMemory();
 }
 export const allMemory = (): IterableIterator<ServerMemory> => registry.values();
 export function forgetMemory(id: string): void {
@@ -485,7 +510,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	if (look) m.lastMatch = look;
 	if (hadFailed || started - m.identity.checkedAt >= IDENTITY_TTL_MS)
 		await refreshIdentity(client, m, started);
-	if (status) await refreshUptime(client, m, started);
+	if (status) await refreshUptime(client, m);
 	if (!m.presence.loaded) await loadPresence(env.db, server.id, m.presence);
 
 	// Joins are trusted only when the previous look at the player list is recent enough that
@@ -497,23 +522,56 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 		prevPlayersAt > 0 &&
 		!wasOffline &&
 		gapMs <= 2 * Math.max(m.playersIntervalMs, 1000) + 1000;
+	// The factions on the scoreboard: any other side (the game's holding team between matches) is
+	// no pick of a side.
+	const teams = m.status?.scores.map((f) => f.name);
 	const diff: PresenceDiff = players
-		? diffPresence(m.presence, players, started)
-		: { joined: [], left: [], stayed: [], factioned: [], renamed: [] };
+		? diffPresence(m.presence, players, started, LEAVE_GRACE_MS, prevPlayersAt, teams)
+		: { joined: [], left: [], stayed: [], factioned: [], renamed: [], returned: [] };
 	const joined = joinsTrusted ? diff.joined : [];
 	// Players pick a faction after joining; rules that wait for it see the change here. A joiner
 	// who arrives with one (a reconnect) counts as a first pick on the spot.
 	const factioned = joinsTrusted
 		? [
-				...joined.filter((p) => p.faction).map((player) => ({ player, from: null })),
+				...joined.filter((p) => isTeam(p.faction, teams)).map((player) => ({ player, from: null })),
 				...diff.factioned
 			]
 		: [];
 	const rows = m.status ? await enabledTriggers(env, server.id) : [];
-	const risk =
-		joined.length && needsRiskInputs(rows)
-			? await riskInputs(env, server, joined, needsRiskPerformance(rows))
-			: { signals: new Map(), profiles: new Map(), performance: new Map() };
+	// A risk kick judges whoever is on the server, not only a join: joiners at once, a player back
+	// after missing a look at once (a kicked player reconnecting inside the leave grace is the
+	// same session, not a join), and everyone on again every RISK_RECHECK_MS in one batch, which
+	// also covers the players on when the rule is turned on and a ban that lands mid-session.
+	// A rule that spares reserved slots judges nobody until the reserved list has been read (the
+	// first look after a start reads it only after the rules): the first look after that sweeps.
+	const riskWaits = needsRiskInputs(rows) && m.reservedAt === 0 && riskSparesReserved(rows);
+	const riskOn = needsRiskInputs(rows) && !riskWaits;
+	if (!riskOn) m.riskSweptAt = 0;
+	const riskSweep = riskOn && !!players && started - m.riskSweptAt >= RISK_RECHECK_MS;
+	// Every new session, trusted as a join or not: after a start or an outage the first look opens
+	// sessions without joins, and a kick rule still judges who is there. A sweep leaves out anyone
+	// it asked to kick in the last RISK_REKICK_MS, so a kick that does not land is not repeated
+	// every minute; a join or a return is always judged.
+	const riskCheck = riskOn
+		? riskCheckTargets(
+				diff.joined,
+				diff.returned,
+				diff.stayed
+					.map((x) => x.player)
+					.filter((p) => started - (m.riskKickedAt.get(p.steamId) ?? 0) >= RISK_REKICK_MS),
+				riskSweep
+			)
+		: [];
+	// Said once on the rule, so a server whose reserved slots cannot be read is not silently idle.
+	const riskWaitNote =
+		riskWaits && !m.riskWaitNoted
+			? rows
+					.filter((r) => r.kind === 'risk_kick')
+					.map((r) => ({ id: r.id, lastResult: 'Waiting for the reserved slots to be read' }))
+			: [];
+	const risk = riskCheck.length
+		? await riskInputs(env, server, riskCheck, needsRiskPerformance(rows))
+		: { signals: new Map(), profiles: new Map(), performance: new Map() };
 
 	// Seed time: while a seeding rule is on and the server is at or under its threshold, everyone
 	// still on earns the time since the previous look at the list (on the same terms as a join is
@@ -568,10 +626,12 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 						playersIntervalMs: m.playersIntervalMs,
 						joined,
 						renamed: diff.renamed,
+						returned: diff.returned,
+						riskCheck,
 						factioned,
 						firstVisit,
 						reserved: m.reserved,
-						reservedLoaded: m.listsAt > 0,
+						reservedLoaded: m.reservedAt > 0,
 						seedMs:
 							seed === null
 								? new Map()
@@ -589,7 +649,6 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 				)
 			: { intents: [], updates: [] };
 	// Memory follows every player observation; the database only when something is due.
-	const teams = m.status?.scores.map((f) => f.name);
 	for (const { player: p, session: s } of diff.stayed) followPlayer(s, p, started, teams);
 	// The match tallies follow the same look: everyone on the list, time for those on since the
 	// previous trusted look, and a leaver's row is due at the next match stage.
@@ -607,6 +666,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	}
 	const presenceDue =
 		diff.joined.length > 0 || diff.left.length > 0 || (heartbeatDue && diff.stayed.length > 0);
+	if (riskWaitNote.length) ev.updates.push(...riskWaitNote);
 	const needWrite =
 		presenceDue || ev.intents.length > 0 || ev.updates.length > 0 || liveDue || sampleDue;
 	let intents = 0;
@@ -638,6 +698,13 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 			m.sampleKey = sampleKey;
 			m.sampleWrittenAt = started;
 		}
+		for (const f of ev.afterCommit ?? []) f();
+		if (riskWaitNote.length) m.riskWaitNoted = true;
+		// Swept only once the kicks it asked for are queued; a failed write sweeps again.
+		if (riskSweep) m.riskSweptAt = started;
+		for (const i of ev.intents)
+			if (i.trigger.kind === 'risk_kick' && i.steamId) m.riskKickedAt.set(i.steamId, started);
+		for (const s of diff.left) m.riskKickedAt.delete(s.steamId);
 		saved = true;
 	} catch (err) {
 		// Nothing was committed, but the presence map may have moved: reload it next time so the
@@ -807,6 +874,7 @@ async function keepLists(
 		m.listsAt = started;
 		observed = await liveObserved(client);
 		m.reserved = new Set(observed.reserved);
+		m.reservedAt = started;
 		await writeSnapshot(env, m.server.id, observed, ts);
 	}
 	if (started - m.syncAt >= s.listSyncMs) {
@@ -819,7 +887,10 @@ async function keepLists(
 			observed,
 			lane: 'held'
 		});
-		if (synced.observed) m.reserved = new Set(synced.observed.reserved);
+		if (synced.observed) {
+			m.reserved = new Set(synced.observed.reserved);
+			m.reservedAt = started;
+		}
 		if (synced.bans) m.bans = new Map(synced.bans.map((b) => [b.steamId, b]));
 	}
 }

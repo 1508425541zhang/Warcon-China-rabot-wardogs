@@ -149,14 +149,56 @@ function skipReason(row: OutboxRow, m: ReturnType<typeof memoryOf>): string | nu
 	if (!m) return 'Server no longer polled.';
 	const age = Date.now() - new Date(row.createdAt).getTime();
 	if (age > settings().outboxMaxAgeMs) return `Stale (${Math.round(age / 1000)}s old).`;
-	if (row.steamId && m.playersAt && !m.players.some((p) => p.steamId === row.steamId))
+	if (
+		row.steamId &&
+		m.playersAt &&
+		!m.players.some((p) => p.steamId === row.steamId) &&
+		!m.presence.open.has(row.steamId)
+	)
 		return 'Player already left.';
 	if (row.action === 'empty_reset' && (m.players.length > 0 || (m.status?.playerCount ?? 0) > 0))
 		return 'Players arrived before the reset.';
 	return null;
 }
 
+/**
+ * True when the row's player is off the list but their session is still open: the list empties
+ * for half a minute at a map change, so they may be back. The row waits (until the session
+ * closes, then it is skipped, or the stale cut-off) rather than being dropped or sent now.
+ */
+function mustWait(row: OutboxRow, m: ReturnType<typeof memoryOf>): boolean {
+	return (
+		!!row.steamId &&
+		!!m?.playersAt &&
+		!m.players.some((p) => p.steamId === row.steamId) &&
+		m.presence.open.has(row.steamId)
+	);
+}
+
+/** How long a row whose player is off the list waits before it is looked at again. */
+const WAIT_MS = 5000;
+
 class Skipped extends Error {}
+class Waiting extends Error {}
+
+/** Puts a claimed row back to pending, to be claimed again after WAIT_MS. */
+async function release(env: Env, row: OutboxRow): Promise<void> {
+	try {
+		await withOwnedTransaction(env, (tx) =>
+			tx
+				.update(outbox)
+				.set({
+					state: 'pending',
+					leaseUntil: null,
+					notBefore: sql`now() + (${WAIT_MS} || ' milliseconds')::interval`
+				})
+				.where(and(eq(outbox.id, row.id), eq(outbox.state, 'sending')))
+		);
+	} catch (err) {
+		if (err instanceof LostOwnership) return; // the lease sweep marks it unknown
+		console.error('[warcon] outbox update', err);
+	}
+}
 
 async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 	if (row.action === 'seed_reward') return deliverSeedReward(env, row);
@@ -166,6 +208,7 @@ async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 		return finish(env, row, 'delivered', row.okMessage);
 	const early = skipReason(row, memoryOf(row.serverId));
 	if (early) return finish(env, row, 'skipped', early);
+	if (mustWait(row, memoryOf(row.serverId))) return release(env, row);
 	stats.inFlight++;
 	try {
 		const result = await withServer(
@@ -176,6 +219,7 @@ async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 				const m = memoryOf(row.serverId);
 				const late = skipReason(row, m);
 				if (late) throw new Skipped(late);
+				if (mustWait(row, m)) throw new Waiting();
 				if (!isOwner()) throw new LostOwnership();
 				const client = await WardogsClient.forServer(env, m!.server);
 				return execute(client, row);
@@ -185,6 +229,7 @@ async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 		await finish(env, row, 'delivered', messageOf(result) || row.okMessage);
 	} catch (err) {
 		if (err instanceof Skipped) return finish(env, row, 'skipped', err.message);
+		if (err instanceof Waiting) return release(env, row);
 		if (err instanceof LostOwnership) return; // the lease sweep marks it unknown
 		if (err instanceof LaneFull || err instanceof LaneTimeout)
 			return finish(env, row, 'skipped', err.message);

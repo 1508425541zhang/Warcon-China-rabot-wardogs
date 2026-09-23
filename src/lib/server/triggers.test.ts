@@ -632,6 +632,19 @@ describe('restartNoticeStage', () => {
 		expect(due.state.dueAt).toBe(start + 24.1 * H);
 		expect(restartNoticeStage(cfg, due.state, at(25))).toBeNull();
 	});
+	test('a start that moves by a slow look is the same run: nothing is sent again', () => {
+		const lead = restartNoticeStage(cfg, null, at(23.6))!;
+		const due = restartNoticeStage(cfg, lead.state, at(24.1))!;
+		const jitter = { ...at(24.2), startedAt: start + 8000 };
+		expect(
+			restartNoticeStage(cfg, lead.state, { ...at(23.8), startedAt: start + 8000 })
+		).toBeNull();
+		expect(restartNoticeStage(cfg, due.state, jitter)).toBeNull();
+		// a real restart is a new run
+		expect(
+			restartNoticeStage(cfg, due.state, { ...at(48.1), startedAt: start + 24.5 * H })?.stage
+		).toBe('lead');
+	});
 	test('a missed heads-up is skipped, not sent late, once the window is open', () => {
 		const hit = restartNoticeStage(cfg, null, at(24.5))!;
 		expect(hit.stage).toBe('due');
@@ -796,16 +809,19 @@ describe('matchReplay', () => {
 		scores: ['A', 'B'].map((name, i) => ({ name, score: scores[i] ?? 0 })),
 		count
 	});
-	test('finds the resets and map changes, and skips across failures and unwatched gaps', () => {
+	test('finds the resets and map changes, across a blip but not an outage or an unwatched gap', () => {
 		const ends = matchReplay(
 			[
 				row(0, 'Bakurani', [10, 4]),
 				row(20, 'Bakurani', [900, 700]),
 				row(40, 'Bakurani', [0, 0]), // reset: A won
 				row(60, 'Bakurani', [50, 60]),
-				row(80, 'Bakurani', [0, 0], false), // failed sample
-				row(100, 'Bakurani', [0, 0]), // not compared with 60
-				row(120, 'Bakurani', [300, 100]),
+				row(80, 'Bakurani', [0, 0], false), // one failed sample: a blip
+				row(100, 'Bakurani', [0, 0]), // compared with 60: B won
+				row(110, 'Bakurani', [300, 100]),
+				row(115, 'Bakurani', [0, 0], false), // two failed in a row: offline
+				row(118, 'Bakurani', [0, 0], false),
+				row(120, 'Bakurani', [0, 0]), // not compared with 110
 				row(400, 'Bakurani', [5, 5]), // gap too long: unwatched
 				row(420, 'Madrid', [7, 5]) // map change
 			],
@@ -813,8 +829,9 @@ describe('matchReplay', () => {
 		);
 		expect(ends.map((e) => [e.ts, e.end.map, e.end.winner])).toEqual([
 			[40, 'Bakurani', 'A'],
+			[100, 'Bakurani', 'B'],
 			[420, 'Bakurani', null]
 		]);
-		expect(ends[1].end.leaders).toEqual(['A', 'B']);
+		expect(ends[2].end.leaders).toEqual(['A', 'B']);
 	});
 });

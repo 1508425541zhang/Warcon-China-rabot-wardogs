@@ -167,6 +167,65 @@ describe('diffPresence', () => {
 		]);
 	});
 
+	test('a player back inside the grace after missing a look has returned (a kick and a reconnect)', () => {
+		const p = newPresence();
+		for (const id of ['76561198100000001', '76561198100000002']) p.open.set(id, open(id));
+		// the previous look, at 5000, saw only ...002 (followed to 5000); ...001 was kicked at 2000
+		p.open.get('76561198100000002')!.lastSeen = 5000;
+		const d = diffPresence(
+			p,
+			[player('76561198100000001'), player('76561198100000002')],
+			6000,
+			LEAVE_GRACE_MS,
+			5000
+		);
+		expect(d.joined).toHaveLength(0);
+		expect(d.stayed).toHaveLength(2);
+		expect(d.returned.map((x) => x.steamId)).toEqual(['76561198100000001']);
+		// without a previous look nobody counts as returned
+		expect(
+			diffPresence(p, [player('76561198100000001')], 6000, LEAVE_GRACE_MS).returned
+		).toHaveLength(0);
+	});
+
+	test("the game's holding team between matches is no pick of a side, nor a switch", () => {
+		const teams = ['Valkyra', 'Lonestar'];
+		const p = newPresence();
+		p.open.set('76561198100000001', {
+			...open('76561198100000001'),
+			faction: 'Valkyra',
+			lastFaction: 'Valkyra'
+		});
+		const white = diffPresence(
+			p,
+			[{ ...player('76561198100000001'), faction: 'White' }],
+			LATER,
+			LEAVE_GRACE_MS,
+			0,
+			teams
+		);
+		expect(white.factioned).toEqual([]);
+		followPlayer(
+			p.open.get('76561198100000001')!,
+			{ ...player('76561198100000001'), faction: 'White' },
+			LATER,
+			teams
+		);
+		expect(p.open.get('76561198100000001')!.lastFaction).toBe('Valkyra');
+		// the next match: a new side is a switch from the last team, not from White
+		const next = diffPresence(
+			p,
+			[{ ...player('76561198100000001'), faction: 'Lonestar' }],
+			LATER + 1000,
+			LEAVE_GRACE_MS,
+			0,
+			teams
+		);
+		expect(next.factioned.map((x) => [x.player.faction, x.from])).toEqual([
+			['Lonestar', 'Valkyra']
+		]);
+	});
+
 	test('a leave after the grace keeps the last time the player was seen', () => {
 		const p = newPresence();
 		p.open.set('76561198100000001', open('76561198100000001'));

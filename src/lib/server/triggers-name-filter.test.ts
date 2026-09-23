@@ -20,13 +20,20 @@ const row = (config: Record<string, unknown>) =>
 		kind: 'name_filter',
 		config: validateNameFilter(config)
 	}) as unknown as TriggerRow;
-const tick = (joined: Player[], renamed: Player[], reserved: string[] = []) =>
+const tick = (
+	joined: Player[],
+	renamed: Player[],
+	reserved: string[] = [],
+	returned: Player[] = []
+) =>
 	({
 		server: { id: 'srv', name: 'Server' },
 		status: { players: joined.length + renamed.length, maxPlayers: 64 },
-		players: [...joined, ...renamed],
+		players: [...joined, ...renamed, ...returned],
 		joined,
 		renamed,
+		returned,
+		riskCheck: [],
 		factioned: [],
 		firstVisit: new Set(),
 		reserved: new Set(reserved),
@@ -50,6 +57,20 @@ describe('the name filter rule', () => {
 			tick([player('1', '[TAG] Joiner')], [player('2', '[TAG] Player')], ['2'])
 		);
 		expect(ev.intents.map((i) => i.target)).toEqual(['1']);
+	});
+	test('a kicked player back inside the leave grace is judged again, not taken as the same stay', async () => {
+		const ev = await run(
+			{ blocked: ['tag'] },
+			tick([], [], [], [player('4', '[TAG] Again'), player('5', 'Fine')])
+		);
+		expect(ev.intents.map((i) => [i.action, i.target])).toEqual([['kick', '4']]);
+	});
+	test('an alert-only rule does not alert again for everyone back after a map change', async () => {
+		const ev = await run(
+			{ blocked: ['tag'], action: 'alert' },
+			tick([], [], [], [player('4', '[TAG] Again')])
+		);
+		expect(ev).toEqual({ intents: [], updates: [] });
 	});
 	test('a look with no joiner and no new name does nothing', async () => {
 		const ev = await run({ blocked: ['tag'] }, tick([], []));
