@@ -66,6 +66,7 @@ import {
 	seedReplay,
 	type MatchBroadcastConfig,
 	type MatchEnd,
+	riskKickScore,
 	type RiskKickConfig,
 	type PingKickConfig,
 	type PingKickState,
@@ -420,9 +421,9 @@ export function riskCheckTargets<P extends { steamId: string }>(
 export const needsRiskInputs = (rows: TriggerRow[]): boolean =>
 	rows.some((r) => r.kind === 'risk_kick');
 
-/** True when a rule kicks at a risk level, the only thing the recorded games feed. */
+/** True when a rule kicks at a risk score, the only thing the recorded games feed. */
 export const needsRiskPerformance = (rows: TriggerRow[]): boolean =>
-	rows.some((r) => r.kind === 'risk_kick' && !!(r.config as RiskKickConfig).kickAtLevel);
+	rows.some((r) => r.kind === 'risk_kick' && !!riskKickScore(r.config as RiskKickConfig));
 
 /** Evaluates the rules against one observation. Never throws; a broken rule records its error. */
 export async function evaluateTriggers(
@@ -965,7 +966,7 @@ async function evalSeedReward(
 
 /**
  * The risk inputs a risk_kick rule needs for these joiners (DB and Steam; call before the
- * transaction). The recorded games are read only when a rule kicks at a risk level.
+ * transaction). The recorded games are read only when a rule kicks at a risk score.
  */
 export async function riskInputs(
 	env: Env,
@@ -986,7 +987,7 @@ export async function riskInputs(
 			org.map((s) => s.id),
 			server.id,
 			joined,
-			// lookalike names only count toward a risk level
+			// lookalike names only count toward a risk score
 			withPerformance
 		),
 		steamEnabled(env)
@@ -1149,7 +1150,7 @@ export async function dryRun(
 				org.map((s) => s.id),
 				server.id,
 				players,
-				!!c.kickAtLevel
+				!!riskKickScore(c)
 			),
 			steamEnabled(env)
 				? getProfiles(
@@ -1157,7 +1158,7 @@ export async function dryRun(
 						players.map((p) => p.steamId)
 					)
 				: new Map(),
-			c.kickAtLevel
+			riskKickScore(c)
 				? riskPerformanceFor(
 						env,
 						org.map((s) => s.id),

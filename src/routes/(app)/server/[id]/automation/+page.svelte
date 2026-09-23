@@ -27,6 +27,16 @@
 	let admin = $derived(can(data.server.caps, 'automation.manage'));
 	let path = $derived(`/api/servers/${encodeURIComponent(id)}/triggers`);
 
+	/** A risk_kick rule's score threshold, 0 when off; rules saved with a level read as 20 or 50. */
+	const kickAtScoreOf = (c: Record<string, unknown>): number =>
+		typeof c.kickAtScore === 'number'
+			? c.kickAtScore
+			: c.kickAtLevel === 'high'
+				? 50
+				: c.kickAtLevel === 'medium'
+					? 20
+					: 0;
+
 	/** The last actions the rules took and what became of them; refreshed as deliveries happen. */
 	let deliveries = $state<OutboxView[]>([]);
 	let deliverySearch = $state('');
@@ -303,7 +313,7 @@
 		privateProfiles: boolean;
 		bannedElsewhere: boolean;
 		watchlist: boolean;
-		kickAtLevel: '' | 'medium' | 'high';
+		kickAtScore: number;
 		spareReserved: boolean;
 		reason: string;
 		leadMinutes: number;
@@ -425,7 +435,7 @@
 			privateProfiles: b('privateProfiles', false),
 			bannedElsewhere: b('bannedElsewhere', true),
 			watchlist: b('watchlist', false),
-			kickAtLevel: c.kickAtLevel === 'high' || c.kickAtLevel === 'medium' ? c.kickAtLevel : '',
+			kickAtScore: kickAtScoreOf(c),
 			spareReserved: b('spareReserved', true),
 			reason: s(
 				'reason',
@@ -529,7 +539,7 @@
 					privateProfiles: f.privateProfiles,
 					bannedElsewhere: f.bannedElsewhere,
 					watchlist: f.watchlist,
-					kickAtLevel: f.kickAtLevel || null,
+					kickAtScore: Number(f.kickAtScore) || null,
 					spareReserved: f.spareReserved,
 					reason: f.reason
 				};
@@ -686,7 +696,7 @@
 						`account under ${c.minAccountDays} days${c.privateProfiles ? ' or private' : ''}`,
 					c.bannedElsewhere && 'banned elsewhere in the org',
 					c.watchlist && 'watchlist',
-					c.kickAtLevel && `${c.kickAtLevel}${c.kickAtLevel === 'medium' ? ' or high' : ''} risk`
+					kickAtScoreOf(c) && `risk ${kickAtScoreOf(c)}+`
 				].filter(Boolean);
 				return `${rules.join(', ')}${c.spareReserved ? ' · spares reserved slots' : ''}`;
 			}
@@ -1373,13 +1383,15 @@
 							</p>
 						</div>
 						<label class="flex flex-wrap items-center gap-2 border-t border-black pt-2"
-							>at advisory risk level
-							<select class="input w-auto pr-[30px]" bind:value={f.kickAtLevel}>
-								<option value="">off</option>
-								<option value="high">high</option>
-								<option value="medium">medium or high</option>
-							</select>
-							as the players table shows it</label
+							>at advisory risk score
+							<input
+								class="input w-[80px]"
+								type="number"
+								min="0"
+								max="100"
+								bind:value={f.kickAtScore}
+							/>
+							or more, as the players table shows it (0 is off)</label
 						>
 					</fieldset>
 					<fieldset class="space-y-1.5 text-[13px]">

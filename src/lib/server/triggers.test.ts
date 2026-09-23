@@ -16,7 +16,8 @@ import {
 	seedReplay,
 	teamKillStage,
 	validateConfig,
-	welcomeTargets
+	welcomeTargets,
+	riskKickScore
 } from './trigger-rules';
 import type { MatchBroadcastConfig, RiskKickConfig } from './trigger-rules';
 
@@ -95,11 +96,26 @@ describe('validateConfig', () => {
 		const c = validateConfig('risk_kick', { vacBans: true }) as RiskKickConfig;
 		expect(c.spareReserved).toBe(true);
 		expect(c.maxBanAgeDays).toBe(0);
-		expect(c.kickAtLevel).toBeNull();
+		expect(c.kickAtScore).toBeNull();
 		expect(c.reason).toContain('requirements');
+		expect(validateConfig('risk_kick', { kickAtScore: 35 })).toMatchObject({ kickAtScore: 35 });
+		expect(validateConfig('risk_kick', { kickAtScore: 500 })).toMatchObject({ kickAtScore: 100 });
+		expect(() => validateConfig('risk_kick', { kickAtScore: 0 })).toThrow('at least one rule');
+		expect(() => validateConfig('risk_kick', { kickAtScore: 'x' })).toThrow('at least one rule');
+		// rules saved with a level keep its threshold
 		expect(validateConfig('risk_kick', { kickAtLevel: 'medium' })).toMatchObject({
-			kickAtLevel: 'medium'
+			kickAtScore: 20
 		});
+		expect(validateConfig('risk_kick', { kickAtLevel: 'high' })).toMatchObject({ kickAtScore: 50 });
+		// a score sent alongside a stale level wins, even when it turns the setting off
+		expect(
+			validateConfig('risk_kick', { kickAtLevel: 'high', kickAtScore: 0, watchlist: true })
+		).toMatchObject({ kickAtScore: null });
+		// what the worker and dry run read from a stored rule, saved before or after the score
+		expect(riskKickScore({ kickAtLevel: 'medium' })).toBe(20);
+		expect(riskKickScore({ kickAtLevel: 'high' })).toBe(50);
+		expect(riskKickScore({ kickAtScore: 35 })).toBe(35);
+		expect(riskKickScore({ watchlist: true })).toBeNull();
 		expect(() => validateConfig('risk_kick', { kickAtLevel: 'low' })).toThrow('at least one rule');
 	});
 	test('ping_kick validates the ping and duration and supplies a reason', () => {
@@ -402,7 +418,7 @@ describe('riskKickVerdict', () => {
 		privateProfiles: false,
 		bannedElsewhere: true,
 		watchlist: true,
-		kickAtLevel: null,
+		kickAtScore: null,
 		spareReserved: true,
 		reason: 'no'
 	};
@@ -525,19 +541,28 @@ describe('riskKickVerdict', () => {
 			...base,
 			resembles: [{ name: 'Nomad', steamId: '76561198000000009', serverName: 'EU #2' }]
 		};
-		expect(riskKickVerdict({ ...none, kickAtLevel: 'high' }, lookalike)).toBeNull();
-		expect(riskKickVerdict({ ...none, kickAtLevel: 'medium' }, lookalike)).toMatch(
+		expect(riskKickVerdict({ ...none, kickAtScore: 50 }, lookalike)).toBeNull();
+		expect(riskKickVerdict({ ...none, kickAtScore: 20 }, lookalike)).toMatch(
 			/^medium risk \(40\): Steam account is 8 days old; Name resembles banned Nomad/
 		);
+		// any whole score works, not only the level boundaries
+		expect(riskKickVerdict({ ...none, kickAtScore: 40 }, lookalike)).toStartWith(
+			'medium risk (40)'
+		);
+		expect(riskKickVerdict({ ...none, kickAtScore: 41 }, lookalike)).toBeNull();
+		// under 20 the level is low, so the verdict gives the score alone
+		const young = { ...base, profile: { ...profile, accountCreatedAt: new Date('2026-07-20') } };
+		expect(riskKickVerdict({ ...none, kickAtScore: 10 }, young)).toStartWith('risk 10: ');
+		// a rule saved with a level before the score existed keeps working
+		expect(
+			riskKickVerdict({ ...none, kickAtLevel: 'medium' } as unknown as RiskKickConfig, lookalike)
+		).toStartWith('medium risk (40)');
 		// a clean, old account is low and passes either setting
 		const old = { ...base, profile: { ...profile, accountCreatedAt: new Date('2020-01-01') } };
-		expect(riskKickVerdict({ ...none, kickAtLevel: 'medium' }, old)).toBeNull();
+		expect(riskKickVerdict({ ...none, kickAtScore: 20 }, old)).toBeNull();
 		// the checklist still answers first with its own wording
 		expect(
-			riskKickVerdict(
-				{ ...cfg, kickAtLevel: 'high' },
-				{ ...base, profile: { ...profile, vacBans: 1 } }
-			)
+			riskKickVerdict({ ...cfg, kickAtScore: 50 }, { ...base, profile: { ...profile, vacBans: 1 } })
 		).toBe('1 VAC ban on record');
 	});
 	test('recorded games count towards the risk-level rule', () => {
@@ -547,7 +572,7 @@ describe('riskKickVerdict', () => {
 			minAccountDays: 0,
 			bannedElsewhere: false,
 			watchlist: false,
-			kickAtLevel: 'medium' as const
+			kickAtScore: 20
 		};
 		const performance = {
 			matches: 30,
@@ -565,13 +590,13 @@ describe('riskKickVerdict', () => {
 	});
 	test('the risk level works from local signals alone and says when Steam was not checked', () => {
 		const v = riskKickVerdict(
-			{ ...cfg, bannedElsewhere: false, kickAtLevel: 'high' },
+			{ ...cfg, bannedElsewhere: false, kickAtScore: 50 },
 			{ ...base, steamEnabled: false, profile: null, bannedOn: [{ serverName: 'x', reason: 'tk' }] }
 		);
 		expect(v).toBe('high risk (60): Banned on x: tk [Steam not checked]');
 		expect(
 			riskKickVerdict(
-				{ ...cfg, kickAtLevel: 'high' },
+				{ ...cfg, kickAtScore: 50 },
 				{
 					...base,
 					steamEnabled: false,
