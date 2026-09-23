@@ -525,6 +525,8 @@ export interface RestartNoticeStage {
  * the window is `leadMinutes` away or less; the main message once the window is open, and again
  * every `repeatMinutes` when set. A start time the rule has not seen resets both.
  */
+const SAME_START_MS = 60_000;
+
 export function restartNoticeStage(
 	cfg: Pick<RestartNoticeConfig, 'leadMinutes' | 'repeatMinutes' | 'minPlayers'>,
 	prev: RestartNoticeState | null | undefined,
@@ -533,8 +535,12 @@ export function restartNoticeStage(
 	if (!input.startedAt || input.playerCount < cfg.minPlayers) return null;
 	const w = restartWindow(new Date(input.startedAt).toISOString(), RESTART_AFTER_HOURS, input.now);
 	if (!w) return null;
+	// The start is derived from the uptime at each look, so it moves by the look's latency: a
+	// start within SAME_START_MS of the one on record is the same run, not a restart.
 	const state: RestartNoticeState =
-		prev && prev.startedAt === input.startedAt ? { ...prev } : { startedAt: input.startedAt };
+		prev && Math.abs(prev.startedAt - input.startedAt) <= SAME_START_MS
+			? { ...prev }
+			: { startedAt: input.startedAt };
 	if (w.due) {
 		const again =
 			cfg.repeatMinutes > 0 && input.now - (state.dueAt ?? 0) >= cfg.repeatMinutes * 60_000;
@@ -647,6 +653,38 @@ export function matchBroadcastMessages(
 	return out;
 }
 
+/** How long a match end waits for the server to hold the rule's players again: the game shows
+ *  nobody on for half a minute or so while the next map loads, which is just when a match ends. */
+export const MATCH_HOLD_MS = 3 * 60_000;
+
+export interface HeldMatchEnd {
+	end: MatchEnd;
+	lines: MatchLineVars[];
+	at: number;
+}
+
+/**
+ * One look of a match broadcast rule: a match end is held until the server has the rule's
+ * players on (at once when it already has), for at most MATCH_HOLD_MS; a newer end replaces it.
+ * Returns what is still held and the end to announce now, if any.
+ */
+export function matchBroadcastStep(
+	held: HeldMatchEnd | null,
+	end: MatchEnd | null,
+	lines: MatchLineVars[],
+	playerCount: number,
+	now: number,
+	minPlayers: number
+): { held: HeldMatchEnd | null; fire: HeldMatchEnd | null } {
+	// A second end with no result inside the hold (the scores reset, then the map changes) keeps
+	// the result already held.
+	const live = held && now - held.at <= MATCH_HOLD_MS ? held : null;
+	const h = end ? (live && !end.leaders.length ? live : { end, lines, at: now }) : held;
+	if (!h || now - h.at > MATCH_HOLD_MS) return { held: null, fire: null };
+	if (playerCount < minPlayers) return { held: h, fire: null };
+	return { held: null, fire: h };
+}
+
 export interface MatchSample {
 	ts: number;
 	ok: boolean;
@@ -666,11 +704,17 @@ export function matchReplay(
 ): { ts: number; count: number; map: string; end: MatchEnd }[] {
 	const out: { ts: number; count: number; map: string; end: MatchEnd }[] = [];
 	let prev: MatchSample | null = null;
+	// Live, a failed look or two is a blip (the worker keeps the match it saw until the server is
+	// offline, and the one live map change on record had a failed status look in it); the first
+	// failure writes a failed sample and a longer outage one every sample period after, so a
+	// single failed sample is compared across and a second one in a row starts again.
+	let failed = 0;
 	for (const r of rows) {
 		if (!r.ok) {
-			prev = null;
+			if (++failed > 1) prev = null;
 			continue;
 		}
+		failed = 0;
 		const look = { map: r.map, scores: r.scores, matchSeconds: null };
 		if (prev && r.ts - prev.ts <= maxHoldMs) {
 			const end = matchBoundary({ map: prev.map, scores: prev.scores, matchSeconds: null }, look);

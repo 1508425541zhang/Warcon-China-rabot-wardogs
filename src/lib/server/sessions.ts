@@ -33,8 +33,9 @@ export interface OpenSession {
 	/** this is the player's first session on this server (false when unknown: sessions reloaded
 	 *  after a restart, or opened quietly when joins were not trusted) */
 	firstVisit: boolean;
-	/** the last faction seen this session; unlike `faction` it survives the game clearing everyone's
-	 *  side at a match start, so a re-pick of the same side is not a new pick */
+	/** the last team seen this session; unlike `faction` it survives the game clearing everyone's
+	 *  side, or putting them on its holding team ("White"), between matches, so a re-pick of the
+	 *  same side is not a new pick and the holding team is never one */
 	lastFaction: string | null;
 	/** the last side seen this session that was a team on the scoreboard. This is what the row
 	 *  keeps as the session's faction: the side seen last may be none, or the game's holding team
@@ -98,6 +99,10 @@ export interface PresenceDiff {
 	/** the players still on whose name is not the one their session holds: the game can show a
 	 *  joiner's name first and the clan tag in front of it a look or two later */
 	renamed: Player[];
+	/** the players back on the list after missing the previous look: inside the leave grace this
+	 *  is the same session, but it may be a reconnect (a kicked player coming straight back), so
+	 *  the rules that judge who may be on look at them again */
+	returned: Player[];
 }
 
 /** How long a player may be missing from the list before their session closes. The game empties
@@ -114,10 +119,15 @@ export function diffPresence(
 	presence: Presence,
 	players: Player[],
 	now: number,
-	graceMs = LEAVE_GRACE_MS
+	graceMs = LEAVE_GRACE_MS,
+	/** when the previous look at the list was taken (0: none, so nobody counts as returned) */
+	prevLookAt = 0,
+	/** the factions on the scoreboard, when known: any other side is no pick */
+	teams?: readonly string[]
 ): PresenceDiff {
 	const seen = new Set<string>();
 	const joined: Player[] = [];
+	const returned: Player[] = [];
 	const stayed: PresenceDiff['stayed'] = [];
 	const factioned: PresenceDiff['factioned'] = [];
 	const renamed: Player[] = [];
@@ -127,15 +137,16 @@ export function diffPresence(
 		const s = presence.open.get(p.steamId);
 		if (s) {
 			stayed.push({ player: p, session: s });
-			if (p.faction && p.faction !== s.lastFaction)
+			if (isTeam(p.faction, teams) && p.faction !== s.lastFaction)
 				factioned.push({ player: p, from: s.lastFaction });
 			if (p.name !== s.name) renamed.push(p);
+			if (s.lastSeen < prevLookAt) returned.push(p);
 		} else joined.push(p);
 	}
 	const left = [...presence.open.values()].filter(
 		(s) => !seen.has(s.steamId) && now - s.lastSeen > graceMs
 	);
-	return { joined, left, stayed, factioned, renamed };
+	return { joined, left, stayed, factioned, renamed, returned };
 }
 
 const json = (v: unknown) => sql`(${JSON.stringify(v)}::text)::jsonb`;
@@ -175,7 +186,7 @@ export function followPlayer(
 ): void {
 	s.name = p.name;
 	s.faction = p.faction;
-	if (p.faction) s.lastFaction = p.faction;
+	if (isTeam(p.faction, teams)) s.lastFaction = p.faction;
 	if (isTeam(p.faction, teams)) s.team = p.faction;
 	const g = s.game;
 	const restarted = !!g && (p.kills < g.kills || p.deaths < g.deaths);
@@ -260,7 +271,7 @@ export async function persistPresence(
 				lastSeen: now,
 				writtenAt: now,
 				firstVisit: firstVisit.has(p.steamId),
-				lastFaction: p.faction || null,
+				lastFaction: isTeam(p.faction, teams) ? p.faction : null,
 				team: isTeam(p.faction, teams) ? p.faction : null
 			});
 	}
@@ -297,7 +308,7 @@ export async function closeAllSessions(db: DbOrTx, presence: Presence): Promise<
 			db,
 			'',
 			presence,
-			{ joined: [], left: open, stayed: [], factioned: [], renamed: [] },
+			{ joined: [], left: open, stayed: [], factioned: [], renamed: [], returned: [] },
 			new Date(),
 			false
 		);

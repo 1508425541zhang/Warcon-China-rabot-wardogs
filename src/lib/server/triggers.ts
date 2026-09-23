@@ -59,6 +59,8 @@ import {
 	fullMoments,
 	lowStretches,
 	matchBroadcastMessages,
+	matchBroadcastStep,
+	type HeldMatchEnd,
 	type MatchLineVars,
 	matchReplay,
 	seedReplay,
@@ -295,6 +297,12 @@ export interface TickContext {
 	joined: Player[];
 	/** players still on under a name their session did not hold at the last look */
 	renamed: Player[];
+	/** players back on the list after missing the previous look, inside the leave grace (their
+	 *  session goes on, but it may be a reconnect) */
+	returned: Player[];
+	/** the players a risk kick rule judges at this look: joiners, returned players, and everyone
+	 *  on when the sweep is due (empty when no risk rule is on) */
+	riskCheck: Player[];
 	/** players whose faction is new since the last look (joiners arriving with one included;
 	 *  empty when joins are not trusted) */
 	factioned: FactionPick<Player>[];
@@ -306,7 +314,7 @@ export interface TickContext {
 	reservedLoaded: boolean;
 	/** seed time so far of the open sessions, by SteamID (empty while no seeding rule is on) */
 	seedMs: Map<string, number>;
-	/** pre-fetched for risk rules: the panel's own signals and Steam profiles of the joiners */
+	/** pre-fetched for risk rules: the panel's own signals and Steam profiles of riskCheck */
 	signals: Map<string, LocalSignals>;
 	profiles: Map<string, SteamProfileRow>;
 	performance: Map<string, RiskPerformance>;
@@ -343,6 +351,8 @@ export interface TriggerUpdate {
 export interface Evaluation {
 	intents: Intent[];
 	updates: TriggerUpdate[];
+	/** worker memory a rule moves on only once the intents and updates are committed */
+	afterCommit?: (() => void)[];
 }
 
 const vars = (ctx: TickContext, p?: Player, previous = '') => ({
@@ -377,6 +387,33 @@ export async function enabledTriggers(env: Env, serverId: string): Promise<Trigg
 	if (enabledCache.size > 5000)
 		for (const [k, v] of enabledCache) if (v.until <= now) enabledCache.delete(k);
 	return rows;
+}
+
+/** How often everyone on the server is judged again by the risk kick rules. */
+export const RISK_RECHECK_MS = 60_000;
+/** A player a risk kick was asked for and who is still on is judged again by a sweep only after
+ *  this long (a kick that did not land is not repeated, audited and posted every minute). */
+export const RISK_REKICK_MS = 5 * 60_000;
+
+/** True when an enabled risk kick rule spares reserved slots. */
+export const riskSparesReserved = (rows: TriggerRow[]): boolean =>
+	rows.some((r) => r.kind === 'risk_kick' && (r.config as RiskKickConfig).spareReserved);
+
+/**
+ * Who a risk kick rule judges at this look: every joiner, every player back after missing a
+ * look (a reconnect inside the leave grace keeps its session), and, when a sweep is due (every
+ * RISK_RECHECK_MS, in one batch), everyone else still on.
+ */
+export function riskCheckTargets<P extends { steamId: string }>(
+	joined: P[],
+	returned: P[],
+	stayed: P[],
+	sweep: boolean
+): P[] {
+	const out = new Map<string, P>();
+	for (const p of [...joined, ...returned, ...(sweep ? stayed : [])])
+		if (!out.has(p.steamId)) out.set(p.steamId, p);
+	return [...out.values()];
 }
 
 /** True when any enabled rule needs the risk inputs (so the worker only fetches them then). */
@@ -591,10 +628,10 @@ function evalRiskKick(
 	cfg: RiskKickConfig,
 	out: Evaluation
 ) {
-	if (!ctx.joined.length) return;
+	if (!ctx.riskCheck.length) return;
 	let n = 0;
 	let last = '';
-	for (const p of ctx.joined) {
+	for (const p of ctx.riskCheck) {
 		const l = ctx.signals.get(p.steamId);
 		const verdict = riskKickVerdict(cfg, {
 			profile: ctx.profiles.get(p.steamId) ?? null,
@@ -629,10 +666,15 @@ function evalRiskKick(
 }
 
 function evalNameFilter(ctx: TickContext, row: TriggerRow, cfg: NameFilterConfig, out: Evaluation) {
-	if (!ctx.joined.length && !ctx.renamed.length) return;
 	// A name is judged when it is first seen, at the join or later: the clan tag is part of the
-	// name, and the game may only show it once the player is in.
-	const named = ctx.renamed.length ? [...ctx.joined, ...ctx.renamed] : ctx.joined;
+	// name, and the game may only show it once the player is in. A kick rule also judges a player
+	// back after missing a look: a kicked player reconnecting inside the leave grace is no join.
+	// A flag rule does not (the whole server is back after every map change: no new alerts).
+	const back = cfg.action === 'kick' ? ctx.returned : [];
+	if (!ctx.joined.length && !ctx.renamed.length && !back.length) return;
+	const named = [
+		...new Map([...ctx.joined, ...ctx.renamed, ...back].map((p) => [p.steamId, p])).values()
+	];
 	let n = 0;
 	let last = '';
 	for (const { player: p, verdict: v } of nameFilterTargets(cfg, named, ctx.reserved)) {
@@ -736,7 +778,7 @@ function evalRestartNotice(
 		okMessage: 'Broadcast sent.',
 		detail: { stage: hit.stage, startedAt: new Date(ctx.startedAt).toISOString() },
 		steamId: null,
-		dedupeKey: key(row, hit.stage, ctx.startedAt, hit.stage === 'due' ? ctx.ts.getTime() : 0)
+		dedupeKey: key(row, hit.stage, hit.state.startedAt, hit.stage === 'due' ? ctx.ts.getTime() : 0)
 	});
 	// The stage is marked now so a slow delivery cannot send it twice.
 	row.lastFiredAt = ctx.ts;
@@ -751,19 +793,42 @@ function evalRestartNotice(
 
 // A match boundary is one tick, so the rule keeps no state: the end message then the start
 // message, each an outbox row keyed on the tick.
+// A match end the rule is holding until the server has its players on again, per rule (in memory
+// only: a worker start in the three minutes loses it).
+const matchHeld = new Map<string, HeldMatchEnd>();
+
+/** Forgets what the rules keep in worker memory: another process may have acted meanwhile. */
+export function forgetRuleMemory(): void {
+	matchHeld.clear();
+	seedState.clear();
+}
+
 function evalMatchBroadcast(
 	ctx: TickContext,
 	row: TriggerRow,
 	cfg: MatchBroadcastConfig,
 	out: Evaluation
 ) {
-	if (!ctx.matchEnd) return;
+	const step = matchBroadcastStep(
+		matchHeld.get(row.id) ?? null,
+		ctx.matchEnd,
+		ctx.matchLines,
+		ctx.status.playerCount,
+		ctx.ts.getTime(),
+		cfg.minPlayers
+	);
+	// Holding an end sends nothing, so it is kept at once (a failed write on the boundary look
+	// must not lose it); letting go waits for the commit, so a failed write announces it again.
+	if (step.held) matchHeld.set(row.id, step.held);
+	else (out.afterCommit ??= []).push(() => matchHeld.delete(row.id));
+	if (!step.fire) return;
+	const end = step.fire.end;
 	const sends = matchBroadcastMessages(
 		cfg,
-		ctx.matchEnd,
+		end,
 		ctx.status.playerCount,
 		vars(ctx),
-		ctx.matchLines
+		step.fire.lines
 	);
 	if (!sends.length) return;
 	for (const { stage, message } of sends)
@@ -775,9 +840,9 @@ function evalMatchBroadcast(
 			okMessage: 'Broadcast sent.',
 			detail: {
 				stage,
-				map: ctx.matchEnd.map,
-				winner: ctx.matchEnd.winner,
-				scores: ctx.matchEnd.scores
+				map: end.map,
+				winner: end.winner,
+				scores: end.scores
 			},
 			steamId: null,
 			dedupeKey: key(row, stage, ctx.ts.getTime())
@@ -920,7 +985,9 @@ export async function riskInputs(
 			server.orgId,
 			org.map((s) => s.id),
 			server.id,
-			joined
+			joined,
+			// lookalike names only count toward a risk level
+			withPerformance
 		),
 		steamEnabled(env)
 			? getProfiles(
@@ -974,6 +1041,10 @@ export async function recordDelivery(
 // ---- dry run ------------------------------------------------------------------------------------
 
 const NAME_REPLAY_MAX = 5000;
+/** The welcome and team kill dry runs replay at most this many rows, and say so when they stop. */
+const REPLAY_ROWS_MAX = 5000;
+/** The risk dry run judges at most this many players (the latest on), for its Steam lookups. */
+const RISK_REPLAY_MAX = 2000;
 
 /** Replays the last 24 hours of this server's history against a rule. Touches nobody. */
 export async function dryRun(
@@ -1010,11 +1081,12 @@ export async function dryRun(
 			  FROM player_sessions s
 			 WHERE s.server_id = ${server.id} AND s.joined_at >= ${from}
 			   ${withFaction ? sql`AND s.faction IS NOT NULL AND s.faction <> ''` : sql``}
-			 ORDER BY s.joined_at ASC LIMIT 500`);
+			 ORDER BY s.joined_at ASC LIMIT ${REPLAY_ROWS_MAX}`);
 
 	if (kind === 'welcome') {
 		const c = cfg as WelcomeConfig;
-		for (const j of await joins(c.afterFaction)) {
+		const rows = await joins(c.afterFaction);
+		for (const j of rows) {
 			if (c.onlyFirstVisit && !j.first) continue;
 			push(
 				new Date(j.joinedAt),
@@ -1026,6 +1098,8 @@ export async function dryRun(
 				? 'Only joiners never seen on this server before count.'
 				: 'Every join counts, including people who reconnect.'
 		);
+		if (rows.length === REPLAY_ROWS_MAX)
+			result.notes.push(`Only the first ${REPLAY_ROWS_MAX} joins of the window were replayed.`);
 		if (c.afterFaction)
 			result.notes.push(
 				'Only sessions that ended up in a faction count; times shown are the join, the whisper would go out when they picked a side.'
@@ -1046,11 +1120,18 @@ export async function dryRun(
 	}
 	if (kind === 'risk_kick') {
 		const c = cfg as RiskKickConfig;
-		const rows = await joins();
+		// Everyone on the server at any time in the window, not only the joins: the live rule
+		// judges whoever is on. Each player once, at the first time they were on in the window.
+		const rows = await env.db.execute<{ steamId: string; name: string; onAt: Date }>(sql`
+			SELECT s.steam_id AS "steamId", (ARRAY_AGG(s.name ORDER BY s.joined_at))[1] AS name,
+			       GREATEST(MIN(s.joined_at), ${from}) AS "onAt"
+			  FROM player_sessions s
+			 WHERE s.server_id = ${server.id} AND s.last_seen >= ${from}
+			 GROUP BY s.steam_id
+			 ORDER BY MAX(s.last_seen) DESC LIMIT ${RISK_REPLAY_MAX}`);
 		const seen = new Map<string, { name: string; joinedAt: Date }>();
-		for (const j of rows)
-			if (!seen.has(j.steamId))
-				seen.set(j.steamId, { name: j.name, joinedAt: new Date(j.joinedAt) });
+		for (const j of [...rows].sort((a, b) => +new Date(a.onAt) - +new Date(b.onAt)))
+			seen.set(j.steamId, { name: j.name, joinedAt: new Date(j.onAt) });
 		const players = [...seen.entries()].map(([steamId, v]) => ({ steamId, name: v.name }));
 		const org = await orgServers(env, server.orgId);
 		let reserved = new Set<string>();
@@ -1067,12 +1148,13 @@ export async function dryRun(
 				server.orgId,
 				org.map((s) => s.id),
 				server.id,
-				players
+				players,
+				!!c.kickAtLevel
 			),
 			steamEnabled(env)
 				? getProfiles(
 						env,
-						players.slice(0, 200).map((p) => p.steamId)
+						players.map((p) => p.steamId)
 					)
 				: new Map(),
 			c.kickAtLevel
@@ -1102,7 +1184,7 @@ export async function dryRun(
 				'Steam lookup is off (STEAM_API_KEY): the VAC, game-ban and account-age rules were skipped.'
 			);
 		result.notes.push(
-			`${players.length} distinct player${players.length === 1 ? '' : 's'} joined in the window.`
+			`${players.length} distinct player${players.length === 1 ? '' : 's'} on the server in the window${players.length === RISK_REPLAY_MAX ? `, the latest ${RISK_REPLAY_MAX}` : ''}, each judged once.`
 		);
 		return result;
 	}
@@ -1128,7 +1210,7 @@ export async function dryRun(
 			  FROM kills k
 			 WHERE k.server_id = ${server.id} AND k.team_kill AND k.killer_steam_id IS NOT NULL
 			   AND k.ts >= ${from}
-			 ORDER BY k.ts ASC LIMIT 500`);
+			 ORDER BY k.ts ASC LIMIT ${REPLAY_ROWS_MAX}`);
 		for (const r of rows) {
 			const stage = teamKillStage(c, Number(r.n));
 			if (!stage) continue;
@@ -1154,7 +1236,7 @@ export async function dryRun(
 				'This server has no kill feed set up (Config tab), so the rule cannot see any team kills.'
 			);
 		result.notes.push(
-			`${rows.length} team kill${rows.length === 1 ? '' : 's'} in the window, counted per killer within their session.`
+			`${rows.length} team kill${rows.length === 1 ? '' : 's'} in the window${rows.length === REPLAY_ROWS_MAX ? ` (the first ${REPLAY_ROWS_MAX} only)` : ''}, counted per killer within their session.`
 		);
 		return result;
 	}
@@ -1384,28 +1466,35 @@ export async function dryRun(
 	}
 	if (kind === 'match_broadcast') {
 		const c = cfg as MatchBroadcastConfig;
-		const ends = matchReplay(
-			rows.map((r) => ({
-				ts: r.ts.getTime(),
-				ok: r.ok,
-				map: r.map || '',
-				scores: Array.isArray(r.scores) ? (r.scores as { name: string; score: number }[]) : [],
-				count: r.count ?? 0
-			})),
-			2 * settings().sampleMs + 1000
-		);
-		for (const e of ends)
+		const samples = rows.map((r) => ({
+			ts: r.ts.getTime(),
+			ok: r.ok,
+			map: r.map || '',
+			scores: Array.isArray(r.scores) ? (r.scores as { name: string; score: number }[]) : [],
+			count: r.count ?? 0
+		}));
+		const ends = matchReplay(samples, 2 * settings().sampleMs + 1000);
+		// As live: each end is held until a sample has the rule's players on, for MATCH_HOLD_MS.
+		let next = 0;
+		let held: HeldMatchEnd | null = null;
+		for (const r of samples) {
+			if (!r.ok) continue;
+			const end = ends[next]?.ts === r.ts ? ends[next++].end : null;
+			const step = matchBroadcastStep(held, end, [], r.count, r.ts, c.minPlayers);
+			held = step.held;
+			if (!step.fire) continue;
 			// The samples hold no player lines, so the dry run cannot name anyone.
-			for (const { message } of matchBroadcastMessages(c, e.end, e.count, {
+			for (const { message } of matchBroadcastMessages(c, step.fire.end, r.count, {
 				server: server.name,
-				map: e.map,
-				players: e.count,
+				map: r.map,
+				players: r.count,
 				max: '…',
 				cap: DEFAULT_SCORE_CAP,
 				mvp: '…',
 				top: '…'
 			}))
-				push(new Date(e.ts), `broadcast (${e.count} on): ${message}`);
+				push(new Date(r.ts), `broadcast (${r.count} on): ${message}`);
+		}
 		result.notes.push(
 			ends.length
 				? `${ends.length} match${ends.length === 1 ? '' : 'es'} ended in the window. Times shown are the sample that first saw the reset; live, the rule fires one poll after the round ends.`
