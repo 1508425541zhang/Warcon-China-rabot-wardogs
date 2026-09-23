@@ -2,12 +2,23 @@
 // event bus (the SSE route fans them to browsers; in the split roles every web process gets them
 // through the relay stream), and the team-kill rules get their turn. Their intents go through
 // the same outbox as every other trigger, so delivery, audit and the Discord mirror are shared.
+// The Kill rate rules see every batch; the rest of the work is for batches with team kills.
 import { and, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { emit } from './events';
 import { kills, playerSessions } from './db/schema';
 import { enabledTriggers, renderTemplate, teamKillStage, type Evaluation } from './triggers';
 import type { TeamKillConfig } from './trigger-rules';
+import {
+	countsForRate,
+	KILL_RATE_FLAG,
+	killRateStep,
+	killTimes,
+	pruneTracks,
+	type KillRateConfig,
+	type RateTrack,
+	type RateTracks
+} from './kill-rate';
 import { applyTriggerUpdates, enqueueIntents, wakeDelivery } from './outbox';
 import { LostOwnership, withOwnedTransaction } from './leadership';
 import { memoryOf } from './observe';
@@ -26,6 +37,12 @@ export async function onKillsIngested(
 ): Promise<void> {
 	if (!kills.length) return;
 	emit({ type: 'kills', serverId, kills });
+	try {
+		await actOnKillRate(env, serverId, kills);
+	} catch (err) {
+		if (!(err instanceof LostOwnership))
+			console.warn(`[warcon] kill-rate rules on ${serverId}:`, publicMessage(err));
+	}
 	const teamKills = kills.filter((k) => k.teamKill && k.killer);
 	if (!teamKills.length) return;
 	const m = memoryOf(serverId);
@@ -36,6 +53,79 @@ export async function onKillsIngested(
 		if (err instanceof LostOwnership) return;
 		console.warn(`[warcon] team-kill rules on ${serverId}:`, publicMessage(err));
 	}
+}
+
+/**
+ * Each Kill rate rule's window of recent kills per player, in this process's memory: kills are
+ * acted on only in the worker, and a restart starting the windows over costs a flag, not data
+ * (the kills themselves are in the table). Kept only for servers with the rule on.
+ */
+const rateTracks = new Map<string, { serverId: string; tracks: RateTracks }>();
+
+async function actOnKillRate(env: Env, serverId: string, batch: KillView[]): Promise<void> {
+	const rows = (await enabledTriggers(env, serverId)).filter((r) => r.kind === 'kill_rate');
+	const live = new Set(rows.map((r) => r.id));
+	for (const [id, t] of rateTracks)
+		if (t.serverId === serverId && !live.has(id)) rateTracks.delete(id);
+	if (!rows.length) return;
+	const times = killTimes(
+		Date.parse(batch[0].ts),
+		batch.map((k) => k.eventTime)
+	);
+	const counted = batch
+		.map((k, i) => ({ k, at: times[i] }))
+		.filter(({ k }) =>
+			countsForRate({ killer: k.killer?.steamId, suicide: k.suicide, cause: k.cause })
+		)
+		.sort((a, b) => a.at - b.at);
+	const now = Date.now();
+	const out: Evaluation = { intents: [], updates: [] };
+	// A flag starts the player's cooldown; if it cannot be queued, neither does the cooldown.
+	const flagged: { track: RateTrack; before: number | null }[] = [];
+	for (const row of rows) {
+		const cfg = row.config as KillRateConfig;
+		let entry = rateTracks.get(row.id);
+		if (!entry) {
+			entry = { serverId, tracks: new Map() };
+			rateTracks.set(row.id, entry);
+		}
+		for (const { k, at } of counted) {
+			const steamId = k.killer!.steamId;
+			const before = entry.tracks.get(steamId)?.flaggedAt ?? null;
+			const verdict = killRateStep(cfg, entry.tracks, steamId, at, k.headshot);
+			if (!verdict) continue;
+			flagged.push({ track: entry.tracks.get(steamId)!, before });
+			const name = k.killer!.name;
+			out.intents.push({
+				trigger: row,
+				action: KILL_RATE_FLAG,
+				params: {},
+				target: steamId,
+				okMessage: `Flagged ${name}: ${verdict}`,
+				detail: { name, verdict },
+				steamId,
+				dedupeKey: [row.id, steamId, k.eventId].join(':')
+			});
+			out.updates.push({
+				id: row.id,
+				lastFiredAt: new Date(),
+				lastResult: `Flagging ${name}: ${verdict}`
+			});
+		}
+		pruneTracks(cfg, entry.tracks, now);
+	}
+	if (!out.intents.length) return;
+	let queued = 0;
+	try {
+		await withOwnedTransaction(env, async (tx) => {
+			queued = await enqueueIntents(tx, serverId, out.intents);
+			await applyTriggerUpdates(tx, out.updates);
+		});
+	} catch (err) {
+		for (const f of flagged.reverse()) f.track.flaggedAt = f.before;
+		throw err;
+	}
+	if (queued) wakeDelivery();
 }
 
 /** How many team kills this player has in their current session on the server, including these. */

@@ -7,6 +7,8 @@
 //   risk_kick    kick joiners who match Steam / ban-list rules (see risk.ts)
 //   ping_kick    kick players whose ping stays above a limit
 //   team_kill    whisper or kick a player over team kills the kill feed reports (feed-events.ts)
+//   kill_rate    flag a player whose kills in a short window are too many or too many headshots
+//                (kill-rate.ts, acted on in feed-events.ts)
 //   seed_reward  hand players who stay through a low population a reserved slot, on this server
 //                or across the org
 // The worker evaluates them on every observation and writes the actions they want to the outbox
@@ -70,6 +72,13 @@ import {
 	type WelcomeConfig
 } from './trigger-rules';
 import { NAME_FLAG, nameFilterTargets, nameVerdict, type NameFilterConfig } from './name-filter';
+import {
+	countsForRate,
+	killRateReplay,
+	killTimes,
+	type KillRateConfig,
+	type RateKill
+} from './kill-rate';
 import { fmtUptime, RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
 import { DEFAULT_SCORE_CAP, scoreCapOf } from '$lib/match';
 import { settings } from './settings';
@@ -79,6 +88,8 @@ import type { RiskPerformance } from './risk';
 export * from './trigger-rules';
 
 const WINDOW_MS = 24 * 3600_000;
+/** The most kills one Kill rate dry run reads, whatever the server did that day. */
+const KILL_RATE_REPLAY_MAX = 200_000;
 
 // ---- records ------------------------------------------------------------------------------------
 
@@ -127,7 +138,8 @@ const RULE_NEEDS: Record<Exclude<TriggerKind, 'seed_reward'>, [Capability, strin
 	risk_kick: ['players.moderate', 'kicks players'],
 	name_filter: ['players.moderate', 'kicks players'],
 	ping_kick: ['players.moderate', 'kicks players'],
-	team_kill: ['players.moderate', 'kicks players']
+	team_kill: ['players.moderate', 'kicks players'],
+	kill_rate: ['players.moderate', 'flags players']
 };
 
 /** What one rule needs of whoever saves it. The Seeding reward reserves slots: here, or on the organisation's list. */
@@ -407,6 +419,7 @@ export async function evaluateTriggers(
 					evalRestartNotice(ctx, row, row.config as RestartNoticeConfig, out);
 					break;
 				case 'team_kill':
+				case 'kill_rate':
 					// Acted on as kills arrive (feed-events.ts), not per observation.
 					break;
 				case 'seed_reward':
@@ -1143,6 +1156,65 @@ export async function dryRun(
 		result.notes.push(
 			`${rows.length} team kill${rows.length === 1 ? '' : 's'} in the window, counted per killer within their session.`
 		);
+		return result;
+	}
+	if (kind === 'kill_rate') {
+		const c = cfg as KillRateConfig;
+		// Every kill of the window through the live rule's own step, in the order they arrived.
+		const rows = await env.db.execute<{
+			ts: Date;
+			eventTime: number;
+			steamId: string | null;
+			name: string | null;
+			cause: string | null;
+			headshot: boolean;
+			suicide: boolean;
+		}>(sql`
+			SELECT ts, event_time AS "eventTime", killer_steam_id AS "steamId", killer_name AS name,
+			       cause, headshot, suicide
+			  FROM kills
+			 WHERE server_id = ${server.id} AND ts >= ${from}
+			 ORDER BY ts ASC LIMIT ${KILL_RATE_REPLAY_MAX}`);
+		// The kills of one ingest batch share its receipt time: each batch is spaced out by the match
+		// clock as the live rule does it, then the counted ones replayed.
+		const counted: RateKill[] = [];
+		for (let i = 0; i < rows.length;) {
+			const received = new Date(rows[i].ts).getTime();
+			let j = i;
+			while (j < rows.length && new Date(rows[j].ts).getTime() === received) j++;
+			const batch = rows.slice(i, j);
+			const times = killTimes(
+				received,
+				batch.map((r) => Number(r.eventTime))
+			);
+			batch.forEach((r, n) => {
+				if (!countsForRate({ killer: r.steamId, suicide: !!r.suicide, cause: r.cause })) return;
+				counted.push({
+					at: times[n],
+					steamId: r.steamId!,
+					name: r.name || r.steamId!,
+					headshot: !!r.headshot
+				});
+			});
+			i = j;
+		}
+		for (const f of killRateReplay(c, counted))
+			push(new Date(f.at), `flag ${f.name} (${f.steamId}): ${f.verdict}`);
+		const [feed] = await env.db
+			.select({ configured: sql<boolean>`feed_token_hash IS NOT NULL` })
+			.from(servers)
+			.where(eq(servers.id, server.id));
+		if (!feed?.configured)
+			result.notes.push(
+				'This server has no kill feed set up (Config tab), so the rule cannot see any kills.'
+			);
+		result.notes.push(
+			`${counted.length} kill${counted.length === 1 ? '' : 's'} with hand-held weapons in the window; vehicles, their guns and buildables are not counted.`
+		);
+		if (rows.length >= KILL_RATE_REPLAY_MAX)
+			result.notes.push(
+				`Replayed the first ${KILL_RATE_REPLAY_MAX.toLocaleString('en')} kills of the window only.`
+			);
 		return result;
 	}
 	if (kind === 'restart_notice') {

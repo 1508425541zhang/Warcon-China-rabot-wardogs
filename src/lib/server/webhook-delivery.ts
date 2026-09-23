@@ -5,7 +5,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { Env } from './env';
 import { decryptSecret } from './crypto';
-import { servers, webhooks, type AuditRow, type WebhookRow } from './db/schema';
+import { playerMarks, servers, webhooks, type AuditRow, type WebhookRow } from './db/schema';
 import { OWNERS_ROWS } from './audit-rows';
 import { causeLabel } from '$lib/causes';
 import type { KillView } from '$lib/types';
@@ -17,7 +17,8 @@ export const WEBHOOK_EVENTS = [
 	'players',
 	'management',
 	'auth',
-	'teamkills'
+	'teamkills',
+	'watched'
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 export const WEBHOOK_EVENT_LABELS: Record<WebhookEvent, string> = {
@@ -27,7 +28,8 @@ export const WEBHOOK_EVENT_LABELS: Record<WebhookEvent, string> = {
 	players: 'Player notes and watchlist changes',
 	management: 'Servers, members, invite links, accounts',
 	auth: 'Sign-ins and sign-in failures',
-	teamkills: 'Team kills (from the kill feed)'
+	teamkills: 'Team kills (from the kill feed)',
+	watched: 'Watched players joining'
 };
 
 /** Which event class an audit row belongs to. */
@@ -142,6 +144,7 @@ const ACTION_TITLES: Record<string, string> = {
 	'trigger.team_kill': 'Trigger · team kill limit',
 	'trigger.match_broadcast': 'Trigger · match broadcast',
 	'trigger.name_filter': 'Trigger · name filter',
+	'trigger.kill_rate': 'Trigger · kill rate watch',
 	'player.note': 'Player note',
 	'player.watch': 'Watchlist',
 	'list.add': 'Org list · added',
@@ -180,6 +183,13 @@ export function buildEmbed(appName: string, row: AuditRow): Embed {
 	};
 }
 
+/** A Kill rate flag is a prompt to go and look: its post opens the player's page. */
+function withDossierLink(env: Env, row: AuditRow, embed: Embed): Embed {
+	if (row.action !== 'trigger.kill_rate' || !row.serverId || !row.target) return embed;
+	const url = dossierUrl(env.ORIGIN, row.serverId, row.target);
+	return url ? { ...embed, url } : embed;
+}
+
 const TEAM_KILL_COLOR = 0xe0a83a;
 
 /** One team kill from the feed as an embed: who, whom, with what, how far. */
@@ -202,6 +212,37 @@ export function buildTeamKillEmbed(appName: string, serverName: string, k: KillV
 		description: clip(lines.join('\n'), 2000),
 		color: TEAM_KILL_COLOR,
 		timestamp: k.ts,
+		footer: { text: appName }
+	};
+}
+
+const WATCHED_COLOR = 0x5b8def;
+
+/** The player's page in the panel, for a staff post about one player; none without an origin. */
+export function dossierUrl(origin: string | undefined, serverId: string, steamId: string) {
+	if (!origin || !/^\d{17}$/.test(steamId)) return undefined;
+	return `${origin.replace(/\/$/, '')}/server/${encodeURIComponent(serverId)}/players/${steamId}`;
+}
+
+/** A watched player joining: who, why they are watched, where; the title opens their page. */
+export function buildWatchedJoinEmbed(
+	appName: string,
+	serverName: string,
+	p: { steamId: string; name: string; reason: string },
+	at: string,
+	url?: string
+): Embed {
+	const lines = [
+		`**${clip(p.name || p.steamId, 60)}** \`${p.steamId}\``,
+		p.reason ? clip(p.reason, 600) : '',
+		`Server: ${clip(serverName, 80)}`
+	].filter(Boolean);
+	return {
+		title: 'Watched player joined',
+		...(url ? { url } : {}),
+		description: clip(lines.join('\n'), 2000),
+		color: WATCHED_COLOR,
+		timestamp: at,
 		footer: { text: appName }
 	};
 }
@@ -418,11 +459,79 @@ export async function notifyWebhooks(env: Env, row: AuditRow): Promise<void> {
 			if (!events.includes(event)) continue;
 			const only = hook.serverIds as string[] | null;
 			if (only && only.length && (!row.serverId || !only.includes(row.serverId))) continue;
-			embed ??= buildEmbed(env.APP_NAME || 'Warcon', row);
+			embed ??= withDossierLink(env, row, buildEmbed(env.APP_NAME || 'Warcon', row));
 			enqueue(env, hook, embed);
 		}
 	} catch (err) {
 		console.error('[warcon] webhook notify', err);
+	}
+}
+
+/** The hooks that carry an event class for a server: ticked, and the server in their filter. */
+export function hooksFor(hooks: WebhookRow[], event: WebhookEvent, serverId: string): WebhookRow[] {
+	return hooks.filter((hook) => {
+		if (!((hook.events as string[]) || []).includes(event)) return false;
+		const only = hook.serverIds as string[] | null;
+		return !only || !only.length || only.includes(serverId);
+	});
+}
+
+/** The joiners on the organisation's watchlist, with why they are watched. */
+export async function watchedAmong(
+	env: Env,
+	orgId: string,
+	players: { steamId: string; name: string }[]
+): Promise<{ steamId: string; name: string; reason: string }[]> {
+	if (!players.length) return [];
+	const rows = await env.db
+		.select({ steamId: playerMarks.steamId, reason: playerMarks.reason })
+		.from(playerMarks)
+		.where(
+			and(
+				eq(playerMarks.orgId, orgId),
+				eq(playerMarks.watched, true),
+				inArray(
+					playerMarks.steamId,
+					players.map((p) => p.steamId)
+				)
+			)
+		);
+	const reason = new Map(rows.map((r) => [r.steamId, r.reason]));
+	return players
+		.filter((p) => reason.has(p.steamId))
+		.map((p) => ({ steamId: p.steamId, name: p.name, reason: reason.get(p.steamId) ?? '' }));
+}
+
+/**
+ * Tells the org's webhooks that want it when a player on its watchlist joins one of its servers.
+ * The watchlist is read only when a webhook wants the event, so an org without one pays a cache
+ * lookup per join. Never throws.
+ */
+export async function notifyWatchedJoins(
+	env: Env,
+	serverId: string,
+	serverName: string,
+	joined: { steamId: string; name: string }[]
+): Promise<void> {
+	try {
+		if (!joined.length) return;
+		const orgId = await orgOfServer(env, serverId);
+		if (!orgId) return;
+		const hooks = hooksFor(await enabledWebhooks(env, orgId), 'watched', serverId);
+		if (!hooks.length) return;
+		const now = new Date().toISOString();
+		for (const p of await watchedAmong(env, orgId, joined)) {
+			const embed = buildWatchedJoinEmbed(
+				env.APP_NAME || 'Warcon',
+				serverName,
+				p,
+				now,
+				dossierUrl(env.ORIGIN, serverId, p.steamId)
+			);
+			for (const hook of hooks) enqueue(env, hook, embed);
+		}
+	} catch (err) {
+		console.error('[warcon] webhook watched joins', err);
 	}
 }
 
@@ -438,11 +547,7 @@ export async function notifyTeamKills(
 		if (!teamKills.length) return;
 		const orgId = await orgOfServer(env, serverId);
 		if (!orgId) return;
-		const hooks = (await enabledWebhooks(env, orgId)).filter((hook) => {
-			if (!((hook.events as string[]) || []).includes('teamkills')) return false;
-			const only = hook.serverIds as string[] | null;
-			return !only || !only.length || only.includes(serverId);
-		});
+		const hooks = hooksFor(await enabledWebhooks(env, orgId), 'teamkills', serverId);
 		if (!hooks.length) return;
 		for (const k of teamKills) {
 			const embed = buildTeamKillEmbed(env.APP_NAME || 'Warcon', serverName, k);
