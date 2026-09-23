@@ -2,7 +2,7 @@
 // kick-on-connect verdict. No database, no game server, so it is unit-testable on its own;
 // triggers.ts holds the engine that runs these against live ticks.
 import { ApiError, int, str } from './http';
-import { accountAgeDays, assessRisk, type RiskLevel, type RiskPerformance } from './risk';
+import { accountAgeDays, assessRisk, RISK_HIGH, RISK_MEDIUM, type RiskPerformance } from './risk';
 import { validateNameFilter, type NameFilterConfig } from './name-filter';
 import { validateKillRate, type KillRateConfig } from './kill-rate';
 import { RESTART_AFTER_HOURS, restartWindow } from '$lib/uptime';
@@ -73,8 +73,8 @@ export interface RiskKickConfig {
 	privateProfiles: boolean;
 	bannedElsewhere: boolean;
 	watchlist: boolean;
-	/** also kick at this advisory risk level or worse (the score the players table shows); null is off */
-	kickAtLevel: Exclude<RiskLevel, 'low'> | null;
+	/** also kick at this advisory risk score or more (the score the players table shows); null is off */
+	kickAtScore: number | null;
 	spareReserved: boolean;
 	reason: string;
 }
@@ -192,6 +192,19 @@ const MAX_MESSAGE = 200;
 export const isTriggerKind = (v: unknown): v is TriggerKind =>
 	TRIGGER_KINDS.includes(v as TriggerKind);
 
+/**
+ * The score a risk_kick rule kicks at, or null when off. Rules saved before the score existed
+ * carry `kickAtLevel` ('medium' or 'high') instead; those keep their old threshold.
+ */
+export function riskKickScore(c: Record<string, unknown> | RiskKickConfig): number | null {
+	const r = c as Record<string, unknown>;
+	if (r.kickAtScore !== undefined && r.kickAtScore !== null) {
+		const n = Math.trunc(Number(r.kickAtScore));
+		return Number.isFinite(n) && n >= 1 ? Math.min(n, 100) : null;
+	}
+	return r.kickAtLevel === 'high' ? RISK_HIGH : r.kickAtLevel === 'medium' ? RISK_MEDIUM : null;
+}
+
 /** Checks and normalises a kind's settings; throws a 400 with a reason people can act on. */
 export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 	const c = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -253,7 +266,7 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 				privateProfiles: !!c.privateProfiles,
 				bannedElsewhere: !!c.bannedElsewhere,
 				watchlist: !!c.watchlist,
-				kickAtLevel: c.kickAtLevel === 'high' || c.kickAtLevel === 'medium' ? c.kickAtLevel : null,
+				kickAtScore: riskKickScore(c),
 				spareReserved: c.spareReserved === undefined ? true : !!c.spareReserved,
 				reason:
 					str(c.reason, MAX_MESSAGE) || 'Your account does not meet this server’s requirements.'
@@ -264,7 +277,7 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 				!cfg.minAccountDays &&
 				!cfg.bannedElsewhere &&
 				!cfg.watchlist &&
-				!cfg.kickAtLevel
+				!cfg.kickAtScore
 			)
 				throw new ApiError(400, 'Turn on at least one rule.');
 			return cfg;
@@ -761,7 +774,7 @@ export interface RiskKickSignals {
 	steamEnabled: boolean;
 	bannedOn: { serverName: string; reason: string }[];
 	watched: { reason: string } | null;
-	/** banned players whose last known name looks like this one; only the risk level uses it */
+	/** banned players whose last known name looks like this one; only the risk score uses it */
 	resembles?: { name: string; steamId: string; serverName: string }[];
 	reserved: boolean;
 	performance?: RiskPerformance | null;
@@ -795,7 +808,8 @@ export function riskKickVerdict(cfg: RiskKickConfig, s: RiskKickSignals): string
 			}
 		}
 	}
-	if (cfg.kickAtLevel) {
+	const minScore = riskKickScore(cfg);
+	if (minScore) {
 		const risk = assessRisk({
 			profile: s.profile,
 			steamEnabled: s.steamEnabled,
@@ -805,14 +819,15 @@ export function riskKickVerdict(cfg: RiskKickConfig, s: RiskKickSignals): string
 			performance: s.performance,
 			now: s.now
 		});
-		const bad = risk.level === 'high' || (cfg.kickAtLevel === 'medium' && risk.level === 'medium');
-		if (bad) {
+		if (risk.score >= minScore) {
 			const why = [...risk.reasons]
 				.sort((a, b) => b.weight - a.weight)
 				.slice(0, 3)
 				.map((r) => r.text)
 				.join('; ');
-			return `${risk.level} risk (${risk.score}): ${why}${risk.steamChecked ? '' : ' [Steam not checked]'}`;
+			const what =
+				risk.level === 'low' ? `risk ${risk.score}` : `${risk.level} risk (${risk.score})`;
+			return `${what}: ${why}${risk.steamChecked ? '' : ' [Steam not checked]'}`;
 		}
 	}
 	return null;
