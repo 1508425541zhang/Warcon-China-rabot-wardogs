@@ -10,6 +10,7 @@
 	import { describeSync, STATE_TEXT, STATE_TONE } from '$lib/lists';
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
+	import EditBanDialog from '$lib/components/EditBanDialog.svelte';
 	import BanMessagePanel from './BanMessagePanel.svelte';
 	import ImportCandidates from './ImportCandidates.svelte';
 	import SortHeader from '$lib/components/SortHeader.svelte';
@@ -30,6 +31,7 @@
 	let search = $state('');
 	let busy = $state(false);
 	let banning = $state(false);
+	let editing = $state<ListEntryView | null>(null);
 	let owner = $derived(lists.role === 'owner');
 
 	/** newest first as the server sends them, until a header is clicked */
@@ -202,6 +204,7 @@
 						</span>
 					</td>
 					<td class="text-right whitespace-nowrap">
+						<button class="btn btn-sm" disabled={busy} onclick={() => (editing = e)}>Edit</button>
 						<button class="btn btn-sm btn-danger" disabled={busy} onclick={() => remove(e)}
 							>Unban</button
 						>
@@ -223,6 +226,18 @@
 	next sync, <Badge tone="err">failed</Badge> (hover for why), <Badge>local</Badge> already on that server
 	but added outside the panel, so the panel never removes it.
 </p>
+
+{#if editing}
+	<EditBanDialog
+		path="{path}/{encodeURIComponent(editing.steamId)}"
+		who={editing.name || editing.steamId}
+		placed={`Banned across ${org.name}${editing.addedByName ? ` by ${editing.addedByName}` : ''} on ${fmtTime(editing.addedAt)}.`}
+		reason={editing.reason}
+		expiresAt={editing.expiresAt}
+		onclose={() => (editing = null)}
+		ondone={() => invalidateAll()}
+	/>
+{/if}
 
 {#if banning}
 	<BanDialog
