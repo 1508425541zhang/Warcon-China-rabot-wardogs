@@ -23,6 +23,9 @@
 			feed: '最近击杀事件',
 			noFeed: '尚无记录',
 			cases: '证据案件',
+			reports: '近期举报',
+			noReports: '暂无举报。',
+			reason: '举报原因',
 			scores: '近期风险评分',
 			noCases: '暂无证据案件。',
 			noScores: '暂无异常窗口评分。',
@@ -46,6 +49,9 @@
 			feed: 'Latest kill event',
 			noFeed: 'No events recorded',
 			cases: 'Evidence cases',
+			reports: 'Recent reports',
+			noReports: 'No reports yet.',
+			reason: 'Reason',
 			scores: 'Recent risk scores',
 			noCases: 'No evidence cases yet.',
 			noScores: 'No abnormal-window scores yet.',
@@ -141,6 +147,30 @@
 			</table>
 		</div>
 	{:else}<p class="text-sm text-mist-400">{t.noCases}</p>{/if}
+</section>
+
+<section class="mb-6 panel p-4">
+	<h3 class="mb-3 text-base font-semibold text-white">{t.reports}</h3>
+	{#if data.reports.length}
+		<div class="table-wrap">
+			<table>
+				<thead
+					><tr><th>{t.time}</th><th>{t.player}</th><th>{t.reason}</th><th>{t.status}</th></tr
+					></thead
+				>
+				<tbody>
+					{#each data.reports as item (item.id)}
+						<tr>
+							<td class="whitespace-nowrap">{when(item.createdAt)}</td>
+							<td class="font-mono">{item.targetSteamId}</td>
+							<td>{item.reason}</td>
+							<td>{item.status}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	{:else}<p class="text-sm text-mist-400">{t.noReports}</p>{/if}
 </section>
 
 <section class="panel p-4">

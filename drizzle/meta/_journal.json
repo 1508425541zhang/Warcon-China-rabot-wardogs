@@ -281,6 +281,20 @@
       "when": 1790233587422,
       "tag": "0039_integrity_view_capability",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790233997781,
+      "tag": "0040_fearless_solo",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790234113701,
+      "tag": "0041_burly_valeria_richards",
+      "breakpoints": true
     }
   ]
 }

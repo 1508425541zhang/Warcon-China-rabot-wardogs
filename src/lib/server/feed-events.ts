@@ -6,7 +6,13 @@
 import { and, desc, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { emit } from './events';
-import { integrityScores, integrityWindows, kills, playerSessions } from './db/schema';
+import {
+	integrityReports,
+	integrityScores,
+	integrityWindows,
+	kills,
+	playerSessions
+} from './db/schema';
 import { enabledTriggers, renderTemplate, teamKillStage, type Evaluation } from './triggers';
 import type { TeamKillConfig } from './trigger-rules';
 import {
@@ -34,6 +40,7 @@ import { weaponOverrides } from './integrity/weapon-map';
 import { getIntegrityRules } from './integrity/rules';
 import { scoreIntegrity } from './integrity/score';
 import { freezeFindingEvidence } from './integrity/evidence';
+import { captureReportEvidence } from './integrity/reports';
 
 const infantry = new InfantryWindows();
 const infantryTasks = new Map<string, Promise<void>>();
@@ -46,6 +53,11 @@ export async function onKillsIngested(
 	if (!kills.length) return;
 	emit({ type: 'kills', serverId, kills });
 	const infantryTask = queueInfantryWindows(env, serverId, kills);
+	try {
+		await captureReportEvidence(env, serverId, kills);
+	} catch (err) {
+		console.warn(`[warcon] report evidence on ${serverId}:`, publicMessage(err));
+	}
 	try {
 		await actOnKillRate(env, serverId, kills);
 	} catch (err) {
@@ -97,6 +109,16 @@ async function recordInfantryWindows(env: Env, serverId: string, batch: KillView
 	await withOwnedTransaction(env, async (tx) => {
 		for (const finding of findings) {
 			const now = new Date();
+			const [reporters] = await tx
+				.select({ count: sql<number>`COUNT(DISTINCT ${integrityReports.reporterSteamId})` })
+				.from(integrityReports)
+				.where(
+					and(
+						eq(integrityReports.orgId, orgId),
+						eq(integrityReports.targetSteamId, finding.steamId),
+						gte(integrityReports.createdAt, new Date(now.getTime() - 24 * 60 * 60_000))
+					)
+				);
 			const recent = await tx
 				.select({ kpm180: integrityWindows.kpm180 })
 				.from(integrityWindows)
@@ -134,7 +156,7 @@ async function recordInfantryWindows(env: Env, serverId: string, batch: KillView
 					kpm180: finding.kpm180,
 					uniqueVictims: finding.uniqueVictims,
 					previousKpm: recent.map((row) => row.kpm180),
-					uniqueReporters: 0,
+					uniqueReporters: Number(reporters?.count ?? 0),
 					repeatAutoKo: false,
 					infantryKills: finding.infantryKills,
 					headshots: 0,

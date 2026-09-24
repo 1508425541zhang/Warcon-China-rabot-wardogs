@@ -528,7 +528,9 @@ export const integrityScores = pgTable(
 	'integrity_scores',
 	{
 		id: bigserial('id', { mode: 'number' }).primaryKey(),
-		windowId: bigint('window_id', { mode: 'number' }).notNull(),
+		windowId: bigint('window_id', { mode: 'number' }),
+		reportId: bigint('report_id', { mode: 'number' }),
+		source: text('source').notNull().default('window'),
 		orgId: text('org_id').notNull(),
 		serverId: text('server_id').notNull(),
 		steamId: text('steam_id').notNull(),
@@ -565,6 +567,54 @@ export const integrityCases = pgTable(
 		index('integrity_cases_queue_idx').on(t.orgId, t.status, t.createdAt.desc()),
 		index('integrity_cases_player_idx').on(t.orgId, t.steamId, t.createdAt.desc())
 	]
+);
+
+/** A unique Steam reporter may file again after cooldown, but cannot inflate risk by repetition. */
+export const integrityReports = pgTable(
+	'integrity_reports',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		orgId: text('org_id').notNull(),
+		serverId: text('server_id').notNull(),
+		targetSteamId: text('target_steam_id').notNull(),
+		reporterSteamId: text('reporter_steam_id').notNull(),
+		reason: text('reason').notNull(),
+		source: text('source').notNull(),
+		createdAt: ts('created_at').notNull(),
+		evidenceFrom: ts('evidence_from').notNull(),
+		evidenceUntil: ts('evidence_until').notNull(),
+		caseId: text('case_id'),
+		status: text('status').notNull().default('OPEN')
+	},
+	(t) => [
+		index('integrity_reports_target_idx').on(t.orgId, t.targetSteamId, t.createdAt.desc()),
+		index('integrity_reports_reporter_idx').on(t.reporterSteamId, t.createdAt.desc())
+	]
+);
+
+/** Frozen copies of accepted telemetry surrounding a report, including late events. */
+export const integrityReportEvents = pgTable(
+	'integrity_report_events',
+	{
+		reportId: bigint('report_id', { mode: 'number' }).notNull(),
+		instanceId: text('instance_id').notNull(),
+		eventId: text('event_id').notNull(),
+		receivedAt: ts('received_at').notNull(),
+		event: jsonb('event').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.reportId, t.instanceId, t.eventId] })]
+);
+
+export const integrityReporterStats = pgTable(
+	'integrity_reporter_stats',
+	{
+		orgId: text('org_id').notNull(),
+		steamId: text('steam_id').notNull(),
+		reportsSubmitted: integer('reports_submitted').notNull().default(0),
+		reportsConfirmed: integer('reports_confirmed').notNull().default(0),
+		reportsDismissed: integer('reports_dismissed').notNull().default(0)
+	},
+	(t) => [primaryKey({ columns: [t.orgId, t.steamId] })]
 );
 
 export const matches = pgTable(
