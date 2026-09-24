@@ -1,12 +1,12 @@
 # Warcon China 技术架构与风控规则
 
-本文对应当前仓库的**已实现代码**。规划中的自动处置、申诉和聊天命令见[实施计划](wardogs-community-integrity-plan.zh-CN.md)；上游功能和部署细节见[原版 README](../README.upstream.md)。
+本文对应当前仓库的**已实现代码**。尚未接入的申诉和聊天命令见[实施计划](wardogs-community-integrity-plan.zh-CN.md)；上游功能和部署细节见[原版 README](../README.upstream.md)。
 
 ## 1. 系统边界
 
 Warcon China 是基于 Warcon 的 WARDOGS 社区服务器管理项目。它复用 `src/lib/server/rcon.ts`、`transport.ts` 和 `docs/wardogs-api.md` 所描述的现有 RCON 接口，不重写协议客户端。系统只分析服务器提供的状态、会话与 Kill Feed，以及已授权获取的公开资料；不扫描客户端进程、硬件或本地文件。
 
-当前社区风控以 `dry_run` 运行。规则接口拒绝将其改成 `enforce`；风险分和案件供管理员查看，不触发社区风控自动处罚。原 Warcon 的自动化功能有独立配置与风险来源，部署者应分开审查。
+当前社区风控默认仅记录。组织所有者可在组织设置中逐项开启实验性自动踢出、24 小时或 7 天本服临时隔离。规则接口仍不接受旧的通用 `enforce` 模式；自动处置由单独的开关和证据门槛控制。原 Warcon 的入服账号风险自动化有独立配置与风险来源。
 
 ## 2. 运行架构
 
@@ -78,10 +78,10 @@ KPM 分项只是总分的一部分，不能把 KPM 区间直接当成风险等�
 
 ## 6. 数据与运维
 
-玩家以组织与 SteamID64 识别，昵称只作历史显示。会话、击杀、风险快照、案件和审计分别持久化。现有数据库迁移在 `drizzle/`，部署时由 `migrate` 服务执行。`.env` 包含会话、加密和中继密钥，已被 `.gitignore` 排除；生产部署须设置不同的随机值并备份数据库和 `ENCRYPTION_KEY`。
+玩家以组织与 SteamID64 识别，昵称只作历史显示。会话、击杀、风险快照、案件和审计分别持久化。现有数据库迁移在 `drizzle/`，部署时由 `migrate` 服务执行；Web 和 Worker 启动时核对完整迁移顺序，迁移数量或历史不符即拒绝启动。0042 迁移把无法恢复来源关系的旧评分移入 `integrity_scores_orphaned_0042` 留待人工核查，再给活动评分加一致性约束。`.env` 包含会话、加密和中继密钥，已被 `.gitignore` 排除；生产部署须设置不同的随机值并备份数据库和 `ENCRYPTION_KEY`。
 
 本地验证可运行 `bun run check`、`bun test` 和 `bun run build`。无真实游戏服务器时可启用内置 demo：主机 `demo`、端口 `1`、密码 `demo`。模拟环境适合检查界面与流程，不能代替真实 Feed、故障场景和自动处置上线验收。
 
 ## 7. 后续工作
 
-自动踢出、跨服务器隔离、解除、管理员复核、申诉和更完整的历史规则回放仍未完成。只有在证据可靠性、故障降级、权限审计和误判测试满足条件后，才能讨论从 `dry_run` 切换到执行模式。详见[阶段计划](wardogs-community-integrity-plan.zh-CN.md)与[逐项状态](integrity-system.md)。
+自动踢出经现有 outbox 执行；本服 24 小时和 7 天临时隔离写入带 `expires_at` 的面板封禁列表，由 `kickBanned()` 在玩家在线和重连时执行，到期失效。执行前必须有已保存案件、完整证据、健康 Feed、在线玩家和独立实时行为信号；人工封禁优先，15 分钟冷却和组织限额可能令系统熔断，组织所有者需手动恢复。永久自动封禁、跨服务器自动隔离、申诉流程及更完整的历史规则回放仍未实现。详见[阶段计划](wardogs-community-integrity-plan.zh-CN.md)与[逐项状态](integrity-system.md)。

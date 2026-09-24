@@ -20,6 +20,7 @@
 		['/servers', 'Servers', 'any'],
 		['/access', 'Access', 'owner'],
 		['/roles', 'Roles', 'owner'],
+		['/integrity', '社区风控', 'owner'],
 		['/players', 'Players', 'any'],
 		['/bans', '封禁列表', 'ban'],
 		['/reserved', '预留席位', 'reserve']

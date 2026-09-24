@@ -1,6 +1,6 @@
 import { and, asc, eq, gt, gte, inArray, lte } from 'drizzle-orm';
 import type { DbOrTx } from '../db';
-import { integrityCases, kills } from '../db/schema';
+import { integrityCaseEvents, integrityCases, kills } from '../db/schema';
 import type { BehaviorFinding } from './windows';
 import type { IntegrityScore, IntegritySignals } from './score';
 
@@ -104,26 +104,37 @@ export async function freezeFindingEvidence(db: DbOrTx, input: FreezeInput): Pro
 			uniqueReporters: input.signals.uniqueReporters,
 			ruleVersion: input.ruleVersion,
 			eventIds: input.finding.eventIds,
-			rules: input.rulesSnapshot,
-			events: events.slice(0, 1000).map((row) => ({
-				eventId: row.eventId,
-				ts: row.ts.toISOString(),
-				eventTime: row.eventTime,
-				map: row.map,
-				killerSteamId: row.killerSteamId,
-				killerName: row.killerName,
-				killerFaction: row.killerFaction,
-				victimSteamId: row.victimSteamId,
-				victimName: row.victimName,
-				victimFaction: row.victimFaction,
-				cause: row.cause,
-				distanceM: row.distanceM,
-				headshot: row.headshot,
-				teamKill: row.teamKill,
-				suicide: row.suicide,
-				tags: row.tags
-			}))
+			rules: input.rulesSnapshot
 		}
 	});
+	if (events.length)
+		await db
+			.insert(integrityCaseEvents)
+			.values(
+				events.slice(0, 1000).map((row) => ({
+					caseId: id,
+					instanceId: row.instanceId,
+					eventId: row.eventId,
+					event: {
+						eventId: row.eventId,
+						ts: row.ts.toISOString(),
+						eventTime: row.eventTime,
+						map: row.map,
+						killerSteamId: row.killerSteamId,
+						killerName: row.killerName,
+						killerFaction: row.killerFaction,
+						victimSteamId: row.victimSteamId,
+						victimName: row.victimName,
+						victimFaction: row.victimFaction,
+						cause: row.cause,
+						distanceM: row.distanceM,
+						headshot: row.headshot,
+						teamKill: row.teamKill,
+						suicide: row.suicide,
+						tags: row.tags
+					}
+				}))
+			)
+			.onConflictDoNothing();
 	return id;
 }

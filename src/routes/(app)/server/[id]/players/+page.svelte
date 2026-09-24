@@ -262,9 +262,9 @@
 								{#if m}
 									{#if m.watched}<Badge tone="warn" class="mr-1">观察</Badge>{/if}
 									{#if m.risk.level === 'high'}<Badge tone="err" class="mr-1"
-											>风险 {m.risk.score}</Badge
+											>账号风险 {m.risk.score}</Badge
 										>{:else if m.risk.level === 'medium'}<Badge tone="warn" class="mr-1"
-											>风险 {m.risk.score}</Badge
+											>账号风险 {m.risk.score}</Badge
 										>{/if}
 									{#if m.firstVisit}<Badge tone="info">新玩家</Badge>{/if}
 								{/if}

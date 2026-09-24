@@ -57,7 +57,7 @@ describe('Integrity alerts', () => {
 			createdAt: new Date('2026-09-24T00:00:00Z')
 		});
 		expect(embed.description).toContain('CASE-123');
-		expect(embed.description).toContain('Dry run: no Integrity kick');
+		expect(embed.description).toContain('Review the panel action history');
 		expect(embed.description).toContain('Unique reporters: 3');
 		expect(embed.description).not.toContain('reporterSteamId');
 	});

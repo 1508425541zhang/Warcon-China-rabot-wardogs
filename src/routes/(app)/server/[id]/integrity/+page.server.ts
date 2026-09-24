@@ -6,15 +6,14 @@ import { orgRoleFor, requireServerCap } from '$lib/server/access';
 import { normalizeError } from '$lib/server/http';
 import {
 	integrityCases,
+	integrityActions,
 	integrityReports,
 	integrityScores,
 	kills,
 	serverLive
 } from '$lib/server/db/schema';
 import { getIntegrityRules } from '$lib/server/integrity/rules';
-import { DEFAULT_INTEGRITY_RULES } from '$lib/server/integrity/score';
-import { weaponMappings, weaponOverrides } from '$lib/server/integrity/weapon-map';
-import { DEFAULT_WEAPON_MAP, WEAPON_CATEGORIES } from '$lib/server/integrity/weapons';
+import { weaponOverrides } from '$lib/server/integrity/weapon-map';
 import { liveInfantryMetrics } from '$lib/server/integrity/live';
 import type { Player, Status } from '$lib/types';
 
@@ -23,7 +22,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	try {
 		const { server, user } = await requireServerCap(env, locals, params.id, 'integrity.view');
 		const now = new Date();
-		const [cases, scores, reports, [live], rules, recentKills, liveScores, mappings] =
+		const [cases, scores, reports, actions, [live], rules, recentKills, liveScores, mappings] =
 			await Promise.all([
 				env.db
 					.select({
@@ -66,6 +65,12 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 					.from(integrityReports)
 					.where(eq(integrityReports.serverId, server.id))
 					.orderBy(desc(integrityReports.createdAt))
+					.limit(50),
+				env.db
+					.select()
+					.from(integrityActions)
+					.where(eq(integrityActions.serverId, server.id))
+					.orderBy(desc(integrityActions.createdAt))
 					.limit(50),
 				env.db
 					.select({
@@ -151,9 +156,12 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		);
 		const contributorRows = (await env.db.execute(sql`
 			SELECT part.item->>'code' AS code,
-			       SUM((part.item->>'points')::integer)::integer AS points
+			       SUM(CASE WHEN part.item->>'points' ~ '^-?[0-9]{1,8}$'
+			           THEN (part.item->>'points')::integer ELSE 0 END) AS points
 			FROM integrity_scores AS s
-			CROSS JOIN LATERAL jsonb_array_elements(s.breakdown) AS part(item)
+			CROSS JOIN LATERAL jsonb_array_elements(
+				CASE WHEN jsonb_typeof(s.breakdown) = 'array' THEN s.breakdown ELSE '[]'::jsonb END
+			) AS part(item)
 			WHERE s.server_id = ${server.id}
 			  AND s.source = 'window'
 			  AND s.scored_at >= ${new Date(Date.now() - 7 * 24 * 60 * 60_000)}
@@ -162,26 +170,33 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			LIMIT 5
 		`)) as { code: string; points: number }[];
 		const canConfigure = (await orgRoleFor(env, user, server.orgId)) === 'owner';
-		const overrides = canConfigure ? await weaponMappings(env, server.orgId) : [];
 		return {
 			cases: cases.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
 			scores: scores.map((item) => ({ ...item, scoredAt: item.scoredAt.toISOString() })),
 			reports: reports.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
+			actions: actions.map((item) => ({
+				...item,
+				createdAt: item.createdAt.toISOString(),
+				expiresAt: item.expiresAt?.toISOString() ?? null,
+				revertedAt: item.revertedAt?.toISOString() ?? null
+			})),
 			feedAt: live?.feedAt?.toISOString() ?? null,
 			playersAt: live?.playersAt?.toISOString() ?? null,
 			feedRowsTruncated: recentKills.length > 3000,
 			onlinePlayers,
 			ruleVersion: rules.version,
 			kpmBands: rules.config.kpmBands,
-			mode: rules.config.mode,
+			mode: rules.enforcement.autoSuspendedAt
+				? 'suspended'
+				: rules.enforcement.autoKickEnabled ||
+					  rules.enforcement.autoQuarantine24hEnabled ||
+					  rules.enforcement.autoQuarantine7dEnabled
+					? 'experimental'
+					: 'dry_run',
 			dryRun,
 			contributors: contributorRows.map((row) => ({ code: row.code, points: Number(row.points) })),
 			canConfigure,
-			ruleConfig: canConfigure ? rules.config : null,
-			ruleDefaults: canConfigure ? DEFAULT_INTEGRITY_RULES : null,
-			weaponOverrides: overrides.map((row) => ({ cause: row.cause, category: row.category })),
-			weaponDefaults: canConfigure ? DEFAULT_WEAPON_MAP : {},
-			weaponCategories: canConfigure ? WEAPON_CATEGORIES : []
+			orgIntegrityUrl: canConfigure ? `/orgs/${encodeURIComponent(server.orgId)}/integrity` : null
 		};
 	} catch (err) {
 		const known = normalizeError(err);

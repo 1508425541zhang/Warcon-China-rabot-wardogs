@@ -250,12 +250,12 @@ check page-orgbans-reserved '403' "$(pagecode $J6 "/orgs/$ORG/reserved")"
 check orgbans-no-reserved-tab '0' "$(curl -s -b $J6 $B/orgs/$ORG/bans | grep -c "/orgs/$ORG/reserved")"
 # the org's Players page offers each action to whoever may take it: dave bans, but keeps no notes,
 # so no Watch (wait for the worker to have seen players, or the table is empty for everyone)
-for i in $(seq 1 15); do R=$(curl -s -b $J1 "$B/orgs/$ORG/players"); [[ "$R" == *'观察</button>'* ]] && break; sleep 2; done
-check page-players-owner-watch '观察</button>' "$R"
+for i in $(seq 1 15); do R=$(curl -s -b $J1 "$B/orgs/$ORG/players"); [[ "$R" == *'data-testid="watch-player"'* ]] && break; sleep 2; done
+check page-players-owner-watch 'data-testid="watch-player"' "$R"
 R=$(curl -s -b $J6 "$B/orgs/$ORG/players")
-check page-players-orgbans-ban '封禁</button>' "$R"
-check page-players-orgbans-no-watch '0' "$(echo "$R" | grep -c '观察</button>')"
-check page-players-orgbans-no-reserve '0' "$(echo "$R" | grep -c '预留</button>')"
+check page-players-orgbans-ban 'data-testid="ban-player"' "$R"
+check page-players-orgbans-no-watch '0' "$(echo "$R" | grep -c 'data-testid="watch-player"')"
+check page-players-orgbans-no-reserve '0' "$(echo "$R" | grep -c 'data-testid="reserve-player"')"
 # bans are the panel's to enforce: an entry is in force at once and nothing is written to the game
 check ban-not-in-game '0' "$(req $J1 GET /api/servers/$SID/rcon/bans | grep -c $L1)"
 check sync-state-managed "\"$L1\":{\"state\":\"applied\",\"managed\":true" "$(req $J1 GET /api/servers/$SID/lists/state)"
@@ -329,10 +329,10 @@ check trigger-firecount '"fireCount":' "$(req $J1 GET /api/servers/$SID/triggers
 req $J1 DELETE /api/servers/$SID/triggers/$TID2 >/dev/null; req $J1 DELETE /api/servers/$SID/triggers/$TID3 >/dev/null
 
 echo "== pages (owner)"
-for p in / /audit /admin/users /servers /orgs "/orgs/$ORG" "/orgs/$ORG/bans" "/orgs/$ORG/reserved" /account "/server/$SID" "/server/$SID/players" "/server/$SID/players/$P1" "/server/$SID/bans" "/server/$SID/automation" "/server/$SID/rotation" "/server/$SID/slots" "/server/$SID/config" "/server/$SID/log" "/audit?outcome=denied&q=kick"; do check "page $p" '200' "$(pagecode $J1 "$p")"; done
+for p in / /audit /admin/users /servers /orgs "/orgs/$ORG" "/orgs/$ORG/integrity" "/orgs/$ORG/bans" "/orgs/$ORG/reserved" /account "/server/$SID" "/server/$SID/players" "/server/$SID/players/$P1" "/server/$SID/kills" "/server/$SID/matches" "/server/$SID/bans" "/server/$SID/automation" "/server/$SID/integrity" "/server/$SID/analytics" "/server/$SID/leaderboard" "/server/$SID/rotation" "/server/$SID/slots" "/server/$SID/config" "/server/$SID/settings" "/server/$SID/log" "/audit?outcome=denied&q=kick"; do check "page $p" '200' "$(pagecode $J1 "$p")"; done
 check page-unknown-server '404' "$(pagecode $J1 /server/nope)"
 check server-delete '"ok":true' "$(req $J1 DELETE /api/servers/$SID2)"
-check page-sessions '当前会话' "$(curl -s -b $J1 $B/account)"
+check page-sessions 'data-testid="current-session"' "$(curl -s -b $J1 $B/account)"
 check sign-out '303' "$(curl -s -o /dev/null -w '%{http_code}' -b $J1 -c $J1 -H "Origin: $B" -X POST $B/sign-out)"
 check signed-out 'Sign in required' "$(req $J1 GET /api/servers)"
 echo; echo "passed=$pass failed=$fail"

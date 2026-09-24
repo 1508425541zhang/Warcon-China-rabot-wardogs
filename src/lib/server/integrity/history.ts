@@ -15,7 +15,12 @@ export async function hadRecentAutoKo(
 		eq(integrityScores.orgId, orgId),
 		eq(integrityScores.steamId, steamId),
 		eq(integrityScores.source, 'window'),
-		inArray(integrityScores.level, ['AUTO_KO', 'AUTO_QUARANTINE_ELIGIBLE']),
+		inArray(integrityScores.level, [
+			'AUTO_KO',
+			'AUTO_QUARANTINE_ELIGIBLE',
+			'AUTO_QUARANTINE_24H',
+			'AUTO_QUARANTINE_7D'
+		]),
 		gte(integrityScores.scoredAt, new Date(before.getTime() - windowHours * 3600_000)),
 		lt(integrityScores.scoredAt, before)
 	];

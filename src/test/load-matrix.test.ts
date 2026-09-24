@@ -37,6 +37,7 @@ const MATRIX: Record<string, Policy> = {
 	'orgs/[id]/+page.server.ts': 'orgOwner',
 	'orgs/[id]/access/+page.server.ts': 'orgOwner',
 	'orgs/[id]/roles/+page.server.ts': 'orgOwner',
+	'orgs/[id]/integrity/+page.server.ts': 'orgOwner',
 	'orgs/[id]/bans/+page.server.ts': 'lists:ban',
 	'orgs/[id]/reserved/+page.server.ts': 'lists:reserve',
 	'orgs/[id]/players/+page.server.ts': 'lists',

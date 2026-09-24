@@ -3,16 +3,10 @@
 // through the relay stream), and the team-kill rules get their turn. Their intents go through
 // the same outbox as every other trigger, so delivery, audit and the Discord mirror are shared.
 // The Kill rate rules see every batch; the rest of the work is for batches with team kills.
-import { and, desc, eq, gte, isNull, sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { emit } from './events';
-import {
-	integrityReports,
-	integrityScores,
-	integrityWindows,
-	kills,
-	playerSessions
-} from './db/schema';
+import { kills, playerSessions } from './db/schema';
 import { enabledTriggers, renderTemplate, teamKillStage, type Evaluation } from './triggers';
 import type { TeamKillConfig } from './trigger-rules';
 import {
@@ -29,25 +23,15 @@ import { applyTriggerUpdates, enqueueIntents, wakeDelivery } from './outbox';
 import { LostOwnership, withOwnedTransaction } from './leadership';
 import { memoryOf } from './observe';
 import { publicMessage } from './http';
-import { notifyIntegrityCase, notifyTeamKills, type IntegrityCaseAlert } from './webhook-delivery';
+import { notifyTeamKills } from './webhook-delivery';
 import { isDemoServer } from './env';
 import { drainMockFeed } from './mockgame';
 import { ingestBatch } from './feed';
 import { servers, type ServerRow } from './db/schema';
 import type { KillView } from '$lib/types';
-import { InfantryWindows } from './integrity/windows';
-import { weaponOverrides } from './integrity/weapon-map';
-import { getIntegrityRules } from './integrity/rules';
-import { scoreIntegrity } from './integrity/score';
-import { freezeFindingEvidence } from './integrity/evidence';
-import { captureReportEvidence } from './integrity/reports';
-import { hadRecentAutoKo } from './integrity/history';
-import { getProfiles, steamEnabled } from './steam';
-import { steamBanSignals } from './integrity/steam-signals';
+import { queueIntegrityBatch } from './integrity/pipeline';
 
-const infantry = new InfantryWindows();
-const infantryTasks = new Map<string, Promise<void>>();
-
+/** The legacy kill-rate and team-kill consumers continue even if Integrity fails. */
 export async function onKillsIngested(
 	env: Env,
 	serverId: string,
@@ -55,24 +39,15 @@ export async function onKillsIngested(
 ): Promise<void> {
 	if (!kills.length) return;
 	emit({ type: 'kills', serverId, kills });
-	const infantryTask = queueInfantryWindows(env, serverId, kills);
-	try {
-		await captureReportEvidence(env, serverId, kills);
-	} catch (err) {
-		console.warn(`[warcon] report evidence on ${serverId}:`, publicMessage(err));
-	}
+	void queueIntegrityBatch(env, serverId, kills).catch((err) => {
+		if (!(err instanceof LostOwnership))
+			console.warn(`[warcon] integrity pipeline on ${serverId}:`, publicMessage(err));
+	});
 	try {
 		await actOnKillRate(env, serverId, kills);
 	} catch (err) {
 		if (!(err instanceof LostOwnership))
 			console.warn(`[warcon] kill-rate rules on ${serverId}:`, publicMessage(err));
-	}
-	try {
-		await infantryTask;
-	} catch (err) {
-		infantry.reset(serverId);
-		if (!(err instanceof LostOwnership))
-			console.warn(`[warcon] infantry windows on ${serverId}:`, publicMessage(err));
 	}
 	const teamKills = kills.filter((k) => k.teamKill && k.killer);
 	if (!teamKills.length) return;
@@ -81,182 +56,9 @@ export async function onKillsIngested(
 	try {
 		await actOnTeamKills(env, serverId, teamKills);
 	} catch (err) {
-		if (err instanceof LostOwnership) return;
-		console.warn(`[warcon] team-kill rules on ${serverId}:`, publicMessage(err));
+		if (!(err instanceof LostOwnership))
+			console.warn(`[warcon] team-kill rules on ${serverId}:`, publicMessage(err));
 	}
-}
-
-function queueInfantryWindows(env: Env, serverId: string, batch: KillView[]): Promise<void> {
-	const previous = infantryTasks.get(serverId) ?? Promise.resolve();
-	const task = previous.catch(() => {}).then(() => recordInfantryWindows(env, serverId, batch));
-	infantryTasks.set(serverId, task);
-	void task
-		.finally(() => {
-			if (infantryTasks.get(serverId) === task) infantryTasks.delete(serverId);
-		})
-		.catch(() => {});
-	return task;
-}
-
-async function recordInfantryWindows(env: Env, serverId: string, batch: KillView[]): Promise<void> {
-	const orgId = memoryOf(serverId)?.server.orgId;
-	if (!orgId) return;
-	const rules = await getIntegrityRules(env, orgId);
-	const findings = infantry.observe(
-		serverId,
-		batch,
-		await weaponOverrides(env, orgId),
-		rules.config
-	);
-	if (!findings.length) return;
-	// Only the strongest state of each active window in this batch needs a database write.
-	const byWindow = new Map<string, (typeof findings)[number]>();
-	for (const finding of findings)
-		byWindow.set(`${finding.steamId}:${finding.instanceId}:${finding.anchorClock}`, finding);
-	const latest = [...byWindow.values()];
-	const profiles = steamEnabled(env)
-		? await getProfiles(
-				env,
-				latest.map((finding) => finding.steamId),
-				{ skipFriends: true }
-			)
-		: new Map();
-	const alerts: IntegrityCaseAlert[] = [];
-	await withOwnedTransaction(env, async (tx) => {
-		for (const finding of latest) {
-			const now = new Date();
-			const steam = steamBanSignals(profiles.get(finding.steamId), now);
-			const [reporters] = await tx
-				.select({ count: sql<number>`COUNT(DISTINCT ${integrityReports.reporterSteamId})` })
-				.from(integrityReports)
-				.where(
-					and(
-						eq(integrityReports.orgId, orgId),
-						eq(integrityReports.targetSteamId, finding.steamId),
-						gte(integrityReports.createdAt, new Date(now.getTime() - 24 * 60 * 60_000))
-					)
-				);
-			const recent = await tx
-				.select({ kpm180: integrityWindows.kpm180 })
-				.from(integrityWindows)
-				.where(
-					and(
-						eq(integrityWindows.orgId, orgId),
-						eq(integrityWindows.steamId, finding.steamId),
-						finding.windowId === null
-							? sql`TRUE`
-							: sql`${integrityWindows.id} <> ${finding.windowId}`,
-						gte(
-							integrityWindows.observedAt,
-							new Date(now.getTime() - rules.config.repeatWindowMinutes * 60_000)
-						)
-					)
-				)
-				.orderBy(desc(integrityWindows.observedAt))
-				.limit(2);
-			let windowId = finding.windowId;
-			if (windowId === null) {
-				const [window] = await tx
-					.insert(integrityWindows)
-					.values({
-						orgId,
-						serverId,
-						steamId: finding.steamId,
-						instanceId: finding.instanceId,
-						map: finding.map,
-						clockFrom: finding.clockFrom,
-						clockTo: finding.clockTo,
-						observedAt: now,
-						infantryKills: finding.infantryKills,
-						kpm180: finding.kpm180,
-						uniqueVictims: finding.uniqueVictims,
-						eventIds: finding.eventIds
-					})
-					.returning({ id: integrityWindows.id });
-				windowId = window.id;
-			} else {
-				await tx
-					.update(integrityWindows)
-					.set({
-						clockFrom: finding.clockFrom,
-						clockTo: finding.clockTo,
-						infantryKills: finding.infantryKills,
-						kpm180: finding.kpm180,
-						uniqueVictims: finding.uniqueVictims,
-						eventIds: finding.eventIds
-					})
-					.where(eq(integrityWindows.id, windowId));
-			}
-			const repeatAutoKo = await hadRecentAutoKo(
-				tx,
-				orgId,
-				finding.steamId,
-				now,
-				rules.config.repeatKoWindowHours,
-				windowId
-			);
-			const signals = {
-				behaviorReasons: finding.reasons,
-				kpm180: finding.kpm180,
-				uniqueVictims: finding.uniqueVictims,
-				previousKpm: recent.map((row) => row.kpm180),
-				uniqueReporters: Number(reporters?.count ?? 0),
-				repeatAutoKo,
-				infantryKills: finding.infantryKills,
-				headshots: finding.headshots,
-				penetrations: finding.penetrations,
-				burstPoints: finding.burstPoints,
-				vacBans: steam.vacBans,
-				gameBans: steam.gameBans,
-				daysSinceLastBan: steam.daysSinceLastBan,
-				wardogsPlaytimeHours: null
-			};
-			const score = scoreIntegrity(signals, rules.config);
-			await tx.insert(integrityScores).values({
-				windowId,
-				orgId,
-				serverId,
-				steamId: finding.steamId,
-				scoredAt: now,
-				ruleVersion: rules.version,
-				score: score.score,
-				level: score.level,
-				breakdown: score.breakdown,
-				currentBehaviorAnomaly: score.currentBehaviorAnomaly
-			});
-			if (score.score >= rules.config.koThreshold) {
-				const caseId = await freezeFindingEvidence(tx, {
-					orgId,
-					serverId,
-					steamId: finding.steamId,
-					finding,
-					score,
-					signals,
-					steamKnown: steam.known,
-					ruleVersion: rules.version,
-					rulesSnapshot: rules.config,
-					createdAt: now
-				});
-				alerts.push({
-					caseId,
-					serverId,
-					serverName: memoryOf(serverId)?.server.name ?? serverId,
-					steamId: finding.steamId,
-					map: finding.map,
-					score: score.score,
-					level: score.level,
-					breakdown: score.breakdown,
-					infantryKills: finding.infantryKills,
-					kpm180: finding.kpm180,
-					uniqueVictims: finding.uniqueVictims,
-					uniqueReporters: Number(reporters?.count ?? 0),
-					createdAt: now
-				});
-			}
-			infantry.markPersisted(serverId, finding, windowId);
-		}
-	});
-	for (const alert of alerts) await notifyIntegrityCase(env, orgId, alert);
 }
 
 /**

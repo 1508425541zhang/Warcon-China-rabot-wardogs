@@ -222,7 +222,7 @@
 				>{/if}
 			{#if d.watch.watched}<Badge tone="warn">观察名单</Badge>{/if}
 			<Badge tone={RISK_TONE[d.risk.level]}
-				>旧版风险 {legacyLevelName[d.risk.level]} · {d.risk.score}</Badge
+				>入服账号风险 {legacyLevelName[d.risk.level]} · {d.risk.score}</Badge
 			>
 		</h2>
 		<div class="mt-1 flex flex-wrap items-center gap-2 text-[12.5px] text-mist-400">
@@ -611,7 +611,7 @@
 
 		<div class="panel">
 			<div class="mb-3 flex items-center gap-2">
-				<span class="label-sm mb-0!">风险</span>
+				<span class="label-sm mb-0!">入服账号风险</span>
 				<Badge tone={RISK_TONE[d.risk.level]} class="ml-auto"
 					>{legacyLevelName[d.risk.level]} · {d.risk.score}</Badge
 				>

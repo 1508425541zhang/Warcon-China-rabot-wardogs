@@ -35,21 +35,49 @@ export async function runMigrations(db: Db, migrationsFolder: string): Promise<v
 	await migrate(db, { migrationsFolder });
 }
 
-/** How many migrations in the folder's journal the database has not applied yet. */
-export async function pendingMigrations(db: Db, migrationsFolder: string): Promise<number> {
+/** Compare the ordered migration history, not just the row count. */
+export async function migrationStatus(
+	db: Db,
+	migrationsFolder: string
+): Promise<{
+	pending: number;
+	historyMismatch: boolean;
+	expected: number;
+	applied: number;
+}> {
 	const journal = JSON.parse(await Bun.file(`${migrationsFolder}/meta/_journal.json`).text()) as {
-		entries: { tag: string }[];
+		entries: { tag: string; when: number }[];
 	};
-	let applied = 0;
+	let rows: { created_at: string | number }[] = [];
 	try {
-		const [row] = await db.execute<{ n: string }>(
-			sql`SELECT COUNT(*) AS n FROM drizzle.__drizzle_migrations`
-		);
-		applied = Number(row?.n ?? 0);
-	} catch {
-		applied = 0; // no migrations table yet
+		rows = (await db.execute(
+			sql`SELECT created_at FROM drizzle.__drizzle_migrations ORDER BY id`
+		)) as { created_at: string | number }[];
+	} catch (err) {
+		// A fresh database has no Drizzle schema. All other failures must remain visible.
+		let cause: unknown = err;
+		let missingTable = false;
+		while (cause && typeof cause === 'object') {
+			if ('errno' in cause && cause.errno === '42P01') missingTable = true;
+			if ('code' in cause && cause.code === '42P01') missingTable = true;
+			cause = 'cause' in cause ? cause.cause : null;
+		}
+		if (!missingTable) throw err;
 	}
-	return Math.max(0, journal.entries.length - applied);
+	const expected = journal.entries.length;
+	const applied = rows.length;
+	return {
+		pending: Math.max(0, expected - applied),
+		historyMismatch:
+			applied > expected ||
+			rows.some((row, index) => Number(row.created_at) !== journal.entries[index]?.when),
+		expected,
+		applied
+	};
+}
+
+export async function pendingMigrations(db: Db, migrationsFolder: string): Promise<number> {
+	return (await migrationStatus(db, migrationsFolder)).pending;
 }
 
 /** True when the timescaledb extension is installed in this database. */

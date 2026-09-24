@@ -277,6 +277,7 @@
 									<div class="join">
 										{#if watchVia(p)}
 											<button
+												data-testid="watch-player"
 												class="btn btn-sm"
 												disabled={busy === p.steamId}
 												onclick={() => watch(p)}>{p.watched ? '取消观察' : '观察'}</button
@@ -284,6 +285,7 @@
 										{/if}
 										{#if canReserve}
 											<button
+												data-testid="reserve-player"
 												class="btn btn-sm"
 												disabled={busy === p.steamId}
 												onclick={() => reserve(p)}>预留</button
@@ -293,6 +295,7 @@
 								{/if}
 								{#if canBan}
 									<button
+										data-testid="ban-player"
 										class="btn btn-sm btn-danger"
 										disabled={busy === p.steamId || p.banned === 'org'}
 										title={p.banned === 'org' ? '已在组织封禁列表中' : ''}
