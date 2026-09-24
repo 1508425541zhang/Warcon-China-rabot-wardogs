@@ -244,18 +244,18 @@ check dave-orgbans '"roleName":"Org bans"' "$(req $J1 PUT /api/users/$UID_DAVE/g
 J6=$(mktemp); form $J6 '/sign-in?/password' 'username=dave&password=daves-long-password' >/dev/null
 check orgbans-lists '"kinds":["ban"]' "$(req $J6 GET /api/orgs/$ORG/lists)"
 check orgbans-add '"steamId":"76561198100000504"' "$(req $J6 POST /api/orgs/$ORG/lists/ban/entries '{"steamId":"76561198100000504"}')"
-check orgbans-no-reserve 'Org reserved slots' "$(req $J6 POST /api/orgs/$ORG/lists/reserve/entries '{"steamId":"76561198100000504"}')"
+check orgbans-no-reserve '"code":"forbidden"' "$(req $J6 POST /api/orgs/$ORG/lists/reserve/entries '{"steamId":"76561198100000504"}')"
 check page-orgbans-bans '200' "$(pagecode $J6 "/orgs/$ORG/bans")"
 check page-orgbans-reserved '403' "$(pagecode $J6 "/orgs/$ORG/reserved")"
 check orgbans-no-reserved-tab '0' "$(curl -s -b $J6 $B/orgs/$ORG/bans | grep -c "/orgs/$ORG/reserved")"
 # the org's Players page offers each action to whoever may take it: dave bans, but keeps no notes,
 # so no Watch (wait for the worker to have seen players, or the table is empty for everyone)
-for i in $(seq 1 15); do R=$(curl -s -b $J1 "$B/orgs/$ORG/players"); [[ "$R" == *'Watch</button>'* ]] && break; sleep 2; done
-check page-players-owner-watch 'Watch</button>' "$R"
+for i in $(seq 1 15); do R=$(curl -s -b $J1 "$B/orgs/$ORG/players"); [[ "$R" == *'观察</button>'* ]] && break; sleep 2; done
+check page-players-owner-watch '观察</button>' "$R"
 R=$(curl -s -b $J6 "$B/orgs/$ORG/players")
-check page-players-orgbans-ban 'Ban</button>' "$R"
-check page-players-orgbans-no-watch '0' "$(echo "$R" | grep -c 'atch</button>')"
-check page-players-orgbans-no-reserve '0' "$(echo "$R" | grep -c 'Reserve</button>')"
+check page-players-orgbans-ban '封禁</button>' "$R"
+check page-players-orgbans-no-watch '0' "$(echo "$R" | grep -c '观察</button>')"
+check page-players-orgbans-no-reserve '0' "$(echo "$R" | grep -c '预留</button>')"
 # bans are the panel's to enforce: an entry is in force at once and nothing is written to the game
 check ban-not-in-game '0' "$(req $J1 GET /api/servers/$SID/rcon/bans | grep -c $L1)"
 check sync-state-managed "\"$L1\":{\"state\":\"applied\",\"managed\":true" "$(req $J1 GET /api/servers/$SID/lists/state)"
@@ -332,7 +332,7 @@ echo "== pages (owner)"
 for p in / /audit /admin/users /servers /orgs "/orgs/$ORG" "/orgs/$ORG/bans" "/orgs/$ORG/reserved" /account "/server/$SID" "/server/$SID/players" "/server/$SID/players/$P1" "/server/$SID/bans" "/server/$SID/automation" "/server/$SID/rotation" "/server/$SID/slots" "/server/$SID/config" "/server/$SID/log" "/audit?outcome=denied&q=kick"; do check "page $p" '200' "$(pagecode $J1 "$p")"; done
 check page-unknown-server '404' "$(pagecode $J1 /server/nope)"
 check server-delete '"ok":true' "$(req $J1 DELETE /api/servers/$SID2)"
-check page-sessions 'this session' "$(curl -s -b $J1 $B/account)"
+check page-sessions '当前会话' "$(curl -s -b $J1 $B/account)"
 check sign-out '303' "$(curl -s -o /dev/null -w '%{http_code}' -b $J1 -c $J1 -H "Origin: $B" -X POST $B/sign-out)"
 check signed-out 'Sign in required' "$(req $J1 GET /api/servers)"
 echo; echo "passed=$pass failed=$fail"
