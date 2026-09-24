@@ -1,8 +1,8 @@
 import { and, asc, eq, gt, gte, inArray, lte } from 'drizzle-orm';
 import type { DbOrTx } from '../db';
 import { integrityCases, kills } from '../db/schema';
-import type { InfantryFinding } from './windows';
-import type { IntegrityScore } from './score';
+import type { BehaviorFinding } from './windows';
+import type { IntegrityScore, IntegritySignals } from './score';
 
 export type EvidenceConfidence = 'A' | 'B' | 'C' | 'D';
 
@@ -23,8 +23,10 @@ export interface FreezeInput {
 	orgId: string;
 	serverId: string;
 	steamId: string;
-	finding: InfantryFinding;
+	finding: BehaviorFinding;
 	score: IntegrityScore;
+	signals: IntegritySignals;
+	steamKnown: boolean;
 	ruleVersion: number;
 	rulesSnapshot: unknown;
 	createdAt: Date;
@@ -88,7 +90,20 @@ export async function freezeFindingEvidence(db: DbOrTx, input: FreezeInput): Pro
 			infantryKills: input.finding.infantryKills,
 			kpm180: input.finding.kpm180,
 			uniqueVictims: input.finding.uniqueVictims,
-			expectedEventIds: input.finding.eventIds,
+			headshots: input.finding.headshots,
+			headshotPct: input.finding.headshotPct,
+			penetrations: input.finding.penetrations,
+			penetrationPct: input.finding.penetrationPct,
+			burstPoints: input.finding.burstPoints,
+			behaviorReasons: input.finding.reasons,
+			steamBansKnown: input.steamKnown,
+			vacBans: input.signals.vacBans,
+			gameBans: input.signals.gameBans,
+			daysSinceLastBan: input.signals.daysSinceLastBan,
+			repeatAutoKo: input.signals.repeatAutoKo,
+			uniqueReporters: input.signals.uniqueReporters,
+			ruleVersion: input.ruleVersion,
+			eventIds: input.finding.eventIds,
 			rules: input.rulesSnapshot,
 			events: events.slice(0, 1000).map((row) => ({
 				eventId: row.eventId,

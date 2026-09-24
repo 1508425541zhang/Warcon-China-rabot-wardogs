@@ -1,18 +1,28 @@
 import type { KillView } from '$lib/types';
 import { countsAsInfantry, type WeaponCategory } from './weapons';
+import { DEFAULT_INTEGRITY_RULES, type BehaviorReason, type IntegrityRuleConfig } from './score';
 
 export const INFANTRY_WINDOW_SECONDS = 180;
-export const DEFAULT_ABNORMAL_KPM = 4;
 
 interface Entry {
 	clock: number;
 	eventId: string;
 	victimSteamId: string;
+	headshot: boolean;
+	penetration: boolean;
 }
 
 interface PlayerWindow {
 	entries: Entry[];
 	lastFindingClock: number | null;
+	windowId: number | null;
+	best: {
+		kpm: number;
+		victims: number;
+		headshot: boolean;
+		penetration: boolean;
+		burst: number;
+	} | null;
 	peakKpm: number;
 }
 
@@ -23,19 +33,47 @@ interface ServerWindow {
 	players: Map<string, PlayerWindow>;
 }
 
-export interface InfantryFinding {
+/** Uses game event clocks only. Each burst tier is exclusive; the best matching tier wins. */
+export function burstPoints(entries: readonly Pick<Entry, 'clock'>[]): number {
+	const clocks = entries.map((entry) => entry.clock).sort((a, b) => a - b);
+	for (const [count, seconds, points] of [
+		[8, 15, 12],
+		[6, 12, 10],
+		[5, 10, 7],
+		[4, 8, 4],
+		[3, 5, 2]
+	] as const) {
+		for (let i = 0; i + count <= clocks.length; i++)
+			if (clocks[i + count - 1] - clocks[i] <= seconds) return points;
+	}
+	return 0;
+}
+
+export interface BehaviorFinding {
 	steamId: string;
 	instanceId: string;
 	map: string;
+	/** The first finding's game clock identifies one active window across upgrades. */
+	anchorClock: number;
+	windowId: number | null;
 	clockFrom: number;
 	clockTo: number;
 	infantryKills: number;
 	kpm180: number;
 	uniqueVictims: number;
+	headshots: number;
+	headshotPct: number;
+	penetrations: number;
+	penetrationPct: number;
+	burstPoints: number;
+	reasons: BehaviorReason[];
 	eventIds: string[];
 }
 
-/** One worker's live windows. Persisted findings are advisory; restart starts a fresh window. */
+const tier = (value: number, bands: readonly { min: number; points: number }[]) =>
+	bands.reduce((result, band, index) => (value >= band.min ? index + 1 : result), 0);
+
+/** One worker's live windows. A restart conservatively starts fresh. */
 export class InfantryWindows {
 	private servers = new Map<string, ServerWindow>();
 
@@ -44,14 +82,20 @@ export class InfantryWindows {
 		else this.servers.clear();
 	}
 
+	markPersisted(serverId: string, finding: BehaviorFinding, windowId: number): void {
+		const player = this.servers.get(serverId)?.players.get(finding.steamId);
+		if (player?.lastFindingClock === finding.anchorClock) player.windowId = windowId;
+	}
+
 	observe(
 		serverId: string,
 		batch: readonly KillView[],
 		overrides: ReadonlyMap<string, WeaponCategory>,
-		abnormalKpm = DEFAULT_ABNORMAL_KPM
-	): InfantryFinding[] {
-		const findings: InfantryFinding[] = [];
-		for (const kill of batch) {
+		config: IntegrityRuleConfig = DEFAULT_INTEGRITY_RULES
+	): BehaviorFinding[] {
+		const findings: BehaviorFinding[] = [];
+		// Feed batches can arrive out of order; eventTime is the only clock used for metrics.
+		for (const kill of [...batch].sort((a, b) => a.eventTime - b.eventTime)) {
 			const instanceId = kill.instanceId;
 			const clock = kill.eventTime;
 			if (!instanceId || !kill.map || !Number.isFinite(clock) || clock < 0) {
@@ -59,13 +103,13 @@ export class InfantryWindows {
 				continue;
 			}
 			let server = this.servers.get(serverId);
-			// A new map or per-boot instance starts a new match. A large clock rewind on the same
-			// map could be a new round or delayed feed: reset conservatively in either case.
+			// A substantial rewind may be a new round. Smaller late arrivals remain in clock order.
 			if (
 				!server ||
 				server.instanceId !== instanceId ||
 				server.map !== kill.map ||
-				clock < server.latestClock - 5
+				clock < server.latestClock - 60 ||
+				(clock <= 5 && server.latestClock >= 20 && server.latestClock < 60)
 			) {
 				server = { instanceId, map: kill.map, latestClock: clock, players: new Map() };
 				this.servers.set(serverId, server);
@@ -79,6 +123,7 @@ export class InfantryWindows {
 						cause: kill.cause,
 						tags: kill.tags,
 						suicide: kill.suicide,
+						teamKill: kill.teamKill,
 						killerSteamId,
 						victimSteamId: kill.victim.steamId,
 						killerFaction: kill.killer?.faction ?? null,
@@ -91,35 +136,93 @@ export class InfantryWindows {
 			if (clock <= server.latestClock - INFANTRY_WINDOW_SECONDS) continue;
 			let player = server.players.get(killerSteamId);
 			if (!player) {
-				player = { entries: [], lastFindingClock: null, peakKpm: 0 };
+				player = { entries: [], lastFindingClock: null, windowId: null, best: null, peakKpm: 0 };
 				server.players.set(killerSteamId, player);
 			}
-			if (player.entries.some((e) => e.eventId === kill.eventId)) continue;
-			const entry = { clock, eventId: kill.eventId, victimSteamId: kill.victim.steamId };
+			if (player.entries.some((entry) => entry.eventId === kill.eventId)) continue;
+			const entry: Entry = {
+				clock,
+				eventId: kill.eventId,
+				victimSteamId: kill.victim.steamId,
+				headshot: kill.headshot,
+				penetration: kill.tags.includes('Penetration')
+			};
 			let at = player.entries.length;
 			while (at > 0 && player.entries[at - 1].clock > clock) at--;
 			player.entries.splice(at, 0, entry);
 			const from = server.latestClock - INFANTRY_WINDOW_SECONDS;
 			while (player.entries.length && player.entries[0].clock <= from) player.entries.shift();
-			const kpm180 = player.entries.length / 3;
+			const infantryKills = player.entries.length;
+			const kpm180 = infantryKills / 3;
 			player.peakKpm = Math.max(player.peakKpm, kpm180);
-			if (kpm180 < abnormalKpm) continue;
-			if (
+			const headshots = player.entries.filter((item) => item.headshot).length;
+			const penetrations = player.entries.filter((item) => item.penetration).length;
+			const headshotPct = (100 * headshots) / infantryKills;
+			const penetrationPct = (100 * penetrations) / infantryKills;
+			const burst = burstPoints(player.entries);
+			const reasons: BehaviorReason[] = [];
+			if (kpm180 >= config.kpmBands[0].min) reasons.push('kpm');
+			if (infantryKills >= config.headshotMinKills && headshotPct >= config.headshotMinPct)
+				reasons.push('headshot');
+			if (infantryKills >= config.penetrationMinKills && penetrationPct >= config.penetrationMinPct)
+				reasons.push('penetration');
+			if (burst >= config.burstFindingMin) reasons.push('burst');
+			if (!reasons.length) continue;
+			const severity = {
+				kpm: tier(kpm180, config.kpmBands),
+				victims: reasons.includes('kpm')
+					? tier(
+							new Set(player.entries.map((item) => item.victimSteamId)).size,
+							config.uniqueVictimBands
+						)
+					: 0,
+				headshot: reasons.includes('headshot'),
+				penetration: reasons.includes('penetration'),
+				burst
+			};
+			const active =
 				player.lastFindingClock !== null &&
-				server.latestClock - player.lastFindingClock < INFANTRY_WINDOW_SECONDS
+				server.latestClock - player.lastFindingClock < INFANTRY_WINDOW_SECONDS;
+			if (
+				active &&
+				player.best &&
+				severity.kpm <= player.best.kpm &&
+				severity.victims <= player.best.victims &&
+				(!severity.headshot || player.best.headshot) &&
+				(!severity.penetration || player.best.penetration) &&
+				severity.burst <= player.best.burst
 			)
 				continue;
-			player.lastFindingClock = server.latestClock;
+			if (!active) {
+				player.lastFindingClock = server.latestClock;
+				player.windowId = null;
+				player.best = null;
+			}
+			player.best = {
+				kpm: Math.max(player.best?.kpm ?? 0, severity.kpm),
+				victims: Math.max(player.best?.victims ?? 0, severity.victims),
+				headshot: !!player.best?.headshot || severity.headshot,
+				penetration: !!player.best?.penetration || severity.penetration,
+				burst: Math.max(player.best?.burst ?? 0, severity.burst)
+			};
 			findings.push({
 				steamId: killerSteamId,
 				instanceId,
 				map: kill.map,
+				anchorClock: player.lastFindingClock!,
+				windowId: player.windowId,
 				clockFrom: player.entries[0].clock,
 				clockTo: server.latestClock,
-				infantryKills: player.entries.length,
+				infantryKills,
 				kpm180,
-				uniqueVictims: new Set(player.entries.map((e) => e.victimSteamId)).size,
-				eventIds: player.entries.map((e) => e.eventId)
+				uniqueVictims: new Set(player.entries.map((item) => item.victimSteamId)).size,
+				headshots,
+				headshotPct,
+				penetrations,
+				penetrationPct,
+				burstPoints: burst,
+				reasons,
+				eventIds: player.entries.map((item) => item.eventId)
 			});
 		}
 		const server = this.servers.get(serverId);
@@ -134,7 +237,10 @@ export class InfantryWindows {
 					server.players.delete(steamId);
 			}
 		}
-		return findings;
+		const latest = new Map<string, BehaviorFinding>();
+		for (const finding of findings)
+			latest.set(`${finding.steamId}:${finding.instanceId}:${finding.anchorClock}`, finding);
+		return [...latest.values()];
 	}
 
 	current(serverId: string, steamId: string): { kpm180: number; peakKpm180: number } | null {

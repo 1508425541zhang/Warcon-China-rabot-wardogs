@@ -3,6 +3,7 @@ import { scoreIntegrity, type IntegritySignals } from './score';
 import { validateIntegrityRules } from './rules';
 
 const normal: IntegritySignals = {
+	behaviorReasons: [],
 	kpm180: 3.99,
 	uniqueVictims: 7,
 	previousKpm: [],
@@ -39,7 +40,11 @@ describe('explainable Integrity score', () => {
 			[7.99, 42],
 			[8, 52]
 		] as const) {
-			const score = scoreIntegrity({ ...normal, kpm180 });
+			const score = scoreIntegrity({
+				...normal,
+				kpm180,
+				behaviorReasons: kpm180 >= 4 ? ['kpm'] : []
+			});
 			expect(score.score).toBe(points);
 		}
 	});
@@ -81,6 +86,7 @@ describe('explainable Integrity score', () => {
 	test('extreme multi-victim behavior reaches quarantine eligibility, not an action', () => {
 		const score = scoreIntegrity({
 			...normal,
+			behaviorReasons: ['kpm'],
 			kpm180: 8,
 			uniqueVictims: 18,
 			uniqueReporters: 5,
@@ -91,9 +97,33 @@ describe('explainable Integrity score', () => {
 		expect(score.currentBehaviorAnomaly).toBe(true);
 	});
 
+	test('current behavior comes from finding reasons, including headshot and penetration', () => {
+		for (const reason of ['headshot', 'penetration', 'burst'] as const) {
+			const score = scoreIntegrity({
+				...normal,
+				behaviorReasons: [reason],
+				infantryKills: 15,
+				headshots: reason === 'headshot' ? 15 : 0,
+				penetrations: reason === 'penetration' ? 15 : 0,
+				burstPoints: reason === 'burst' ? 7 : 0
+			});
+			expect(score.currentBehaviorAnomaly).toBe(true);
+		}
+	});
+
 	test('the rule editor rejects overlapping thresholds and early enforcement', () => {
 		expect(() => validateIntegrityRules({ koThreshold: 20 })).toThrow();
 		expect(() => validateIntegrityRules({ mode: 'enforce' })).toThrow();
+		expect(() => validateIntegrityRules({ burstFindingMin: 13 })).toThrow();
+		expect(() => validateIntegrityRules({ repeatKoWindowHours: 0 })).toThrow();
+		expect(
+			validateIntegrityRules(
+				{} as Record<string, unknown>,
+				{
+					...normalRulesWithoutNewFields()
+				} as never
+			).burstFindingMin
+		).toBe(7);
 		expect(() =>
 			validateIntegrityRules({
 				kpmBands: [
@@ -104,3 +134,12 @@ describe('explainable Integrity score', () => {
 		).toThrow();
 	});
 });
+
+function normalRulesWithoutNewFields() {
+	const {
+		burstFindingMin: _burst,
+		repeatKoWindowHours: _repeat,
+		...old
+	} = validateIntegrityRules({});
+	return old;
+}

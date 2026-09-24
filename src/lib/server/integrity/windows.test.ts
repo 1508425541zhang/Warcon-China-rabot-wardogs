@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { KillView } from '$lib/types';
-import { InfantryWindows } from './windows';
+import { burstPoints, InfantryWindows } from './windows';
+import { DEFAULT_INTEGRITY_RULES } from './score';
 
 const kill = (clock: number, id: string, changes: Partial<KillView> = {}): KillView => ({
 	eventId: id,
@@ -110,5 +111,129 @@ describe('180-second infantry windows', () => {
 		const windows = new InfantryWindows();
 		windows.observe('server', [kill(10, 'once'), kill(10, 'once')], new Map());
 		expect(windows.current('server', '76561198000000001')?.kpm180).toBe(1 / 3);
+	});
+
+	test('eight kills in 15 game seconds independently trigger burst below abnormal KPM', () => {
+		const findings = new InfantryWindows().observe(
+			'server',
+			Array.from({ length: 8 }, (_, i) => kill(i * 2, `burst-${i}`)),
+			new Map()
+		);
+		expect(findings).toHaveLength(1);
+		expect(findings[0].kpm180).toBe(8 / 3);
+		expect(findings[0].burstPoints).toBe(12);
+		expect(findings[0].reasons).toEqual(['burst']);
+		const active = new InfantryWindows();
+		const first = active.observe(
+			'server',
+			Array.from({ length: 8 }, (_, i) => kill(i * 2, `stable-${i}`)),
+			new Map()
+		);
+		active.markPersisted('server', first[0], 10);
+		expect(active.observe('server', [kill(50, 'stable-extra')], new Map())).toEqual([]);
+	});
+
+	test('headshot and penetration each create a finding without KPM', () => {
+		const rules = { ...DEFAULT_INTEGRITY_RULES, headshotMinKills: 5, penetrationMinKills: 5 };
+		const headshots = new InfantryWindows().observe(
+			'server',
+			Array.from({ length: 5 }, (_, i) => kill(i * 20, `head-${i}`, { headshot: true })),
+			new Map(),
+			rules
+		);
+		expect(headshots).toHaveLength(1);
+		expect(headshots[0].reasons).toEqual(['headshot']);
+		expect(headshots[0].headshots).toBe(5);
+		expect(headshots[0].headshotPct).toBe(100);
+		const penetrations = new InfantryWindows().observe(
+			'server',
+			Array.from({ length: 5 }, (_, i) => kill(i * 20, `pen-${i}`, { tags: ['Penetration'] })),
+			new Map(),
+			rules
+		);
+		expect(penetrations).toHaveLength(1);
+		expect(penetrations[0].reasons).toEqual(['penetration']);
+		expect(penetrations[0].penetrations).toBe(5);
+		expect(penetrations[0].penetrationPct).toBe(100);
+	});
+
+	test('excluded kills never enter any infantry behavior metric', () => {
+		const excluded = [
+			kill(1, 'suicide', { suicide: true, headshot: true, tags: ['Penetration'] }),
+			kill(2, 'team-kill', { teamKill: true, headshot: true, tags: ['Penetration'] }),
+			kill(3, 'vehicle', { tags: ['VehicleExplosion', 'Penetration'], headshot: true }),
+			kill(4, 'mortar', { cause: 'Id.Item.Mortar', headshot: true, tags: ['Penetration'] }),
+			kill(5, 'fixed', { cause: 'Id.Buildable.Turret', headshot: true, tags: ['Penetration'] }),
+			kill(6, 'unknown', { cause: 'Id.Item.Unmapped', headshot: true, tags: ['Penetration'] }),
+			kill(7, 'unknown-faction', {
+				victim: { steamId: '76561198000000007', name: 'X', faction: null },
+				headshot: true,
+				tags: ['Penetration']
+			}),
+			kill(8, 'same-faction', {
+				victim: { steamId: '76561198000000008', name: 'X', faction: 'Blue' },
+				headshot: true,
+				tags: ['Penetration']
+			})
+		];
+		const windows = new InfantryWindows();
+		expect(windows.observe('server', excluded, new Map([['Id.Item.Mortar', 'MORTAR']]))).toEqual(
+			[]
+		);
+		expect(windows.current('server', '76561198000000001')).toBeNull();
+	});
+
+	test('burst uses eventTime despite delayed receipt and sorts out-of-order events', () => {
+		const events = Array.from({ length: 8 }, (_, i) => kill(i * 2, `clock-${i}`));
+		const realTime = new InfantryWindows().observe('server', events, new Map());
+		const delayed = new InfantryWindows().observe(
+			'server',
+			events.reverse().map((item) => ({
+				...item,
+				ts: new Date(Date.parse(item.ts) + 30_000).toISOString()
+			})),
+			new Map()
+		);
+		expect(delayed[0].burstPoints).toBe(realTime[0].burstPoints);
+		expect(delayed[0].eventIds).toEqual(realTime[0].eventIds);
+		expect(burstPoints([{ clock: 5 }, { clock: 0 }, { clock: 4 }])).toBe(2);
+		const split = new InfantryWindows();
+		split.observe(
+			'server',
+			[8, 10, 12, 14].map((clock) => kill(clock, `split-${clock}`)),
+			new Map()
+		);
+		const late = split.observe(
+			'server',
+			[6, 0, 4, 2].map((clock) => kill(clock, `split-${clock}`)),
+			new Map()
+		);
+		expect(late[0].burstPoints).toBe(12);
+		expect(late[0].eventIds).toEqual([0, 2, 4, 6, 8, 10, 12, 14].map((clock) => `split-${clock}`));
+	});
+
+	test('an active window emits an upgrade but ignores unchanged tiers and duplicate IDs', () => {
+		const windows = new InfantryWindows();
+		const first = windows.observe(
+			'server',
+			Array.from({ length: 12 }, (_, i) => kill(i * 12, `slow-${i}`)),
+			new Map()
+		);
+		expect(first).toHaveLength(1);
+		expect(first[0].reasons).toEqual(['kpm']);
+		windows.markPersisted('server', first[0], 42);
+		expect(
+			windows.observe('server', [kill(135, 'slow-extra'), kill(135, 'slow-extra')], new Map())
+		).toEqual([]);
+		const upgraded = windows.observe(
+			'server',
+			Array.from({ length: 8 }, (_, i) => kill(140 + i * 2, `fast-${i}`, { headshot: true })),
+			new Map()
+		);
+		expect(upgraded).toHaveLength(1);
+		expect(upgraded[0].windowId).toBe(42);
+		expect(upgraded[0].reasons).toContain('burst');
+		expect(upgraded[0].eventIds).toContain('fast-7');
+		expect(windows.observe('server', [kill(154, 'fast-7')], new Map())).toEqual([]);
 	});
 });
