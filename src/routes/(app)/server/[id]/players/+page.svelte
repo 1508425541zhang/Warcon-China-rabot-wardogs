@@ -81,7 +81,7 @@
 	async function act(action: string, params: object) {
 		try {
 			const result = await rconPost<{ message?: string }>(id, action, params);
-			toast(result?.message || `${action} done.`, 'ok');
+			toast(result?.message || '操作已完成。', 'ok');
 			await refreshPlayers();
 			return true;
 		} catch (err) {
@@ -147,9 +147,9 @@
 	async function kill(p: Player) {
 		if (busy) return;
 		if (
-			!(await confirmDialog(`Kill ${p.name}?`, {
-				title: `Kill ${p.name}`,
-				okLabel: 'Kill',
+			!(await confirmDialog(`确定在本局处决 ${p.name}？`, {
+				title: `处决 ${p.name}`,
+				okLabel: '确认处决',
 				danger: true
 			}))
 		)

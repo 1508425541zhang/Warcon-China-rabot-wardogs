@@ -118,12 +118,12 @@
 	) {
 		if (
 			opts.confirm &&
-			!(await confirmDialog(opts.confirm, { okLabel: 'Do it', danger: opts.danger }))
+			!(await confirmDialog(opts.confirm, { okLabel: '确认执行', danger: opts.danger }))
 		)
 			return null;
 		try {
 			const result = await rconPost<{ message?: string }>(id, action, params);
-			toast(result?.message || `${action} done.`, 'ok');
+			toast(result?.message || '操作已完成。', 'ok');
 			if (opts.after) await opts.after();
 			return result;
 		} catch (err) {

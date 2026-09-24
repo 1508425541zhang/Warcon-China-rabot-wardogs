@@ -74,10 +74,11 @@
 
 	$effect(() => {
 		if (form?.changed) toast('密码已修改，其他会话已退出登录。', 'ok');
-		if (form?.set) toast(`Password set. You can now also sign in as @${data.user.username}.`, 'ok');
+		if (form?.set) toast(`密码已设置，现在也可使用 @${data.user.username} 登录。`, 'ok');
 		if (form?.passwordRemoved) toast('密码已移除。', 'ok');
 		if (form?.revoked) toast('会话已撤销。', 'ok');
-		if (form?.unlinked) toast(`${form.unlinked === 'steam' ? 'Steam' : 'Discord'} unlinked.`, 'ok');
+		if (form?.unlinked)
+			toast(`${form.unlinked === 'steam' ? 'Steam' : 'Discord'} 账号已解除关联。`, 'ok');
 		if (form?.steam) toast(form.steamId ? 'SteamID 已保存。' : 'SteamID 已移除。', 'ok');
 		if (form?.enabled) toast('验证器应用已绑定。', 'ok');
 		if (form?.disabled) toast('验证器应用已移除。', 'ok');
@@ -88,7 +89,7 @@
 		if (form?.recoveryKey) recoveryKey = form.recoveryKey;
 		if (form?.defaultOrg)
 			toast(
-				form.orgName ? `The panel now opens on ${form.orgName}.` : '面板现在可访问所有组织。',
+				form.orgName ? `面板现在默认打开“${form.orgName}”。` : '面板现在可访问所有组织。',
 				'ok'
 			);
 		if (form?.error) toast(form.error, 'err');

@@ -645,12 +645,10 @@
 	const toggle = (t: TriggerView) =>
 		run(
 			() => api('PATCH', `${path}/${t.id}`, { enabled: !t.enabled }),
-			t.enabled ? `${t.name} is off.` : `${t.name} is on.`
+			t.enabled ? `“${t.name}”已停用。` : `“${t.name}”已启用。`
 		);
 	async function remove(t: TriggerView) {
-		if (
-			!(await confirmDialog(`Delete the trigger "${t.name}"?`, { okLabel: 'Delete', danger: true }))
-		)
+		if (!(await confirmDialog(`确定删除规则“${t.name}”？`, { okLabel: '删除', danger: true })))
 			return;
 		if (await run(() => api('DELETE', `${path}/${t.id}`), '规则已删除。'))
 			if (dryFor === t.id) dry = null;

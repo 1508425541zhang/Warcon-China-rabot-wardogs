@@ -75,9 +75,9 @@
 				await api('PUT', `${orgPath}/members/${m.userId}/grants`, { grants });
 				done++;
 			}
-			toast(`Access updated for ${done} member${done === 1 ? '' : 's'}.`, 'ok');
+			toast(`已更新 ${done} 位成员的访问权限。`, 'ok');
 		} catch (err) {
-			toast(`${errorMessage(err)}${done ? ` (${done} of ${todo.length} saved)` : ''}`, 'err');
+			toast(`${errorMessage(err)}${done ? `（已保存 ${done} / ${todo.length} 位）` : ''}`, 'err');
 		} finally {
 			busy = false;
 			await invalidateAll();

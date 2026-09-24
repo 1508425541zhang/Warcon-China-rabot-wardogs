@@ -114,9 +114,9 @@
 	async function reserve(p: SeenPlayer) {
 		if (
 			!(await confirmDialog(
-				`Reserve a slot for ${p.name} (${p.steamId}) on every server in ${data.org.name}?`,
+				`确定为 ${p.name}（${p.steamId}）分配“${data.org.name}”组织所有服务器的预留席位？`,
 				{
-					okLabel: 'Reserve'
+					okLabel: '分配席位'
 				}
 			))
 		)
@@ -127,7 +127,7 @@
 				steamId: p.steamId,
 				reason: ''
 			});
-			toast(`${p.name} is on the organisation's reserved slots.`, 'ok');
+			toast(`${p.name} 已加入组织预留席位列表。`, 'ok');
 		} catch (err) {
 			toast(errorMessage(err), 'err');
 		} finally {
@@ -143,10 +143,7 @@
 				watched: !p.watched,
 				reason: ''
 			});
-			toast(
-				p.watched ? `${p.name} taken off the watchlist.` : `${p.name} is on the watchlist.`,
-				'ok'
-			);
+			toast(p.watched ? `${p.name} 已移出关注名单。` : `${p.name} 已加入关注名单。`, 'ok');
 			await invalidateAll();
 		} catch (err) {
 			toast(errorMessage(err), 'err');

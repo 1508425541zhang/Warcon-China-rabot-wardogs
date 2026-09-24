@@ -195,8 +195,8 @@
 	async function remove(s: ServerInfo) {
 		if (
 			!(await confirmDialog(
-				`Remove ${s.name} from the panel? The game server itself is untouched. Audit history is kept.`,
-				{ okLabel: 'Remove', danger: true }
+				`确定从面板移除“${s.name}”？游戏服务器本身不会受影响，审计历史会保留。`,
+				{ okLabel: '移除', danger: true }
 			))
 		)
 			return;

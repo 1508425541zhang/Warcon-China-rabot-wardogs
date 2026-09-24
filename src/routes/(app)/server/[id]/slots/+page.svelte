@@ -133,12 +133,12 @@
 	) {
 		if (
 			opts.confirm &&
-			!(await confirmDialog(opts.confirm, { okLabel: 'Do it', danger: opts.danger }))
+			!(await confirmDialog(opts.confirm, { okLabel: '确认执行', danger: opts.danger }))
 		)
 			return null;
 		try {
 			const result = await rconPost<{ message?: string }>(id, action, params);
-			toast(result?.message || `${action} done.`, 'ok');
+			toast(result?.message || '操作已完成。', 'ok');
 			if (opts.after) await opts.after();
 			return result;
 		} catch (err) {
@@ -230,7 +230,7 @@
 				`/api/servers/${encodeURIComponent(id)}/lists/reserve/entries`,
 				{ steamId, reason: newNote.trim(), expiresAt: expiryIso(newExpiry, newCustom) }
 			);
-			toast(describeSync({ servers: [res.sync] }, `Reserved a slot for ${steamId}.`), 'ok', 8000);
+			toast(describeSync({ servers: [res.sync] }, `已为 ${steamId} 分配预留席位。`), 'ok', 8000);
 			reservedId = '';
 			newNote = '';
 			newExpiry = '0';
@@ -246,15 +246,14 @@
 		const src = slotSource(steamId);
 		const who = name ? `${name} (${steamId})` : steamId;
 		if (src?.managed && src.scope === 'server') {
-			if (!(await confirmDialog(`Withdraw the reserved slot for ${who}?`, { okLabel: 'Do it' })))
-				return;
+			if (!(await confirmDialog(`确定撤回 ${who} 的预留席位？`, { okLabel: '撤回' }))) return;
 			busy = true;
 			try {
 				const res = await api<{ sync: ListSyncServer }>(
 					'DELETE',
 					`/api/servers/${encodeURIComponent(id)}/lists/reserve/entries/${steamId}`
 				);
-				toast(describeSync({ servers: [res.sync] }, `Withdrew the slot for ${who}.`), 'ok', 8000);
+				toast(describeSync({ servers: [res.sync] }, `已撤回 ${who} 的预留席位。`), 'ok', 8000);
 				await refreshReserved();
 			} catch (err) {
 				toast(errorMessage(err), 'err');
