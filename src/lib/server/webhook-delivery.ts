@@ -149,7 +149,7 @@ export function buildIntegrityEmbed(appName: string, alert: IntegrityCaseAlert):
 				`180s infantry: ${alert.infantryKills} kills, ${alert.kpm180.toFixed(2)} KPM, ${alert.uniqueVictims} unique victims`,
 				`Unique reporters: ${alert.uniqueReporters}`,
 				...alert.breakdown.map((part) => `+${part.points} ${part.code}: ${part.detail}`),
-				'Dry run: no Integrity kick or quarantine performed.'
+				'Case saved. Review the panel action history for any experimental enforcement.'
 			].join('\n'),
 			2000
 		),

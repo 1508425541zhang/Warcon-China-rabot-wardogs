@@ -147,7 +147,7 @@
 			kind: 'risk_kick',
 			group: 'Players',
 			label: '入服风险踢出',
-			blurb: '对符合已配置风险条件的入服玩家执行踢出。'
+			blurb: '按账号历史和观察名单判断入服风险；与社区行为风控评分相互独立。'
 		},
 		{
 			kind: 'name_filter',

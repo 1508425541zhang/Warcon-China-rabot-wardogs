@@ -113,7 +113,13 @@ export interface RiskComponent {
 }
 
 export type IntegrityLevel =
-	'NORMAL' | 'PASSIVE_WATCH' | 'ACTIVE_WATCH' | 'AUTO_KO' | 'AUTO_QUARANTINE_ELIGIBLE';
+	| 'NORMAL'
+	| 'PASSIVE_WATCH'
+	| 'ACTIVE_WATCH'
+	| 'AUTO_KO'
+	| 'AUTO_QUARANTINE_ELIGIBLE'
+	| 'AUTO_QUARANTINE_24H'
+	| 'AUTO_QUARANTINE_7D';
 
 export interface IntegrityScore {
 	score: number;

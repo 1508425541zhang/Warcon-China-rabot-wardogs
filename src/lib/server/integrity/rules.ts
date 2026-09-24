@@ -5,10 +5,12 @@ import { writeAudit } from '../audit';
 import { integrityRules } from '../db/schema';
 import { ApiError } from '../http';
 import { DEFAULT_INTEGRITY_RULES, type IntegrityRuleConfig } from './score';
+import { DEFAULT_ENFORCEMENT, type EnforcementSettings } from './decisions';
 
 export interface RuleSet {
 	version: number;
 	config: IntegrityRuleConfig;
+	enforcement: EnforcementSettings;
 }
 
 const bounds: Record<string, [number, number]> = {
@@ -94,20 +96,29 @@ export function validateIntegrityRules(
 }
 
 const cache = new Map<string, { until: number; rules: RuleSet }>();
+const enforcementOf = (row: typeof integrityRules.$inferSelect | undefined): EnforcementSettings =>
+	row
+		? {
+				autoKickEnabled: row.autoKickEnabled,
+				autoQuarantine24hEnabled: row.autoQuarantine24hEnabled,
+				autoQuarantine7dEnabled: row.autoQuarantine7dEnabled,
+				autoActionMaxPerHour: row.autoActionMaxPerHour,
+				autoActionMaxPercentOnline: row.autoActionMaxPercentOnline,
+				autoSuspendedAt: row.autoSuspendedAt
+			}
+		: DEFAULT_ENFORCEMENT;
 
-/** Insert the default version once for both existing and newly created organisations. */
+/** Reads never insert defaults; an org with no row uses an in-memory version 1. */
 export async function getIntegrityRules(env: Env, orgId: string): Promise<RuleSet> {
 	const hit = cache.get(orgId);
 	if (hit && hit.until > Date.now()) return hit.rules;
-	await env.db
-		.insert(integrityRules)
-		.values({ orgId, config: DEFAULT_INTEGRITY_RULES })
-		.onConflictDoNothing({ target: integrityRules.orgId });
 	const [row] = await env.db.select().from(integrityRules).where(eq(integrityRules.orgId, orgId));
-	if (!row) throw new Error('Integrity rules were not saved.');
 	const rules = {
-		version: row.version,
-		config: validateIntegrityRules(row.config as Record<string, unknown>)
+		version: row?.version ?? 1,
+		config: row
+			? validateIntegrityRules(row.config as Record<string, unknown>)
+			: DEFAULT_INTEGRITY_RULES,
+		enforcement: enforcementOf(row)
 	};
 	cache.set(orgId, { until: Date.now() + 30_000, rules });
 	return rules;
@@ -125,14 +136,17 @@ export async function saveIntegrityRules(
 	const before = await getIntegrityRules(env, orgId);
 	const config = validateIntegrityRules(patch, before.config);
 	const [row] = await env.db
-		.update(integrityRules)
-		.set({
-			config,
-			version: sql`${integrityRules.version} + 1`,
-			updatedBy: actor.id,
-			updatedAt: new Date()
+		.insert(integrityRules)
+		.values({ orgId, config, updatedBy: actor.id })
+		.onConflictDoUpdate({
+			target: integrityRules.orgId,
+			set: {
+				config,
+				version: sql`${integrityRules.version} + 1`,
+				updatedBy: actor.id,
+				updatedAt: new Date()
+			}
 		})
-		.where(eq(integrityRules.orgId, orgId))
 		.returning();
 	if (!row) throw new Error('Integrity rules were not saved.');
 	cache.delete(orgId);
@@ -145,5 +159,94 @@ export async function saveIntegrityRules(
 		message: `Integrity rules version ${row.version}`,
 		detail: { beforeVersion: before.version, version: row.version, patch }
 	});
-	return { version: row.version, config };
+	return { version: row.version, config, enforcement: before.enforcement };
+}
+
+/** Enabling any automatic action requires an explicit owner acknowledgement. */
+export async function saveIntegrityEnforcement(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	orgId: string,
+	values: Record<string, unknown>
+): Promise<EnforcementSettings> {
+	const allowed = new Set([
+		'autoKickEnabled',
+		'autoQuarantine24hEnabled',
+		'autoQuarantine7dEnabled',
+		'autoActionMaxPerHour',
+		'autoActionMaxPercentOnline',
+		'resume',
+		'confirmation'
+	]);
+	for (const key of Object.keys(values))
+		if (!allowed.has(key)) throw new ApiError(400, `Unknown enforcement setting '${key}'.`);
+	if (!Object.keys(values).some((key) => key !== 'confirmation'))
+		throw new ApiError(400, 'No enforcement setting changes supplied.');
+	const [current] = await env.db
+		.select()
+		.from(integrityRules)
+		.where(eq(integrityRules.orgId, orgId))
+		.limit(1);
+	const before = enforcementOf(current);
+	const next = { ...before };
+	for (const key of [
+		'autoKickEnabled',
+		'autoQuarantine24hEnabled',
+		'autoQuarantine7dEnabled'
+	] as const) {
+		if (values[key] !== undefined) {
+			if (typeof values[key] !== 'boolean') throw new ApiError(400, `${key} must be boolean.`);
+			next[key] = values[key] as boolean;
+		}
+	}
+	for (const key of ['autoActionMaxPerHour', 'autoActionMaxPercentOnline'] as const) {
+		if (values[key] !== undefined) {
+			const value = values[key];
+			if (!Number.isInteger(value) || Number(value) < 1 || Number(value) > 100)
+				throw new ApiError(400, `${key} must be between 1 and 100.`);
+			next[key] = Number(value);
+		}
+	}
+	const enabling = (
+		['autoKickEnabled', 'autoQuarantine24hEnabled', 'autoQuarantine7dEnabled'] as const
+	).some((key) => next[key] && !before[key]);
+	if (
+		(enabling || values.resume === true) &&
+		values.confirmation !== 'ENABLE_EXPERIMENTAL_INTEGRITY'
+	)
+		throw new ApiError(400, 'Explicit experimental enforcement confirmation is required.');
+	if (values.resume === true) next.autoSuspendedAt = null;
+	const [row] = await env.db
+		.insert(integrityRules)
+		.values({
+			orgId,
+			config: DEFAULT_INTEGRITY_RULES,
+			updatedBy: actor.id,
+			...next
+		})
+		.onConflictDoUpdate({
+			target: integrityRules.orgId,
+			set: { ...next, updatedBy: actor.id, updatedAt: new Date() }
+		})
+		.returning();
+	cache.delete(orgId);
+	await writeAudit(env, req, {
+		actor,
+		orgId,
+		category: 'org',
+		action:
+			values.resume === true ? 'integrity.enforcement.resume' : 'integrity.enforcement.update',
+		outcome: 'ok',
+		message: 'Experimental Integrity enforcement settings updated',
+		detail: { before, after: next }
+	});
+	return {
+		autoKickEnabled: row.autoKickEnabled,
+		autoQuarantine24hEnabled: row.autoQuarantine24hEnabled,
+		autoQuarantine7dEnabled: row.autoQuarantine7dEnabled,
+		autoActionMaxPerHour: row.autoActionMaxPerHour,
+		autoActionMaxPercentOnline: row.autoActionMaxPercentOnline,
+		autoSuspendedAt: row.autoSuspendedAt
+	};
 }

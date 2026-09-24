@@ -4,7 +4,7 @@ import { env as processEnv } from '$env/dynamic/private';
 import {
 	connect,
 	hasTimescale,
-	pendingMigrations,
+	migrationStatus,
 	runMigrations,
 	type Db,
 	type SqlClient
@@ -161,12 +161,17 @@ export async function initEnv(opts: { role?: Role } = {}): Promise<Env> {
 	}
 	const { client, db } = connect(databaseTarget());
 	const migrations = resolve(process.cwd(), 'drizzle');
+	const before = await migrationStatus(db, migrations);
+	if (before.historyMismatch)
+		throw new Error('Database migration history does not match this Warcon build.');
 	if (role === 'all') await runMigrations(db, migrations);
-	else {
-		const pending = await pendingMigrations(db, migrations);
-		if (pending)
+	const status = await migrationStatus(db, migrations);
+	if (status.historyMismatch)
+		throw new Error('Database migration history does not match this Warcon build.');
+	if (role !== 'all') {
+		if (status.pending)
 			throw new Error(
-				`${pending} database migration(s) pending: run \`bun run db:migrate\` before starting the ${role}.`
+				`${status.pending} database migration(s) pending: run \`bun run db:migrate\` before starting the ${role}.`
 			);
 	}
 	const timescale = await hasTimescale(db);
