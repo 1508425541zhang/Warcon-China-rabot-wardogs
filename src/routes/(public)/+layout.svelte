@@ -48,6 +48,11 @@
 		<nav class="strip mb-4 gap-1 border-b border-white/8 pb-3" aria-label="Public pages">
 			{#if heading.features.status}
 				<a href={base} class="tab-link {active(base, true) ? 'tab-link-active' : ''}">Live</a>
+				<a
+					href="{base}/report"
+					class="tab-link {active(`${base}/report`, false) ? 'tab-link-active' : ''}"
+					>举报 / Report</a
+				>
 			{/if}
 			{#if heading.features.leaderboards}
 				<a

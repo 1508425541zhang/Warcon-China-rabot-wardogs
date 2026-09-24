@@ -34,6 +34,8 @@ The server's new Integrity tab lists recent cases, risk scores, rule version and
 
 ## Community reports (Phase 7)
 
+Players can use the bilingual `/s/:id/report` form when a server's public status page is enabled.
+
 `POST /api/reports` accepts `{ "serverId": "...", "target": "SteamID64 or name", "reason": "..." }` from a signed-in user with a verified Steam account link. The target must have appeared on that server in the last 15 minutes. Exact SteamID64 and name matching take priority; ambiguous fuzzy names are rejected. The same reporter and target have a 10-minute cooldown, and one reporter may send at most five reports per hour. Only distinct reporter SteamID64s in the previous 24 hours contribute to risk; report-only scores have no behavior anomaly and cause no action. The next abnormal infantry window combines its evidence with that distinct reporter count. Each report copies up to 1000 accepted target-related kill events from T−180 seconds and subsequently captures events through T+180 seconds in `integrity_report_events`. Staff see recent reports on the Integrity dashboard without exposing reporter identities there. Reports and scores are audited and remain advisory.
 
 The `!report` and `!BAN` command strings are parsed and tested, but no in-game command listener is active. Warcon currently has no verified inbound chat feed; this limitation is explicit rather than treating an outgoing whisper as incoming chat.
