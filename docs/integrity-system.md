@@ -18,7 +18,11 @@ Organisation owners can list, set and remove exact cause overrides through `GET`
 
 ## Infantry KPM (Phase 3)
 
-The worker now observes accepted Kill Feed events in an in-memory, rolling 180-second game-clock window for each SteamID64 and server. It counts only classified infantry kills with two known, opposing factions. An abnormal window starts at 12 valid kills (KPM 4.0); another finding cannot be recorded until 180 game-clock seconds later. Map changes, instance changes and substantial clock rewinds clear the window. Distinct abnormal findings are stored in `integrity_windows` with their event IDs and unique victim count. The game-clock data is not sufficient to claim an aim cheat, and these findings **do not kick or ban players**. Configurable thresholds, scoring and evidence confidence are later phases.
+The worker now observes accepted Kill Feed events in an in-memory, rolling 180-second game-clock window for each SteamID64 and server. It counts only classified infantry kills with two known, opposing factions. By default an abnormal window starts at 12 valid kills (KPM 4.0); another finding cannot be recorded until 180 game-clock seconds later. Map changes, instance changes and substantial clock rewinds clear the window. Distinct abnormal findings are stored in `integrity_windows` with their event IDs and unique victim count. The game-clock data is not sufficient to claim an aim cheat, and these findings **do not kick or ban players**. Evidence confidence is a later phase.
+
+## Explainable risk scoring (Phase 4)
+
+`integrity_scores` stores each abnormal finding's 0–100 score, individual contributions and the organisation's rule version. `GET`/`PUT /api/orgs/:id/integrity/rules` lets an organisation owner inspect and update bounded weights and thresholds; changes are audited. Rule sets start in `dry_run`, and the API rejects `enforce` until the action, evidence and review phases are implemented. Current live scores include KPM, distinct victims and earlier independent windows. Report, Steam, burst and other inputs are defined by the pure scoring model but remain zero or UNKNOWN until their trusted data sources are connected. These scores are **advisory only** and are separate from Warcon's existing connect-time risk score.
 
 ## Protocol limit
 

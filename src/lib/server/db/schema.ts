@@ -512,6 +512,36 @@ export const integrityWindows = pgTable(
 	(t) => [index('integrity_windows_player_idx').on(t.orgId, t.steamId, t.observedAt.desc())]
 );
 
+/** A versioned, owner-editable rule set. Cases snapshot both version and effective inputs. */
+export const integrityRules = pgTable('integrity_rules', {
+	orgId: text('org_id')
+		.primaryKey()
+		.references(() => organizations.id, { onDelete: 'cascade' }),
+	version: integer('version').notNull().default(1),
+	config: jsonb('config').notNull(),
+	updatedBy: text('updated_by'),
+	updatedAt: ts('updated_at').notNull().defaultNow()
+});
+
+/** Explainable, non-enforcing score created from a persisted abnormal window. */
+export const integrityScores = pgTable(
+	'integrity_scores',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		windowId: bigint('window_id', { mode: 'number' }).notNull(),
+		orgId: text('org_id').notNull(),
+		serverId: text('server_id').notNull(),
+		steamId: text('steam_id').notNull(),
+		scoredAt: ts('scored_at').notNull(),
+		ruleVersion: integer('rule_version').notNull(),
+		score: integer('score').notNull(),
+		level: text('level').notNull(),
+		breakdown: jsonb('breakdown').notNull(),
+		currentBehaviorAnomaly: boolean('current_behavior_anomaly').notNull()
+	},
+	(t) => [index('integrity_scores_player_idx').on(t.orgId, t.steamId, t.scoredAt.desc())]
+);
+
 export const matches = pgTable(
 	'matches',
 	{
