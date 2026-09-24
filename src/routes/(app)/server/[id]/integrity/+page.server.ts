@@ -34,6 +34,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 						confidence: integrityCases.confidence,
 						riskScore: integrityCases.riskScore,
 						riskBreakdown: integrityCases.riskBreakdown,
+						snapshot: integrityCases.snapshot,
 						trigger: integrityCases.trigger
 					})
 					.from(integrityCases)

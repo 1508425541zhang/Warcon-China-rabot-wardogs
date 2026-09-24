@@ -62,6 +62,7 @@ export function countsAsInfantry(
 		cause: string | null;
 		tags: readonly string[];
 		suicide: boolean;
+		teamKill?: boolean;
 		killerSteamId: string | null;
 		victimSteamId: string;
 		killerFaction: string | null;
@@ -71,6 +72,7 @@ export function countsAsInfantry(
 ): boolean {
 	return (
 		!!kill.killerSteamId &&
+		!kill.teamKill &&
 		kill.killerSteamId !== kill.victimSteamId &&
 		!!kill.killerFaction &&
 		!!kill.victimFaction &&

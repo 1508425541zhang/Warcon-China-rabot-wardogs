@@ -9,6 +9,7 @@ export interface IntegrityRuleConfig {
 	repeatBoth5: number;
 	repeatBoth6: number;
 	repeatKo: number;
+	repeatKoWindowHours: number;
 	steamPriorCap: number;
 	recentVac: number;
 	recentGameBan: number;
@@ -24,6 +25,7 @@ export interface IntegrityRuleConfig {
 	penetrationMinPct: number;
 	penetrationMax: number;
 	burstMax: number;
+	burstFindingMin: number;
 	passiveWatchThreshold: number;
 	activeWatchThreshold: number;
 	koThreshold: number;
@@ -58,6 +60,7 @@ export const DEFAULT_INTEGRITY_RULES: IntegrityRuleConfig = {
 	repeatBoth5: 8,
 	repeatBoth6: 14,
 	repeatKo: 10,
+	repeatKoWindowHours: 24,
 	steamPriorCap: 15,
 	recentVac: 8,
 	recentGameBan: 12,
@@ -73,6 +76,7 @@ export const DEFAULT_INTEGRITY_RULES: IntegrityRuleConfig = {
 	penetrationMinPct: 50,
 	penetrationMax: 6,
 	burstMax: 20,
+	burstFindingMin: 7,
 	passiveWatchThreshold: 20,
 	activeWatchThreshold: 40,
 	koThreshold: 54,
@@ -82,6 +86,7 @@ export const DEFAULT_INTEGRITY_RULES: IntegrityRuleConfig = {
 };
 
 export interface IntegritySignals {
+	behaviorReasons: BehaviorReason[];
 	kpm180: number;
 	uniqueVictims: number;
 	/** Independent abnormal findings in the last repeatWindowMinutes, newest first. */
@@ -98,6 +103,8 @@ export interface IntegritySignals {
 	/** null means Private, failed or otherwise unknown. */
 	wardogsPlaytimeHours: number | null;
 }
+
+export type BehaviorReason = 'kpm' | 'headshot' | 'penetration' | 'burst';
 
 export interface RiskComponent {
 	code: string;
@@ -209,6 +216,6 @@ export function scoreIntegrity(
 		score,
 		level,
 		breakdown,
-		currentBehaviorAnomaly: kpmPoints > 0 || signals.burstPoints >= config.burstMax
+		currentBehaviorAnomaly: signals.behaviorReasons.length > 0
 	};
 }
