@@ -17,10 +17,10 @@
 		steamAction = '',
 		registerAction,
 		signInHref,
-		discordLabel = 'Continue with Discord',
-		steamLabel = 'Continue with Steam',
-		passkeyLabel = 'Create account with a passkey',
-		registerLabel = 'Create account',
+		discordLabel = '使用 Discord 继续',
+		steamLabel = '使用 Steam 继续',
+		passkeyLabel = '使用通行密钥创建账号',
+		registerLabel = '创建账号',
 		turnstileSiteKey = null,
 		invite = '',
 		tokenRequired = false,
@@ -101,11 +101,10 @@
 		{/if}
 	</div>
 	<p class="mt-2 text-center text-[12.5px] text-mist-400">
-		Your Discord or Steam identity becomes the account, no password involved.
+		使用 Discord 或 Steam 身份创建账号，无需密码。
 	</p>
 	<div class="my-4 flex items-center gap-3 caps text-[11px] text-mist-600">
-		<span class="h-px flex-1 bg-white/8"></span>or with a username<span
-			class="h-px flex-1 bg-white/8"
+		<span class="h-px flex-1 bg-white/8"></span>或使用用户名<span class="h-px flex-1 bg-white/8"
 		></span>
 	</div>
 {/if}
@@ -125,7 +124,7 @@
 	}}
 >
 	<label class="block"
-		><span class="field-label">Username</span><input
+		><span class="field-label">用户名</span><input
 			class="input"
 			name="username"
 			type="text"
@@ -138,7 +137,7 @@
 		/></label
 	>
 	<label class="block"
-		><span class="field-label">Display name (optional)</span><input
+		><span class="field-label">显示名称（选填）</span><input
 			class="input"
 			name="displayName"
 			type="text"
@@ -149,7 +148,7 @@
 	>
 	{#if tokenRequired}
 		<label class="block">
-			<span class="field-label">Setup token</span>
+			<span class="field-label">初始化令牌</span>
 			<input
 				class="input"
 				name="token"
@@ -158,7 +157,7 @@
 				required
 				bind:value={token}
 			/>
-			<p class="note">The SETUP_TOKEN secret set by whoever deployed this panel.</p>
+			<p class="note">部署时设置的 SETUP_TOKEN 密钥。</p>
 		</label>
 	{/if}
 	{#if turnstileSiteKey}
@@ -167,17 +166,16 @@
 
 	{#if canPasskey}
 		<button type="button" class="btn w-full btn-primary" onclick={passkey} disabled={busy}
-			>{busy ? 'Working…' : passkeyLabel}</button
+			>{busy ? '处理中…' : passkeyLabel}</button
 		>
 		<p class="text-center text-[12.5px] text-mist-400">
-			A passkey is your device's own lock (Face ID, fingerprint, Windows Hello): nothing to
-			remember, nothing to phish.
+			通行密钥使用设备解锁方式（面容、指纹或 Windows Hello），无需记忆密码。
 		</p>
 	{/if}
 
 	{#if showPassword}
 		<label class="block border-t border-white/8 pt-3"
-			><span class="field-label">Password (10+ characters)</span><input
+			><span class="field-label">密码（至少 10 个字符）</span><input
 				class="input"
 				name="password"
 				type="password"
@@ -187,17 +185,16 @@
 			/></label
 		>
 		<p class="text-[12.5px] text-mist-400">
-			Passwords need an authenticator app and a second way in before long; the account page walks
-			you through it.
+			使用密码后，请尽快在账号页面设置验证器和第二种登录方式。
 		</p>
 		<button class="btn w-full {canPasskey ? '' : 'btn-primary'}" type="submit" disabled={busy}
-			>{busy ? 'Creating…' : registerLabel}</button
+			>{busy ? '创建中…' : registerLabel}</button
 		>
 	{:else}
 		<button
 			type="button"
 			class="block w-full text-center text-[12.5px] text-mist-400 underline hover:text-mist-100"
-			onclick={() => (wantPassword = true)}>Use a password instead</button
+			onclick={() => (wantPassword = true)}>改用密码</button
 		>
 	{/if}
 
@@ -213,6 +210,6 @@
 
 {#if signInHref}
 	<p class="note text-center">
-		Already have an account? <a href={signInHref} class="text-accent underline">Sign in</a>.
+		已有账号？<a href={signInHref} class="text-accent underline">登录</a>。
 	</p>
 {/if}

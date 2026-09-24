@@ -13,24 +13,24 @@
 
 	// A tab whose reads need more than View names the capability; the API refuses the same people.
 	const TABS: readonly (readonly [string, string, Capability?])[] = [
-		['', 'Overview'],
-		['/players', 'Players'],
-		['/kills', 'Kills'],
-		['/matches', 'Matches'],
-		['/bans', 'Bans'],
-		['/slots', 'Reserved slots'],
-		['/rotation', 'Map rotation'],
-		['/config', 'Config', 'config.apply'],
-		['/automation', 'Automation', 'automation.manage'],
-		['/integrity', '完整性 / Integrity', 'integrity.view'],
-		['/analytics', 'Analytics'],
-		['/leaderboard', 'Leaderboards'],
-		['/log', 'Server log', 'audit.read']
+		['', '概览'],
+		['/players', '玩家'],
+		['/kills', '击杀'],
+		['/matches', '对局'],
+		['/bans', '封禁'],
+		['/slots', '预留名额'],
+		['/rotation', '地图轮换'],
+		['/config', '服务器配置', 'config.apply'],
+		['/automation', '自动化', 'automation.manage'],
+		['/integrity', '风控 / Integrity', 'integrity.view'],
+		['/analytics', '数据分析'],
+		['/leaderboard', '排行榜'],
+		['/log', '服务器日志', 'audit.read']
 	];
 	// Discord channels and the public pages are an org owner's to manage, so Settings shows for them alone.
 	let visibleTabs = $derived([
 		...TABS.filter(([, , cap]) => !cap || can(data.server.caps, cap)),
-		...(data.server.manager ? [['/settings', 'Settings'] as const] : [])
+		...(data.server.manager ? [['/settings', '设置'] as const] : [])
 	]);
 	let base = $derived(`/server/${encodeURIComponent(data.server.id)}`);
 	let current = $derived(page.url.pathname.slice(base.length) || '');

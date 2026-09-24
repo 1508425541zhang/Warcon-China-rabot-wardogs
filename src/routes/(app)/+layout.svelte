@@ -234,16 +234,16 @@
 		</div>
 
 		<nav class="ml-2 hidden items-center gap-1 md:flex" aria-label="Main">
-			<a href="/" class="nav-pill {isActive('/') ? 'nav-pill-active' : ''}">Dashboard</a>
-			<a href="/audit" class="nav-pill {isActive('/audit') ? 'nav-pill-active' : ''}">Audit</a>
+			<a href="/" class="nav-pill {isActive('/') ? 'nav-pill-active' : ''}">概览</a>
+			<a href="/audit" class="nav-pill {isActive('/audit') ? 'nav-pill-active' : ''}">审计</a>
 			{#if data.canManage}
 				<a href="/servers" class="nav-pill {isActive('/servers') ? 'nav-pill-active' : ''}"
-					>Servers</a
+					>服务器</a
 				>
 			{/if}
-			<a href="/orgs" class="nav-pill {isActive('/orgs') ? 'nav-pill-active' : ''}">Orgs</a>
+			<a href="/orgs" class="nav-pill {isActive('/orgs') ? 'nav-pill-active' : ''}">组织</a>
 			{#if data.user.role === 'owner'}
-				<a href="/admin" class="nav-pill {isActive('/admin') ? 'nav-pill-active' : ''}">Admin</a>
+				<a href="/admin" class="nav-pill {isActive('/admin') ? 'nav-pill-active' : ''}">站点管理</a>
 			{/if}
 		</nav>
 
@@ -287,20 +287,20 @@
 					</div>
 					<div class="my-1.5 border-t border-white/8"></div>
 					<nav class="md:hidden" aria-label="Main (mobile)">
-						<a href="/" class="menu-item" role="menuitem">Dashboard</a>
-						<a href="/audit" class="menu-item" role="menuitem">Audit</a>
+						<a href="/" class="menu-item" role="menuitem">概览</a>
+						<a href="/audit" class="menu-item" role="menuitem">审计</a>
 						{#if data.canManage}
-							<a href="/servers" class="menu-item" role="menuitem">Servers</a>
+							<a href="/servers" class="menu-item" role="menuitem">服务器</a>
 						{/if}
-						<a href="/orgs" class="menu-item" role="menuitem">Orgs</a>
+						<a href="/orgs" class="menu-item" role="menuitem">组织</a>
 						{#if data.user.role === 'owner'}
-							<a href="/admin" class="menu-item" role="menuitem">Admin</a>
+							<a href="/admin" class="menu-item" role="menuitem">站点管理</a>
 						{/if}
 						<div class="my-1.5 border-t border-white/8"></div>
 					</nav>
-					<a href="/account" class="menu-item" role="menuitem">Account &amp; sessions</a>
+					<a href="/account" class="menu-item" role="menuitem">账号与会话</a>
 					<form method="post" action="/sign-out">
-						<button type="submit" class="menu-item text-mist-400" role="menuitem">Sign out</button>
+						<button type="submit" class="menu-item text-mist-400" role="menuitem">退出登录</button>
 					</form>
 				</div>
 			{/if}
