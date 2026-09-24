@@ -126,8 +126,8 @@
 	}
 	async function revokeKey(k: ApiKeyView) {
 		if (
-			!(await confirmDialog(`Revoke the '${k.label}' key? Anything using it stops working now.`, {
-				okLabel: 'Revoke',
+			!(await confirmDialog(`确定撤销“${k.label}”密钥？依赖它的程序会立即失效。`, {
+				okLabel: '撤销',
 				danger: true
 			}))
 		)
@@ -196,8 +196,8 @@
 	async function remove(m: OrgMemberView) {
 		if (
 			!(await confirmDialog(
-				`Remove @${m.username} from ${data.org.name}? Their access to its servers is removed; their account stays.`,
-				{ okLabel: 'Remove', danger: true }
+				`确定从“${data.org.name}”移除 @${m.username}？其服务器访问权限会被撤销，账号仍会保留。`,
+				{ okLabel: '移除', danger: true }
 			))
 		)
 			return;

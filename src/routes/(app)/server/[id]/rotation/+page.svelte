@@ -57,7 +57,7 @@
 			return null;
 		try {
 			const result = await rconPost<{ message?: string }>(id, action, params);
-			toast(result?.message || `${action} done.`, 'ok');
+			toast(result?.message || '操作已完成。', 'ok');
 			if (opts.after) await opts.after();
 			return result;
 		} catch (err) {
@@ -209,11 +209,11 @@
 				return;
 			}
 			if (!r.ok) {
-				toast(r.errors?.[0]?.message || r.errorMessage || 'Rejected.', 'err');
+				toast(r.errors?.[0]?.message || r.errorMessage || '服务器拒绝了修改。', 'err');
 				return;
 			}
 			toast(
-				`Rotation applied (revision ${r.revision}). The server rebuilt it; the new order is used from the next map change.`,
+				`地图轮换已应用（版本 ${r.revision}）。服务器已重建轮换列表，新顺序会在下次切换地图时生效。`,
 				'ok'
 			);
 			await Promise.all([loadDoc(), refresh()]);

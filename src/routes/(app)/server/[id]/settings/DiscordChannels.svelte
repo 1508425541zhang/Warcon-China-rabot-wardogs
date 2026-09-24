@@ -194,7 +194,7 @@
 	async function remove(w: WebhookView) {
 		// One dialog at a time: the confirmation replaces the edit dialog rather than stacking on it.
 		editing = null;
-		if (!(await confirmDialog(`Disconnect ${w.label}?`, { okLabel: 'Disconnect', danger: true })))
+		if (!(await confirmDialog(`确定断开频道“${w.label}”？`, { okLabel: '断开连接', danger: true })))
 			return;
 		await run(() => api('DELETE', `${orgPath}/webhooks/${w.id}`), '频道已断开。');
 	}

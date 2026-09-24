@@ -74,9 +74,9 @@
 				});
 				done++;
 			}
-			toast(`Saved ${done} role${done === 1 ? '' : 's'}.`, 'ok');
+			toast(`已保存 ${done} 个角色。`, 'ok');
 		} catch (err) {
-			toast(`${errorMessage(err)}${done ? ` (${done} of ${todo.length} saved)` : ''}`, 'err');
+			toast(`${errorMessage(err)}${done ? `（已保存 ${done} / ${todo.length} 个）` : ''}`, 'err');
 		} finally {
 			busy = false;
 			await invalidateAll();
@@ -88,17 +88,17 @@
 	async function reset(r: RoleView) {
 		if (
 			!(await confirmDialog(
-				`Reset '${r.name}' to what ${r.builtin} shipped with? Everyone holding it changes at once.`,
-				{ okLabel: 'Reset' }
+				`确定将“${r.name}”恢复为内置默认权限？所有持有该角色的成员会立即受到影响。`,
+				{ okLabel: '恢复默认' }
 			))
 		)
 			return;
-		await run(() => api('POST', `${orgPath}/roles/${r.id}/reset`), `${r.builtin} reset.`);
+		await run(() => api('POST', `${orgPath}/roles/${r.id}/reset`), `“${r.name}”已恢复默认权限。`);
 	}
 	async function remove(r: RoleView) {
-		if (!(await confirmDialog(`Delete the '${r.name}' role?`, { okLabel: 'Delete', danger: true })))
+		if (!(await confirmDialog(`确定删除“${r.name}”角色？`, { okLabel: '删除', danger: true })))
 			return;
-		await run(() => api('DELETE', `${orgPath}/roles/${r.id}`), `'${r.name}' deleted.`);
+		await run(() => api('DELETE', `${orgPath}/roles/${r.id}`), `“${r.name}”已删除。`);
 	}
 
 	let adding = $state<{ name: string; caps: Capability[] } | null>(null);

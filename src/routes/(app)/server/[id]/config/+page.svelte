@@ -242,14 +242,14 @@
 				return;
 			}
 			if (!r.ok) {
-				failure = r.errorMessage || 'Rejected.';
+				failure = r.errorMessage || '服务器拒绝了配置修改。';
 				lineErrors = r.errors || [];
 				return;
 			}
 			result = r;
 			if (action === 'configApply' && doc) {
 				doc.revision = r.revision;
-				toast(`Config applied (revision ${r.revision}).`, 'ok');
+				toast(`配置已应用（版本 ${r.revision}）。`, 'ok');
 				// Re-read so the change marks and revision reflect what the server actually kept.
 				await loadDoc({ keepResult: true });
 			} else {

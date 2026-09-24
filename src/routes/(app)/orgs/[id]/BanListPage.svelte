@@ -76,8 +76,8 @@
 		const label = e.name ? `${e.name} (${e.steamId})` : e.steamId;
 		if (
 			!(await confirmDialog(
-				`Unban ${label} across ${org.name}? The panel lifts the ban on every server it applied it to.`,
-				{ okLabel: 'Unban', danger: true }
+				`确定在“${org.name}”组织中解除 ${label} 的封禁？面板会从已应用的每台服务器上解除。`,
+				{ okLabel: '解除封禁', danger: true }
 			))
 		)
 			return;
@@ -87,7 +87,7 @@
 				'DELETE',
 				`${path}/${encodeURIComponent(e.steamId)}`
 			);
-			toast(describeSync(res.sync, `Unbanned ${e.steamId}.`), 'ok', 8000);
+			toast(describeSync(res.sync, `已解除 ${e.steamId} 的封禁。`), 'ok', 8000);
 			await invalidateAll();
 		} catch (err) {
 			toast(errorMessage(err), 'err');

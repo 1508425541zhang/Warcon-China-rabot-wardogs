@@ -160,7 +160,7 @@
 				reason: newReason.trim(),
 				expiresAt: expiryIso(newExpiry, newCustom)
 			});
-			toast(describeSync(res.sync, `Reserved a slot for ${steamId}.`), 'ok', 8000);
+			toast(describeSync(res.sync, `已为 ${steamId} 分配预留席位。`), 'ok', 8000);
 			newId = '';
 			newReason = '';
 			newExpiry = '0';
@@ -213,8 +213,8 @@
 	async function remove(e: ListEntryView, name: string | null) {
 		const label = name ? `${name} (${e.steamId})` : e.steamId;
 		if (
-			!(await confirmDialog(`Withdraw the reserved slot for ${label} across ${org.name}?`, {
-				okLabel: 'Withdraw',
+			!(await confirmDialog(`确定从“${org.name}”组织撤回 ${label} 的预留席位？`, {
+				okLabel: '撤回',
 				danger: true
 			}))
 		)
@@ -225,7 +225,7 @@
 				'DELETE',
 				`${path}/${encodeURIComponent(e.steamId)}`
 			);
-			toast(describeSync(res.sync, `Withdrew the slot for ${e.steamId}.`), 'ok', 8000);
+			toast(describeSync(res.sync, `已撤回 ${e.steamId} 的预留席位。`), 'ok', 8000);
 			await invalidateAll();
 		} catch (err) {
 			toast(errorMessage(err), 'err');
