@@ -28,6 +28,10 @@ The worker now observes accepted Kill Feed events in an in-memory, rolling 180-s
 
 When an advisory score reaches the configured AUTO_KO threshold, the worker saves a `CASE-…` record in the same fenced transaction as the abnormal window and score. It freezes the underlying accepted kill events in the 180-second game-clock window, the exact trigger event IDs, rule configuration/version, risk breakdown and player/server identifiers. A complete stored trigger set receives confidence B; missing events or truncation lower it to C/D. Confidence A is reserved for a future verified continuous-feed check. A case is evidence for staff review, **not a finding of cheating or a game action**. Reviews, appeals, retention policy and action history remain later phases.
 
+## Administrator dashboard (Phase 6)
+
+The server's new Integrity tab lists recent cases, risk scores, rule version and latest kill-feed receipt. Its content requires the new `integrity.view` capability; existing built-in admin roles receive that read capability, while custom roles must be granted it by an organisation owner. The page has 简体中文 and English labels, and [README.zh-CN.md](../README.zh-CN.md) introduces the fork in Chinese. Automated actions remain off. Full case review and the rest of the panel's translations are still to be built.
+
 ## Protocol limit
 
 Warcon has a verified outgoing player whisper and a server-to-panel kill feed, but no verified incoming game-chat event. In-game `!report` and `!BAN` commands cannot be enabled until an authorised chat source is available. `!BAN` will only create a report, never a ban, when such a source exists.

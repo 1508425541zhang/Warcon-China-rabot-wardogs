@@ -274,6 +274,13 @@
       "when": 1790233469189,
       "tag": "0038_silent_mongu",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790233587422,
+      "tag": "0039_integrity_view_capability",
+      "breakpoints": true
     }
   ]
 }
