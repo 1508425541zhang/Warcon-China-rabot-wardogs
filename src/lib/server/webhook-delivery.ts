@@ -18,7 +18,8 @@ export const WEBHOOK_EVENTS = [
 	'management',
 	'auth',
 	'teamkills',
-	'watched'
+	'watched',
+	'integrity'
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 export const WEBHOOK_EVENT_LABELS: Record<WebhookEvent, string> = {
@@ -29,7 +30,8 @@ export const WEBHOOK_EVENT_LABELS: Record<WebhookEvent, string> = {
 	management: 'Servers, members, invite links, accounts',
 	auth: 'Sign-ins and sign-in failures',
 	teamkills: 'Team kills (from the kill feed)',
-	watched: 'Watched players joining'
+	watched: 'Watched players joining',
+	integrity: 'Community Integrity evidence cases'
 };
 
 /** Which event class an audit row belongs to. */
@@ -115,6 +117,46 @@ export interface Embed {
 export interface DiscordPayload {
 	content?: string;
 	embeds?: Embed[];
+}
+
+export interface IntegrityCaseAlert {
+	caseId: string;
+	serverId: string;
+	serverName: string;
+	steamId: string;
+	map: string;
+	score: number;
+	level: string;
+	breakdown: readonly { code: string; points: number; detail: string }[];
+	infantryKills: number;
+	kpm180: number;
+	uniqueVictims: number;
+	uniqueReporters: number;
+	createdAt: Date;
+}
+
+/** An advisory case alert contains no reporter identity or enforcement claim. */
+export function buildIntegrityEmbed(appName: string, alert: IntegrityCaseAlert): Embed {
+	return {
+		title: `Integrity review · ${alert.level}`,
+		description: clip(
+			[
+				`Case: ${alert.caseId}`,
+				`Player: ${alert.steamId}`,
+				`Server: ${alert.serverName}`,
+				`Map: ${alert.map}`,
+				`Risk: ${alert.score}/100`,
+				`180s infantry: ${alert.infantryKills} kills, ${alert.kpm180.toFixed(2)} KPM, ${alert.uniqueVictims} unique victims`,
+				`Unique reporters: ${alert.uniqueReporters}`,
+				...alert.breakdown.map((part) => `+${part.points} ${part.code}: ${part.detail}`),
+				'Dry run: no Integrity kick or quarantine performed.'
+			].join('\n'),
+			2000
+		),
+		color: 0xe8a441,
+		timestamp: alert.createdAt.toISOString(),
+		footer: { text: appName }
+	};
 }
 
 const COLORS = { ok: 0x7bc462, error: 0xd86060, denied: 0x8a8a90 } as const;
@@ -557,6 +599,22 @@ export async function notifyTeamKills(
 		}
 	} catch (err) {
 		console.error('[warcon] webhook team kills', err);
+	}
+}
+
+/** Only high-risk evidence cases reach hooks that opt in to Integrity alerts. */
+export async function notifyIntegrityCase(
+	env: Env,
+	orgId: string,
+	alert: IntegrityCaseAlert
+): Promise<void> {
+	try {
+		const hooks = hooksFor(await enabledWebhooks(env, orgId), 'integrity', alert.serverId);
+		if (!hooks.length) return;
+		const embed = buildIntegrityEmbed(env.APP_NAME || 'Warcon', alert);
+		for (const hook of hooks) enqueue(env, hook, embed);
+	} catch (err) {
+		console.error('[warcon] webhook integrity alert', err);
 	}
 }
 

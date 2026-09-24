@@ -40,6 +40,12 @@ Players can use the bilingual `/s/:id/report` form when a server's public status
 
 The `!report` and `!BAN` command strings are parsed and tested, but no in-game command listener is active. Warcon currently has no verified inbound chat feed; this limitation is explicit rather than treating an outgoing whisper as incoming chat.
 
+## Discord case alerts (Phase 9)
+
+An organisation can opt an existing Discord webhook into the new **Community Integrity evidence cases** event class. A case created at or above the configured KO risk threshold sends a compact, rate-limited embed after its database transaction commits. It includes the Case ID, SteamID64, server, map, risk breakdown and 180-second infantry figures, and explicitly says that no Integrity kick or quarantine occurred in Dry Run. Reporter identities and ordinary single reports are never mirrored. Webhook failures do not change the stored case.
+
+Phase 8 broadcast is held because advertising in-game report commands before an authenticated inbound chat source exists would mislead players. Warcon's existing scheduled broadcast facility remains available for other server notices.
+
 ## Protocol limit
 
 Warcon has a verified outgoing player whisper and a server-to-panel kill feed, but no verified incoming game-chat event. In-game `!report` and `!BAN` commands cannot be enabled until an authorised chat source is available. `!BAN` will only create a report, never a ban, when such a source exists.
