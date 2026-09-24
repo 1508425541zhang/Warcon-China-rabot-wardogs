@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: timescale/timescaledb:2.30.0-pg18
+        env:
+          POSTGRES_USER: warcon
+          POSTGRES_PASSWORD: warcon
+          POSTGRES_DB: warcon
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U warcon -d warcon"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://warcon:warcon@127.0.0.1:5432/warcon
+      # bun test makes its own warcon_test_* database on this server for the permission suites
+      TEST_DATABASE_URL: postgres://warcon:warcon@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run check
+      - run: bun test
+      - run: bun run build
+      - name: Smoke test the production build
+        env:
+          ORIGIN: http://127.0.0.1:5199
+          PORT: 5199
+          HOST: 127.0.0.1
+          POLL_SECONDS: 5
+        run: |
+          BETTER_AUTH_SECRET=$(openssl rand -base64 32); export BETTER_AUTH_SECRET
+          ENCRYPTION_KEY=$(openssl rand -base64 32); export ENCRYPTION_KEY
+          bun ./build/index.js > server.log 2>&1 &
+          up=0
+          for _ in $(seq 1 60); do
+            if curl -sf "$ORIGIN/api/health" >/dev/null; then up=1; break; fi
+            sleep 1
+          done
+          if [ "$up" != 1 ]; then echo "::error::server did not become healthy within 60s"; exit 1; fi
+          bash scripts/smoke.sh | tee smoke.out
+          grep -q 'failed=0' smoke.out
+      - name: Server log
+        if: failure() && hashFiles('server.log') != ''
+        run: cat server.log
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Tells the Discord update channel that main has new changes, once they pass. The webhook lives
+  # in the DISCORD_WEBHOOK_URL repository secret (Discord: channel settings > Integrations >
+  # Webhooks); without it the job does nothing, so forks and pull requests are unaffected.
+  # Only one post per push, after every other job is green; a push whose tests fail is not
+  # announced. A run cancelled by a newer push to main leaves its commits unannounced; the next
+  # post covers its own push only.
+  notify:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post the pushed commits to Discord
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          REPO: ${{ github.repository }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then echo "DISCORD_WEBHOOK_URL is not set; nothing to post"; exit 0; fi
+          # The commits of this push, merges left out; a forced push or a new branch has no usable
+          # range, so fall back to the head commit alone.
+          if [[ "$BEFORE" =~ ^0+$ ]] || ! gh api "repos/$REPO/compare/$BEFORE...$AFTER" > compare.json 2>/dev/null; then
+            gh api "repos/$REPO/commits/$AFTER" | jq '{commits: [.]}' > compare.json
+            BEFORE=$(jq -r '.commits[0].parents[0].sha // .commits[0].sha' compare.json)
+          fi
+          jq -n --rawfile compare compare.json --arg repo "$REPO" --arg url "$SERVER_URL" \
+             --arg before "$BEFORE" --arg after "$AFTER" '
+            ($compare | fromjson | .commits | map(select(.parents | length < 2))) as $all
+            | (if $all == [] then ($compare | fromjson | .commits) else $all end) as $all
+            | ($all | length) as $n
+            | (($all | .[:15] | map("• [`\(.sha[:7])`](\(.html_url)) " + (.commit.message | split("\n")[0])))
+              + (if $n > 15 then ["… and \($n - 15) more"] else [] end)) as $lines
+            | {
+                embeds: [{
+                  title: (if $n == 1 then "1 new commit on main" else "\($n) new commits on main" end),
+                  url: "\($url)/\($repo)/compare/\($before)...\($after)",
+                  description: ($lines | join("\n") | .[:4000]),
+                  color: 5763719,
+                  footer: {text: "Update: git pull && docker compose up -d --build"}
+                }]
+              }' > payload.json
+          curl --fail-with-body -sS -H 'Content-Type: application/json' --data @payload.json "$WEBHOOK"

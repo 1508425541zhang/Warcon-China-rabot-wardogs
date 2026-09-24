@@ -1,0 +1,86 @@
+// Self-service organisation sign-up (ALLOW_ORG_SIGNUP): create an account if needed, then an org
+// with yourself as its first owner.
+import { error, fail, redirect } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
+import { discordEnabled, getEnv, turnstileSiteKey } from '$lib/server/env';
+import { normalizeError } from '$lib/server/http';
+import { requireUser } from '$lib/server/access';
+import { createOrg } from '$lib/server/orgs';
+import { userCount } from '$lib/server/users';
+import {
+	assertMayCreateOrg,
+	orgSignupEnabled,
+	orgsRemaining,
+	registerFromForm
+} from '$lib/server/signup';
+import { beginSteam } from '$lib/server/steam-auth';
+
+const HERE = '/sign-up';
+
+export const load: PageServerLoad = async ({ locals }) => {
+	const env = getEnv();
+	if (!orgSignupEnabled(env)) error(404, 'Organisation sign-up is not enabled on this panel.');
+	// The first account must be the site owner (see /setup); sign-up opens after that.
+	if ((await userCount(env)) === 0) redirect(303, '/setup');
+	return {
+		discord: discordEnabled(env),
+		turnstileSiteKey: turnstileSiteKey(env),
+		remaining: locals.user ? await orgsRemaining(env, locals.user) : null
+	};
+};
+
+export const actions: Actions = {
+	/** Sign in with Discord, creating the account if this Discord user is new, then come back here. */
+	discord: async ({ request, locals }) => {
+		const env = getEnv();
+		if (!orgSignupEnabled(env)) return fail(404, { error: 'Sign-up is not enabled.' });
+		if (!discordEnabled(env)) return fail(404, { error: 'Discord sign-in is not configured.' });
+		if ((await userCount(env)) === 0)
+			return fail(409, { error: 'This panel has not been set up yet. Open /setup first.' });
+		const res = await locals.auth!.api.signInSocial({
+			body: {
+				provider: 'discord',
+				callbackURL: HERE,
+				errorCallbackURL: `${HERE}?error=discord`,
+				requestSignUp: true
+			},
+			headers: request.headers
+		});
+		if (!res.url) return fail(500, { error: 'Discord did not return an authorization URL.' });
+		redirect(303, res.url);
+	},
+
+	/** The same with Steam. */
+	steam: async (event) => {
+		const env = getEnv();
+		if (!orgSignupEnabled(env)) return fail(404, { error: 'Sign-up is not enabled.' });
+		if ((await userCount(env)) === 0)
+			return fail(409, { error: 'This panel has not been set up yet. Open /setup first.' });
+		beginSteam(event, env, { mode: 'signin', signup: true, next: HERE, back: HERE });
+	},
+
+	register: async (event) => {
+		const env = getEnv();
+		if (!orgSignupEnabled(env)) return fail(404, { error: 'Sign-up is not enabled.' });
+		return registerFromForm(event, env, HERE);
+	},
+
+	create: async ({ request, locals }) => {
+		const env = getEnv();
+		if (!orgSignupEnabled(env)) return fail(404, { error: 'Sign-up is not enabled.' });
+		if (!locals.user) redirect(303, `/sign-in?next=${encodeURIComponent(HERE)}`);
+		const user = requireUser(locals);
+		const form = await request.formData();
+		const orgName = String(form.get('orgName') || '').trim();
+		let id: string;
+		try {
+			await assertMayCreateOrg(env, user);
+			id = await createOrg(env, request, user, { name: orgName });
+		} catch (err) {
+			const known = normalizeError(err);
+			if (!known) throw err;
+			return fail(known.status, { error: known.message, orgName });
+		}
+		redirect(303, `/orgs/${encodeURIComponent(id)}`);
+	}
+};

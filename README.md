@@ -62,4 +62,3 @@ KD 会在玩家档案中显示供参考，**不单独加风险分**。分段和�
 ## 技术与来源
 
 项目以 [Warcon](https://github.com/warcon-app/warcon) 为基础，保留上游的协议实现和 MIT 许可，WARDOGS RCON 边界见[现有 API 研究文档](docs/wardogs-api.md)。本仓库的中文说明和社区风控扩展用于服务器侧管理，不代表 WARDOGS、BULKHEAD 或 Team17 官方产品。
-

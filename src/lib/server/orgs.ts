@@ -1,0 +1,889 @@
+// Organisations: the clan or community that owns a set of servers. People join through shareable
+// invite links (/join/<token>) rather than being created one by one.
+import { and, asc, count, eq, gt, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
+import { maxServersPerOrg, type Env } from './env';
+import { ApiError, int, newId, str } from './http';
+import { writeAudit } from './audit';
+import { ORG_ROLES, type OrgRole, type OrgRow, type SessionUser } from './access';
+import {
+	apiKeys,
+	orgInvites,
+	orgMembers,
+	orgRoles,
+	organizations,
+	serverGrants,
+	servers,
+	user
+} from './db/schema';
+import type { OrgInviteRow } from './db/schema';
+import type { Db, DbOrTx } from './db';
+import { ensureOrgLists } from './lists';
+import { ensureOrgRoles, roleInOrg, rolesOf } from './roles';
+import { gateway } from './gateway';
+import type { InviteStatus, InviteView, ListSyncSummary, OrgMemberView, OrgView } from '$lib/types';
+import { parseDiscordInvite } from '$lib/discord-invite';
+import {
+	BAN_MESSAGE_VARS,
+	DEFAULT_BAN_MESSAGE,
+	MAX_BAN_MESSAGE,
+	unknownBanVars
+} from '$lib/ban-message';
+
+/** A Drizzle transaction handle (what `db.transaction(async (tx) => ...)` passes). */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+const iso = (v: Date | null | undefined): string | null => (v ? v.toISOString() : null);
+
+export function validateOrgName(v: unknown): string {
+	const name = str(v, 60);
+	if (name.length < 2) throw new ApiError(400, 'Organisation name must be at least 2 characters.');
+	return name;
+}
+
+const slugOf = (name: string) =>
+	name
+		.toLowerCase()
+		.normalize('NFKD')
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.slice(0, 40) || 'org';
+
+async function freeSlug(env: Env, base: string, exceptId?: string): Promise<string> {
+	for (let n = 0; n < 50; n++) {
+		const candidate = n ? `${base}-${n + 1}` : base;
+		const [taken] = await env.db
+			.select({ id: organizations.id })
+			.from(organizations)
+			.where(
+				exceptId
+					? and(eq(organizations.slug, candidate), ne(organizations.id, exceptId))
+					: eq(organizations.slug, candidate)
+			)
+			.limit(1);
+		if (!taken) return candidate;
+	}
+	return `${base}-${newId().slice(0, 8)}`;
+}
+
+// --- orgs ---
+
+/** How many servers an org may hold: its site-owner override, else MAX_SERVERS_PER_ORG. */
+export const serverLimitFor = (env: Env, org: Pick<OrgRow, 'serverLimit'>): number =>
+	org.serverLimit ?? maxServersPerOrg(env);
+
+export const suspendedProblem = (org: Pick<OrgRow, 'suspendedAt'>): string | null =>
+	org.suspendedAt ? 'This organisation is suspended. Contact the site owner.' : null;
+
+/** Org owners may add a server while the org is active and under its limit; the site owner always may. */
+export async function assertCanAddServer(env: Env, org: OrgRow, actor: SessionUser): Promise<void> {
+	if (actor.role === 'owner') return;
+	const suspended = suspendedProblem(org);
+	if (suspended) throw new ApiError(403, suspended, 'suspended');
+	const [row] = await env.db.select({ n: count() }).from(servers).where(eq(servers.orgId, org.id));
+	const limit = serverLimitFor(env, org);
+	if ((row?.n ?? 0) >= limit)
+		throw new ApiError(
+			403,
+			`${org.name} is at its limit of ${limit} server${limit === 1 ? '' : 's'}. Ask the site owner to raise it.`,
+			'limit'
+		);
+}
+
+const shapeOrg = (
+	env: Env,
+	o: OrgRow,
+	memberCount: number,
+	serverCount: number,
+	creator: { username: string | null; name: string } | null
+): OrgView => ({
+	id: o.id,
+	name: o.name,
+	slug: o.slug,
+	memberCount,
+	serverCount,
+	serverLimit: serverLimitFor(env, o),
+	customServerLimit: o.serverLimit,
+	suspended: o.suspendedAt ? { at: o.suspendedAt.toISOString(), reason: o.suspendedReason } : null,
+	allowPublicStatus: o.allowPublicStatus,
+	allowPublicLeaderboards: o.allowPublicLeaderboards,
+	discordInviteUrl: o.discordInviteUrl,
+	createdBy: creator ? { username: creator.username || '', name: creator.name } : null,
+	createdAt: iso(o.createdAt)
+});
+
+/** The given orgs with member and server counts (callers pass the ids the user may see). */
+export async function listOrgs(env: Env, ids: string[]): Promise<OrgView[]> {
+	if (!ids.length) return [];
+	const [rows, members, srv] = await Promise.all([
+		env.db
+			.select({ o: organizations, creator: { username: user.username, name: user.name } })
+			.from(organizations)
+			.leftJoin(user, eq(user.id, organizations.createdBy))
+			.where(inArray(organizations.id, ids))
+			.orderBy(asc(organizations.name)),
+		env.db
+			.select({ orgId: orgMembers.orgId, n: count() })
+			.from(orgMembers)
+			.where(inArray(orgMembers.orgId, ids))
+			.groupBy(orgMembers.orgId),
+		env.db
+			.select({ orgId: servers.orgId, n: count() })
+			.from(servers)
+			.where(inArray(servers.orgId, ids))
+			.groupBy(servers.orgId)
+	]);
+	const m = new Map(members.map((r) => [r.orgId, r.n]));
+	const s = new Map(srv.map((r) => [r.orgId, r.n]));
+	return rows.map(({ o, creator }) =>
+		shapeOrg(
+			env,
+			o,
+			m.get(o.id) ?? 0,
+			s.get(o.id) ?? 0,
+			creator?.name !== undefined ? creator : null
+		)
+	);
+}
+
+/** Site-owner controls: per-org server limit, suspension and the public-surface allowances. */
+export async function setOrgControls(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow,
+	body: Record<string, unknown>
+): Promise<void> {
+	const set: Partial<typeof organizations.$inferInsert> = {};
+	const changes: Record<string, unknown> = {};
+	if (body.serverLimit !== undefined) {
+		// null or blank restores the instance default
+		const limit =
+			body.serverLimit === null || body.serverLimit === ''
+				? null
+				: int(body.serverLimit, -1, 0, 1000);
+		if (limit !== null && limit < 0)
+			throw new ApiError(400, 'serverLimit must be 0-1000 or empty.');
+		set.serverLimit = limit;
+		changes.serverLimit = limit;
+	}
+	// Withdrawing an allowance closes the pages at once: the effective set is computed from both
+	// switches ($lib/features), so the servers' own switches can stay as their owners left them.
+	if (body.allowPublicStatus !== undefined)
+		changes.allowPublicStatus = set.allowPublicStatus = !!body.allowPublicStatus;
+	if (body.allowPublicLeaderboards !== undefined)
+		changes.allowPublicLeaderboards = set.allowPublicLeaderboards = !!body.allowPublicLeaderboards;
+	if (body.suspended !== undefined) {
+		const suspended = !!body.suspended;
+		if (suspended && !org.suspendedAt) {
+			set.suspendedAt = new Date();
+			set.suspendedReason = str(body.reason, 300);
+			changes.suspended = true;
+			changes.reason = set.suspendedReason;
+		} else if (!suspended && org.suspendedAt) {
+			set.suspendedAt = null;
+			set.suspendedReason = '';
+			changes.suspended = false;
+		}
+	}
+	if (!Object.keys(changes).length) throw new ApiError(400, 'Nothing to update.');
+	set.updatedAt = new Date();
+	await env.db.update(organizations).set(set).where(eq(organizations.id, org.id));
+	await writeAudit(env, req, {
+		actor,
+		orgId: org.id,
+		category: 'org',
+		action: 'org.controls',
+		outcome: 'ok',
+		target: org.name,
+		detail: { orgId: org.id, ...changes }
+	});
+}
+
+/** Owners: hand every member with a SteamID a reserved slot on all org servers (or stop doing so). */
+export async function setMembersReserved(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow,
+	on: boolean
+): Promise<ListSyncSummary> {
+	if (org.membersReserved !== on)
+		await env.db
+			.update(organizations)
+			.set({ membersReserved: on, updatedAt: new Date() })
+			.where(eq(organizations.id, org.id));
+	await writeAudit(env, req, {
+		actor,
+		orgId: org.id,
+		category: 'org',
+		action: 'list.members',
+		outcome: 'ok',
+		target: org.name,
+		message: on
+			? 'Members with a SteamID now get a reserved slot on every server'
+			: 'Members no longer get a reserved slot',
+		detail: { orgId: org.id, membersReserved: on }
+	});
+	return gateway().syncOrg(env, { ...org, membersReserved: on });
+}
+
+/**
+ * Owners: the text a banned player is shown across the org. Bans placed from now on carry it; a
+ * ban already on a server keeps the text it went out with, so nothing is pushed.
+ */
+export async function setBanMessage(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow,
+	value: unknown
+): Promise<string> {
+	const banMessage = str(value, MAX_BAN_MESSAGE).replace(/\s+/g, ' ') || DEFAULT_BAN_MESSAGE;
+	const unknown = unknownBanVars(banMessage);
+	if (unknown.length)
+		throw new ApiError(
+			400,
+			`Unknown placeholder ${unknown.map((k) => `{${k}}`).join(', ')}. Use ${BAN_MESSAGE_VARS.map((k) => `{${k}}`).join(', ')}.`,
+			'unknown_placeholder'
+		);
+	if (banMessage !== org.banMessage)
+		await env.db
+			.update(organizations)
+			.set({ banMessage, updatedAt: new Date() })
+			.where(eq(organizations.id, org.id));
+	await writeAudit(env, req, {
+		actor,
+		orgId: org.id,
+		category: 'org',
+		action: 'list.ban_message',
+		outcome: 'ok',
+		target: org.name,
+		message: 'Ban message changed',
+		detail: { orgId: org.id, banMessage }
+	});
+	return banMessage;
+}
+
+/** Creates an org with the actor as its first owner. */
+export async function createOrg(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	body: Record<string, unknown>
+): Promise<string> {
+	const name = validateOrgName(body.name);
+	const id = newId();
+	const slug = await freeSlug(env, slugOf(name));
+	await env.db.transaction(async (tx) => {
+		await tx.insert(organizations).values({ id, name, slug, createdBy: actor.id });
+		await tx.insert(orgMembers).values({ orgId: id, userId: actor.id, role: 'owner' });
+		await ensureOrgRoles(tx, id);
+		await ensureOrgLists(tx, id, actor.id);
+	});
+	await writeAudit(env, req, {
+		actor,
+		orgId: id,
+		category: 'org',
+		action: 'org.create',
+		outcome: 'ok',
+		target: name,
+		detail: { orgId: id, slug }
+	});
+	return id;
+}
+
+export async function updateOrg(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow,
+	body: Record<string, unknown>
+): Promise<void> {
+	const set: Partial<typeof organizations.$inferInsert> = {};
+	const detail: Record<string, unknown> = { orgId: org.id };
+	if (body.name !== undefined) {
+		set.name = validateOrgName(body.name);
+		set.slug = await freeSlug(env, slugOf(set.name), org.id);
+		detail.from = org.name;
+	}
+	if (body.discordInviteUrl !== undefined) {
+		const raw = str(body.discordInviteUrl, 200);
+		const url = raw ? parseDiscordInvite(raw) : '';
+		if (url === null)
+			throw new ApiError(
+				400,
+				'Paste a Discord invite link: https://discord.gg/<code> or https://discord.com/invite/<code>.'
+			);
+		set.discordInviteUrl = url;
+		detail.discordInviteUrl = url;
+	}
+	if (!Object.keys(set).length) throw new ApiError(400, 'Nothing to update.');
+	set.updatedAt = new Date();
+	await env.db.update(organizations).set(set).where(eq(organizations.id, org.id));
+	await writeAudit(env, req, {
+		actor,
+		orgId: org.id,
+		category: 'org',
+		action: 'org.update',
+		outcome: 'ok',
+		target: set.name ?? org.name,
+		detail
+	});
+}
+
+/**
+ * Removes the org and, by cascade, its servers, roles, memberships and invites. Grants go first
+ * by hand: they point at the org's roles with ON DELETE RESTRICT, and Postgres may run the roles
+ * cascade before the servers cascade. Each server gets its own 'server.delete' row so per-server
+ * audit history shows who removed it.
+ */
+export async function deleteOrg(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow
+): Promise<void> {
+	const gone = await env.db
+		.select({ id: servers.id, name: servers.name, host: servers.host, port: servers.port })
+		.from(servers)
+		.where(eq(servers.orgId, org.id));
+	await env.db.transaction(async (tx) => {
+		if (gone.length)
+			await tx.delete(serverGrants).where(
+				inArray(
+					serverGrants.serverId,
+					gone.map((s) => s.id)
+				)
+			);
+		await tx.delete(orgInvites).where(eq(orgInvites.orgId, org.id));
+		await tx.delete(organizations).where(eq(organizations.id, org.id));
+	});
+	for (const s of gone) {
+		await writeAudit(env, req, {
+			actor,
+			server: { id: s.id, name: s.name },
+			orgId: org.id,
+			category: 'server',
+			action: 'server.delete',
+			outcome: 'ok',
+			target: `${s.host}:${s.port}`,
+			detail: { orgId: org.id, org: org.name, reason: 'org.delete' }
+		});
+	}
+	await writeAudit(env, req, {
+		actor,
+		orgId: org.id,
+		category: 'org',
+		action: 'org.delete',
+		outcome: 'ok',
+		target: org.name,
+		detail: { orgId: org.id, servers: gone.map((s) => s.id) }
+	});
+}
+
+// --- members ---
+
+export async function listMembers(env: Env, orgId: string): Promise<OrgMemberView[]> {
+	const rows = await env.db
+		.select({ m: orgMembers, u: user })
+		.from(orgMembers)
+		.innerJoin(user, eq(user.id, orgMembers.userId))
+		.where(eq(orgMembers.orgId, orgId))
+		.orderBy(asc(orgMembers.role), asc(user.username), asc(user.name));
+	const grants = await env.db
+		.select({
+			userId: serverGrants.userId,
+			serverId: serverGrants.serverId,
+			serverName: servers.name,
+			roleId: serverGrants.roleId,
+			roleName: orgRoles.name
+		})
+		.from(serverGrants)
+		.innerJoin(servers, eq(servers.id, serverGrants.serverId))
+		.innerJoin(orgRoles, eq(orgRoles.id, serverGrants.roleId))
+		.where(eq(servers.orgId, orgId))
+		.orderBy(asc(servers.sortOrder), asc(servers.name));
+	const byUser = new Map<string, OrgMemberView['grants']>();
+	for (const g of grants) {
+		if (!byUser.has(g.userId)) byUser.set(g.userId, []);
+		byUser.get(g.userId)!.push({
+			serverId: g.serverId,
+			serverName: g.serverName,
+			roleId: g.roleId,
+			roleName: g.roleName
+		});
+	}
+	return rows.map(({ m, u }) => ({
+		userId: u.id,
+		username: u.displayUsername || u.username || u.email.split('@')[0],
+		name: u.name || u.displayUsername || u.username || '',
+		image: u.image,
+		siteOwner: u.role === 'owner',
+		disabled: !!u.banned,
+		role: m.role,
+		joinedAt: iso(m.createdAt),
+		grants: byUser.get(u.id) || []
+	}));
+}
+
+/**
+ * Refuses to take away an org's last owner. Called inside the transaction that demotes or removes:
+ * it locks the org's owner rows, so of two requests that arrive together the second waits, then
+ * counts what the first left. A count before the transaction let both through.
+ */
+async function keepAnOwner(tx: DbOrTx, org: OrgRow, userId: string): Promise<void> {
+	const owners = await tx
+		.select({ userId: orgMembers.userId })
+		.from(orgMembers)
+		.where(and(eq(orgMembers.orgId, org.id), eq(orgMembers.role, 'owner')))
+		.orderBy(orgMembers.userId)
+		.for('update');
+	if (owners.length <= 1 && owners.some((o) => o.userId === userId))
+		throw new ApiError(400, `${org.name} needs at least one owner.`);
+}
+
+/** Is there a stored membership row (site owners are not implied members)? */
+export async function isMember(env: Env, orgId: string, userId: string): Promise<boolean> {
+	const [row] = await env.db
+		.select({ userId: orgMembers.userId })
+		.from(orgMembers)
+		.where(and(eq(orgMembers.orgId, orgId), eq(orgMembers.userId, userId)))
+		.limit(1);
+	return !!row;
+}
+
+/** Names of the orgs where this user is the only owner; deleting them would leave those ownerless. */
+export async function soleOwnerOf(env: Env, userId: string): Promise<string[]> {
+	const owners = sql<number>`(
+		select count(*) from ${orgMembers} o
+		where o.org_id = ${orgMembers.orgId} and o.role = 'owner'
+	)`;
+	const rows = await env.db
+		.select({ name: organizations.name })
+		.from(orgMembers)
+		.innerJoin(organizations, eq(organizations.id, orgMembers.orgId))
+		.where(and(eq(orgMembers.userId, userId), eq(orgMembers.role, 'owner'), eq(owners, 1)))
+		.orderBy(asc(organizations.name));
+	return rows.map((r) => r.name);
+}
+
+async function memberOf(env: Env, orgId: string, userId: string) {
+	const [row] = await env.db
+		.select({ m: orgMembers, name: user.name, username: user.username })
+		.from(orgMembers)
+		.innerJoin(user, eq(user.id, orgMembers.userId))
+		.where(and(eq(orgMembers.orgId, orgId), eq(orgMembers.userId, userId)))
+		.limit(1);
+	if (!row) throw new ApiError(404, 'Not a member of this organisation.');
+	return { ...row.m, label: row.username || row.name };
+}
+
+export async function setMemberRole(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow,
+	userId: string,
+	roleIn: unknown
+): Promise<void> {
+	const role = roleIn as OrgRole;
+	if (!ORG_ROLES.includes(role)) throw new ApiError(400, 'role must be owner or member.');
+	const m = await memberOf(env, org.id, userId);
+	if (m.role === role) return;
+	const ended = await env.db.transaction(async (tx) => {
+		if (role === 'member') await keepAnOwner(tx, org, userId);
+		await tx
+			.update(orgMembers)
+			.set({ role })
+			.where(and(eq(orgMembers.orgId, org.id), eq(orgMembers.userId, userId)));
+		return role === 'member' ? revokeMintedBy(tx, userId, org.id) : null;
+	});
+	await writeAudit(env, req, {
+		actor,
+		orgId: org.id,
+		category: 'org',
+		action: 'org.member.role',
+		outcome: 'ok',
+		target: m.label,
+		detail: { orgId: org.id, org: org.name, role, ...(ended ?? {}) }
+	});
+}
+
+/**
+ * Ends the invite links and API keys this person minted, in one org or (deleting the account) in
+ * all of them. Both are an owner's to make and both work without their maker: left live, an
+ * owner-role link lets a removed owner straight back in, and their key goes on driving the
+ * servers. Returns how many of each it ended, for the audit trail.
+ */
+export async function revokeMintedBy(
+	db: DbOrTx,
+	userId: string,
+	orgId?: string
+): Promise<{ invitesRevoked: number; keysRevoked: number }> {
+	const now = new Date();
+	const links = await db
+		.update(orgInvites)
+		.set({ revokedAt: now })
+		.where(
+			and(
+				eq(orgInvites.createdBy, userId),
+				isNull(orgInvites.revokedAt),
+				orgId ? eq(orgInvites.orgId, orgId) : undefined
+			)
+		)
+		.returning({ id: orgInvites.id });
+	const keys = await db
+		.update(apiKeys)
+		.set({ revokedAt: now })
+		.where(
+			and(
+				eq(apiKeys.createdBy, userId),
+				isNull(apiKeys.revokedAt),
+				orgId ? eq(apiKeys.orgId, orgId) : undefined
+			)
+		)
+		.returning({ id: apiKeys.id });
+	return { invitesRevoked: links.length, keysRevoked: keys.length };
+}
+
+/** Removes the membership, every grant on the org's servers, and the links and keys they minted. */
+export async function removeMember(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow,
+	userId: string
+): Promise<void> {
+	const m = await memberOf(env, org.id, userId);
+	const ended = await env.db.transaction(async (tx) => {
+		await keepAnOwner(tx, org, userId);
+		const ids = (
+			await tx.select({ id: servers.id }).from(servers).where(eq(servers.orgId, org.id))
+		).map((r) => r.id);
+		if (ids.length)
+			await tx
+				.delete(serverGrants)
+				.where(and(eq(serverGrants.userId, userId), inArray(serverGrants.serverId, ids)));
+		await tx
+			.delete(orgMembers)
+			.where(and(eq(orgMembers.orgId, org.id), eq(orgMembers.userId, userId)));
+		return revokeMintedBy(tx, userId, org.id);
+	});
+	await writeAudit(env, req, {
+		actor,
+		orgId: org.id,
+		category: 'org',
+		action: 'org.member.remove',
+		outcome: 'ok',
+		target: m.label,
+		detail: { orgId: org.id, org: org.name, ...ended }
+	});
+}
+
+/** Replaces a member's grants on this org's servers (grants elsewhere are untouched). Roles must be this org's. */
+export async function setMemberGrants(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow,
+	userId: string,
+	grants: unknown
+) {
+	const m = await memberOf(env, org.id, userId);
+	const known = new Set(
+		(await env.db.select({ id: servers.id }).from(servers).where(eq(servers.orgId, org.id))).map(
+			(r) => r.id
+		)
+	);
+	const roles = await rolesOf(env, org.id);
+	const wanted = Array.isArray(grants)
+		? (grants as { serverId?: unknown; roleId?: unknown }[])
+		: [];
+	const applied: { serverId: string; roleId: string; roleName: string }[] = [];
+	for (const g of wanted) {
+		const serverId = str(g.serverId, 64);
+		const role = roles.get(str(g.roleId, 64));
+		if (!known.has(serverId) || !role) continue;
+		if (!applied.some((a) => a.serverId === serverId))
+			applied.push({ serverId, roleId: role.id, roleName: role.name });
+	}
+	await env.db.transaction(async (tx) => {
+		if (known.size)
+			await tx
+				.delete(serverGrants)
+				.where(and(eq(serverGrants.userId, userId), inArray(serverGrants.serverId, [...known])));
+		if (applied.length)
+			await tx.insert(serverGrants).values(
+				applied.map((a) => ({
+					serverId: a.serverId,
+					roleId: a.roleId,
+					userId,
+					grantedBy: actor.id
+				}))
+			);
+	});
+	await writeAudit(env, req, {
+		actor,
+		orgId: org.id,
+		category: 'org',
+		action: 'org.member.grants',
+		outcome: 'ok',
+		target: m.label,
+		detail: { orgId: org.id, org: org.name, grants: applied }
+	});
+	return applied;
+}
+
+/**
+ * Makes sure each user is at least a member of the given org (a grant implies membership).
+ * Runs inside the caller's grant transaction so a grant can never exist without its membership.
+ */
+export async function ensureMemberships(
+	tx: Tx,
+	pairs: { orgId: string; userId: string }[]
+): Promise<void> {
+	const rows: { orgId: string; userId: string; role: OrgRole }[] = [];
+	for (const p of pairs) {
+		if (!rows.some((r) => r.orgId === p.orgId && r.userId === p.userId))
+			rows.push({ orgId: p.orgId, userId: p.userId, role: 'member' });
+	}
+	if (rows.length) await tx.insert(orgMembers).values(rows).onConflictDoNothing();
+}
+
+// --- invite links ---
+
+export const inviteUrl = (env: Env, token: string) => `${env.ORIGIN}/join/${token}`;
+
+const newToken = () => {
+	const bytes = new Uint8Array(24);
+	crypto.getRandomValues(bytes);
+	return Buffer.from(bytes).toString('base64url');
+};
+
+export function inviteStatus(inv: OrgInviteRow, now = new Date()): InviteStatus {
+	if (inv.revokedAt) return 'revoked';
+	if (inv.expiresAt && inv.expiresAt.getTime() <= now.getTime()) return 'expired';
+	if (inv.maxUses !== null && inv.uses >= inv.maxUses) return 'used';
+	return 'live';
+}
+
+const STATUS_PROBLEM: Record<Exclude<InviteStatus, 'live'>, string> = {
+	revoked: 'This invite link has been revoked.',
+	expired: 'This invite link has expired.',
+	used: 'This invite link has been used up.'
+};
+
+/** Why an invite cannot be used right now, or null when it can. */
+export function inviteProblem(inv: OrgInviteRow, now = new Date()): string | null {
+	const status = inviteStatus(inv, now);
+	return status === 'live' ? null : STATUS_PROBLEM[status];
+}
+
+const shapeInvite = (env: Env, inv: OrgInviteRow, serverRoleName: string | null): InviteView => {
+	const status = inviteStatus(inv);
+	return {
+		id: inv.id,
+		label: inv.label,
+		orgRole: inv.orgRole,
+		serverRoleId: inv.serverRoleId,
+		serverRoleName,
+		maxUses: inv.maxUses,
+		uses: inv.uses,
+		expiresAt: iso(inv.expiresAt),
+		revokedAt: iso(inv.revokedAt),
+		createdAt: iso(inv.createdAt),
+		url: inviteUrl(env, inv.token),
+		status,
+		problem: status === 'live' ? null : STATUS_PROBLEM[status]
+	};
+};
+
+export async function listInvites(env: Env, orgId: string): Promise<InviteView[]> {
+	const rows = await env.db
+		.select({ inv: orgInvites, roleName: orgRoles.name })
+		.from(orgInvites)
+		.leftJoin(orgRoles, eq(orgRoles.id, orgInvites.serverRoleId))
+		.where(eq(orgInvites.orgId, orgId))
+		.orderBy(asc(orgInvites.createdAt));
+	return rows.map((r) => shapeInvite(env, r.inv, r.roleName));
+}
+
+export async function createInvite(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow,
+	body: Record<string, unknown>
+): Promise<InviteView> {
+	const suspended = suspendedProblem(org);
+	if (suspended && actor.role !== 'owner') throw new ApiError(403, suspended, 'suspended');
+	const orgRole: OrgRole = body.orgRole === 'owner' ? 'owner' : 'member';
+	// A role id from another org (or a stale one) is a 404 here, never silently "no access".
+	const serverRoleId = str(body.serverRoleId, 64) || null;
+	const serverRole = serverRoleId ? await roleInOrg(env, org.id, serverRoleId) : null;
+	// Blank, 0 or anything below 0 means "no limit"; only a positive count or day span applies.
+	const maxUses = int(body.maxUses, 0, 0, 100000) || null;
+	const days = int(body.expiresDays, 0, 0, 3650);
+	const expiresAt = days ? new Date(Date.now() + days * 86400_000) : null;
+	const row: typeof orgInvites.$inferInsert = {
+		id: newId(),
+		orgId: org.id,
+		token: newToken(),
+		label: str(body.label, 60),
+		orgRole,
+		serverRoleId: serverRole?.id ?? null,
+		maxUses,
+		expiresAt,
+		createdBy: actor.id
+	};
+	const [created] = await env.db.insert(orgInvites).values(row).returning();
+	await writeAudit(env, req, {
+		actor,
+		orgId: org.id,
+		category: 'org',
+		action: 'org.invite.create',
+		outcome: 'ok',
+		target: org.name,
+		detail: {
+			orgId: org.id,
+			inviteId: row.id,
+			orgRole,
+			serverRoleId: serverRole?.id ?? null,
+			serverRole: serverRole?.name ?? null,
+			maxUses,
+			expiresAt: iso(expiresAt)
+		}
+	});
+	return shapeInvite(env, created, serverRole?.name ?? null);
+}
+
+export async function revokeInvite(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	org: OrgRow,
+	inviteId: string
+): Promise<void> {
+	const [inv] = await env.db
+		.update(orgInvites)
+		.set({ revokedAt: new Date() })
+		.where(and(eq(orgInvites.id, inviteId), eq(orgInvites.orgId, org.id)))
+		.returning({ id: orgInvites.id });
+	if (!inv) throw new ApiError(404, 'Invite not found.');
+	await writeAudit(env, req, {
+		actor,
+		orgId: org.id,
+		category: 'org',
+		action: 'org.invite.revoke',
+		outcome: 'ok',
+		target: org.name,
+		detail: { orgId: org.id, inviteId }
+	});
+}
+
+export async function findInvite(
+	env: Env,
+	token: string
+): Promise<{ invite: OrgInviteRow; org: OrgRow; serverRoleName: string | null } | null> {
+	if (!token || token.length > 100) return null;
+	const [row] = await env.db
+		.select({ invite: orgInvites, org: organizations, serverRoleName: orgRoles.name })
+		.from(orgInvites)
+		.innerJoin(organizations, eq(organizations.id, orgInvites.orgId))
+		.leftJoin(orgRoles, eq(orgRoles.id, orgInvites.serverRoleId))
+		.where(eq(orgInvites.token, token))
+		.limit(1);
+	return row ?? null;
+}
+
+/**
+ * Applies an invite to a signed-in user: membership at the invite's org role, plus the invite's
+ * default role on every server the org has right now. A no-op for existing members. The use is
+ * claimed with a conditional update inside the transaction, so two people racing for the last
+ * use of a link cannot both get in, and a double submit is absorbed by the membership key.
+ */
+export async function joinOrg(
+	env: Env,
+	req: Request,
+	user: SessionUser,
+	invite: OrgInviteRow,
+	org: OrgRow
+): Promise<void> {
+	// Members re-opening a link (even one that has since run out) are simply already in.
+	if (await isMember(env, org.id, user.id)) return;
+	const problem = inviteProblem(invite) ?? suspendedProblem(org);
+	if (problem) throw new ApiError(410, problem, 'invite');
+	let granted = 0;
+	let grantedRole: string | null = null;
+	const joined = await env.db.transaction(async (tx) => {
+		const inserted = await tx
+			.insert(orgMembers)
+			.values({ orgId: org.id, userId: user.id, role: invite.orgRole, inviteId: invite.id })
+			.onConflictDoNothing()
+			.returning({ userId: orgMembers.userId });
+		if (!inserted.length) return false; // already a member: no use consumed
+		const claimed = await tx
+			.update(orgInvites)
+			.set({ uses: sql`${orgInvites.uses} + 1` })
+			.where(
+				and(
+					eq(orgInvites.id, invite.id),
+					isNull(orgInvites.revokedAt),
+					or(isNull(orgInvites.expiresAt), gt(orgInvites.expiresAt, new Date())),
+					or(isNull(orgInvites.maxUses), lt(orgInvites.uses, orgInvites.maxUses))
+				)
+			)
+			.returning({ id: orgInvites.id });
+		// Rolls back the membership: the link ran out (or was revoked) since the page was loaded.
+		if (!claimed.length)
+			throw new ApiError(410, 'This invite link can no longer be used.', 'invite');
+		// The role is re-read inside the transaction: if an owner deleted it since the link was
+		// made (the FK nulls the invite), the person still joins, just without server access.
+		const [role] = invite.serverRoleId
+			? await tx
+					.select({ id: orgRoles.id, name: orgRoles.name })
+					.from(orgRoles)
+					.where(and(eq(orgRoles.id, invite.serverRoleId), eq(orgRoles.orgId, org.id)))
+					.limit(1)
+			: [];
+		if (role) {
+			const ids = await tx
+				.select({ id: servers.id })
+				.from(servers)
+				.where(eq(servers.orgId, org.id));
+			if (ids.length) {
+				await tx
+					.insert(serverGrants)
+					.values(
+						ids.map((s) => ({
+							serverId: s.id,
+							userId: user.id,
+							roleId: role.id,
+							grantedBy: invite.createdBy
+						}))
+					)
+					.onConflictDoNothing();
+				granted = ids.length;
+				grantedRole = role.name;
+			}
+		}
+		return true;
+	});
+	if (!joined) return;
+	await writeAudit(env, req, {
+		actor: user,
+		orgId: org.id,
+		category: 'org',
+		action: 'org.join',
+		outcome: 'ok',
+		target: org.name,
+		detail: {
+			orgId: org.id,
+			inviteId: invite.id,
+			orgRole: invite.orgRole,
+			serverRoleId: invite.serverRoleId,
+			serverRole: grantedRole,
+			servers: granted
+		}
+	});
+}

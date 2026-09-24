@@ -1,0 +1,108 @@
+// Server-sent events: every observation of the requested servers as it happens, plus trigger
+// deliveries. While a browser holds this stream open the servers count as watched, which moves
+// them to the fastest observation tier. Streams live a few minutes at most: the browser
+// reconnects on its own, and every reconnection is authenticated and access-checked afresh, so a
+// revoked user or grant loses the stream promptly.
+import { getEnv } from '$lib/server/env';
+import { ApiError, apiError } from '$lib/server/http';
+import { accessibleServers, requireUser } from '$lib/server/access';
+import { gateway } from '$lib/server/gateway';
+import { isShuttingDown, onShutdown } from '$lib/server/shutdown';
+
+const INTEREST_MS = 5000;
+const PING_MS = 15_000;
+const LIFETIME_MS = 5 * 60_000;
+/** Close a consumer with this many events buffered and unread (a stalled tab, a broken proxy). */
+const MAX_BACKLOG = 2000;
+
+export const GET = async (event) => {
+	const env = getEnv();
+	// The checks before the stream answer like every other API route (401/400/503 as JSON); only
+	// the stream itself stays outside route(), since it is a long-lived response.
+	let ids: string[];
+	let automation: Set<string>;
+	try {
+		const user = requireUser(event.locals);
+		const servers = await accessibleServers(env, user);
+		const mine = new Set(servers.map((s) => s.id));
+		const asked = (event.url.searchParams.get('ids') || '').split(',').filter(Boolean);
+		ids = (asked.length ? asked : [...mine]).filter((id) => mine.has(id));
+		// What a rule did is for those who may read the outbox (GET .../outbox), not every viewer.
+		automation = new Set(
+			servers.filter((s) => s.caps.includes('automation.manage')).map((s) => s.id)
+		);
+		if (!ids.length) throw new ApiError(400, 'No servers to watch.');
+		// A process that is stopping must not take on a stream the browser would only lose again.
+		if (isShuttingDown()) throw new ApiError(503, 'Server restarting; retry shortly.');
+	} catch (err) {
+		return apiError(err);
+	}
+	const wanted = new Set(ids);
+	const encoder = new TextEncoder();
+	let closed = false;
+	let unsubscribe = () => {};
+	const timers: ReturnType<typeof setInterval | typeof setTimeout>[] = [];
+	let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null;
+	const cleanup = () => {
+		if (closed) return;
+		closed = true;
+		offShutdown();
+		unsubscribe();
+		for (const t of timers) clearTimeout(t);
+		try {
+			controllerRef?.close();
+		} catch {
+			/* already closed */
+		}
+	};
+	// Ended early when the process stops, so the HTTP server can close and the deploy move on.
+	const offShutdown = onShutdown(() => cleanup());
+	const stream = new ReadableStream<Uint8Array>({
+		async start(controller) {
+			controllerRef = controller;
+			const send = (name: string, data: unknown) => {
+				if (closed) return;
+				if ((controller.desiredSize ?? 1) < -MAX_BACKLOG) return cleanup();
+				try {
+					controller.enqueue(encoder.encode(`event: ${name}\ndata: ${JSON.stringify(data)}\n\n`));
+				} catch {
+					cleanup();
+				}
+			};
+			gateway().interest(ids);
+			const initial = await gateway().live(env, ids);
+			if (closed) return; // cancelled while the first read was pending
+			for (const v of initial.values()) send('live', v);
+			if (closed) return;
+			unsubscribe = gateway().subscribe((e) => {
+				if (e.type === 'live' && wanted.has(e.live.serverId)) send('live', e.live);
+				else if (e.type === 'outbox' && wanted.has(e.serverId) && automation.has(e.serverId))
+					send('outbox', e);
+				else if (e.type === 'kills' && wanted.has(e.serverId)) send('kills', e);
+			});
+			timers.push(setInterval(() => gateway().interest(ids), INTEREST_MS));
+			timers.push(
+				setInterval(() => {
+					if (closed) return;
+					try {
+						controller.enqueue(encoder.encode(': ping\n\n'));
+					} catch {
+						cleanup();
+					}
+				}, PING_MS)
+			);
+			timers.push(setTimeout(cleanup, LIFETIME_MS));
+		},
+		cancel() {
+			cleanup();
+		}
+	});
+	event.setHeaders({ 'x-accel-buffering': 'no' });
+	return new Response(stream, {
+		headers: {
+			'content-type': 'text/event-stream; charset=utf-8',
+			'cache-control': 'no-cache, no-transform',
+			connection: 'keep-alive'
+		}
+	});
+};
