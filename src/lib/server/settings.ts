@@ -23,8 +23,8 @@ export const AUTH_ENFORCE = { advise: 0, privileged: 1, everyone: 2 } as const;
 
 export const SETTINGS = {
 	watchedPlayersMs: {
-		label: 'Watched: players',
-		help: 'How often the player list is read while someone has the server open.',
+		label: '有人查看：玩家',
+		help: '有人打开服务器页面时读取玩家列表的间隔。',
 		unit: 'ms',
 		default: 1000,
 		min: 500,
@@ -32,8 +32,8 @@ export const SETTINGS = {
 		group: 'observation'
 	},
 	watchedStatusMs: {
-		label: 'Watched: status',
-		help: 'How often status (scores, map, clock) is read while someone has the server open.',
+		label: '有人查看：状态',
+		help: '有人打开服务器页面时读取比分、地图和计时器的间隔。',
 		unit: 'ms',
 		default: 2000,
 		min: 1000,
@@ -41,8 +41,8 @@ export const SETTINGS = {
 		group: 'observation'
 	},
 	hotPlayersMs: {
-		label: 'Busy: players',
-		help: 'Player list cadence on a server with people on it and nobody watching. Sets how fast joins are noticed.',
+		label: '有玩家在线：玩家',
+		help: '服务器有玩家但无人查看时读取玩家列表的间隔；决定多快发现新加入的玩家。',
 		unit: 'ms',
 		default: 2000,
 		min: 1000,
@@ -50,8 +50,8 @@ export const SETTINGS = {
 		group: 'observation'
 	},
 	hotStatusMs: {
-		label: 'Busy: status',
-		help: 'Status cadence on a server with people on it and nobody watching.',
+		label: '有玩家在线：状态',
+		help: '服务器有玩家但无人查看时读取状态的间隔。',
 		unit: 'ms',
 		default: 5000,
 		min: 1000,
@@ -59,8 +59,8 @@ export const SETTINGS = {
 		group: 'observation'
 	},
 	idleMs: {
-		label: 'Empty server',
-		help: 'Cadence for a server with nobody on it. The first join is noticed within this.',
+		label: '空服务器',
+		help: '服务器无人在线时的检查间隔；首位玩家加入后会在此时间内被发现。',
 		unit: 'ms',
 		default: 30_000,
 		min: 5000,
@@ -68,8 +68,8 @@ export const SETTINGS = {
 		group: 'observation'
 	},
 	offlineMs: {
-		label: 'Unreachable: first retry',
-		help: 'Cadence once a server has stopped answering; doubles on every further failure.',
+		label: '无法连接：首次重试',
+		help: '服务器停止响应后的首次重试间隔；之后每次失败都会加倍。',
 		unit: 'ms',
 		default: 30_000,
 		min: 5000,
@@ -77,8 +77,8 @@ export const SETTINGS = {
 		group: 'observation'
 	},
 	offlineMaxMs: {
-		label: 'Unreachable: longest wait',
-		help: 'The retry cadence never grows past this.',
+		label: '无法连接：最长等待',
+		help: '重试间隔不会超过此值。',
 		unit: 'ms',
 		default: 120_000,
 		min: 5000,
@@ -86,8 +86,8 @@ export const SETTINGS = {
 		group: 'observation'
 	},
 	watchLeaseMs: {
-		label: 'Watch lease',
-		help: 'How long a server stays in the watched tier after the last browser stopped looking.',
+		label: '查看状态保留时间',
+		help: '最后一个浏览器关闭页面后，服务器继续使用高频检查的时间。',
 		unit: 'ms',
 		default: 15_000,
 		min: 5000,
@@ -95,8 +95,8 @@ export const SETTINGS = {
 		group: 'observation'
 	},
 	concurrency: {
-		label: 'Observations in flight',
-		help: 'Servers the worker may be talking to at once. A guard for the process, not a cadence; keep under 256.',
+		label: '并发检查数量',
+		help: '工作进程可同时查询的服务器数量。这是进程保护上限，不是检查间隔；建议低于 256。',
 		unit: 'count',
 		default: 128,
 		min: 1,
@@ -104,8 +104,8 @@ export const SETTINGS = {
 		group: 'observation'
 	},
 	sampleMs: {
-		label: 'Analytics heartbeat',
-		help: 'A sample row is written when something changed, and at least this often while a server is up.',
+		label: '统计数据心跳',
+		help: '服务器运行时状态变化会写入采样记录；即使无变化，也至少按此间隔写入一次。',
 		unit: 'ms',
 		default: 20_000,
 		min: 5000,
@@ -113,8 +113,8 @@ export const SETTINGS = {
 		group: 'housekeeping'
 	},
 	sessionHeartbeatMs: {
-		label: 'Session heartbeat',
-		help: 'How often open sessions get their last-seen time and stats written to the database.',
+		label: '玩家会话心跳',
+		help: '更新在线会话最近观测时间和统计数据的间隔。',
 		unit: 'ms',
 		default: 30_000,
 		min: 5000,
@@ -122,8 +122,8 @@ export const SETTINGS = {
 		group: 'housekeeping'
 	},
 	listsSnapshotMs: {
-		label: 'Ban list snapshot',
-		help: 'How often each server’s ban list and reserved slots are re-read.',
+		label: '封禁列表快照',
+		help: '重新读取各服务器封禁列表和预留席位的间隔。',
 		unit: 'ms',
 		default: 300_000,
 		min: 30_000,
@@ -131,8 +131,8 @@ export const SETTINGS = {
 		group: 'housekeeping'
 	},
 	listSyncMs: {
-		label: 'Org list sync',
-		help: 'How often the organisation’s ban and reserved lists are re-applied to each server.',
+		label: '组织列表同步',
+		help: '将组织封禁和预留席位列表重新应用到各服务器的间隔。',
 		unit: 'ms',
 		default: 60_000,
 		min: 10_000,
@@ -140,8 +140,8 @@ export const SETTINGS = {
 		group: 'housekeeping'
 	},
 	outboxLeaseMs: {
-		label: 'Delivery lease',
-		help: 'How long a claimed trigger action may take before another pass may pick it up.',
+		label: '动作发送租约',
+		help: '已领取的自动化动作在多长时间后可由下一轮处理重新领取。',
 		unit: 'ms',
 		default: 45_000,
 		min: 5000,
@@ -149,8 +149,8 @@ export const SETTINGS = {
 		group: 'delivery'
 	},
 	outboxMaxAgeMs: {
-		label: 'Stale action cut-off',
-		help: 'A trigger action older than this is skipped instead of sent (a welcome two minutes late is noise).',
+		label: '过期动作截止时间',
+		help: '超过此时长的动作将被跳过，不再发送（迟到两分钟的欢迎消息已无意义）。',
 		unit: 'ms',
 		default: 120_000,
 		min: 10_000,
@@ -158,13 +158,13 @@ export const SETTINGS = {
 		group: 'delivery'
 	},
 	authEnforce: {
-		label: 'Sign-in rules',
-		help: 'Every account should hold two independent ways in and a second factor on any password. "Advise" only shows the banner. "Privileged" also closes the panel, after the grace period, to site owners, organisation owners and anyone whose server role can ban, change config, run automation or use raw RCON; guests and viewers are left alone. "Everyone" applies that to every account.',
+		label: '登录安全规则',
+		help: '每个账号应设置两种独立登录方式；使用密码时还需第二因素。“仅提醒”只显示提示。“要求管理员遵守”会在宽限期结束后限制平台和组织所有者，以及有封禁、配置、自动化或原始 RCON 权限的成员。“要求所有人遵守”则适用于所有账号。',
 		unit: 'choice',
 		options: [
-			{ value: 0, label: 'Advise only' },
-			{ value: 1, label: 'Require for privileged accounts' },
-			{ value: 2, label: 'Require for everyone' }
+			{ value: 0, label: '仅提醒' },
+			{ value: 1, label: '要求管理员遵守' },
+			{ value: 2, label: '要求所有人遵守' }
 		],
 		default: 0,
 		min: 0,
@@ -172,8 +172,8 @@ export const SETTINGS = {
 		group: 'accounts'
 	},
 	authGraceDays: {
-		label: 'Owner sign-in grace',
-		help: 'Days an owner may keep signing in before the sign-in rules (two ways in, a second factor on any password) close the panel to them until they comply. Counted from their first sign-in after the rules arrived.',
+		label: '所有者登录宽限期',
+		help: '新登录安全规则生效后，所有者从首次登录起有多少天可以继续使用面板；期满后必须满足规则。',
 		unit: 'days',
 		default: 14,
 		min: 0,
@@ -181,8 +181,8 @@ export const SETTINGS = {
 		group: 'accounts'
 	},
 	authMemberGraceDays: {
-		label: 'Member sign-in grace',
-		help: 'The same grace period for members. Their organisation owners can always reset their sign-in methods.',
+		label: '成员登录宽限期',
+		help: '成员适用的宽限期。组织所有者始终可以重置成员的登录方式。',
 		unit: 'days',
 		default: 30,
 		min: 0,

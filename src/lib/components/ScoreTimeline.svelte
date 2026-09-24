@@ -44,7 +44,7 @@
 		</span>
 	{/each}
 </div>
-<svg viewBox="0 0 {W} {H}" class="mt-1 h-auto w-full" role="img" aria-label="Score over the match">
+<svg viewBox="0 0 {W} {H}" class="mt-1 h-auto w-full" role="img" aria-label="比赛分数变化">
 	{#each ticks as t (t)}
 		<line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="#2f2f35" stroke-width="1" />
 		<text x={PAD.left - 6} y={y(t) + 4} text-anchor="end" font-size="11" fill="#8a8a90">{t}</text>
@@ -69,7 +69,7 @@
 	{/each}
 	{#if !points.length}
 		<text x={W / 2} y={H / 2} text-anchor="middle" font-size="12" fill="#55555c"
-			>No samples of this match were kept.</text
+			>本场比赛没有保留样本。</text
 		>
 	{/if}
 </svg>

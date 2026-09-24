@@ -77,7 +77,7 @@
 		await run(
 			() =>
 				api('POST', `${orgPath}/webhooks`, {
-					label: label.trim() || `${data.server.name} ${wantCard ? 'status' : 'team kills'}`,
+					label: label.trim() || `${data.server.name} ${wantCard ? '状态' : '队友击杀'}`,
 					url: url.trim(),
 					events: wantTeamKills ? ['teamkills'] : [],
 					statusEnabled: wantCard,
@@ -85,8 +85,8 @@
 					serverIds: [data.server.id]
 				}),
 			wantCard
-				? 'Channel connected. The card is on its way; pin it in Discord once it lands.'
-				: 'Channel connected. Team kills will be posted as the kill feed reports them.'
+				? '频道已连接，卡片即将发送。出现后请在 Discord 中置顶。'
+				: '频道已连接，收到队友击杀事件时会发送通知。'
 		);
 		label = '';
 		url = '';
@@ -94,24 +94,24 @@
 	/** What a channel carries, in words: "Status card (banner) and team kills". */
 	const carries = (w: WebhookView): string => {
 		const parts: string[] = [];
-		if (w.statusEnabled) parts.push(`status card (${w.statusStyle}, every ${w.statusIntervalS} s)`);
-		if (w.events.includes('teamkills')) parts.push('team kills');
+		if (w.statusEnabled) parts.push(`状态卡片（${w.statusStyle}，每 ${w.statusIntervalS} 秒）`);
+		if (w.events.includes('teamkills')) parts.push('队友击杀');
 		const mirrored = w.events.filter((e) => e !== 'teamkills').length;
-		if (mirrored) parts.push(`${mirrored} kind${mirrored === 1 ? '' : 's'} of admin events`);
+		if (mirrored) parts.push(`${mirrored} 类管理员事件`);
 		const text =
 			parts.length > 1
-				? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
-				: (parts[0] ?? 'nothing');
-		return text.charAt(0).toUpperCase() + text.slice(1);
+				? `${parts.slice(0, -1).join('、')}和${parts[parts.length - 1]}`
+				: (parts[0] ?? '无');
+		return text;
 	};
 	/** The links a card carries right now, given the pages that are on. */
 	const linksOf = (w: WebhookView): string => {
 		const on = [
-			w.linkStatus && features.status ? 'live status' : '',
-			w.linkLeaderboard && features.leaderboards ? 'leaderboard' : '',
-			w.linkPanel ? 'panel' : ''
+			w.linkStatus && features.status ? '实时状态' : '',
+			w.linkLeaderboard && features.leaderboards ? '排行榜' : '',
+			w.linkPanel ? '管理面板' : ''
 		].filter(Boolean);
-		return on.length ? `links to ${on.join(', ')}` : 'no links';
+		return on.length ? `链接至${on.join('、')}` : '无链接';
 	};
 	const carryOf = (w: WebhookView): Carry =>
 		w.statusEnabled ? (w.events.includes('teamkills') ? 'both' : 'card') : 'teamkills';
@@ -160,34 +160,34 @@
 		const ok = await run(
 			() => api('PATCH', `${orgPath}/webhooks/${e.w.id}`, body),
 			body.statusEnabled === true
-				? 'Channel updated. The card is on its way; pin it in Discord once it lands.'
-				: 'Channel updated.'
+				? '频道已更新，卡片即将发送。出现后请在 Discord 中置顶。'
+				: '频道已更新。'
 		);
 		if (ok) editing = null;
 	}
 	function testCard(w: WebhookView) {
 		void run(
 			() => api('POST', `${orgPath}/webhooks/${w.id}/card`, { serverId: data.server.id }),
-			'Test card sent. It disappears in a minute.'
+			'测试卡片已发送，将在一分钟后消失。'
 		);
 	}
 	/** What to do about a failure, from Discord's answer. */
 	const hintFor = (error: string): string =>
 		/404|Unknown Webhook|401|403/i.test(error)
-			? 'Discord no longer knows this webhook. Disconnect it and connect a new one.'
+			? 'Discord 已无法识别此网络钩子，请断开后重新连接。'
 			: /rate limit/i.test(error)
-				? 'Discord is rate limiting the channel; Warcon backs off and retries.'
-				: 'Warcon retries every minute.';
+				? 'Discord 正在限制此频道的发送速率，Warcon 将延后重试。'
+				: 'Warcon 每分钟重试一次。';
 	async function toggle(w: WebhookView) {
 		const ok = await run(
 			() => api('PATCH', `${orgPath}/webhooks/${w.id}`, { enabled: !w.enabled }),
 			w.enabled
 				? w.statusEnabled
-					? 'Channel paused. The card is taken down and nothing is posted until you enable it again.'
-					: 'Channel paused. Nothing is posted until you enable it again.'
+					? '频道已暂停，卡片会撤下；重新启用前不会发送消息。'
+					: '频道已暂停，重新启用前不会发送消息。'
 				: w.statusEnabled
-					? 'Channel enabled. The card is on its way; pin it once it lands.'
-					: 'Channel enabled.'
+					? '频道已启用，卡片即将发送。出现后请置顶。'
+					: '频道已启用。'
 		);
 		if (ok) editing = null;
 	}
@@ -196,7 +196,7 @@
 		editing = null;
 		if (!(await confirmDialog(`Disconnect ${w.label}?`, { okLabel: 'Disconnect', danger: true })))
 			return;
-		await run(() => api('DELETE', `${orgPath}/webhooks/${w.id}`), 'Channel disconnected.');
+		await run(() => api('DELETE', `${orgPath}/webhooks/${w.id}`), '频道已断开。');
 	}
 	/** A channel this page can manage: this server only, carrying nothing but the card and team kills. */
 	const ownHere = (w: WebhookView) =>
@@ -205,26 +205,26 @@
 
 <div class="panel">
 	<div class="mb-3 flex items-center gap-3">
-		<span class="label-sm mb-0!">Discord channels</span>
+		<span class="label-sm mb-0!">Discord 频道</span>
 	</div>
 	<p class="mb-3 text-[13px] text-mist-400">
-		A channel is one Discord webhook URL, and each channel carries what you choose for it. Two
-		things belong here: a <b>status card</b> that Warcon posts once and edits in place (players
-		online, map, a score bar per faction and who is on each side; <b>pin it in Discord</b> so it
-		stays at the top), and <b>team kills</b>, one message each as the kill feed reports them. Use a
-		separate channel for each if you want them apart. Mirrors of admin actions (bans, kicks, trigger
-		actions, sign-ins) are set up on the <a class="link" href={orgPage}>org page</a>.
+		每个频道对应一个 Discord Webhook 地址，发送内容由你选择。这里可以发送两类内容： <b>状态卡片</b>
+		Warcon 创建一次并持续更新的状态卡片（在线人数、地图、各阵营分数和玩家名单；
+		<b>在 Discord 中置顶</b>
+		可将其置顶），以及
+		<b>误杀队友</b
+		>击杀事件上报的误杀队友消息。若希望分开显示，请分别创建频道。封禁、踢出、规则操作和登录等管理员操作的镜像通知在
+		<a class="link" href={orgPage}>组织页面</a>.
 	</p>
 	{#if data.owner && !data.https}
 		<div class="callout mb-3 border-warn/30 bg-warn/12">
-			<b>Cards will go out without pictures.</b> Discord only fetches map art and icons over https, and
-			this panel is not on https. Everything else on the card works.
+			<b>卡片将不附带图片。</b> Discord 只通过 HTTPS 获取地图图片和图标；此面板尚未使用 HTTPS，因此卡片不会显示图片，其余内容仍可正常使用。
 		</div>
 	{/if}
 	{#if !data.owner}
 		<p class="note">
-			Only an owner of {data.server.orgName} can connect Discord channels, because a webhook URL lets
-			anyone post there.
+			只有以下组织的所有者： {data.server.orgName} 只有组织所有者能连接 Discord 频道，因为持有 Webhook
+			地址的人都能向该频道发消息。
 		</p>
 	{:else}
 		{#each data.channels as w (w.id)}
@@ -232,36 +232,32 @@
 				<div class="min-w-0">
 					<div>
 						{w.label}
-						{#if !w.enabled}<Badge class="ml-1">paused</Badge>{/if}
-						{#if w.lastError}<Badge tone="err" class="ml-1">failing</Badge
-							>{:else if w.statusSentAt}<Badge tone="ok" class="ml-1">live</Badge>{/if}
+						{#if !w.enabled}<Badge class="ml-1">已暂停</Badge>{/if}
+						{#if w.lastError}<Badge tone="err" class="ml-1">异常</Badge
+							>{:else if w.statusSentAt}<Badge tone="ok" class="ml-1">实时</Badge>{/if}
 					</div>
 					<div class="truncate font-mono text-[11px] text-mist-600">{w.urlHint}</div>
 					<div class="text-[12px] text-mist-400">
 						{carries(w)}{#if w.statusEnabled}
 							· {linksOf(w)}{/if}
-						{#if !w.serverIds}· every server in the organisation{:else if w.serverIds.length > 1}·
-							this and {w.serverIds.length - 1} other server{w.serverIds.length === 2
-								? ''
-								: 's'}{/if}
+						{#if !w.serverIds}· 组织中的每台服务器{:else if w.serverIds.length > 1}· 本服及 {w
+								.serverIds.length - 1} 台其他服务器{w.serverIds.length === 2 ? '' : 's'}{/if}
 						{#if w.lastError}<div class="text-danger">{w.lastError}</div>
-							<div>{hintFor(w.lastError)}</div>{:else if w.statusSentAt}· updated {fmtTime(
+							<div>{hintFor(w.lastError)}</div>{:else if w.statusSentAt}· 已更新 {fmtTime(
 								w.statusSentAt
 							)}{/if}
 					</div>
 				</div>
 				{#if ownHere(w)}
 					<button class="btn btn-sm shrink-0" onclick={() => openEdit(w)} disabled={busy}
-						>Edit</button
+						>编辑</button
 					>
 				{:else}
-					<a class="btn btn-sm shrink-0 btn-ghost" href={orgPage}>Edit on the org page</a>
+					<a class="btn btn-sm shrink-0 btn-ghost" href={orgPage}>在组织页面编辑</a>
 				{/if}
 			</div>
 		{:else}
-			<p class="mb-3 text-[13px] text-mist-600">
-				No channel carries this server's card or team kills yet.
-			</p>
+			<p class="mb-3 text-[13px] text-mist-600">当前没有频道发送本服状态卡片或误杀队友消息。</p>
 		{/each}
 
 		<form
@@ -271,20 +267,20 @@
 				void add();
 			}}
 		>
-			<span class="field-label">Connect a channel</span>
+			<span class="field-label">连接频道</span>
 			<div class="grid gap-3 sm:grid-cols-[1fr_2fr]">
 				<label class="block"
-					><span class="field-label">Label</span><input
+					><span class="field-label">标签</span><input
 						id="discord-label"
 						class="input"
 						type="text"
 						bind:value={label}
-						placeholder="e.g. #eu-1-status"
+						placeholder="例如 #eu-1-status"
 						maxlength="60"
 					/></label
 				>
 				<label class="block"
-					><span class="field-label">Webhook URL</span><input
+					><span class="field-label">Webhook 地址</span><input
 						id="discord-url"
 						class="input font-mono text-[12.5px]"
 						type="url"
@@ -306,13 +302,12 @@
 				{features}
 			/>
 			<p class="note">
-				In Discord, open the channel's settings → Integrations → Webhooks → New Webhook, copy its
-				URL and paste it here. The URL is stored encrypted and never shown again. Pictures need the
-				panel to be reachable over https. The public pages a card can link to are switched on below,
-				under Public pages.
+				在 Discord 中打开频道设置 → 集成 → Webhook → 新建
+				Webhook，复制地址并粘贴到这里。地址会加密保存，之后不会再次显示。显示图片需要面板支持
+				HTTPS。卡片链接的公开页面可在下方“公开页面”中开启。
 			</p>
 			<div class="flex justify-end">
-				<button type="submit" class="btn btn-primary" disabled={busy}>Connect channel</button>
+				<button type="submit" class="btn btn-primary" disabled={busy}>连接频道</button>
 			</div>
 		</form>
 	{/if}
@@ -329,7 +324,7 @@
 			}}
 		>
 			<label class="block"
-				><span class="field-label">Label</span><input
+				><span class="field-label">标签</span><input
 					class="input"
 					type="text"
 					bind:value={e.label}
@@ -352,7 +347,7 @@
 						type="button"
 						class="btn"
 						onclick={() => testCard(e.w)}
-						disabled={busy || !e.w.enabled}>Test card</button
+						disabled={busy || !e.w.enabled}>测试卡片</button
 					>
 				{/if}
 				<button type="button" class="btn" onclick={() => toggle(e.w)} disabled={busy}
@@ -360,9 +355,9 @@
 				>
 				<span class="ml-auto inline-flex gap-2">
 					<button type="button" class="btn btn-danger" onclick={() => remove(e.w)} disabled={busy}
-						>Disconnect</button
+						>断开连接</button
 					>
-					<button type="submit" class="btn btn-primary" disabled={busy}>Save</button>
+					<button type="submit" class="btn btn-primary" disabled={busy}>保存</button>
 				</span>
 			</div>
 		</form>

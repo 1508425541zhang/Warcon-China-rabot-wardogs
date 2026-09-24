@@ -89,9 +89,9 @@
 	async function copy(text: string) {
 		try {
 			await navigator.clipboard.writeText(text);
-			toast('Join code copied.', 'ok');
+			toast('加入代码已复制。', 'ok');
 		} catch {
-			window.prompt('Copy the join code:', text);
+			window.prompt('请复制加入代码：', text);
 		}
 	}
 </script>
@@ -101,15 +101,15 @@
 	<meta
 		name="description"
 		content="{view.name}: {view.ok
-			? `${view.players} online on ${mapName(view.map)}`
-			: 'could not be reached'}"
+			? `${view.players} 人在线，地图：${mapName(view.map)}`
+			: '无法连接'}"
 	/>
 </svelte:head>
 
 {#snippet unassignedRow()}
 	<!-- players the game has not put on a team yet (white in game): one row, names only -->
 	<div class="mt-3 flex items-center gap-4 table-wrap px-3.5 py-2.5 lg:mt-4">
-		<span class="shrink-0 caps text-mist-400">Unassigned</span>
+		<span class="shrink-0 caps text-mist-400">未分配</span>
 		<span class="min-w-0 text-[13.5px]">{unassigned.join(' · ')}</span>
 	</div>
 {/snippet}
@@ -138,7 +138,7 @@
 						>
 							{mapName(view.map)}
 						</div>
-						<div class="caps text-mist-400">{mode || 'Waiting for the first look'}</div>
+						<div class="caps text-mist-400">{mode || '等待首次检查'}</div>
 					</div>
 					<span class="inline-flex shrink-0 items-center gap-1.5 caps text-mist-400">
 						<Pulse ok={view.observedAt ? view.ok : undefined} />
@@ -149,11 +149,9 @@
 
 			{#if !view.ok}
 				<div class="mt-3 callout mb-0 border-l-danger">
-					<b class="text-danger"
-						>{view.observedAt ? 'The server could not be reached' : 'Not looked at yet'}</b
-					>
+					<b class="text-danger">{view.observedAt ? '无法连接到服务器' : '尚未检查'}</b>
 					{#if view.observedAt}<span class="text-mist-400">
-							· last checked {fmtAgo(view.observedAt, now)}</span
+							· 上次检查 {fmtAgo(view.observedAt, now)}</span
 						>{/if}
 				</div>
 			{/if}
@@ -162,7 +160,7 @@
 		<div>
 			<div class="panel py-4">
 				<div class="flex items-baseline justify-between gap-3">
-					<span class="caps text-mist-400">Players</span>
+					<span class="caps text-mist-400">玩家</span>
 					<span class="font-display text-3xl leading-none font-semibold tabular"
 						>{fmtNum(view.players)}<span class="text-xl text-mist-400">
 							/ {view.maxPlayers === null ? '—' : fmtNum(view.maxPlayers)}</span
@@ -172,21 +170,21 @@
 				<div class="mt-2 progress"><span class="progress-bar" style="width:{pct}%"></span></div>
 				{#if view.reservedSlots}
 					<div class="note">
-						+ {view.reservedSlots} slot{view.reservedSlots === 1 ? '' : 's'} held for reserved players.
+						另有 {view.reservedSlots} 个席位为预留玩家保留。
 					</div>
 				{/if}
 			</div>
 
 			{#if view.joinCode}
 				<div class="mt-3 panel py-4">
-					<span class="label-sm">Join code</span>
+					<span class="label-sm">加入代码</span>
 					<div class="join join-wrap w-full">
 						<code class="flex input items-center font-mono text-[13px] break-all select-all"
 							>{view.joinCode}</code
 						>
-						<button type="button" class="btn" onclick={() => copy(view.joinCode!)}>Copy</button>
+						<button type="button" class="btn" onclick={() => copy(view.joinCode!)}>复制</button>
 					</div>
-					<p class="note">Paste it into the game's server browser to join.</p>
+					<p class="note">复制到游戏服务器浏览器中即可加入。</p>
 				</div>
 			{/if}
 		</div>
@@ -227,8 +225,7 @@
 						<table>
 							<thead>
 								<tr
-									><th>Player</th><th class="num">K</th><th class="num">D</th><th class="num"
-										>K/D</th
+									><th>玩家</th><th class="num">K</th><th class="num">D</th><th class="num">K/D</th
 									></tr
 								>
 							</thead>
@@ -247,7 +244,7 @@
 										<td class="num text-mist-400">{kd(p.kills, p.deaths)}</td>
 									</tr>
 								{:else}
-									<tr><td colspan="4" class="py-4 text-center text-mist-600">Nobody yet.</td></tr>
+									<tr><td colspan="4" class="py-4 text-center text-mist-600">暂无玩家。</td></tr>
 								{/each}
 							</tbody>
 						</table>
@@ -257,14 +254,14 @@
 			{#if unassigned.length}{@render unassignedRow()}{/if}
 			{#if view.scores.length}
 				<div class="mt-1.5 text-[12px] text-mist-600">
-					First to {cap}{#if view.matchSeconds !== null}
-						· {fmtDuration(view.matchSeconds)} played{/if}
+					率先达到 {cap}{#if view.matchSeconds !== null}
+						· {fmtDuration(view.matchSeconds)} 已游玩{/if}
 				</div>
 			{/if}
 		{:else if unassigned.length}
 			{@render unassignedRow()}
 		{:else}
-			<div class="mt-3 table-wrap py-6 text-center text-mist-600 lg:mt-4">Nobody on right now.</div>
+			<div class="mt-3 table-wrap py-6 text-center text-mist-600 lg:mt-4">当前没有玩家在线。</div>
 		{/if}
 	{/if}
 
@@ -272,8 +269,7 @@
 		<div class="mt-3 table-wrap lg:mt-4">
 			<table>
 				<thead>
-					<tr><th>Killer</th><th>Victim</th><th>With</th><th class="num">Range</th><th>When</th></tr
-					>
+					<tr><th>击杀者</th><th>受害者</th><th>与</th><th class="num">范围</th><th>时间</th></tr>
 				</thead>
 				<tbody>
 					{#each view.kills as k (k.eventId)}
@@ -285,9 +281,9 @@
 							</td>
 							<td>
 								<span style="color:{colorOf(k.victim.faction)}">{k.victim.name}</span>
-								{#if k.teamKill}<span class="chip">team kill</span>{/if}
-								{#if k.suicide}<span class="chip">suicide</span>{/if}
-								{#if k.headshot}<span class="chip">headshot</span>{/if}
+								{#if k.teamKill}<span class="chip">误杀队友</span>{/if}
+								{#if k.suicide}<span class="chip">自杀</span>{/if}
+								{#if k.headshot}<span class="chip">爆头</span>{/if}
 							</td>
 							<td class="text-mist-400">{causeText(k)}</td>
 							<td class="num text-mist-400"
@@ -296,7 +292,7 @@
 							<td class="whitespace-nowrap text-mist-400">{fmtAgo(k.ts, now)}</td>
 						</tr>
 					{:else}
-						<tr><td colspan="5" class="py-4 text-center text-mist-600">No kills yet.</td></tr>
+						<tr><td colspan="5" class="py-4 text-center text-mist-600">暂无击杀记录。</td></tr>
 					{/each}
 				</tbody>
 			</table>
@@ -304,6 +300,6 @@
 	{/if}
 
 	{#if view.ok && view.observedAt}
-		<div class="mt-3 text-[12px] text-mist-600">Updated {fmtAgo(view.observedAt, now)}.</div>
+		<div class="mt-3 text-[12px] text-mist-600">已更新 {fmtAgo(view.observedAt, now)}.</div>
 	{/if}
 </div>

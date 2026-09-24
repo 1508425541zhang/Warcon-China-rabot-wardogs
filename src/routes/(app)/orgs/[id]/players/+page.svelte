@@ -161,67 +161,67 @@
 
 <div class="panel">
 	<div class="mb-3 flex flex-wrap items-center gap-2">
-		<span class="label-sm mb-0!">Players seen</span>
+		<span class="label-sm mb-0!">出现过的玩家</span>
 		<span class="text-[12.5px] text-mist-600"
-			>{fmtNum(data.total)} on the servers you can open · names, playtime and stats stay inside {data
-				.org.name}</span
+			>{fmtNum(data.total)} 位于你可访问的服务器上 · 昵称、游玩时间和统计数据仅保留在 {data.org
+				.name}</span
 		>
 	</div>
 	<div class="mb-3 flex flex-wrap items-center gap-2">
 		<input
 			class="input w-full sm:w-72"
 			type="search"
-			placeholder="Name, alias or SteamID…"
-			aria-label="Search players"
+			placeholder="名称、曾用名或 SteamID…"
+			aria-label="搜索玩家"
 			bind:value={f.q}
 			oninput={applyDebounced}
 		/>
 		<select
 			class="input w-full sm:w-52"
-			aria-label="Server"
+			aria-label="服务器"
 			bind:value={f.server}
 			onchange={() => apply()}
 		>
-			<option value="">Any server</option>
+			<option value="">任意服务器</option>
 			{#each data.orgServers as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
 		</select>
 		<select
 			class="input w-full sm:w-40"
-			aria-label="Seen within"
+			aria-label="出现时间范围"
 			bind:value={f.since}
 			onchange={() => apply()}
 		>
-			<option value="">Ever</option>
-			<option value="1">Last day</option>
-			<option value="7">Last 7 days</option>
-			<option value="30">Last 30 days</option>
-			<option value="90">Last 90 days</option>
+			<option value="">全部时间</option>
+			<option value="1">最近 24 小时</option>
+			<option value="7">最近 7 天</option>
+			<option value="30">最近 30 天</option>
+			<option value="90">最近 90 天</option>
 		</select>
 		<select
 			class="input w-full sm:w-40"
-			aria-label="Flag"
+			aria-label="标记"
 			bind:value={f.flag}
 			onchange={() => apply()}
 		>
-			<option value="">Everyone</option>
-			<option value="online">Online now</option>
-			<option value="banned">Banned</option>
-			<option value="watched">On watchlist</option>
+			<option value="">所有人</option>
+			<option value="online">当前在线</option>
+			<option value="banned">已封禁</option>
+			<option value="watched">在观察名单中</option>
 		</select>
 	</div>
 	<div class="table-wrap">
 		<table>
 			<thead>
 				<tr>
-					<SortHeader {sort} key="name">Player</SortHeader>
-					<SortHeader {sort} key="firstSeen">First seen</SortHeader>
-					<SortHeader {sort} key="lastSeen">Last seen</SortHeader>
-					<SortHeader {sort} key="sessions" num>Sessions</SortHeader>
-					<SortHeader {sort} key="minutes" num>Playtime</SortHeader>
+					<SortHeader {sort} key="name">玩家</SortHeader>
+					<SortHeader {sort} key="firstSeen">首次出现</SortHeader>
+					<SortHeader {sort} key="lastSeen">最近出现</SortHeader>
+					<SortHeader {sort} key="sessions" num>场次</SortHeader>
+					<SortHeader {sort} key="minutes" num>游戏时间</SortHeader>
 					<SortHeader {sort} key="kills" num>K</SortHeader>
 					<SortHeader {sort} key="deaths" num>D</SortHeader>
 					<th class="num">K/D</th>
-					<th>Servers</th>
+					<th>服务器</th>
 					<th></th>
 				</tr>
 			</thead>
@@ -242,19 +242,19 @@
 										<a
 											href={dossier(p)}
 											class="truncate font-medium hover:text-accent hover:underline"
-											title="Open dossier">{p.name}</a
+											title="打开玩家档案">{p.name}</a
 										>
-										{#if p.online}<span class="size-1.5 rounded-full bg-ok" title="Online now"
+										{#if p.online}<span class="size-1.5 rounded-full bg-ok" title="当前在线"
 											></span>{/if}
 										{#if p.banned}<Badge tone="err"
-												>{p.banned === 'org' ? 'banned' : 'banned here'}</Badge
+												>{p.banned === 'org' ? 'banned' : '本服已封禁'}</Badge
 											>{/if}
-										{#if p.watched}<Badge tone="warn">watch</Badge>{/if}
+										{#if p.watched}<Badge tone="warn">观察</Badge>{/if}
 									</div>
 									{#if p.aliases.length}
 										<div class="truncate text-[12px] text-mist-400" title={p.aliases.join(', ')}>
-											also {p.aliases.slice(0, 4).join(', ')}{#if p.aliases.length > 4}
-												and {p.aliases.length - 4} more{/if}
+											以及 {p.aliases.slice(0, 4).join(', ')}{#if p.aliases.length > 4}
+												和 {p.aliases.length - 4} 更多{/if}
 										</div>
 									{/if}
 									<div class="font-mono text-[11.5px] text-mist-600">
@@ -289,7 +289,7 @@
 											<button
 												class="btn btn-sm"
 												disabled={busy === p.steamId}
-												onclick={() => reserve(p)}>Reserve</button
+												onclick={() => reserve(p)}>预留</button
 											>
 										{/if}
 									</div>
@@ -298,8 +298,8 @@
 									<button
 										class="btn btn-sm btn-danger"
 										disabled={busy === p.steamId || p.banned === 'org'}
-										title={p.banned === 'org' ? 'Already on the organisation ban list' : ''}
-										onclick={() => (banning = p)}>Ban</button
+										title={p.banned === 'org' ? '已在组织封禁列表中' : ''}
+										onclick={() => (banning = p)}>封禁</button
 									>
 								{/if}
 							</div>
@@ -309,8 +309,8 @@
 					<tr
 						><td colspan="10" class="py-6 text-center text-mist-600"
 							>{data.filters.q || data.filters.serverId || data.filters.since || data.filters.flag
-								? 'Nobody matches.'
-								: 'Nobody has been seen yet. Rows appear as players join servers the worker watches.'}</td
+								? '没有符合条件的玩家。'
+								: '尚未观测到玩家。玩家加入工作进程监控的服务器后会显示在这里。'}</td
 						></tr
 					>
 				{/each}
@@ -321,17 +321,15 @@
 		<span class="text-[12.5px] text-mist-600">{rows.length} of {fmtNum(data.total)}</span>
 		{#if more}
 			<button class="btn btn-sm" disabled={loadingMore} onclick={loadMore}
-				>{loadingMore ? 'Loading…' : 'Load more'}</button
+				>{loadingMore ? 'Loading…' : '加载更多'}</button
 			>
 		{/if}
 	</div>
 	<p class="note">
-		Built from the sessions the worker records on servers you can open, so only players who have
-		joined one of them appear, and only the names they used there. Playtime is the sum of session
-		lengths.{#if canBan}
-			Ban goes on the organisation's ban list.{/if}{#if canReserve}
-			Reserve goes on its reserved slots.{/if}{#if notesOn.length}
-			Watch marks the player across the organisation.{/if}
+		根据工作进程在你可访问服务器上记录的会话生成，因此只显示曾加入这些服务器的玩家及其在这些服务器使用的昵称。游玩时间为会话时长之和。{#if canBan}
+			封禁会加入组织封禁列表。{/if}{#if canReserve}
+			预留席位会加入组织预留列表。{/if}{#if notesOn.length}
+			关注会在整个组织内标记该玩家。{/if}
 	</p>
 </div>
 

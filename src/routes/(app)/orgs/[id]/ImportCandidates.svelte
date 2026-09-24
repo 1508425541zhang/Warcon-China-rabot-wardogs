@@ -31,14 +31,14 @@
 			)
 		)
 	);
-	let noun = $derived(kind === 'ban' ? 'ban' : 'reserved slot');
+	let noun = $derived(kind === 'ban' ? '封禁' : '预留席位');
 	let path = $derived(`/api/orgs/${encodeURIComponent(org.id)}/lists/import`);
 
 	async function refresh() {
 		try {
 			candidates = (await api<{ candidates: ImportCandidate[] }>('GET', path)).candidates;
 		} catch (err) {
-			console.warn('import candidates', err);
+			console.warn('导入候选条目', err);
 		}
 	}
 	$effect(() => {
@@ -65,7 +65,7 @@
 			const res = await api<{ imported: number; sync: ListSyncSummary }>('POST', path, {
 				entries
 			});
-			toast(describeSync(res.sync, `Imported ${res.imported}.`), 'ok', 8000);
+			toast(describeSync(res.sync, `已导入 ${res.imported} 条。`), 'ok', 8000);
 			importing = false;
 			candidates = null;
 			await invalidateAll();
@@ -80,33 +80,27 @@
 
 {#if mine.length}
 	<div class="callout mb-4 flex flex-wrap items-center gap-3">
-		<span
-			><b>{mine.length} {noun}{mine.length === 1 ? '' : 's'}</b> found on your servers that
-			{mine.length === 1 ? 'is' : 'are'} not on the organisation list.
-			{#if owner}Import {mine.length === 1 ? 'it' : 'them'} to manage
-				{mine.length === 1 ? 'it' : 'them'} from here and apply
-				{mine.length === 1 ? 'it' : 'them'} everywhere.{:else}An owner of {org.name} can import them.{/if}</span
-		>
+		<span>
+			在你的服务器上发现 <b>{mine.length} 条{noun}</b>，尚未加入组织列表。
+			{#if owner}导入后会由面板管理，并同步至组织内其他服务器。{:else}请联系“{org.name}”的所有者导入。{/if}
+		</span>
 		{#if owner}
-			<button class="ml-auto btn btn-sm" onclick={open}>Review and import</button>
+			<button class="ml-auto btn btn-sm" onclick={open}>审核并导入</button>
 		{/if}
 	</div>
 {/if}
 
 {#if importing}
-	<Modal title="Import {noun}s from your servers" wide onclose={() => (importing = false)}>
+	<Modal title="从服务器导入{noun}" wide onclose={() => (importing = false)}>
 		<p class="mb-3 text-[13px] text-mist-400">
-			These {noun}s exist on the servers below but not on the organisation list. Importing puts them
-			on the list, marks them as managed where they already exist, and applies them to every other
-			server in {org.name}. Removing an imported entry later lifts it everywhere the panel manages
-			it.
+			这些{noun}已存在于下列服务器，但尚未加入“{org.name}”的组织列表。导入后会标记为由面板管理，并同步到组织内其他服务器。之后删除导入条目时，面板会从受管理的服务器上移除对应条目。
 		</p>
 		{#if mine.length > 5}
 			<input
 				class="mb-3 input w-full sm:w-72"
 				type="search"
-				placeholder="Filter by name, SteamID, server…"
-				aria-label="Filter candidates"
+				placeholder="按名称、SteamID 或服务器筛选…"
+				aria-label="筛选候选人"
 				bind:value={search}
 			/>
 		{/if}
@@ -115,9 +109,9 @@
 				<thead>
 					<tr>
 						<th></th>
-						<th>Player</th>
-						<th>On</th>
-						{#if kind === 'ban'}<th>Reason</th>{/if}
+						<th>玩家</th>
+						<th>所在服务器</th>
+						{#if kind === 'ban'}<th>原因</th>{/if}
 					</tr>
 				</thead>
 				<tbody>
@@ -138,14 +132,15 @@
 									{#each c.servers.filter((s) => s.reason || s.bannedBy) as s (s.serverId)}
 										<div>
 											{s.reason || '—'}{#if s.bannedBy}
-												<span class="text-mist-600">by {s.bannedBy}</span>{/if}
+												<span class="text-mist-600">执行人：{s.bannedBy}</span>{/if}
 										</div>
 									{/each}
 								</td>
 							{/if}
 						</tr>
 					{:else}
-						<tr><td colspan="4" class="py-6 text-center text-mist-600">Nobody matches.</td></tr>
+						<tr><td colspan="4" class="py-6 text-center text-mist-600">没有符合条件的玩家。</td></tr
+						>
 					{/each}
 				</tbody>
 			</table>
@@ -159,13 +154,11 @@
 					const next = { ...picked };
 					for (const c of shown) next[c.steamId] = !all;
 					picked = next;
-				}}>{shown.every((c) => picked[c.steamId]) ? 'Select none' : 'Select all'}</button
+				}}>{shown.every((c) => picked[c.steamId]) ? '取消全选' : '全选'}</button
 			>
-			<button type="button" class="btn" data-close onclick={() => (importing = false)}
-				>Cancel</button
-			>
+			<button type="button" class="btn" data-close onclick={() => (importing = false)}>取消</button>
 			<button type="button" class="btn btn-primary" disabled={busy} onclick={run}
-				>Import {mine.filter((c) => picked[c.steamId]).length}</button
+				>导入 {mine.filter((c) => picked[c.steamId]).length}</button
 			>
 		</div>
 	</Modal>

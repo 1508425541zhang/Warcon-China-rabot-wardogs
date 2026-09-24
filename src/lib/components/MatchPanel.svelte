@@ -68,22 +68,22 @@
 		<h2 class="text-2xl font-semibold">{mapName(m.map)}</h2>
 		<div class="mt-1 caps text-mist-400">
 			{#if mode}{mode} ·
-			{/if}Started {fmtTime(m.startedAt)} · {fmtLength(length)} · {fmtNum(m.peakPlayers)} at peak · {fmtNum(
+			{/if}开始于 {fmtTime(m.startedAt)} · {fmtLength(length)} · {fmtNum(m.peakPlayers)} 峰值 · {fmtNum(
 				m.players
-			)} played
+			)} 已游玩
 		</div>
 	</div>
 	{#if m.winner}
 		<div class="text-right">
-			<div class="caps text-mist-400">Winner</div>
+			<div class="caps text-mist-400">获胜方</div>
 			<div class="font-display text-2xl font-semibold" style="color:{colorOf(m.winner)}">
 				{m.winner}
 			</div>
 		</div>
 	{:else if scores.length}
-		<div class="caps text-mist-400">Draw</div>
+		<div class="caps text-mist-400">平局</div>
 	{:else}
-		<div class="caps text-mist-600">Abandoned: closed by a restart, no result</div>
+		<div class="caps text-mist-600">已中止：重启后关闭，无执行结果</div>
 	{/if}
 </div>
 
@@ -116,7 +116,7 @@
 {/if}
 
 <div class="mt-4 rounded-ctl border border-black bg-ink-950 px-3.5 py-3">
-	<span class="caps text-mist-400">Score over the match</span>
+	<span class="caps text-mist-400">比赛分数变化</span>
 	<div class="mt-2">
 		<ScoreTimeline points={view.timeline} factions={view.factions} durationSeconds={length} />
 	</div>
@@ -142,21 +142,19 @@
 	<table>
 		<thead>
 			<tr>
-				<SortHeader {sort} key="name">Player</SortHeader>
-				<SortHeader {sort} key="faction">Faction</SortHeader>
-				<SortHeader {sort} key="seconds" num title="Time on during the match">Time</SortHeader>
+				<SortHeader {sort} key="name">玩家</SortHeader>
+				<SortHeader {sort} key="faction">阵营</SortHeader>
+				<SortHeader {sort} key="seconds" num title="本场比赛在线时间">时间</SortHeader>
 				<SortHeader {sort} key="kills" num>K</SortHeader>
 				<SortHeader {sort} key="deaths" num>D</SortHeader>
 				<SortHeader {sort} key="kd" num>K/D</SortHeader>
-				<SortHeader {sort} key="kpm" num title="Kills per minute of time on">K/min</SortHeader>
-				<SortHeader {sort} key="cash" num title="The change in the player's cash over the match"
-					>Cash</SortHeader
-				>
+				<SortHeader {sort} key="kpm" num title="每分钟在线击杀数">次击杀/分钟</SortHeader>
+				<SortHeader {sort} key="cash" num title="玩家本场现金变化">现金</SortHeader>
 				{#if view.hasFeed}
-					<SortHeader {sort} key="headshots" num title="Headshots">HS</SortHeader>
-					<SortHeader {sort} key="teamKills" num title="Team kills">TK</SortHeader>
-					<SortHeader {sort} key="vehicleKills" num title="Kills with a vehicle">VK</SortHeader>
-					<SortHeader {sort} key="streak" num title="Best kill streak">Streak</SortHeader>
+					<SortHeader {sort} key="headshots" num title="爆头">HS</SortHeader>
+					<SortHeader {sort} key="teamKills" num title="误杀队友">TK</SortHeader>
+					<SortHeader {sort} key="vehicleKills" num title="载具击杀">VK</SortHeader>
+					<SortHeader {sort} key="streak" num title="最长连续击杀">连续击杀</SortHeader>
 				{/if}
 			</tr>
 		</thead>
@@ -191,11 +189,7 @@
 					{/if}
 				</tr>
 			{:else}
-				<tr
-					><td colspan="12" class="py-6 text-center text-mist-600"
-						>Nobody was recorded in this match.</td
-					></tr
-				>
+				<tr><td colspan="12" class="py-6 text-center text-mist-600">本场比赛没有玩家记录。</td></tr>
 			{/each}
 		</tbody>
 	</table>

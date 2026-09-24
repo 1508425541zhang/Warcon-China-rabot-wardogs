@@ -7,7 +7,7 @@
 	<div class="w-full max-w-md rise panel text-center">
 		<div class="mb-4 flex justify-center"><Mark size={40} /></div>
 		<div class="mb-1 font-mono text-4xl font-semibold text-accent">{page.status}</div>
-		<p class="mb-5 text-mist-400">{page.error?.message || 'Something went wrong.'}</p>
-		<a href="/" class="btn btn-primary">Back to the dashboard</a>
+		<p class="mb-5 text-mist-400">{page.error?.message || '发生错误。'}</p>
+		<a href="/" class="btn btn-primary">返回总览</a>
 	</div>
 </div>

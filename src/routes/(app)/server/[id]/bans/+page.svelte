@@ -138,7 +138,7 @@
 				`/api/servers/${encodeURIComponent(id)}/lists/state`
 			);
 		} catch (err) {
-			console.warn('list state', err);
+			console.warn('列表状态', err);
 		}
 	}
 	async function refreshBans() {
@@ -165,7 +165,7 @@
 				'POST',
 				`/api/servers/${encodeURIComponent(id)}/lists/sync`
 			);
-			toast(describeSync({ servers: [res.sync] }, 'Sync ran.'), 'ok', 8000);
+			toast(describeSync({ servers: [res.sync] }, '同步已执行。'), 'ok', 8000);
 			await refreshAll();
 		} catch (err) {
 			toast(errorMessage(err), 'err');
@@ -193,7 +193,7 @@
 						steamId,
 						reason: ban?.reason ?? ''
 					});
-			toast(describeSync(res.sync, `${steamId} is on the organisation's ban list.`), 'ok', 8000);
+			toast(describeSync(res.sync, `${steamId} 已加入组织封禁列表。`), 'ok', 8000);
 			await refreshAll();
 		} catch (err) {
 			toast(errorMessage(err), 'err');
@@ -203,14 +203,14 @@
 	}
 	/** A ban on the server's own list is lifted by withdrawing the entry; the sync unbans. */
 	async function liftHere(steamId: string) {
-		if (!(await confirmDialog(`Lift the ban on ${steamId}?`, { okLabel: 'Do it' }))) return;
+		if (!(await confirmDialog(`确定解除 ${steamId} 的封禁？`, { okLabel: '确认解除' }))) return;
 		busy = true;
 		try {
 			const res = await api<{ sync: ListSyncServer }>(
 				'DELETE',
 				`/api/servers/${encodeURIComponent(id)}/lists/ban/entries/${steamId}`
 			);
-			toast(describeSync({ servers: [res.sync] }, `Lifted the ban on ${steamId}.`), 'ok', 8000);
+			toast(describeSync({ servers: [res.sync] }, `已解除 ${steamId} 的封禁。`), 'ok', 8000);
 			selectedBan = null;
 			await refreshBans();
 		} catch (err) {
@@ -243,34 +243,32 @@
 
 <div class="mb-4 panel">
 	<div class="mb-2 flex flex-wrap items-center gap-2">
-		<span class="label-sm mb-0!">Organisation lists · {data.server.orgName}</span>
+		<span class="label-sm mb-0!">组织列表 · {data.server.orgName}</span>
 		<span class="ml-auto inline-flex flex-wrap gap-1.5">
 			{#if listState?.canEditOrgBans}
-				<a class="btn btn-sm" href="{orgPath}/bans">Ban list</a>
+				<a class="btn btn-sm" href="{orgPath}/bans">封禁名单</a>
 			{/if}
 			{#if listsEdit}
-				<button class="btn btn-sm" disabled={busy} onclick={syncNow}>Sync now</button>
+				<button class="btn btn-sm" disabled={busy} onclick={syncNow}>立即同步</button>
 			{/if}
 		</span>
 	</div>
 	<div class="flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
 		{#if orgBanCount !== null}
-			<span
-				><b>{orgBanCount}</b> org ban{orgBanCount === 1 ? '' : 's'}, <b>{managedBans}</b> applied here</span
-			>
+			<span><b>{orgBanCount}</b> 条组织封禁，<b>{managedBans}</b> 条已在本服应用</span>
 		{:else}
 			<span class="text-mist-400"
-				>Managed by the organisation's owners and server admins; entries they push here are marked
-				<Badge tone="ok">org</Badge> below.</span
+				>由组织所有者和服务器管理员管理；从组织名单同步到这里的条目会标为
+				<Badge tone="ok">组织</Badge> 如下。</span
 			>
 		{/if}
-		{#if pendingCount}<Badge tone="warn">{pendingCount} pending or failed</Badge>{/if}
+		{#if pendingCount}<Badge tone="warn">{pendingCount} 等待中或失败</Badge>{/if}
 	</div>
 	<div class="mt-1 text-[12.5px] text-mist-400">
 		{#if listState?.sync?.syncedAt}
-			Last synced {fmtTime(listState.sync.syncedAt)}.
+			上次同步 {fmtTime(listState.sync.syncedAt)}.
 		{:else}
-			Not synced yet.
+			尚未同步。
 		{/if}
 		{#if listState?.sync?.lastError}<span class="text-danger">
 				{listState.sync.lastError}</span
@@ -280,9 +278,9 @@
 
 <div class="panel">
 	<div class="mb-3 flex flex-wrap items-center gap-2">
-		<span class="label-sm mb-0!">Bans on this server</span>
+		<span class="label-sm mb-0!">本服务器的封禁</span>
 		<button class="ml-auto btn btn-sm btn-danger" disabled={!admin} onclick={() => (banning = true)}
-			>Ban a SteamID</button
+			>封禁 SteamID</button
 		>
 	</div>
 	<div class="mb-3 flex flex-wrap items-center gap-2">
@@ -290,22 +288,22 @@
 			<input
 				class="input"
 				type="search"
-				placeholder="Filter bans by SteamID, admin, reason…"
+				placeholder="按 SteamID、管理员或原因筛选封禁…"
 				bind:value={banSearch}
 			/>
-			<button class="btn" onclick={refreshBans}>Refresh</button>
+			<button class="btn" onclick={refreshBans}>刷新</button>
 		</div>
 		<span class="inline-flex gap-1.5 sm:ml-auto">
 			{#if selectedBan && listState?.canEditOrgBans && !banSource(selectedBan)?.managed}
 				<button class="btn" disabled={busy} onclick={promoteSelected}
-					>{listState.orgOwner ? 'Promote to org list' : 'Add to org list'}</button
+					>{listState.orgOwner ? '提升为组织封禁' : '加入组织列表'}</button
 				>
 			{/if}
-			<button class="btn" disabled={busy || !canEdit} onclick={() => (editing = true)}>Edit</button>
+			<button class="btn" disabled={busy || !canEdit} onclick={() => (editing = true)}>编辑</button>
 			<button
 				class="btn btn-danger"
 				disabled={busy || !admin || !selectedBan}
-				onclick={unbanSelected}>Unban selected</button
+				onclick={unbanSelected}>解除所选封禁</button
 			>
 		</span>
 	</div>
@@ -313,12 +311,12 @@
 		<table>
 			<thead>
 				<tr>
-					<SortHeader {sort} key="player">Player</SortHeader>
-					<SortHeader {sort} key="source">Source</SortHeader>
-					<SortHeader {sort} key="bannedAt">Banned at (UTC)</SortHeader>
+					<SortHeader {sort} key="player">玩家</SortHeader>
+					<SortHeader {sort} key="source">来源</SortHeader>
+					<SortHeader {sort} key="bannedAt">封禁时间（UTC）</SortHeader>
 					<SortHeader {sort} key="by">By</SortHeader>
-					<SortHeader {sort} key="reason">Reason</SortHeader>
-					<SortHeader {sort} key="expires">Expires</SortHeader>
+					<SortHeader {sort} key="reason">原因</SortHeader>
+					<SortHeader {sort} key="expires">到期时间</SortHeader>
 				</tr>
 			</thead>
 			<tbody>
@@ -332,13 +330,13 @@
 							<a
 								href="/server/{encodeURIComponent(id)}/players/{b.steamId}"
 								class="block font-mono text-[12.5px] hover:text-accent hover:underline"
-								title="Open dossier"
+								title="打开玩家档案"
 								onclick={(e) => e.stopPropagation()}>{b.steamId}</a
 							>
 						</td>
 						<td>
 							{#if b.source === 'local'}
-								<Badge>local</Badge>
+								<Badge>本服</Badge>
 							{:else}
 								<Badge tone="ok">{b.source}</Badge>
 							{/if}
@@ -359,23 +357,20 @@
 								</div>
 								<div class="font-mono text-[12px] text-mist-400">{fmtTime(b.expiresAt)}</div>
 							{:else}
-								<span class="text-mist-400">Permanent</span>
+								<span class="text-mist-400">永久</span>
 							{/if}
 						</td>
 					</tr>
 				{:else}
-					<tr><td colspan="6" class="py-6 text-center text-mist-600">No bans.</td></tr>
+					<tr><td colspan="6" class="py-6 text-center text-mist-600">暂无封禁。</td></tr>
 				{/each}
 			</tbody>
 		</table>
 	</div>
 	<p class="note">
-		<Badge tone="ok">org</Badge> bans come from the organisation's ban list and
-		<Badge tone="ok">here</Badge> bans are on this server's own list. The panel enforces both itself:
-		a banned player is removed the moment they are seen on the server, and nothing is written to the game's
-		files, so an unban or an expiry takes effect at once. <Badge>local</Badge> bans are held by the game
-		in its own list; the panel leaves them alone, and some hosts only forget one when it is taken out
-		of the server's settings file.
+		<Badge tone="ok">组织</Badge> 条封禁来自组织封禁名单，另有
+		<Badge tone="ok">此处</Badge> 条封禁只在本服名单中。面板会自行执行两种封禁：发现被封禁玩家在线时立即移出；不会写入游戏文件，因此解除封禁或到期会立即生效。
+		<Badge>本服</Badge> 条封禁由游戏自身的名单保管，面板不会修改。部分主机只有从服务器配置文件删除后才会移除。
 	</p>
 </div>
 
@@ -383,7 +378,7 @@
 	<EditBanDialog
 		path={entryPath}
 		who={steam[selectedRow.steamId]?.name || selectedRow.steamId}
-		placed={`Banned ${selectedRow.source === 'here' ? `on ${data.server.name}` : `across ${data.server.orgName}`}${selectedRow.by ? ` by ${selectedRow.by}` : ''}${selectedRow.bannedAt ? ` on ${selectedRow.bannedAt} UTC` : ''}.`}
+		placed={`封禁范围：${selectedRow.source === 'here' ? data.server.name : data.server.orgName}${selectedRow.by ? `；执行人：${selectedRow.by}` : ''}${selectedRow.bannedAt ? `；时间：${selectedRow.bannedAt} UTC` : ''}。`}
 		reason={selectedRow.reason}
 		expiresAt={selectedRow.expiresAt}
 		onclose={() => (editing = false)}

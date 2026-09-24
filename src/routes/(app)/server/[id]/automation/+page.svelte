@@ -116,80 +116,102 @@
 		{
 			kind: 'welcome',
 			group: 'Messages',
-			label: 'Welcome whisper',
-			blurb: 'Whisper players as they join, or once they pick a faction.'
+			label: '欢迎私信',
+			blurb: '玩家加入或选择阵营后发送私信。'
 		},
 		{
 			kind: 'faction_change',
 			group: 'Messages',
-			label: 'Faction change whisper',
-			blurb: 'Whisper players who switch sides.'
+			label: '切换阵营私信',
+			blurb: '玩家切换阵营时发送私信。'
 		},
 		{
 			kind: 'broadcast',
 			group: 'Messages',
-			label: 'Scheduled broadcast',
-			blurb: 'Rotate through messages every few minutes while people are on.'
+			label: '定时广播',
+			blurb: '服务器有玩家在线时，按设定间隔轮流广播消息。'
 		},
 		{
 			kind: 'restart_notice',
 			group: 'Messages',
-			label: 'Restart notice',
-			blurb: 'Warn players before the 24-hour restart and tell them when it lands.'
+			label: '重启通知',
+			blurb: '在每日重启前提醒玩家，并在重启时通知。'
 		},
 		{
 			kind: 'match_broadcast',
 			group: 'Messages',
-			label: 'Match broadcast',
-			blurb: 'Announce who won when a match ends, and the map as the next one starts.'
+			label: '对局广播',
+			blurb: '对局结束时播报胜方，下一局开始时播报地图。'
 		},
 		{
 			kind: 'risk_kick',
 			group: 'Players',
-			label: 'Kick on connect risk',
-			blurb: 'Kick joiners the panel already distrusts, before they get a slot.'
+			label: '入服风险踢出',
+			blurb: '对符合已配置风险条件的入服玩家执行踢出。'
 		},
 		{
 			kind: 'name_filter',
 			group: 'Players',
-			label: 'Name filter',
-			blurb: 'Kick or flag joiners whose name uses characters or words this server does not allow.'
+			label: '昵称过滤',
+			blurb: '对昵称包含禁用字符或词语的玩家踢出或标记。'
 		},
 		{
 			kind: 'ping_kick',
 			group: 'Players',
-			label: 'High ping kick',
-			blurb: 'Kick players whose ping stays too high for a configured time.'
+			label: '高延迟踢出',
+			blurb: '玩家延迟持续超过设定阈值时踢出。'
 		},
 		{
 			kind: 'team_kill',
 			group: 'Players',
-			label: 'Team kill limit',
-			blurb: 'Whisper a player about team kills and kick them past a limit.'
+			label: '队友击杀限制',
+			blurb: '队友击杀达到警告值时发送私信，超过上限时踢出。'
 		},
 		{
 			kind: 'kill_rate',
 			group: 'Players',
-			label: 'Kill rate watch',
-			blurb: 'Flag players who get kills too fast, or too many headshots, for staff to check.'
+			label: '击杀速率观察',
+			blurb: '击杀过快或爆头率过高时标记玩家，供管理员复核。'
 		},
 		{
 			kind: 'seed_reward',
 			group: 'Players',
-			label: 'Seeding reward',
-			blurb: 'Give players who stay while the server is quiet a reserved slot.'
+			label: '种子玩家奖励',
+			blurb: '为低活跃时期留在服务器的玩家发放预留席位。'
 		},
 		{
 			kind: 'empty_reset',
 			group: 'Server',
-			label: 'Empty-server map reset',
-			blurb: 'Put an empty server back on a chosen map after a while.'
+			label: '空服地图重置',
+			blurb: '服务器空置一段时间后切换回指定地图。'
 		}
 	];
 	const GROUPS: Group[] = ['Messages', 'Players', 'Server'];
+	const groupLabel: Record<Group, string> = {
+		Messages: '消息',
+		Players: '玩家',
+		Server: '服务器'
+	};
 	/** The outbox action as the table shows it: a flag sends nothing to the game, so it reads as one. */
 	const actionLabel = (action: string) =>
-		action === 'name_flag' || action === 'kill_rate_flag' ? 'flag' : action;
+		({
+			name_flag: '标记',
+			kill_rate_flag: '标记',
+			kick: '踢出',
+			whisper: '私信',
+			broadcast: '广播',
+			map_change: '切换地图',
+			reserve: '预留席位'
+		})[action as 'name_flag'] ?? action;
+	const deliveryStateLabel = (state: OutboxView['state']) =>
+		({
+			delivered: '已送达',
+			failed: '失败',
+			skipped: '已跳过',
+			unknown: '结果未知',
+			pending: '等待中',
+			sending: '发送中'
+		})[state];
 	const label = (kind: TriggerKind) => KINDS.find((k) => k.kind === kind)?.label ?? kind;
 	const blurb = (kind: TriggerKind) => KINDS.find((k) => k.kind === kind)?.blurb ?? '';
 	/** Why a kind cannot run on this server yet, or '' when it can. */
@@ -197,17 +219,13 @@
 		switch (kind) {
 			case 'team_kill':
 			case 'kill_rate':
-				return data.feed
-					? ''
-					: 'Needs the kill feed, which is off on this server. Turn it on under Config.';
+				return data.feed ? '' : '需要击杀事件源。请先在“配置”中为本服务器启用。';
 			case 'risk_kick':
-				return data.steam
-					? ''
-					: 'Steam lookup is off on this panel, so only the ban-list and watchlist rows can run.';
+				return data.steam ? '' : '面板未启用 Steam 查询；目前只能使用封禁列表与关注列表条件。';
 			case 'seed_reward':
 				return canSlotHere || canSlotOrg
 					? ''
-					: 'Saving needs the Reserved slots capability (or Org reserved slots, for a slot on every server) as well as Automation.';
+					: '保存此规则需要“自动化”和“预留席位”权限；跨服席位还需要“组织预留席位”权限。';
 			default:
 				return '';
 		}
@@ -221,9 +239,9 @@
 	/** A kind that lacks what it needs stays in the menu, greyed, with the reason in a few words. */
 	const short = (kind: TriggerKind): string =>
 		kind === 'team_kill' || kind === 'kill_rate'
-			? 'needs the kill feed'
+			? '需要击杀事件源'
 			: kind === 'risk_kick'
-				? 'needs a Steam key'
+				? '需要 Steam 密钥'
 				: '';
 	let addOpen = $state(false);
 
@@ -277,7 +295,7 @@
 	);
 	/** "31 today", or "31 in the last 3 h" when the loaded window is shorter than the day */
 	const countLine = (h: Health) =>
-		coversToday ? `${h.count} today` : `${h.count} in the last ${fmtSpan(now - windowStart)}`;
+		coversToday ? `今天 ${h.count} 次` : `近 ${fmtSpan(now - windowStart)} 内 ${h.count} 次`;
 	let failingCount = $derived(data.triggers.filter((t) => health.get(t.id)?.failing).length);
 	let lastAction = $derived(
 		deliveries.reduce<string | null>(
@@ -409,18 +427,18 @@
 			message: s(
 				'message',
 				kind === 'faction_change'
-					? 'You are now fighting for {faction}, {name}.'
+					? '{name}，你现在属于 {faction} 阵营。'
 					: kind === 'restart_notice'
-						? 'Scheduled restart: the server restarts when this round ends. Rejoin in a minute or two.'
+						? '计划重启：本局结束后服务器将重启，请稍后重新加入。'
 						: kind === 'seed_reward'
-							? 'Thanks for seeding {server}, {name}: you have a reserved slot until {until}.'
-							: 'Welcome to {server}, {name}! Read the rules with /rules.'
+							? '感谢 {name} 为 {server} 暖服！你的预留席位有效至 {until}。'
+							: '欢迎 {name} 来到 {server}！输入 /rules 查看规则。'
 			),
 			onlyFirstVisit: b('onlyFirstVisit', false),
 			afterFaction: b('afterFaction', false),
 			messages: Array.isArray(c.messages)
 				? (c.messages as string[]).join('\n')
-				: 'Join our Discord for events and support.\nNo team-killing. Admins are watching.',
+				: '加入我们的 Discord，获取活动信息和帮助。\n禁止队友击杀，管理员会持续巡查。',
 			everyMinutes: n('everyMinutes', 15),
 			minPlayers: n('minPlayers', 1),
 			maxPlayers: typeof c.maxPlayers === 'number' ? c.maxPlayers : null,
@@ -440,26 +458,20 @@
 			reason: s(
 				'reason',
 				kind === 'name_filter'
-					? 'Your name is not allowed on this server: {why}.'
+					? '你的昵称不符合本服务器规则：{why}。'
 					: kind === 'ping_kick'
-						? 'Ping too high for too long.'
-						: 'Your account does not meet this server’s requirements.'
+						? '延迟持续过高。'
+						: '你的账号不符合本服务器的入服要求。'
 			),
 			leadMinutes: n('leadMinutes', 30),
-			leadMessage: s(
-				'leadMessage',
-				'Scheduled restart in about {minutes} minutes, at the end of the round then in progress.'
-			),
+			leadMessage: s('leadMessage', '服务器将在约 {minutes} 分钟后于本局结束时重启。'),
 			repeatMinutes: n('repeatMinutes', 0),
-			endMessage: s('endMessage', 'Match over: {faction} wins on {previous} · {scores}'),
-			startMessage: s('startMessage', 'New match on {map}. Good luck!'),
+			endMessage: s('endMessage', '对局结束：{faction} 在 {previous} 获胜 · {scores}'),
+			startMessage: s('startMessage', '新对局地图：{map}。祝大家玩得开心！'),
 			warnAt: n('warnAt', 2),
-			warnMessage: s(
-				'warnMessage',
-				'Careful, {name}: that was a team kill ({count} this session).'
-			),
+			warnMessage: s('warnMessage', '{name}，请注意避免队友击杀（本次会话已发生 {count} 次）。'),
 			kickAt: n('kickAt', 4),
-			kickReason: s('kickReason', 'Team killing ({count} this session).'),
+			kickReason: s('kickReason', '队友击杀（本次会话 {count} 次）。'),
 			lowAt: n('lowAt', 20),
 			untilFull: b('untilFull', true),
 			fullAt: typeof c.fullAt === 'number' ? c.fullAt : null,
@@ -495,12 +507,12 @@
 
 	const dryLabel = (kind: TriggerKind) =>
 		kind === 'restart_notice'
-			? 'Preview next cycle'
+			? '预览下次重启'
 			: kind === 'name_filter'
-				? 'Dry run, past players'
+				? '试运行：历史玩家'
 				: kind === 'ping_kick'
-					? 'Check dry-run limits'
-					: 'Dry run, last 24 h';
+					? '检查试运行限制'
+					: '试运行：最近 24 小时';
 	const lines = (text: string) =>
 		text
 			.split(/[\n,]/)
@@ -626,7 +638,7 @@
 		const ok = await run(
 			() =>
 				f.id ? api('PATCH', `${path}/${f.id}`, body) : api('POST', path, { kind: f.kind, ...body }),
-			f.id ? 'Trigger saved.' : 'Trigger added.'
+			f.id ? '规则已保存。' : '规则已添加。'
 		);
 		if (ok) form = null;
 	}
@@ -640,7 +652,7 @@
 			!(await confirmDialog(`Delete the trigger "${t.name}"?`, { okLabel: 'Delete', danger: true }))
 		)
 			return;
-		if (await run(() => api('DELETE', `${path}/${t.id}`), 'Trigger deleted.'))
+		if (await run(() => api('DELETE', `${path}/${t.id}`), '规则已删除。'))
 			if (dryFor === t.id) dry = null;
 	}
 	/** The result panel is titled with the rule it was run for; 'form' keys a run from the editor. */
@@ -680,25 +692,25 @@
 		const c = config;
 		switch (kind) {
 			case 'welcome':
-				return `"${c.message}"${c.afterFaction ? ' · after faction pick' : ' · on join'}${c.onlyFirstVisit ? ' · first visit only' : ''}`;
+				return `"${c.message}"${c.afterFaction ? ' · 选择阵营后' : ' · 入服时'}${c.onlyFirstVisit ? ' · 仅首次访问' : ''}`;
 			case 'faction_change':
 				return `"${c.message}"`;
 			case 'broadcast':
-				return `${(c.messages as string[]).length} message${(c.messages as string[]).length === 1 ? '' : 's'} every ${c.everyMinutes} min · ${typeof c.maxPlayers === 'number' ? `${c.minPlayers} to ${c.maxPlayers}` : `at least ${c.minPlayers}`} on`;
+				return `${(c.messages as string[]).length} 条消息，每 ${c.everyMinutes} 分钟轮播 · 在线 ${typeof c.maxPlayers === 'number' ? `${c.minPlayers}～${c.maxPlayers}` : `至少 ${c.minPlayers}`} 人`;
 			case 'empty_reset':
-				return `to ${c.map ? mapLabel(data.catalog, String(c.map)) : 'the chosen map'} after ${c.afterMinutes} min empty`;
+				return `空服 ${c.afterMinutes} 分钟后切换至${c.map ? mapLabel(data.catalog, String(c.map)) : '所选地图'}`;
 			case 'risk_kick': {
-				const banAge = c.maxBanAgeDays ? ` in the last ${c.maxBanAgeDays} days` : '';
+				const banAge = c.maxBanAgeDays ? `（最近 ${c.maxBanAgeDays} 天）` : '';
 				const rules = [
-					c.vacBans && `VAC ban${banAge}`,
-					c.gameBans && `game ban${banAge}`,
+					c.vacBans && `VAC 封禁${banAge}`,
+					c.gameBans && `游戏封禁${banAge}`,
 					c.minAccountDays &&
-						`account under ${c.minAccountDays} days${c.privateProfiles ? ' or private' : ''}`,
-					c.bannedElsewhere && 'banned elsewhere in the org',
-					c.watchlist && 'watchlist',
-					kickAtScoreOf(c) && `risk ${kickAtScoreOf(c)}+`
+						`账号注册不足 ${c.minAccountDays} 天${c.privateProfiles ? '或资料私密' : ''}`,
+					c.bannedElsewhere && '组织内其他服务器已封禁',
+					c.watchlist && '关注名单',
+					kickAtScoreOf(c) && `风险分 ≥${kickAtScoreOf(c)}`
 				].filter(Boolean);
-				return `${rules.join(', ')}${c.spareReserved ? ' · spares reserved slots' : ''}`;
+				return `${rules.join('、')}${c.spareReserved ? ' · 跳过预留席位玩家' : ''}`;
 			}
 			case 'name_filter': {
 				const also = ((c.extraScripts as string[] | undefined) ?? []).map(
@@ -706,57 +718,54 @@
 				);
 				const blocked = ((c.blocked as string[] | undefined) ?? []).length;
 				const allowed = ((c.allowed as string[] | undefined) ?? []).length;
-				const lists = [
-					c.builtinWords && 'built-in list',
-					blocked && `${blocked} word${blocked === 1 ? '' : 's'}`
-				].filter(Boolean);
+				const lists = [c.builtinWords && '内置词库', blocked && `${blocked} 个禁用词`].filter(
+					Boolean
+				);
 				return [
 					c.characters === 'ascii'
-						? 'ASCII only'
+						? '仅 ASCII 字符'
 						: c.characters === 'latin'
-							? `${['Latin', ...also].join(', ')} letters`
+							? `${['拉丁', ...also].join('、')}字母`
 							: '',
-					c.characters !== 'off' && c.allowSymbols ? 'emoji and symbols allowed' : '',
-					c.minLetters ? `at least ${c.minLetters} letters` : '',
-					lists.length
-						? `${lists.join(' and ')}${allowed ? `, ${allowed} exception${allowed === 1 ? '' : 's'}` : ''}`
-						: '',
-					c.action === 'alert' ? 'alert only' : 'kick',
-					c.spareReserved ? 'spares reserved slots' : ''
+					c.characters !== 'off' && c.allowSymbols ? '允许表情及符号' : '',
+					c.minLetters ? `至少 ${c.minLetters} 个字母` : '',
+					lists.length ? `${lists.join('及')}${allowed ? `，${allowed} 个例外` : ''}` : '',
+					c.action === 'alert' ? '仅标记' : '踢出',
+					c.spareReserved ? '跳过预留席位玩家' : ''
 				]
 					.filter(Boolean)
 					.join(' · ');
 			}
 			case 'ping_kick':
-				return `ping over ${c.maxPingMs} ms for ${c.durationSeconds} s`;
+				return `延迟超过 ${c.maxPingMs} 毫秒，持续 ${c.durationSeconds} 秒`;
 			case 'restart_notice':
-				return `"${c.message}"${c.leadMinutes ? ` · heads-up ${c.leadMinutes} min before` : ''}${c.repeatMinutes ? ` · again every ${c.repeatMinutes} min` : ''} · at least ${c.minPlayers} on`;
+				return `"${c.message}"${c.leadMinutes ? ` · 提前 ${c.leadMinutes} 分钟提醒` : ''}${c.repeatMinutes ? ` · 每 ${c.repeatMinutes} 分钟重复` : ''} · 至少 ${c.minPlayers} 人在线`;
 			case 'match_broadcast':
 				return [
-					c.endMessage ? `end: "${c.endMessage}"` : '',
-					c.startMessage ? `start: "${c.startMessage}"` : ''
+					c.endMessage ? `结束："${c.endMessage}"` : '',
+					c.startMessage ? `开始："${c.startMessage}"` : ''
 				]
 					.filter(Boolean)
 					.join(' · ')
-					.concat(` · at least ${c.minPlayers} on`);
+					.concat(` · 至少 ${c.minPlayers} 人在线`);
 			case 'team_kill':
 				return [
-					c.warnAt ? `whisper from ${c.warnAt} team kill${c.warnAt === 1 ? '' : 's'}` : '',
-					c.kickAt ? `kick at ${c.kickAt}` : ''
+					c.warnAt ? `第 ${c.warnAt} 次队友击杀时私信警告` : '',
+					c.kickAt ? `第 ${c.kickAt} 次时踢出` : ''
 				]
 					.filter(Boolean)
 					.join(' · ')
-					.concat(' · per session');
+					.concat(' · 每次会话单独计算');
 			case 'kill_rate':
 				return [
-					c.maxKills ? `${c.maxKills} kills` : '',
-					c.headshotPct ? `${c.headshotPct}% headshots from ${c.headshotMinKills} kills` : ''
+					c.maxKills ? `${c.maxKills} 次击杀` : '',
+					c.headshotPct ? `至少 ${c.headshotMinKills} 次击杀且爆头率达 ${c.headshotPct}%` : ''
 				]
 					.filter(Boolean)
-					.join(' or ')
-					.concat(` in ${c.windowMinutes} min · flag only · again after ${c.cooldownMinutes} min`);
+					.join('或')
+					.concat(`，观察窗口 ${c.windowMinutes} 分钟 · 仅标记 · 冷却 ${c.cooldownMinutes} 分钟`);
 			case 'seed_reward':
-				return `${c.minutes} min with ${c.lowAt} or fewer on${c.untilFull === false ? '' : `, staying until ${typeof c.fullAt === 'number' ? `${c.fullAt}+ on` : 'it fills'}`}, within ${c.windowDays} day${c.windowDays === 1 ? '' : 's'} · slot ${c.scope === 'server' ? 'here' : 'on every server'} for ${c.slotDays} day${c.slotDays === 1 ? '' : 's'}${c.message ? ' · with a whisper' : ''}`;
+				return `在线人数不超过 ${c.lowAt} 时留服 ${c.minutes} 分钟${c.untilFull === false ? '' : `，直到${typeof c.fullAt === 'number' ? `在线达到 ${c.fullAt} 人` : '服务器满员'}`}；统计近 ${c.windowDays} 天 · ${c.scope === 'server' ? '本服' : '组织所有服务器'}预留席位 ${c.slotDays} 天${c.message ? ' · 附带私信' : ''}`;
 		}
 	}
 </script>
@@ -767,21 +776,19 @@
 />
 
 <p class="mb-4 text-[13px] text-mist-400">
-	Rules act on {data.server.demo ? 'the demo server' : 'this server'} as things happen: a join, a kill,
-	a quiet hour. Every action is recorded below and in the audit trail as
-	<span class="chip">trigger</span>.
+	规则适用于{data.server.demo
+		? '演示服务器'
+		: '当前服务器'}。玩家加入、击杀或服务器进入低活跃状态时，规则会自动执行。每次操作都会显示在下方，并写入审计记录。
+	<span class="chip">触发条件</span>。
 </p>
 
 <div class="mb-3 flex flex-wrap items-start gap-3">
 	<div class="min-w-0 grow">
-		<span class="label-sm mb-0">Rules</span>
+		<span class="label-sm mb-0">规则</span>
 		<div class="mt-0.5 text-[12.5px] text-mist-400">
 			{#if data.triggers.length}
-				{data.triggers.length} rule{data.triggers.length === 1 ? '' : 's'} · {data.triggers.filter(
-					(t) => t.enabled
-				).length} on
-				{#if lastAction}· last action <span title={fmtTime(lastAction)}
-						>{fmtAgo(lastAction, now)}</span
+				共 {data.triggers.length} 条规则 · {data.triggers.filter((t) => t.enabled).length} 条已启用
+				{#if lastAction}· 最近操作 <span title={fmtTime(lastAction)}>{fmtAgo(lastAction, now)}</span
 					>{/if}
 				{#if failingCount}
 					· <button
@@ -789,11 +796,11 @@
 						class="cursor-pointer text-danger underline decoration-danger/50 underline-offset-2 hover:decoration-danger"
 						aria-pressed={onlyFailing}
 						onclick={() => (onlyFailing = !onlyFailing)}
-						>{failingCount} failing{onlyFailing ? ' · show all' : ''}</button
+						>{failingCount} 条失败{onlyFailing ? ' · 显示全部' : ''}</button
 					>
 				{/if}
 			{:else}
-				No rules on this server yet
+				这台服务器尚无规则。
 			{/if}
 		</div>
 	</div>
@@ -809,7 +816,7 @@
 					addOpen = !addOpen;
 				}}
 			>
-				Add rule <span class="text-[10px] text-mist-600">▼</span>
+				添加规则 <span class="text-[10px] text-mist-600">▼</span>
 			</button>
 			{#if addOpen}
 				<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
@@ -820,7 +827,7 @@
 					onclick={(e) => e.stopPropagation()}
 				>
 					{#each GROUPS as g (g)}
-						<div class="px-3 pt-2 pb-1 caps text-mist-600">{g}</div>
+						<div class="px-3 pt-2 pb-1 caps text-mist-600">{groupLabel[g]}</div>
 						{#each KINDS.filter((k) => k.group === g) as k (k.kind)}
 							<button
 								type="button"
@@ -863,7 +870,7 @@
 					type="button"
 					role="switch"
 					aria-checked={t.enabled}
-					aria-label="{t.name}: {t.enabled ? 'on' : 'off'}"
+					aria-label="{t.name}：{t.enabled ? '已启用' : '已停用'}"
 					class="mt-1 h-[18px] w-8 shrink-0 cursor-pointer rounded-full border border-black transition disabled:cursor-not-allowed {t.enabled
 						? 'bg-accent'
 						: 'bg-ink-700 opacity-60'}"
@@ -887,7 +894,7 @@
 						{:else}
 							<span class="font-semibold">{t.name}</span>
 						{/if}
-						{#if h?.failing}<Badge tone="err">▲ failing</Badge>{/if}
+						{#if h?.failing}<Badge tone="err">▲ 异常</Badge>{/if}
 						<span class="chip">{label(t.kind)}</span>
 					</div>
 					<div class="mt-0.5 line-clamp-2 text-[13px] text-mist-400">
@@ -896,31 +903,26 @@
 					<!-- One of four shapes, most urgent first: failing, off, fired, never fired. -->
 					<div class="mt-0.5 text-[12px] {h?.failing ? 'text-mist-100' : 'text-mist-600'}">
 						{#if h?.failing}
-							Latest actions failed · <span class="font-mono text-[11.5px] text-mist-400"
-								>{h.outcome}</span
-							>
+							最近操作失败 · <span class="font-mono text-[11.5px] text-mist-400">{h.outcome}</span>
 							· <span title={fmtTime(h.latest)}>{fmtAgo(h.latest, now)}</span>
 							<button type="button" class="ml-1 btn btn-sm" onclick={() => seeActions(t)}
-								>See actions</button
+								>查看操作</button
 							>
 						{:else if !t.enabled}
-							Off · {#if t.lastFiredAt}last fired <span title={fmtTime(t.lastFiredAt)}
+							已停用 · {#if t.lastFiredAt}上次触发 <span title={fmtTime(t.lastFiredAt)}
 									>{fmtAgo(t.lastFiredAt, now)}</span
-								>{:else}never fired{/if}
+								>{:else}从未触发{/if}
 						{:else if t.lastFiredAt}
-							Fired <span title={fmtTime(t.lastFiredAt)}>{fmtAgo(t.lastFiredAt, now)}</span>
-							{#if h?.count}· {countLine(h)}{:else if t.fireCount}· {t.fireCount} action{t.fireCount ===
-								1
-									? ''
-									: 's'} so far{/if}
+							上次触发 <span title={fmtTime(t.lastFiredAt)}>{fmtAgo(t.lastFiredAt, now)}</span>
+							{#if h?.count}· {countLine(h)}{:else if t.fireCount}· 累计 {t.fireCount} 次操作{/if}
 						{:else}
-							Never fired{#if needs(t.kind)}
+							从未触发{#if needs(t.kind)}
 								· {needs(t.kind)}{/if}
 						{/if}
 					</div>
 				</div>
 				{#if admin}
-					<RowMenu label="Actions for {t.name}">
+					<RowMenu label="{t.name} 的操作">
 						<button
 							type="button"
 							class="menu-item"
@@ -929,13 +931,13 @@
 							onclick={() => dryRun(t.kind, t.config, t.id, t.name)}>{dryLabel(t.kind)}</button
 						>
 						<button type="button" class="menu-item" role="menuitem" onclick={() => open(t.kind, t)}
-							>Edit</button
+							>编辑</button
 						>
 						<button
 							type="button"
 							class="menu-item"
 							role="menuitem"
-							onclick={() => open(t.kind, t, true)}>Duplicate</button
+							onclick={() => open(t.kind, t, true)}>重复</button
 						>
 						<hr class="my-1 border-black" />
 						<button
@@ -943,7 +945,7 @@
 							class="menu-item text-danger!"
 							role="menuitem"
 							disabled={busy}
-							onclick={() => remove(t)}>Delete</button
+							onclick={() => remove(t)}>删除</button
 						>
 					</RowMenu>
 				{/if}
@@ -952,24 +954,22 @@
 	{:else}
 		<div class="flex flex-col items-center gap-3 panel py-7 text-center">
 			{#if admin && !onlyFailing}
-				<p class="text-mist-100">Most servers start with these two.</p>
+				<p class="text-mist-100">多数服务器使用这两个默认项。</p>
 				<div class="flex flex-wrap justify-center gap-2">
 					<button type="button" class="btn btn-primary" onclick={() => open('welcome')}
-						>+ Welcome whisper</button
+						>＋欢迎私聊</button
 					>
-					<button type="button" class="btn" onclick={() => open('broadcast')}
-						>+ Scheduled broadcast</button
-					>
+					<button type="button" class="btn" onclick={() => open('broadcast')}>＋定时广播</button>
 				</div>
 				<p class="max-w-[52ch] text-[12.5px] text-mist-600">
-					Or add any rule: {KINDS.filter((k) => k.kind !== 'welcome' && k.kind !== 'broadcast')
+					也可以添加其他规则：{KINDS.filter((k) => k.kind !== 'welcome' && k.kind !== 'broadcast')
 						.map((k) => k.label)
 						.join(' · ')}.
 				</p>
 			{:else if onlyFailing}
-				<p class="text-mist-600">No rule is failing.</p>
+				<p class="text-mist-600">没有异常规则。</p>
 			{:else}
-				<p class="text-mist-600">No rules on this server yet.</p>
+				<p class="text-mist-600">这台服务器尚无规则。</p>
 			{/if}
 		</div>
 	{/each}
@@ -977,12 +977,12 @@
 
 {#snippet placeholders(names: string[])}
 	<div class="flex flex-wrap items-center gap-1 text-[12px] text-mist-600">
-		<span class="mr-1">Insert</span>
+		<span class="mr-1">插入</span>
 		{#each names as n (n)}
 			<button
 				type="button"
 				class="chip cursor-pointer text-mist-100 transition hover:bg-white/12"
-				title="Insert {'{' + n + '}'} at the caret"
+				title="在光标处插入 {'{' + n + '}'}"
 				onclick={() => insert(n)}>{'{' + n + '}'}</button
 			>
 		{/each}
@@ -992,33 +992,27 @@
 {#snippet dryResult(r: DryRunResult, title: string)}
 	<div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
 		<span class="caps text-accent"
-			>{r.kind === 'restart_notice' ? 'Next cycle' : 'Dry run'} · {title}</span
+			>{r.kind === 'restart_notice' ? '下次重启' : '试运行'} · {title}</span
 		>
 		{#if r.kind === 'restart_notice'}
-			<span
-				><b class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b> broadcast{r.fires === 1
-					? ''
-					: 's'}</span
-			>
+			<span><b class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b> 次广播</span>
 		{:else if r.kind === 'name_filter'}
 			<span
-				>Everyone who has played here: would have matched <b
-					class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b
+				>所有曾在本服游玩的玩家：符合条件者 <b class={r.fires ? 'text-warn' : 'text-ok'}
+					>{r.fires}</b
 				>
-				name{r.fires === 1 ? '' : 's'}</span
+				名玩家</span
 			>
 		{:else}
 			<span
-				>Replayed the last 24 h on this server: would have fired <b
-					class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b
-				>
-				time{r.fires === 1 ? '' : 's'}</span
+				>模拟本服过去 24 小时：预计触发 <b class={r.fires ? 'text-warn' : 'text-ok'}>{r.fires}</b>
+				次</span
 			>
 		{/if}
 		<button
 			type="button"
 			class="ml-auto btn btn-sm btn-ghost"
-			aria-label="Close the dry run"
+			aria-label="关闭模拟预览"
 			onclick={() => (dry = null)}>✕</button
 		>
 	</div>
@@ -1032,7 +1026,7 @@
 				</li>
 			{/each}
 			{#if r.fires > r.items.length}<li class="text-mist-600">
-					… and {r.fires - r.items.length} more
+					…以及 {r.fires - r.items.length} 更多
 				</li>{/if}
 		</ul>
 	{/if}
@@ -1042,7 +1036,7 @@
 {#if form}
 	{@const f = form}
 	<Modal
-		title="{f.id ? 'Edit' : 'New'} · {label(f.kind)}"
+		title="{f.id ? '编辑' : '新建'} · {label(f.kind)}"
 		wide={f.kind === 'empty_reset' || f.kind === 'name_filter'}
 		onclose={() => (form = null)}
 	>
@@ -1064,7 +1058,7 @@
 			<div class="space-y-3" class:hidden={dry && dryFor === 'form'}>
 				<div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
 					<label class="block"
-						><span class="field-label">Name</span><input
+						><span class="field-label">名称</span><input
 							class="input"
 							type="text"
 							name="name"
@@ -1074,31 +1068,29 @@
 						/></label
 					>
 					<label class="flex items-end gap-2 pb-2.5 text-[13px]"
-						><input type="checkbox" bind:checked={f.enabled} /> Enabled</label
+						><input type="checkbox" bind:checked={f.enabled} /> 已启用</label
 					>
 				</div>
 
 				{#if f.kind === 'welcome'}
 					<fieldset class="space-y-2">
-						<legend class="field-label">Whisper</legend>
+						<legend class="field-label">私聊</legend>
 						<input class="input" type="text" bind:value={f.message} maxlength="200" required />
 						{@render placeholders(['name', 'faction', 'server', 'map', 'players', 'max'])}
 					</fieldset>
 					<fieldset class="space-y-1.5 text-[13px]">
-						<legend class="field-label">When</legend>
+						<legend class="field-label">时间</legend>
 						<label class="flex items-center gap-2"
-							><input type="checkbox" bind:checked={f.afterFaction} /> Wait until the player has picked
-							a faction</label
+							><input type="checkbox" bind:checked={f.afterFaction} /> 等待玩家选择阵营后再执行</label
 						>
 						<label class="flex items-center gap-2"
-							><input type="checkbox" bind:checked={f.onlyFirstVisit} /> Only on a player's first visit
-							to this server</label
+							><input type="checkbox" bind:checked={f.onlyFirstVisit} /> 仅在玩家首次加入本服时执行</label
 						>
 					</fieldset>
-					<p class="note">Sent as a whisper, so only that player sees it.</p>
+					<p class="note">通过私聊发送，仅该玩家可见。</p>
 				{:else if f.kind === 'faction_change'}
 					<fieldset class="space-y-2">
-						<legend class="field-label">Whisper</legend>
+						<legend class="field-label">私聊</legend>
 						<input class="input" type="text" bind:value={f.message} maxlength="200" required />
 						{@render placeholders([
 							'name',
@@ -1110,139 +1102,133 @@
 							'max'
 						])}
 					</fieldset>
-					<p class="note">
-						Fires when a player moves from one faction to another, not on their first pick after
-						joining.
-					</p>
+					<p class="note">玩家从一个阵营转到另一个阵营时触发；初次加入后选阵营不会触发。</p>
 				{:else if f.kind === 'broadcast'}
 					<fieldset class="space-y-2">
-						<legend class="field-label">Messages, one per line, sent in turn</legend>
+						<legend class="field-label">每行一条消息，依次发送</legend>
 						<textarea class="min-h-[100px] input" bind:value={f.messages} required></textarea>
 						{@render placeholders(['server', 'map', 'players', 'max'])}
 					</fieldset>
 					<fieldset class="space-y-2">
-						<legend class="field-label">When</legend>
+						<legend class="field-label">时间</legend>
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-							Every
+							每
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="1"
 								max="1440"
 								bind:value={f.everyMinutes}
-								aria-label="Every, minutes"
+								aria-label="每隔多少分钟"
 								required
 							/>
-							min, with at least
+							分钟，至少
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="0"
 								max="1000"
 								bind:value={f.minPlayers}
-								aria-label="At least, players"
+								aria-label="最少玩家数"
 							/>
-							and at most
+							，最多
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="0"
 								max="1000"
 								bind:value={f.maxPlayers}
-								aria-label="At most, players"
-								placeholder="any"
+								aria-label="最多玩家数"
+								placeholder="不限"
 							/>
-							players on
+							人在线
 						</div>
 					</fieldset>
 					<p class="note">
-						Blank for no ceiling; a fill-the-server message can stop once it has. Broadcasts are
-						limited to 200 characters.
+						留空表示不限制人数。暖服广播可以在达到目标人数后停止；每条广播最多 200 字符。
 					</p>
 				{:else if f.kind === 'empty_reset'}
 					<fieldset class="space-y-2">
-						<legend class="field-label">Reset to</legend>
+						<legend class="field-label">重置为</legend>
 						<MapPicker bind:this={picker} serverId={id} catalog={data.catalog} />
 					</fieldset>
 					<fieldset class="space-y-2">
-						<legend class="field-label">When</legend>
+						<legend class="field-label">时间</legend>
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-							After the server has been empty for
+							服务器连续空闲
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="1"
 								max="1440"
 								bind:value={f.afterMinutes}
-								aria-label="After empty for, minutes"
+								aria-label="空服持续时间（分钟）"
 								required
 							/>
-							min, at most once every
+							分钟后触发，每隔至少
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="1"
 								max="1440"
 								bind:value={f.cooldownMinutes}
-								aria-label="Cooldown between resets, minutes"
+								aria-label="重置冷却时间（分钟）"
 							/>
-							min
+							分钟
 						</div>
 					</fieldset>
 					<p class="note">
-						Fires when nobody has been on for that long and the server is on a different map or
-						mode. With a rotation the target is set as next and the match ended; without one the map
-						is requested directly.
+						服务器空闲达到设定时间，且当前地图或模式与目标不同时触发。启用轮换时会把目标设为下一张地图并结束比赛；未启用轮换时直接请求切换地图。
 					</p>
 				{:else if f.kind === 'restart_notice'}
 					<fieldset class="space-y-2">
-						<legend class="field-label">Heads-up, before the window opens</legend>
+						<legend class="field-label">窗口开启前提醒</legend>
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-							Send
+							发送
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="0"
 								max="1439"
 								bind:value={f.leadMinutes}
-								aria-label="Heads-up, minutes before"
+								aria-label="提前提醒时间（分钟）"
 							/>
-							min before <span class="text-mist-600">(0 turns the heads-up off)</span>
+							分钟前 <span class="text-mist-600">（设为 0 可关闭提前提醒）</span>
 						</div>
 						<input
 							class="input"
 							type="text"
 							bind:value={f.leadMessage}
 							maxlength="200"
-							aria-label="Heads-up message"
+							aria-label="提前提醒消息"
 							disabled={!Number(f.leadMinutes)}
 						/>
 					</fieldset>
 					<fieldset class="space-y-2">
-						<legend class="field-label">Once the window is open</legend>
+						<legend class="field-label">窗口开启后</legend>
 						<input
 							class="input"
 							type="text"
 							bind:value={f.message}
 							maxlength="200"
-							aria-label="Message once the window is open"
+							aria-label="窗口开启后的消息"
 							required
 						/>
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-							Repeat every
+							每隔
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="0"
 								max="1440"
 								bind:value={f.repeatMinutes}
-								aria-label="Repeat every, minutes"
+								aria-label="每隔多少分钟重复"
 							/>
-							min while the round runs on <span class="text-mist-600">(0 sends it once)</span>
+							分钟，且本回合运行在 <span class="text-mist-600">（设为 0 则只发送一次）</span>
 						</div>
 					</fieldset>
 					<fieldset class="space-y-2">
-						<legend class="field-label">Only with at least</legend>
+						<legend class="field-label">至少满足</legend>
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
 							<input
 								class="input w-20 text-right"
@@ -1250,25 +1236,23 @@
 								min="0"
 								max="1000"
 								bind:value={f.minPlayers}
-								aria-label="At least, players"
+								aria-label="最少玩家数"
 							/>
-							players on
+							人在线
 						</div>
 					</fieldset>
 					{@render placeholders(['minutes', 'uptime', 'server', 'map', 'players', 'max'])}
-					<p class="note">
-						The game restarts 24 hours after it started, once the round then in progress ends.
-					</p>
+					<p class="note">游戏服务器启动满 24 小时后，会在当时正在进行的回合结束时重启。</p>
 				{:else if f.kind === 'match_broadcast'}
 					<fieldset class="space-y-2">
-						<legend class="field-label">When a match ends</legend>
+						<legend class="field-label">比赛结束时</legend>
 						<input
 							class="input"
 							type="text"
 							bind:value={f.endMessage}
 							maxlength="200"
-							aria-label="Message when a match ends"
-							placeholder="Leave empty to say nothing"
+							aria-label="比赛结束时的消息"
+							placeholder="留空则不发送"
 						/>
 						{@render placeholders([
 							'faction',
@@ -1284,19 +1268,19 @@
 						])}
 					</fieldset>
 					<fieldset class="space-y-2">
-						<legend class="field-label">As the next one starts</legend>
+						<legend class="field-label">下一场开始时</legend>
 						<input
 							class="input"
 							type="text"
 							bind:value={f.startMessage}
 							maxlength="200"
-							aria-label="Message as the next match starts"
-							placeholder="Leave empty to say nothing"
+							aria-label="下场比赛开始时的消息"
+							placeholder="留空则不发送"
 						/>
 						{@render placeholders(['map', 'previous', 'server', 'players', 'max'])}
 					</fieldset>
 					<fieldset class="space-y-2">
-						<legend class="field-label">Only with at least</legend>
+						<legend class="field-label">至少满足</legend>
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
 							<input
 								class="input w-20 text-right"
@@ -1304,26 +1288,22 @@
 								min="0"
 								max="1000"
 								bind:value={f.minPlayers}
-								aria-label="At least, players"
+								aria-label="最少玩家数"
 							/>
-							players on
+							人在线
 						</div>
 					</fieldset>
 					<p class="note">
-						A match ends when the map changes or the faction scores fall back to zero, so a manual
-						end or map change counts too; {'{faction}'} is whoever led at that moment (tied factions are
-						named together). Sent one poll after the round ends, a second or two on a busy server and
-						up to half a minute on a quiet one.
+						地图切换或阵营分数归零视为比赛结束；手动结束比赛或切换地图也计入。 {'{faction}'} 获胜方按比赛结束时的领先阵营判定；平分时会列出所有并列阵营。消息在该回合结束后的下一次轮询发送，繁忙服务器通常需要几秒，空闲服务器最多约半分钟。
 					</p>
 				{:else if f.kind === 'risk_kick'}
 					<fieldset class="space-y-1.5 text-[13px]">
-						<legend class="field-label">Kick when the player is</legend>
+						<legend class="field-label">满足以下条件时踢出玩家</legend>
 						<label class="flex items-center gap-2"
-							><input type="checkbox" bind:checked={f.bannedElsewhere} /> banned on another server in
-							this organisation</label
+							><input type="checkbox" bind:checked={f.bannedElsewhere} /> 曾在本组织其他服务器被封禁</label
 						>
 						<label class="flex items-center gap-2"
-							><input type="checkbox" bind:checked={f.watchlist} /> on the watchlist</label
+							><input type="checkbox" bind:checked={f.watchlist} /> 在观察名单中</label
 						>
 						<div
 							class="grid grid-cols-1 gap-x-4 gap-y-1.5 border-t border-black pt-2 sm:grid-cols-[1fr_auto] {data.steam
@@ -1332,10 +1312,11 @@
 						>
 							<div class="space-y-1.5">
 								<label class="flex items-center gap-2"
-									><input type="checkbox" bind:checked={f.vacBans} disabled={!data.steam} /> VAC banned</label
+									><input type="checkbox" bind:checked={f.vacBans} disabled={!data.steam} /> 受到 VAC
+									封禁</label
 								>
 								<label class="flex items-center gap-2"
-									><input type="checkbox" bind:checked={f.gameBans} disabled={!data.steam} /> game banned</label
+									><input type="checkbox" bind:checked={f.gameBans} disabled={!data.steam} /> 游戏封禁</label
 								>
 								{#if f.vacBans || f.gameBans}
 									<div
@@ -1343,7 +1324,7 @@
 											? ''
 											: 'text-mist-600'}"
 									>
-										Only bans from the last
+										只检查最近
 										<input
 											class="input w-24 text-right"
 											type="number"
@@ -1352,38 +1333,38 @@
 											bind:value={f.maxBanAgeDays}
 											disabled={!data.steam}
 										/>
-										days (0 = since forever)
+										天（0 表示不限时间）
 									</div>
 								{/if}
 								<div class="flex flex-wrap items-center gap-2">
-									on a Steam account under
+									，Steam 账号注册不足
 									<input
 										class="input w-20 text-right"
 										type="number"
 										min="0"
 										max="3650"
 										bind:value={f.minAccountDays}
-										aria-label="Steam account younger than, days"
+										aria-label="Steam 账号年龄低于（天）"
 										disabled={!data.steam}
 									/>
-									days old <span class="text-mist-600">(0 turns it off)</span>
+									天 <span class="text-mist-600">（设为 0 可关闭）</span>
 								</div>
 								<label class="flex items-center gap-2 pl-5"
 									><input
 										type="checkbox"
 										bind:checked={f.privateProfiles}
 										disabled={!data.steam || !f.minAccountDays}
-									/> and treat private profiles, whose age is unknown, as too young</label
+									/> 将资料未公开、账号年龄未知的玩家也视为账号过新</label
 								>
 							</div>
 							<p
 								class="max-w-[22ch] text-[12px] text-mist-600 sm:border-l sm:border-ink-700 sm:pl-3"
 							>
-								From Steam, fetched when a player first appears and refreshed daily.
+								数据来自 Steam；玩家首次出现时获取，此后每天刷新。
 							</p>
 						</div>
 						<label class="flex flex-wrap items-center gap-2 border-t border-black pt-2"
-							>at advisory risk score
+							>，建议风险分达到
 							<input
 								class="input w-[80px]"
 								type="number"
@@ -1391,33 +1372,33 @@
 								max="100"
 								bind:value={f.kickAtScore}
 							/>
-							or more, as the players table shows it (0 is off)</label
+							或以上，按玩家表显示的数据判断（设为 0 可关闭）</label
 						>
 					</fieldset>
 					<fieldset class="space-y-1.5 text-[13px]">
-						<legend class="field-label">Never kick</legend>
+						<legend class="field-label">从不踢出</legend>
 						<label class="flex items-center gap-2"
-							><input type="checkbox" bind:checked={f.spareReserved} /> players with a reserved slot</label
+							><input type="checkbox" bind:checked={f.spareReserved} /> 持有预留位的玩家</label
 						>
 					</fieldset>
 					<fieldset class="space-y-2">
-						<legend class="field-label">Kick reason, shown to the player</legend>
+						<legend class="field-label">踢出原因（玩家可见）</legend>
 						<input class="input" type="text" bind:value={f.reason} maxlength="200" />
 					</fieldset>
-					<p class="note">Kicks land in the audit trail with the rule that matched.</p>
+					<p class="note">踢出操作及命中的规则会记入审计日志。</p>
 				{:else if f.kind === 'name_filter'}
 					<div class="grid grid-cols-1 items-start gap-x-6 gap-y-3 sm:grid-cols-2">
 						<div class="space-y-3">
 							<fieldset class="space-y-2 text-[13px]">
-								<legend class="field-label">Characters a name may use</legend>
-								<select class="input" bind:value={f.characters} aria-label="Character policy">
-									<option value="off">Any</option>
-									<option value="latin">Latin letters (keeps José, Müller)</option>
-									<option value="ascii">ASCII only (what a US keyboard types)</option>
+								<legend class="field-label">名称允许使用的字符</legend>
+								<select class="input" bind:value={f.characters} aria-label="字符规则">
+									<option value="off">不限</option>
+									<option value="latin">拉丁字母（允许 José、Müller 等）</option>
+									<option value="ascii">仅限 ASCII 字符（美式键盘可输入）</option>
 								</select>
 								{#if f.characters === 'latin'}
 									<div class="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
-										<span class="text-mist-400">and also</span>
+										<span class="text-mist-400">并且</span>
 										{#each SCRIPTS as [value, name] (value)}
 											<label class="flex items-center gap-1.5"
 												><input type="checkbox" {value} bind:group={f.extraScripts} />
@@ -1428,50 +1409,48 @@
 								{/if}
 								{#if f.characters !== 'off'}
 									<label class="flex flex-wrap items-center gap-2 border-t border-black pt-2"
-										><input type="checkbox" bind:checked={f.allowSymbols} /> Allow emoji and symbols
+										><input type="checkbox" bind:checked={f.allowSymbols} /> 允许表情和符号
 										<span class="text-mist-600">(★ 【 】 and the like)</span></label
 									>
 								{/if}
 								<div class="flex flex-wrap items-center gap-2">
-									At least
+									至少
 									<input
 										class="input w-20 text-right"
 										type="number"
 										min="0"
 										max="10"
 										bind:value={f.minLetters}
-										aria-label="Minimum letters in a name"
+										aria-label="名称最少字符数"
 									/>
-									letters <span class="text-mist-600">(0 turns it off; catches ____ and ....)</span>
+									个字母
+									<span class="text-mist-600">（设为 0 可关闭；也会匹配 ____ 和 .... 等名称）</span>
 								</div>
 								{#if f.characters !== 'off'}
-									<p class="text-[12px] text-mist-600">
-										Digits, spaces and keyboard punctuation always pass.
-									</p>
+									<p class="text-[12px] text-mist-600">数字、空格和键盘标点始终允许。</p>
 								{/if}
 							</fieldset>
 							<fieldset class="space-y-1.5 text-[13px]">
-								<legend class="field-label">When a name matches</legend>
+								<legend class="field-label">名称匹配时</legend>
 								<label class="flex items-center gap-2"
-									><input type="radio" value="kick" bind:group={f.nameAction} /> Kick the player</label
+									><input type="radio" value="kick" bind:group={f.nameAction} /> 踢出玩家</label
 								>
 								<label class="flex flex-wrap items-center gap-2"
-									><input type="radio" value="alert" bind:group={f.nameAction} /> Alert only
-									<span class="text-mist-600">(audit trail and Discord, nobody is kicked)</span
+									><input type="radio" value="alert" bind:group={f.nameAction} /> 仅标记
+									<span class="text-mist-600">（仅记录审计日志并通知 Discord，不踢出玩家）</span
 									></label
 								>
 								<label class="flex items-center gap-2 border-t border-black pt-2"
-									><input type="checkbox" bind:checked={f.spareReserved} /> Never players with a reserved
-									slot</label
+									><input type="checkbox" bind:checked={f.spareReserved} /> 始终跳过持有预留位的玩家</label
 								>
 							</fieldset>
 						</div>
 						<div class="space-y-3 sm:border-l sm:border-black sm:pl-6">
 							<fieldset class="space-y-2 text-[13px]">
-								<legend class="field-label">Words a name may not contain</legend>
+								<legend class="field-label">名称禁止包含的词</legend>
 								<label class="flex flex-wrap items-center gap-2"
-									><input type="checkbox" bind:checked={f.builtinWords} /> The built-in English list
-									<span class="text-mist-600">(slurs and hate terms; add swearing yourself)</span
+									><input type="checkbox" bind:checked={f.builtinWords} /> 内置英文违禁词表
+									<span class="text-mist-600">（包含歧视和仇恨词；其他不当用语需自行添加）</span
 									></label
 								>
 								<textarea
@@ -1479,45 +1458,41 @@
 									rows="7"
 									data-plain
 									bind:value={f.blocked}
-									aria-label="Blocked words, one per line"
-									placeholder="one word per line"></textarea>
+									aria-label="禁止的词，每行一个"
+									placeholder="每行一个词"></textarea>
 								<p class="text-[12px] text-mist-600">
-									Caught through case, leetspeak (n4z1), look-alike letters, stretching and spelling
-									out (n.a.z.i). Letters, digits and spaces; 200 at most.
+									可识别大小写变化、数字替代（如 n4z1）、相似字母、重复字母和逐字拼写（如
+									n.a.z.i）。每行一个词，仅限字母、数字和空格，最多 200 项。
 								</p>
 							</fieldset>
 							<fieldset class="space-y-2 text-[13px]">
-								<legend class="field-label">Except</legend>
+								<legend class="field-label">排除</legend>
 								<textarea
 									class="input font-mono text-[12.5px]"
 									rows="3"
 									data-plain
 									bind:value={f.allowed}
-									aria-label="Allowed words, one per line"></textarea>
-								<p class="text-[12px] text-mist-600">
-									Names or parts of names that would match but are fine here.
-								</p>
+									aria-label="允许的词，每行一个"></textarea>
+								<p class="text-[12px] text-mist-600">不会受到此规则影响的名称或名称片段。</p>
 							</fieldset>
 						</div>
 					</div>
 					{#if f.nameAction === 'kick'}
 						<fieldset class="space-y-2">
-							<legend class="field-label">Kick reason, shown to the player</legend>
+							<legend class="field-label">踢出原因（玩家可见）</legend>
 							<input class="input" type="text" bind:value={f.reason} maxlength="200" />
 							{@render placeholders(['why', 'name', 'server'])}
 							<p class="text-[12px] text-mist-600">
-								{'{why}'} names the kind of fault ("it uses characters outside the Latin alphabet"), never
-								the word.
+								{'{why}'} 向玩家说明违规类型（例如“名称包含拉丁字母以外的字符”），不会重复显示违规词。
 							</p>
 						</fieldset>
 					{/if}
 					<p class="note">
-						Names are checked as players join; a player who renames mid-session is caught on their
-						next join. Run the dry run before turning a word list loose.
+						玩家加入时检查名称；游戏中途改名的玩家会在下次加入时检查。启用违禁词规则前请先运行模拟预览。
 					</p>
 				{:else if f.kind === 'ping_kick'}
 					<fieldset class="space-y-2">
-						<legend class="field-label">Kick when ping stays above</legend>
+						<legend class="field-label">延迟持续高于此值时踢出</legend>
 						<div class="flex flex-wrap items-center gap-2 text-[13px]">
 							<input
 								class="input w-24 text-right"
@@ -1525,58 +1500,57 @@
 								min="1"
 								max="2000"
 								bind:value={f.maxPingMs}
-								aria-label="Maximum ping, milliseconds"
+								aria-label="最高延迟（毫秒）"
 								required
 							/>
-							ms for at least
+							毫秒，持续至少
 							<input
 								class="input w-24 text-right"
 								type="number"
 								min="1"
 								max="3600"
 								bind:value={f.durationSeconds}
-								aria-label="High ping duration, seconds"
+								aria-label="高延迟持续时间（秒）"
 								required
 							/>
-							seconds
+							秒
 						</div>
 					</fieldset>
 					<fieldset class="space-y-2">
-						<legend class="field-label">Kick reason, shown to the player</legend>
+						<legend class="field-label">踢出原因（玩家可见）</legend>
 						<input class="input" type="text" bind:value={f.reason} maxlength="200" />
 					</fieldset>
 					<p class="note">
-						The timer starts on the first high-ping sample. It resets when ping drops to the limit
-						or below, is unavailable, the player leaves, or the player list cannot be sampled on
-						time.
+						第一次采样到高延迟时开始计时。延迟降到阈值以下、无法获取延迟、玩家离开或玩家列表未按时采样时会重新计时。
 					</p>
 				{:else if f.kind === 'team_kill'}
 					<fieldset class="space-y-2">
-						<legend class="field-label">Whisper</legend>
+						<legend class="field-label">私聊</legend>
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-							From
+							从
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="0"
 								max="100"
 								bind:value={f.warnAt}
-								aria-label="Whisper from, team kills"
+								aria-label="误杀队友达到多少时私聊提醒"
 							/>
-							team kills, on every one after <span class="text-mist-600">(0 turns it off)</span>
+							次误杀队友；达到阈值后的每次误杀都会触发
+							<span class="text-mist-600">（设为 0 可关闭）</span>
 						</div>
 						<input
 							class="input"
 							type="text"
 							bind:value={f.warnMessage}
 							maxlength="200"
-							aria-label="Whisper"
+							aria-label="私聊"
 							disabled={!Number(f.warnAt)}
 						/>
 						{@render placeholders(['name', 'victim', 'count', 'server', 'map'])}
 					</fieldset>
 					<fieldset class="space-y-2">
-						<legend class="field-label">Kick</legend>
+						<legend class="field-label">踢出</legend>
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
 							At
 							<input
@@ -1585,26 +1559,23 @@
 								min="0"
 								max="100"
 								bind:value={f.kickAt}
-								aria-label="Kick at, team kills"
+								aria-label="误杀队友达到多少时踢出"
 							/>
-							team kills <span class="text-mist-600">(0 turns it off)</span>
+							误杀队友 <span class="text-mist-600">（设为 0 可关闭）</span>
 						</div>
 						<input
 							class="input"
 							type="text"
 							bind:value={f.kickReason}
 							maxlength="200"
-							aria-label="Kick reason"
+							aria-label="踢出原因"
 							disabled={!Number(f.kickAt)}
 						/>
 					</fieldset>
-					<p class="note">
-						Team kills come from the game's kill feed and are counted per player within their
-						current session.
-					</p>
+					<p class="note">误杀数据来自游戏击杀事件，按玩家当前场次分别统计。</p>
 				{:else if f.kind === 'kill_rate'}
 					<fieldset class="space-y-1.5 text-[13px]">
-						<legend class="field-label">Flag a player at</legend>
+						<legend class="field-label">在以下条件标记玩家</legend>
 						<div class="flex flex-wrap items-center gap-2">
 							<input
 								class="input w-20 text-right"
@@ -1612,9 +1583,9 @@
 								min="0"
 								max="1000"
 								bind:value={f.maxKills}
-								aria-label="Flag at, kills in the window"
+								aria-label="窗口内达到多少击杀时标记"
 							/>
-							kills <span class="text-mist-600">(0 turns it off)</span>
+							次击杀 <span class="text-mist-600">（设为 0 可关闭）</span>
 						</div>
 						<div class="flex flex-wrap items-center gap-2">
 							or
@@ -1624,36 +1595,36 @@
 								min="0"
 								max="100"
 								bind:value={f.headshotPct}
-								aria-label="Flag at, percent headshots"
+								aria-label="爆头率达到多少时标记"
 							/>
-							% headshots, from
+							% 爆头率，基于
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="1"
 								max="1000"
 								bind:value={f.headshotMinKills}
-								aria-label="Headshot share judged from, kills"
+								aria-label="计算爆头率的最低击杀数"
 								disabled={!Number(f.headshotPct)}
 							/>
-							kills <span class="text-mist-600">(0 % turns it off)</span>
+							次击杀 <span class="text-mist-600">（设为 0% 可关闭）</span>
 						</div>
 						<div class="flex flex-wrap items-center gap-2">
-							within
+							在
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="1"
 								max="60"
 								bind:value={f.windowMinutes}
-								aria-label="Within, minutes"
+								aria-label="时间范围（分钟）"
 								required
 							/>
-							minutes
+							分钟
 						</div>
 					</fieldset>
 					<fieldset class="space-y-1.5 text-[13px]">
-						<legend class="field-label">Flag the same player again after</legend>
+						<legend class="field-label">再次标记同一玩家需间隔</legend>
 						<div class="flex flex-wrap items-center gap-2">
 							<input
 								class="input w-20 text-right"
@@ -1661,55 +1632,53 @@
 								min="1"
 								max="1440"
 								bind:value={f.cooldownMinutes}
-								aria-label="Flag again after, minutes"
+								aria-label="再次标记的间隔（分钟）"
 								required
 							/>
-							minutes
+							分钟
 						</div>
 					</fieldset>
 					<p class="note">
-						Counts kills with hand-held weapons from the kill feed. A flag goes to the audit trail
-						and Discord; nobody is kicked.
+						统计击杀事件中的手持武器击杀。命中规则只会记录到审计日志并通知 Discord，不会踢出玩家。
 					</p>
 				{:else if f.kind === 'seed_reward'}
 					<fieldset class="space-y-1.5 text-[13px]">
-						<legend class="field-label">Counts as seeding</legend>
+						<legend class="field-label">计入暖服</legend>
 						<div class="flex flex-wrap items-center gap-2">
-							Being on with at most
+							在线人数不超过
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="1"
 								max="1000"
 								bind:value={f.lowAt}
-								aria-label="Counts as seeding: at most, players on"
+								aria-label="计入暖服的最大在线人数"
 								required
 							/>
-							players on
+							人在线
 						</div>
 						<label class="flex items-center gap-2"
-							><input type="checkbox" bind:checked={f.untilFull} /> and only once the server has filled
-							with the player still on</label
+							><input type="checkbox" bind:checked={f.untilFull} /> 仅在服务器达到目标人数且该玩家仍在线时生效</label
 						>
 						<div
 							class="flex flex-wrap items-center gap-2 pl-5 {f.untilFull ? '' : 'text-mist-600'}"
 						>
-							Filled means at least
+							满员人数至少
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="1"
 								max="1000"
 								bind:value={f.fullAt}
-								aria-label="Filled means at least, players"
+								aria-label="达到多少玩家视为满员"
 								placeholder="limit"
 								disabled={!f.untilFull}
 							/>
-							players <span class="text-mist-600">(blank for the server's own limit)</span>
+							名玩家 <span class="text-mist-600">（留空则使用服务器自身上限）</span>
 						</div>
 					</fieldset>
 					<fieldset class="space-y-1.5 text-[13px]">
-						<legend class="field-label">Reward</legend>
+						<legend class="field-label">奖励</legend>
 						<div class="flex flex-wrap items-center gap-2">
 							<input
 								class="input w-24 text-right"
@@ -1717,30 +1686,30 @@
 								min="1"
 								max="129600"
 								bind:value={f.minutes}
-								aria-label="Seed time needed, minutes"
+								aria-label="所需暖服时间（分钟）"
 								required
 							/>
-							min of seed time within the last
+							在最近
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="1"
 								max="90"
 								bind:value={f.windowDays}
-								aria-label="Counted over the last, days"
+								aria-label="统计过去的天数"
 								required
 							/>
-							days earns a reserved slot for
+							天内达到暖服时长后，获得有效期为
 							<input
 								class="input w-20 text-right"
 								type="number"
 								min="1"
 								max="365"
 								bind:value={f.slotDays}
-								aria-label="Reserved slot lasts, days"
+								aria-label="预留位有效期（天）"
 								required
 							/>
-							days
+							天
 						</div>
 						<div class="flex flex-wrap gap-x-4 gap-y-1">
 							<label class="flex items-center gap-2 {canSlotHere ? '' : 'text-mist-600'}"
@@ -1749,31 +1718,26 @@
 									bind:group={f.slotScope}
 									value="server"
 									disabled={!canSlotHere}
-								/> on this server only</label
+								/> 仅在本服</label
 							>
 							<label class="flex items-center gap-2 {canSlotOrg ? '' : 'text-mist-600'}"
 								><input type="radio" bind:group={f.slotScope} value="org" disabled={!canSlotOrg} />
-								on every server in the organisation</label
+								在组织的所有服务器上生效</label
 							>
 						</div>
 					</fieldset>
 					<fieldset class="space-y-2">
-						<legend class="field-label">Whisper on the grant, blank for none</legend>
+						<legend class="field-label">授予时发送私聊，留空则不发送</legend>
 						<input class="input" type="text" bind:value={f.message} maxlength="200" />
 						{@render placeholders(['name', 'server', 'minutes', 'until', 'days', 'players', 'max'])}
 					</fieldset>
 					<p class="note">
-						With the box ticked, seed time stays pending until the server has filled with the player
-						still on; leave before that and it is forfeited. Unticked, every low minute counts as it
-						passes. A slot on this server only goes on this server's own reserved-slot list; one on
-						every server goes on the organisation's, which this server applies at once and the
-						others at their next sync. Either lapses on its own and can be earned again. Players who
-						already hold a reserved slot here are skipped.
+						勾选后，暖服时间会暂存，直到服务器达到目标人数且玩家仍在线；提前离开则作废。未勾选时，每分钟低人数在线时间都会立即计入。本服预留位写入本服名单；全组织预留位写入组织名单，本服立即应用，其他服务器下次同步时应用。预留位到期后可重新获得；已有本服预留位的玩家会跳过。
 					</p>
 				{/if}
 
 				<div class="rounded-ctl border border-black bg-ink-950 px-3 py-2 text-[13px]">
-					<span class="mr-2 caps text-accent">Reads as</span>
+					<span class="mr-2 caps text-accent">读取结果</span>
 					<span class="text-mist-100">{describe(f.kind, config(f))}</span>
 				</div>
 			</div>
@@ -1791,15 +1755,11 @@
 					disabled={dryBusy}
 					onclick={() =>
 						dry && dryFor === 'form' ? (dry = null) : dryRun(f.kind, config(f), 'form', f.name)}
-					>{dryBusy
-						? 'Working…'
-						: dry && dryFor === 'form'
-							? 'Back to the form'
-							: dryLabel(f.kind)}</button
+					>{dryBusy ? '处理中…' : dry && dryFor === 'form' ? '返回表单' : dryLabel(f.kind)}</button
 				>
-				<button type="button" class="btn" data-close onclick={() => (form = null)}>Cancel</button>
+				<button type="button" class="btn" data-close onclick={() => (form = null)}>取消</button>
 				<button type="submit" class="btn btn-primary" disabled={busy}
-					>{f.id ? 'Save' : 'Add rule'}</button
+					>{f.id ? '保存' : '添加规则'}</button
 				>
 			</div>
 		</form>
@@ -1809,30 +1769,30 @@
 {#if data.triggers.length || deliveries.length}
 	<div class="mt-4 scroll-mt-4 panel" bind:this={actionsPanel}>
 		<div class="mb-3 flex flex-wrap items-center gap-2">
-			<span class="label-sm mb-0">Recent actions</span>
-			<span class="text-[12.5px] text-mist-600">what the rules did, newest first</span>
+			<span class="label-sm mb-0">近期操作</span>
+			<span class="text-[12.5px] text-mist-600">规则执行记录，最新优先</span>
 			<div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
 				<select
 					class="input w-auto pr-[30px] {ruleFilter ? 'border-accent' : ''}"
-					aria-label="Only this rule"
+					aria-label="仅此规则"
 					bind:value={ruleFilter}
 				>
-					<option value="">All rules</option>
+					<option value="">全部规则</option>
 					{#each ruleNames as name (name)}<option value={name}>{name}</option>{/each}
 				</select>
 				<select
 					class="input w-auto pr-[30px] {stateFilter ? 'border-accent' : ''}"
-					aria-label="Only this state"
+					aria-label="仅此状态"
 					bind:value={stateFilter}
 				>
-					<option value="">Any state</option>
+					<option value="">任意状态</option>
 					{#each STATES as s (s)}<option value={s}>{s}</option>{/each}
 				</select>
 				<input
 					class="input w-full sm:w-52"
 					type="search"
-					placeholder="Filter by action, target, result…"
-					aria-label="Filter recent actions"
+					placeholder="按操作、目标或结果筛选…"
+					aria-label="筛选近期操作"
 					bind:value={deliverySearch}
 				/>
 			</div>
@@ -1841,12 +1801,12 @@
 			<table>
 				<thead>
 					<tr>
-						<SortHeader sort={deliverySort} key="when">When</SortHeader>
-						<SortHeader sort={deliverySort} key="rule">Rule</SortHeader>
-						<SortHeader sort={deliverySort} key="action">Action</SortHeader>
-						<SortHeader sort={deliverySort} key="target">Target</SortHeader>
-						<SortHeader sort={deliverySort} key="state">State</SortHeader>
-						<SortHeader sort={deliverySort} key="result">Result</SortHeader>
+						<SortHeader sort={deliverySort} key="when">时间</SortHeader>
+						<SortHeader sort={deliverySort} key="rule">规则</SortHeader>
+						<SortHeader sort={deliverySort} key="action">操作</SortHeader>
+						<SortHeader sort={deliverySort} key="target">目标</SortHeader>
+						<SortHeader sort={deliverySort} key="state">状态</SortHeader>
+						<SortHeader sort={deliverySort} key="result">结果</SortHeader>
 					</tr>
 				</thead>
 				<tbody>
@@ -1864,7 +1824,7 @@
 								><Badge
 									tone={stateTone(d.state)}
 									title={d.state === 'unknown'
-										? 'Sent, no answer from the game. Not retried.'
+										? '已发送，但游戏服务器未响应；不会自动重试。'
 										: undefined}>{d.state}</Badge
 								></td
 							>
@@ -1873,7 +1833,7 @@
 					{:else}
 						<tr
 							><td colspan="6" class="py-6 text-center text-mist-600"
-								>{deliveries.length ? 'Nothing matches.' : 'No actions yet.'}</td
+								>{deliveries.length ? '没有符合条件的记录。' : '暂无操作记录。'}</td
 							></tr
 						>
 					{/each}

@@ -63,7 +63,7 @@
 				'POST',
 				`/api/orgs/${encodeURIComponent(org.id)}/lists/sync`
 			);
-			toast(describeSync(res.sync, 'Sync ran.'), 'ok', 8000);
+			toast(describeSync(res.sync, '同步已执行。'), 'ok', 8000);
 			await invalidateAll();
 		} catch (err) {
 			toast(errorMessage(err), 'err');
@@ -99,15 +99,14 @@
 
 <div class="mb-4 flex flex-wrap items-center gap-3">
 	<div>
-		<h2 class="text-lg font-semibold tracking-tight">Ban list</h2>
+		<h2 class="text-lg font-semibold tracking-tight">封禁名单</h2>
 		<p class="text-[13px] text-mist-400">
-			Bans kept by the organisation and pushed to every one of its servers. Bans added on a server
-			directly stay local to it.
+			组织封禁会同步至其所有服务器。在服务器上直接添加的封禁仅对该服务器生效。
 		</p>
 	</div>
 	<span class="ml-auto inline-flex gap-1.5">
-		<button class="btn" disabled={busy || !lists.servers.length} onclick={syncNow}>Sync now</button>
-		<button class="btn btn-primary" onclick={() => (banning = true)}>Add ban</button>
+		<button class="btn" disabled={busy || !lists.servers.length} onclick={syncNow}>立即同步</button>
+		<button class="btn btn-primary" onclick={() => (banning = true)}>添加封禁</button>
 	</span>
 </div>
 
@@ -121,7 +120,7 @@
 			>
 				<div class="font-medium">{s.name}</div>
 				<div class="text-mist-400">
-					{#if s.syncedAt}synced {fmtTime(s.syncedAt)}{:else}never synced{/if}
+					{#if s.syncedAt}已同步 {fmtTime(s.syncedAt)}{:else}从未同步{/if}
 				</div>
 				{#if s.lastError}<div class="text-danger">{s.lastError}</div>{/if}
 			</div>
@@ -133,8 +132,7 @@
 
 {#if !lists.servers.length}
 	<div class="callout mb-4">
-		{org.name} has no servers yet, so there is nothing to push the list to. Entries are kept and applied
-		when a server is added.
+		{org.name} 还没有服务器，暂时无法同步封禁列表。条目会保留，并在添加服务器后生效。
 	</div>
 {/if}
 
@@ -144,25 +142,23 @@
 	<input
 		class="input w-full sm:w-80"
 		type="search"
-		placeholder="Filter by name, SteamID, ban ID, reason, admin…"
+		placeholder="按名称、SteamID、封禁编号、原因或管理员筛选…"
 		bind:value={search}
 	/>
-	<span class="text-[12.5px] text-mist-600"
-		>{entries.length} ban{entries.length === 1 ? '' : 's'}</span
-	>
+	<span class="text-[12.5px] text-mist-600">{entries.length} 条封禁</span>
 </div>
 
 <div class="table-wrap">
 	<table>
 		<thead>
 			<tr>
-				<SortHeader {sort} key="player">Player</SortHeader>
+				<SortHeader {sort} key="player">玩家</SortHeader>
 				<SortHeader {sort} key="uid">ID</SortHeader>
-				<SortHeader {sort} key="reason">Reason</SortHeader>
+				<SortHeader {sort} key="reason">原因</SortHeader>
 				<SortHeader {sort} key="by">By</SortHeader>
-				<SortHeader {sort} key="added">Added</SortHeader>
-				<SortHeader {sort} key="expires">Expires</SortHeader>
-				<SortHeader {sort} key="servers">Servers</SortHeader>
+				<SortHeader {sort} key="added">添加时间</SortHeader>
+				<SortHeader {sort} key="expires">到期时间</SortHeader>
+				<SortHeader {sort} key="servers">服务器</SortHeader>
 				<th></th>
 			</tr>
 		</thead>
@@ -187,9 +183,9 @@
 					<td class="text-[12.5px] whitespace-nowrap text-mist-400">{fmtTime(e.addedAt)}</td>
 					<td class="text-[12.5px] whitespace-nowrap">
 						{#if !e.expiresAt}
-							<span class="text-mist-600">never</span>
+							<span class="text-mist-600">从不</span>
 						{:else if e.expired}
-							<Badge tone="warn">expired, lifting</Badge>
+							<Badge tone="warn">已过期，正在解除</Badge>
 						{:else}
 							{fmtTime(e.expiresAt)}
 						{/if}
@@ -204,16 +200,16 @@
 						</span>
 					</td>
 					<td class="text-right whitespace-nowrap">
-						<button class="btn btn-sm" disabled={busy} onclick={() => (editing = e)}>Edit</button>
+						<button class="btn btn-sm" disabled={busy} onclick={() => (editing = e)}>编辑</button>
 						<button class="btn btn-sm btn-danger" disabled={busy} onclick={() => remove(e)}
-							>Unban</button
+							>解除封禁</button
 						>
 					</td>
 				</tr>
 			{:else}
 				<tr
 					><td colspan="8" class="py-6 text-center text-mist-600"
-						>{entries.length ? 'Nothing matches the filter.' : 'No bans yet.'}</td
+						>{entries.length ? '没有符合筛选条件的条目。' : '暂无封禁。'}</td
 					></tr
 				>
 			{/each}
@@ -222,9 +218,8 @@
 </div>
 
 <p class="note">
-	Server badges: <Badge tone="ok">applied</Badge> by the panel, <Badge tone="warn">pending</Badge> the
-	next sync, <Badge tone="err">failed</Badge> (hover for why), <Badge>local</Badge> already on that server
-	but added outside the panel, so the panel never removes it.
+	服务器标记： <Badge tone="ok">已应用</Badge> 由面板管理， <Badge tone="warn">待处理</Badge> 下次同步时，
+	<Badge tone="err">失败</Badge> （悬停查看原因）， <Badge>本服</Badge> 已存在于该服务器，但由面板以外的工具添加，因此面板不会移除它。
 </p>
 
 {#if editing}

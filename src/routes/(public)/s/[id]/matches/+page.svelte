@@ -11,7 +11,7 @@
 </script>
 
 <svelte:head>
-	<title>Matches · {data.heading.name} · {data.appName}</title>
+	<title>对局 · {data.heading.name} · {data.appName}</title>
 	<meta name="description" content="Match history of {data.heading.name}." />
 </svelte:head>
 
@@ -19,14 +19,13 @@
 	<MatchCards matches={list.matches} live={list.live} hrefFor={(m) => `${base}/matches/${m.id}`} />
 	{#if list.pages > 1}
 		<div class="mt-4 flex items-center gap-2 text-[12.5px] text-mist-400">
-			{#if list.page > 1}<a href={pageHref(list.page - 1)} class="btn btn-sm">← Newer</a
-				>{:else}<span class="pointer-events-none btn btn-sm opacity-50">← Newer</span>{/if}
-			<span>Page {list.page} of {list.pages}</span>
-			{#if list.page < list.pages}<a href={pageHref(list.page + 1)} class="btn btn-sm">Older →</a
-				>{:else}<span class="pointer-events-none btn btn-sm opacity-50">Older →</span>{/if}
+			{#if list.page > 1}<a href={pageHref(list.page - 1)} class="btn btn-sm">← 较新</a>{:else}<span
+					class="pointer-events-none btn btn-sm opacity-50">← 较新</span
+				>{/if}
+			<span>第 {list.page} of {list.pages}</span>
+			{#if list.page < list.pages}<a href={pageHref(list.page + 1)} class="btn btn-sm">更早 →</a
+				>{:else}<span class="pointer-events-none btn btn-sm opacity-50">更早 →</span>{/if}
 		</div>
 	{/if}
-	<p class="note">
-		A match opens to its scoreboard once it has ended; the one in progress is on the live page.
-	</p>
+	<p class="note">对局结束后可打开计分板；正在进行的对局显示在实时页面。</p>
 </div>

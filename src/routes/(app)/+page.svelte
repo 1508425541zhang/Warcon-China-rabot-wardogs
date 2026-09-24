@@ -19,8 +19,8 @@
 		if (v.ok && v.status)
 			summaries[v.serverId] = { ok: true, status: v.status, reservedSlots: v.reservedSlots };
 		else if (v.status && !v.ok)
-			summaries[v.serverId] = { ok: false, error: v.error || 'Unreachable.' };
-		else summaries[v.serverId] = { ok: false, error: v.error || 'Not observed yet.' };
+			summaries[v.serverId] = { ok: false, error: v.error || '无法连接。' };
+		else summaries[v.serverId] = { ok: false, error: v.error || '尚未收到服务器状态。' };
 		setHealth(v.serverId, v.ok);
 	}
 
@@ -126,28 +126,26 @@
 	};
 </script>
 
-<svelte:head><title>Dashboard · {data.appName}</title></svelte:head>
+<svelte:head><title>总览 · {data.appName}</title></svelte:head>
 
-<h1 class="mb-5 text-xl font-semibold tracking-tight">Dashboard</h1>
+<h1 class="mb-5 text-xl font-semibold tracking-tight">总览</h1>
 
 {#if !data.servers.length}
 	<div class="callout">
 		{#if data.scope}
-			No servers in {data.scope.name}{data.canManage ? ' yet' : ' are shared with you'}. Pick
-			another organisation, or all of them, from the header.
+			{data.scope.name}{data.canManage
+				? ' 尚未添加服务器。'
+				: ' 尚未向你共享服务器。'}可在顶部切换其他组织或查看全部组织。
 		{:else if data.canManage}
-			No servers yet. <a href="/servers" class="font-semibold text-accent underline"
-				>Add your first server</a
+			暂无服务器。<a href="/servers" class="font-semibold text-accent underline">添加第一台服务器</a
 			>{#if data.demoAllowed}
-				&nbsp;— or add one with host <code class="chip">demo</code>, port
-				<code class="chip">1</code>, password <code class="chip">demo</code> to try the panel against
-				the built-in mock game server.{:else}.{/if}
+				&nbsp;也可添加主机 <code class="chip">演示</code>、端口 <code class="chip">1</code>、密码
+				<code class="chip">演示</code>，使用内置模拟服务器体验面板。{:else}{/if}
 		{:else}
-			No servers have been shared with you yet. Ask an owner of your organisation to grant you
-			access{#if data.canCreateOrg}, or <a
+			尚无向你共享的服务器。请联系组织所有者授予权限{#if data.canCreateOrg}，或<a
 					href="/sign-up"
-					class="font-semibold text-accent underline">create your own organisation</a
-				>{/if}.
+					class="font-semibold text-accent underline">创建自己的组织</a
+				>{/if}。
 		{/if}
 	</div>
 {:else}
@@ -156,46 +154,44 @@
 			<input
 				class="input sm:w-64"
 				type="search"
-				placeholder="Search name, host, map…"
+				placeholder="搜索名称、主机或地图…"
 				bind:value={q}
-				aria-label="Search servers"
+				aria-label="搜索服务器"
 			/>
-			<select class="input w-auto pr-[30px]" bind:value={show} aria-label="Show">
-				<option value="all">All servers</option>
-				<option value="online">Online</option>
-				<option value="populated">With players</option>
-				<option value="offline">Offline</option>
+			<select class="input w-auto pr-[30px]" bind:value={show} aria-label="显示范围">
+				<option value="all">全部服务器</option>
+				<option value="online">在线</option>
+				<option value="populated">有玩家在线</option>
+				<option value="offline">离线</option>
 			</select>
 			{#if orgs.length > 1}
-				<select
-					class="input w-auto pr-[30px] sm:max-w-56"
-					bind:value={orgFilter}
-					aria-label="Organisation"
-				>
-					<option value="">All organisations</option>
+				<select class="input w-auto pr-[30px] sm:max-w-56" bind:value={orgFilter} aria-label="组织">
+					<option value="">全部组织</option>
 					{#each orgs as o (o.id)}<option value={o.id}>{o.name}</option>{/each}
 				</select>
 			{/if}
-			<select class="input w-auto pr-[30px] sm:ml-auto" bind:value={sort} aria-label="Sort by">
-				<option value="default">Sort: default</option>
-				<option value="name">Sort: name</option>
-				<option value="players">Sort: most players</option>
-				<option value="fill">Sort: fullest</option>
-				<option value="map">Sort: map</option>
-				<option value="problems">Sort: problems first</option>
+			<select class="input w-auto pr-[30px] sm:ml-auto" bind:value={sort} aria-label="排序方式">
+				<option value="default">排序：默认</option>
+				<option value="name">排序：名称</option>
+				<option value="players">排序：人数最多</option>
+				<option value="fill">排序：最满</option>
+				<option value="map">排序：地图</option>
+				<option value="problems">排序：异常优先</option>
 			</select>
 			{#if filtering}
-				<span class="text-[12.5px] text-mist-400">{shown.length} of {data.servers.length}</span>
+				<span class="text-[12.5px] text-mist-400"
+					>显示 {shown.length} / {data.servers.length} 台</span
+				>
 			{/if}
 		</div>
 	{/if}
 
 	{#if !shown.length}
 		<div class="callout">
-			No servers match. <button
+			没有符合条件的服务器。<button
 				type="button"
 				class="font-semibold text-accent underline"
-				onclick={clearFilters}>Clear filters</button
+				onclick={clearFilters}>清除筛选</button
 			>
 		</div>
 	{:else}
@@ -212,10 +208,10 @@
 						<span class="ml-auto"><RoleBadge role={s.roleName} /></span>
 					</div>
 					<div class="mb-3 font-mono text-[12px] text-mist-400">
-						{#if s.host}{s.host}:{s.port}{:else}{s.orgName}{/if}{#if s.demo}&nbsp;· demo{/if}
+						{#if s.host}{s.host}:{s.port}{:else}{s.orgName}{/if}{#if s.demo}&nbsp;· 演示{/if}
 					</div>
 					{#if !sum}
-						<div class="text-[13px] text-mist-600">Checking…</div>
+						<div class="text-[13px] text-mist-600">检查中…</div>
 					{:else if sum.ok}
 						{@const st = sum.status}
 						{@const pct = st.maxPlayers
@@ -224,15 +220,15 @@
 						<div class="mb-1 truncate text-[13px] text-mist-400">{st.serverName || '—'}</div>
 						<MapArt map={st.map} lighting={st.lighting} variant="wide" alt="" class="mb-2" />
 						<div class="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
-							<span class="text-mist-400">Map <b class="text-mist-100">{mapName(st.map)}</b></span>
+							<span class="text-mist-400">地图 <b class="text-mist-100">{mapName(st.map)}</b></span>
 							{#if st.matchSeconds !== null}<span class="text-mist-400"
-									>Match <b class="text-mist-100">{Math.floor(st.matchSeconds / 60)} min</b></span
+									>比赛 <b class="text-mist-100">{Math.floor(st.matchSeconds / 60)} 分钟</b></span
 								>{/if}
 							<span class="ml-auto text-mist-400"
 								><b class="text-mist-100">{fmtNum(st.playerCount)}</b> / {fmtNum(
 									st.maxPlayers
 								)}{#if sum.reservedSlots}
-									+ {sum.reservedSlots} reserved{/if} players</span
+									+ {sum.reservedSlots} 个预留位{/if} 名玩家</span
 							>
 						</div>
 						<div class="mb-3 progress"><span class="progress-bar" style="width:{pct}%"></span></div>

@@ -79,7 +79,7 @@
 					? 'hidden sm:inline'
 					: ''}">{data.appName}</span
 			>
-			<span class="hidden caps text-mist-600 sm:inline">rcon</span>
+			<span class="hidden caps text-mist-600 sm:inline">RCON</span>
 		</a>
 
 		{#if data.orgs.length > 1}
@@ -88,7 +88,7 @@
 				<button
 					type="button"
 					class="btn max-w-[110px] gap-1.5 pr-2.5 sm:max-w-[200px]"
-					title="Organisation scope"
+					title="组织范围"
 					aria-haspopup="menu"
 					aria-expanded={scopeOpen}
 					disabled={scopeBusy}
@@ -100,20 +100,20 @@
 					}}
 				>
 					<span class="truncate {data.scope ? '' : 'text-mist-400'}"
-						>{data.scope ? data.scope.name : 'All orgs'}</span
+						>{data.scope ? data.scope.name : '所有组织'}</span
 					>
 					<span class="text-[10px] text-mist-600">▼</span>
 				</button>
 				{#if scopeOpen}
 					<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 					<div class="menu" role="menu" tabindex="-1" onclick={(e) => e.stopPropagation()}>
-						<div class="px-3 pt-2 pb-1 caps text-mist-600">Show servers of</div>
+						<div class="px-3 pt-2 pb-1 caps text-mist-600">显示以下组织的服务器</div>
 						<button
 							type="button"
 							class="menu-item {data.scope ? '' : 'border-accent! bg-accent/10 text-accent'}"
 							role="menuitemradio"
 							aria-checked={!data.scope}
-							onclick={() => setScope(null)}>All organisations</button
+							onclick={() => setScope(null)}>全部组织</button
 						>
 						{#each data.orgs as o (o.id)}
 							<button
@@ -127,13 +127,13 @@
 							>
 								<span class="truncate">{o.name}</span>
 								{#if o.id === data.user.defaultOrgId}<span class="ml-auto text-[11px] text-mist-600"
-										>default</span
+										>默认</span
 									>{/if}
 							</button>
 						{/each}
 						<div class="my-1.5 border-t border-white/8"></div>
 						<a href="/account" class="menu-item text-mist-400" role="menuitem" onclick={closeAll}
-							>Set a default…</a
+							>设置默认值…</a
 						>
 					</div>
 				{/if}
@@ -154,7 +154,7 @@
 				}}
 			>
 				<Pulse ok={current ? health[current.id] : undefined} />
-				<span class="truncate">{current ? current.name : 'Select a server'}</span>
+				<span class="truncate">{current ? current.name : '选择服务器'}</span>
 				<span class="text-[10px] text-mist-600">▼</span>
 			</button>
 			{#if switcherOpen}
@@ -165,9 +165,9 @@
 							<input
 								class="input py-1.5 text-[13px]"
 								type="search"
-								placeholder="Find a server…"
+								placeholder="查找服务器…"
 								bind:value={query}
-								aria-label="Find a server"
+								aria-label="查找服务器"
 								{@attach (el) => el.focus()}
 							/>
 						</div>
@@ -191,30 +191,30 @@
 					{:else}
 						<div class="px-3 py-2 text-[12.5px] text-mist-400">
 							{#if query.trim()}
-								No server matches.
+								没有符合条件的服务器。
 							{:else if data.scope}
-								No servers in {data.scope.name}.
+								{data.scope.name} 暂无服务器。
 							{:else}
-								{data.canManage ? 'No servers yet.' : 'No servers shared with you yet.'}
+								{data.canManage ? '暂无服务器。' : '尚无向你共享的服务器。'}
 							{/if}
 						</div>
 					{/each}
 					{#if data.canManage}
 						<div class="my-1.5 border-t border-white/8"></div>
 						<a href="/servers" class="menu-item text-mist-400" role="menuitem" onclick={closeAll}
-							>Manage servers…</a
+							>管理服务器…</a
 						>
 					{/if}
 					{#if data.orgs.length > 1}
 						<div class="sm:hidden">
 							<div class="my-1.5 border-t border-white/8"></div>
-							<div class="px-3 pt-1 pb-1 caps text-mist-600">Show servers of</div>
+							<div class="px-3 pt-1 pb-1 caps text-mist-600">显示以下组织的服务器</div>
 							<button
 								type="button"
 								class="menu-item {data.scope ? '' : 'border-accent! bg-accent/10 text-accent'}"
 								role="menuitemradio"
 								aria-checked={!data.scope}
-								onclick={() => setScope(null)}>All organisations</button
+								onclick={() => setScope(null)}>全部组织</button
 							>
 							{#each data.orgs as o (o.id)}
 								<button
@@ -233,7 +233,7 @@
 			{/if}
 		</div>
 
-		<nav class="ml-2 hidden items-center gap-1 md:flex" aria-label="Main">
+		<nav class="ml-2 hidden items-center gap-1 md:flex" aria-label="主导航">
 			<a href="/" class="nav-pill {isActive('/') ? 'nav-pill-active' : ''}">概览</a>
 			<a href="/audit" class="nav-pill {isActive('/audit') ? 'nav-pill-active' : ''}">审计</a>
 			{#if data.canManage}
@@ -286,7 +286,7 @@
 						</div>
 					</div>
 					<div class="my-1.5 border-t border-white/8"></div>
-					<nav class="md:hidden" aria-label="Main (mobile)">
+					<nav class="md:hidden" aria-label="移动端主导航">
 						<a href="/" class="menu-item" role="menuitem">概览</a>
 						<a href="/audit" class="menu-item" role="menuitem">审计</a>
 						{#if data.canManage}
@@ -315,16 +315,16 @@
 			class="flex flex-wrap items-center justify-between gap-2 rounded-ctl border border-warn/30 bg-warn/10 px-3 py-2 text-[13px] hover:bg-warn/15"
 		>
 			<span>
-				<span class="font-medium">Finish setting up your sign-in.</span>
-				Two ways in, and an authenticator app on any password, so a lost device is not a lost account.
+				<span class="font-medium">请完成登录方式设置。</span>
+				请至少设置两种登录方式；使用密码时还应启用身份验证器，避免设备丢失后无法登录。
 			</span>
 			<span class="text-mist-400">
 				{#if data.authPolicy.enforced && data.enrolment.daysLeft !== null}
-					{data.enrolment.daysLeft} day{data.enrolment.daysLeft === 1 ? '' : 's'} left →
+					剩余 {data.enrolment.daysLeft} 天 →
 				{:else if data.authPolicy.enforced}
-					Required →
+					必须完成 →
 				{:else}
-					Recommended →
+					建议完成 →
 				{/if}
 			</span>
 		</a>
@@ -335,6 +335,6 @@
 	{@render children()}
 </main>
 <footer class="page-x pb-6 text-[12px] text-mist-600">
-	Map imagery &copy; BULKHEAD, from the official WARDOGS RCON console. Warcon is a community tool
-	and is not affiliated with BULKHEAD or Team17.
+	地图图片 © BULKHEAD，来自 WARDOGS 官方 RCON 控制台。Warcon 是社区工具，与 BULKHEAD 或 Team17
+	无关联。
 </footer>

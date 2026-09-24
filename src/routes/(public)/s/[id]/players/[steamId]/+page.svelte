@@ -12,12 +12,12 @@
 
 <svelte:head>
 	<title>{data.player.name} · {data.heading.name} · {data.appName}</title>
-	<meta name="description" content="{data.player.name}'s career on {data.heading.name}." />
+	<meta name="description" content="{data.player.name} 在 {data.heading.name} 的游戏生涯。" />
 </svelte:head>
 
 <div class="rise">
 	<div class="mb-4 flex flex-wrap items-center gap-3">
-		<a href="{base}/leaderboard" class="caps text-mist-400 hover:text-mist-100">← Leaderboard</a>
+		<a href="{base}/leaderboard" class="caps text-mist-400 hover:text-mist-100">← 排行榜</a>
 		<h2 class="flex items-center gap-2 text-xl font-semibold tracking-tight">
 			{#if data.player.avatar}<img
 					src={data.player.avatar}
@@ -37,7 +37,7 @@
 			matchHref={(m) => `/s/${encodeURIComponent(m.serverId)}/matches/${m.matchId}`}
 		>
 			{#if data.combat}
-				<span class="field-label">Combat</span>
+				<span class="field-label">战斗数据</span>
 				<CombatSummary combat={data.combat} hrefFor={(steamId) => `${base}/players/${steamId}`} />
 				<div class="mb-4"></div>
 			{/if}

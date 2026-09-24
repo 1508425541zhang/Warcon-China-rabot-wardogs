@@ -29,7 +29,7 @@
 		busy = true;
 		try {
 			await addPasskey(passkeyName.trim() || 'Passkey');
-			toast('Passkey added.', 'ok');
+			toast('通行密钥已添加。', 'ok');
 			passkeyName = suggestPasskeyName();
 			await invalidateAll();
 		} catch (err) {
@@ -46,7 +46,7 @@
 		busy = true;
 		try {
 			await api('DELETE', `/api/passkeys/${encodeURIComponent(id)}`);
-			toast('Passkey removed.', 'ok');
+			toast('通行密钥已移除。', 'ok');
 			await invalidateAll();
 		} catch (err) {
 			toast(errorMessage(err), 'err');
@@ -68,78 +68,72 @@
 			await navigator.clipboard.writeText(text);
 			toast(`${what} copied.`, 'ok');
 		} catch {
-			toast('Could not copy; select the text instead.', 'err');
+			toast('复制失败，请手动选中文本。', 'err');
 		}
 	}
 
 	$effect(() => {
-		if (form?.changed) toast('Password changed. Other sessions were signed out.', 'ok');
+		if (form?.changed) toast('密码已修改，其他会话已退出登录。', 'ok');
 		if (form?.set) toast(`Password set. You can now also sign in as @${data.user.username}.`, 'ok');
-		if (form?.passwordRemoved) toast('Password removed.', 'ok');
-		if (form?.revoked) toast('Session revoked.', 'ok');
+		if (form?.passwordRemoved) toast('密码已移除。', 'ok');
+		if (form?.revoked) toast('会话已撤销。', 'ok');
 		if (form?.unlinked) toast(`${form.unlinked === 'steam' ? 'Steam' : 'Discord'} unlinked.`, 'ok');
-		if (form?.steam) toast(form.steamId ? 'SteamID saved.' : 'SteamID removed.', 'ok');
-		if (form?.enabled) toast('Authenticator app enrolled.', 'ok');
-		if (form?.disabled) toast('Authenticator app removed.', 'ok');
-		if (form?.recoveryKeyCleared) toast('Recovery key discarded.', 'ok');
+		if (form?.steam) toast(form.steamId ? 'SteamID 已保存。' : 'SteamID 已移除。', 'ok');
+		if (form?.enabled) toast('验证器应用已绑定。', 'ok');
+		if (form?.disabled) toast('验证器应用已移除。', 'ok');
+		if (form?.recoveryKeyCleared) toast('恢复密钥已废弃。', 'ok');
 		if (form?.totp) totp = form.totp;
 		if (form?.enabled) totp = null;
 		if (form?.backupCodes) backupCodes = form.backupCodes;
 		if (form?.recoveryKey) recoveryKey = form.recoveryKey;
 		if (form?.defaultOrg)
 			toast(
-				form.orgName
-					? `The panel now opens on ${form.orgName}.`
-					: 'The panel now opens on every organisation.',
+				form.orgName ? `The panel now opens on ${form.orgName}.` : '面板现在可访问所有组织。',
 				'ok'
 			);
 		if (form?.error) toast(form.error, 'err');
 	});
 	$effect(() => {
 		const linked = page.url.searchParams.get('linked');
-		if (linked === 'steam') toast('Steam linked. You can sign in with it from now on.', 'ok');
-		if (linked === 'discord') toast('Discord linked.', 'ok');
+		if (linked === 'steam') toast('Steam 账号已关联，现在可以使用它登录。', 'ok');
+		if (linked === 'discord') toast('Discord 账号已关联。', 'ok');
 		const err = page.url.searchParams.get('error');
-		if (err === 'steam_taken')
-			toast('That Steam account is already linked to another user.', 'err');
-		else if (err?.startsWith('steam')) toast('Steam did not confirm the link. Try again.', 'err');
+		if (err === 'steam_taken') toast('此 Steam 账号已关联其他用户。', 'err');
+		else if (err?.startsWith('steam')) toast('Steam 未确认关联，请重试。', 'err');
 	});
 </script>
 
-<svelte:head><title>Account · {data.appName}</title></svelte:head>
+<svelte:head><title>账号 · {data.appName}</title></svelte:head>
 
-<h1 class="mb-5 text-xl font-semibold tracking-tight">Account</h1>
+<h1 class="mb-5 text-xl font-semibold tracking-tight">账号</h1>
 
 {#if forced}
-	<div class="callout">You must set a new password before using the panel.</div>
+	<div class="callout">使用面板前必须设置新密码。</div>
 {/if}
 {#if recovered}
 	<div class="callout">
-		You signed in with your recovery key, which is now used up. Set up your sign-in methods again
-		below before you leave: at least two ways in, and a new recovery key if you rely on one.
+		你刚使用恢复密钥登录，该密钥现已失效。离开此页前请重新设置登录方式：至少保留两种，并在需要时生成新的恢复密钥。
 	</div>
 {/if}
 
 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 	<div class="panel">
 		<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-			<span class="label-sm !mb-0">Sign-in methods</span>
+			<span class="label-sm !mb-0">登录方式</span>
 			{#if data.enrolment.complete}
-				<Badge tone="ok">meets the rules</Badge>
+				<Badge tone="ok">符合要求</Badge>
 			{:else if !data.policy.enforced}
-				<Badge tone="warn">recommended</Badge>
+				<Badge tone="warn">推荐</Badge>
 			{:else if data.status.due}
-				<Badge tone="err">action required</Badge>
+				<Badge tone="err">需要处理</Badge>
 			{:else if data.status.daysLeft !== null}
-				<Badge tone="warn"
-					>{data.status.daysLeft} day{data.status.daysLeft === 1 ? '' : 's'} left</Badge
-				>
+				<Badge tone="warn">剩余 {data.status.daysLeft} 天</Badge>
 			{:else}
-				<Badge tone="warn">incomplete</Badge>
+				<Badge tone="warn">未完成</Badge>
 			{/if}
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Signed in as</span>
+			<span class="text-mist-400">当前登录账号</span>
 			<span
 				>{data.user.name} <span class="font-mono text-mist-400">@{data.user.username}</span>
 				<RoleBadge role={data.user.role} /></span
@@ -147,29 +141,27 @@
 		</div>
 		{#if data.enrolment.complete}
 			<p class="mt-2 text-[13px] text-mist-400">
-				{data.enrolment.waysIn} independent ways in. Losing one device or provider will not lock you out.
+				已设置 {data.enrolment.waysIn} 种独立登录方式。丢失一台设备或一个关联账号后仍可登录。
 			</p>
 		{:else}
 			<div class="mt-3 rounded-ctl border border-warn/30 bg-warn/10 px-3 py-2 text-[13px]">
-				<div class="mb-1 font-medium">To do</div>
+				<div class="mb-1 font-medium">待办事项</div>
 				<ul class="list-disc space-y-1 pl-4 text-mist-200">
 					{#each data.enrolment.problems as p (p)}<li>{p}</li>{/each}
 				</ul>
 				{#if !data.policy.enforced}
 					<p class="mt-2 text-mist-400">
 						{#if data.policy.nudge}
-							This panel does not enforce the rules, but a lost device or a phished password is
-							still a lost account. Two ways in takes a minute.
+							当前不会强制执行登录方式要求。建议补充第二种方式，以便设备丢失或密码泄露时恢复账号。
 						{:else}
-							Not required for your role: you hold no server powers worth stealing. Still worth a
-							minute if you value the account.
+							你的角色无需强制设置，但增加备用登录方式可以避免丢失账号。
 						{/if}
 					</p>
 				{:else if data.status.due}
-					<p class="mt-2 text-mist-400">The rest of the panel is closed until this is done.</p>
+					<p class="mt-2 text-mist-400">完成此步骤前无法使用面板其他功能。</p>
 				{:else if data.status.deadline}
 					<p class="mt-2 text-mist-400">
-						The panel keeps working until {fmtTime(data.status.deadline)}.
+						你可以继续使用面板至 {fmtTime(data.status.deadline)}。
 					</p>
 				{/if}
 			</div>
@@ -177,7 +169,7 @@
 
 		<!-- Passkeys -->
 		<div class="mt-6 border-t border-white/8 pt-4">
-			<span class="label-sm">Passkeys</span>
+			<span class="label-sm">通行密钥</span>
 			{#if data.passkeys.length}
 				<ul class="mb-3 divide-y divide-white/8">
 					{#each data.passkeys as p (p.id)}
@@ -185,22 +177,22 @@
 							<div>
 								<div>{p.name}</div>
 								<div class="text-[12px] text-mist-500">
-									added {fmtTime(p.createdAt)}{p.backedUp ? ' · synced' : ' · this device only'}
+									添加于 {fmtTime(p.createdAt)}{p.backedUp ? ' · 已同步' : ' · 仅此设备'}
 								</div>
 							</div>
 							<button
 								class="btn btn-sm btn-danger"
 								type="button"
 								disabled={busy}
-								onclick={() => removePasskey(p.id, p.name)}>Remove</button
+								onclick={() => removePasskey(p.id, p.name)}>移除</button
 							>
 						</li>
 					{/each}
 				</ul>
 			{:else}
 				<p class="mb-3 text-[13px] text-mist-400">
-					No passkeys yet. A passkey is your device's own lock (Face ID, fingerprint, Windows Hello
-					or a security key); it is phishing-proof and counts as two factors on its own.
+					尚未添加通行密钥。它使用设备的 Face ID、指纹、Windows Hello
+					或安全密钥验证，能抵御钓鱼，并可独立满足双重验证要求。
 				</p>
 			{/if}
 			{#if canPasskey}
@@ -209,28 +201,26 @@
 						class="input"
 						type="text"
 						maxlength="60"
-						placeholder="Name, e.g. iPhone"
+						placeholder="名称，例如 iPhone"
 						bind:value={passkeyName}
 					/>
 					<button class="btn btn-primary" type="button" disabled={busy} onclick={newPasskey}
-						>Add passkey</button
+						>添加通行密钥</button
 					>
 				</div>
-				<p class="note">
-					Add one per device you sign in from, so losing a phone is not losing the account.
-				</p>
+				<p class="note">建议在常用设备上分别添加通行密钥，避免丢失手机后无法登录。</p>
 			{:else}
-				<p class="note">This browser does not support passkeys.</p>
+				<p class="note">当前浏览器不支持通行密钥。</p>
 			{/if}
 		</div>
 
 		<!-- Authenticator app -->
 		<div class="mt-6 border-t border-white/8 pt-4">
-			<span class="label-sm">Authenticator app</span>
+			<span class="label-sm">身份验证器</span>
 			{#if data.methods.twoFactor}
 				<div class="flex flex-wrap items-center gap-3">
-					<Badge tone="ok">on</Badge>
-					<span class="text-[13px] text-mist-400">Password sign-ins ask for a six-digit code.</span>
+					<Badge tone="ok">开启</Badge>
+					<span class="text-[13px] text-mist-400">使用密码登录时需输入六位验证码。</span>
 				</div>
 				<div class="mt-3 grid gap-3 sm:grid-cols-2">
 					<form method="post" action="?/backupCodes" use:enhance class="space-y-2">
@@ -240,11 +230,11 @@
 								type="password"
 								name="password"
 								autocomplete="current-password"
-								placeholder="Your password"
+								placeholder="你的密码"
 								required
 							/>
 						{/if}
-						<button class="btn w-full" type="submit" disabled={busy}>New backup codes</button>
+						<button class="btn w-full" type="submit" disabled={busy}>新备用码</button>
 					</form>
 					<form
 						method="post"
@@ -253,8 +243,8 @@
 						use:enhance={async ({ cancel }) => {
 							if (
 								!(await confirmDialog(
-									'Turn the authenticator app off? Your password alone will then sign you in, which the sign-in rules do not accept.',
-									{ okLabel: 'Turn off', danger: true }
+									'关闭身份验证器？之后只凭密码即可登录，这不符合当前登录方式要求。',
+									{ okLabel: '关闭', danger: true }
 								))
 							)
 								cancel();
@@ -266,29 +256,29 @@
 								type="password"
 								name="password"
 								autocomplete="current-password"
-								placeholder="Your password"
+								placeholder="你的密码"
 								required
 							/>
 						{/if}
-						<button class="btn w-full btn-danger" type="submit" disabled={busy}>Turn off</button>
+						<button class="btn w-full btn-danger" type="submit" disabled={busy}>关闭</button>
 					</form>
 				</div>
 			{:else if totp}
 				<p class="mb-3 text-[13px] text-mist-400">
-					Scan this with your authenticator app (1Password, Bitwarden, Google Authenticator,
-					Authy…), then enter the code it shows to finish.
+					使用身份验证器（如 1Password、Bitwarden、Google Authenticator 或
+					Authy）扫描二维码，再输入显示的验证码。
 				</p>
 				<div class="flex flex-wrap items-start gap-4">
 					<div class="rounded-ctl bg-white p-2">{@html totp.svg}</div>
 					<div class="min-w-0 flex-1 space-y-2 text-[13px]">
-						<div class="text-mist-400">Or type the secret:</div>
+						<div class="text-mist-400">或输入密钥：</div>
 						<div class="flex items-center gap-2">
 							<code
 								class="min-w-0 flex-1 truncate rounded-ctl bg-ink-950 px-2 py-1 font-mono text-[12px]"
 								>{totp.secret}</code
 							>
 							<button class="btn btn-sm" type="button" onclick={() => copy(totp!.secret, 'Secret')}
-								>Copy</button
+								>复制</button
 							>
 						</div>
 						<form method="post" action="?/totpConfirm" use:enhance class="join w-full pt-2">
@@ -301,22 +291,21 @@
 								placeholder="123456"
 								required
 							/>
-							<button class="btn btn-primary" type="submit" disabled={busy}>Confirm</button>
+							<button class="btn btn-primary" type="submit" disabled={busy}>确认</button>
 						</form>
 						<button
 							type="button"
 							class="text-[12.5px] text-mist-400 underline hover:text-mist-100"
-							onclick={() => (totp = null)}>Cancel</button
+							onclick={() => (totp = null)}>取消</button
 						>
 					</div>
 				</div>
 			{:else}
 				<p class="mb-3 text-[13px] text-mist-400">
 					{#if data.hasPassword}
-						A second factor for your password: a six-digit code from an app on your phone.
+						密码登录的第二重验证：输入手机身份验证器生成的六位验证码。
 					{:else}
-						You have no password, so nothing needs a second factor. Add one only if you set a
-						password.
+						当前账号没有密码，因此无需为密码设置第二重验证；以后设置密码时再启用即可。
 					{/if}
 				</p>
 				{#if data.hasPassword}
@@ -326,30 +315,30 @@
 							type="password"
 							name="password"
 							autocomplete="current-password"
-							placeholder="Your password"
+							placeholder="你的密码"
 							required
 						/>
-						<button class="btn btn-primary" type="submit" disabled={busy}>Turn on</button>
+						<button class="btn btn-primary" type="submit" disabled={busy}>开启</button>
 					</form>
 				{/if}
 			{/if}
 			{#if backupCodes}
 				<div class="mt-3 rounded-ctl border border-warn/30 bg-warn/10 p-3 text-[13px]">
 					<div class="mb-1 flex items-center justify-between gap-2">
-						<span class="font-medium">Backup codes: save these now</span>
+						<span class="font-medium">备用码：请立即妥善保存</span>
 						<span class="inline-flex gap-1.5">
 							<button
 								class="btn btn-sm"
 								type="button"
-								onclick={() => copy(backupCodes!.join('\n'), 'Backup codes')}>Copy</button
+								onclick={() => copy(backupCodes!.join('\n'), '备用码')}>复制</button
 							>
 							<button class="btn btn-sm" type="button" onclick={() => (backupCodes = null)}
-								>Done</button
+								>完成</button
 							>
 						</span>
 					</div>
 					<p class="mb-2 text-mist-400">
-						Each works once in place of an app code. They are not shown again.
+						每个备用码可替代身份验证器验证码使用一次，关闭后不会再次显示。
 					</p>
 					<div class="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[12.5px] sm:grid-cols-3">
 						{#each backupCodes as c (c)}<span>{c}</span>{/each}
@@ -360,10 +349,9 @@
 
 		<!-- Linked accounts -->
 		<div class="mt-6 border-t border-white/8 pt-4">
-			<span class="label-sm">Linked accounts</span>
+			<span class="label-sm">关联账号</span>
 			<p class="mb-3 text-[13px] text-mist-400">
-				Sign in through a provider that already knows you. Each link is a way in, and a way back in
-				if a device is lost.
+				关联现有账号后可用其登录，也能在设备丢失时恢复访问。
 			</p>
 			<div class="grid gap-3 sm:grid-cols-2">
 				{#if data.discord}
@@ -373,14 +361,14 @@
 						<span class="inline-flex items-center gap-2 text-[13px]"><DiscordMark />Discord</span>
 						{#if discordLinked}
 							<span class="inline-flex items-center gap-2">
-								<Badge tone="ok">linked</Badge>
+								<Badge tone="ok">已关联</Badge>
 								<form method="post" action="?/unlinkDiscord" use:enhance>
-									<button class="btn btn-sm" type="submit" disabled={busy}>Unlink</button>
+									<button class="btn btn-sm" type="submit" disabled={busy}>取消关联</button>
 								</form>
 							</span>
 						{:else}
 							<form method="post" action="?/linkDiscord" use:enhance>
-								<button class="btn btn-sm" type="submit" disabled={busy}>Link</button>
+								<button class="btn btn-sm" type="submit" disabled={busy}>关联</button>
 							</form>
 						{/if}
 					</div>
@@ -391,14 +379,14 @@
 					<span class="inline-flex items-center gap-2 text-[13px]"><SteamMark />Steam</span>
 					{#if steamLinked}
 						<span class="inline-flex items-center gap-2">
-							<Badge tone="ok">linked</Badge>
+							<Badge tone="ok">已关联</Badge>
 							<form method="post" action="?/unlinkSteam" use:enhance>
-								<button class="btn btn-sm" type="submit" disabled={busy}>Unlink</button>
+								<button class="btn btn-sm" type="submit" disabled={busy}>取消关联</button>
 							</form>
 						</span>
 					{:else}
 						<form method="post" action="?/linkSteam" use:enhance>
-							<button class="btn btn-sm" type="submit" disabled={busy}>Link</button>
+							<button class="btn btn-sm" type="submit" disabled={busy}>关联</button>
 						</form>
 					{/if}
 				</div>
@@ -407,35 +395,35 @@
 
 		<!-- Recovery key -->
 		<div class="mt-6 border-t border-white/8 pt-4">
-			<span class="label-sm">Recovery key</span>
+			<span class="label-sm">恢复密钥</span>
 			<p class="mb-3 text-[13px] text-mist-400">
-				A 40-character key that signs you in once when everything else is lost. The panel keeps only
-				a hash: print it or put it in a password manager. Owners need this or a linked provider.
+				恢复密钥为 40
+				位字符，可在其他登录方式都不可用时使用一次。面板只保存密钥摘要，请打印或存入密码管理器。所有者须保留恢复密钥或关联账号。
 			</p>
 			{#if recoveryKey}
 				<div class="rounded-ctl border border-warn/30 bg-warn/10 p-3 text-[13px]">
 					<div class="mb-1 flex items-center justify-between gap-2">
-						<span class="font-medium">Your recovery key: save it now</span>
+						<span class="font-medium">你的恢复密钥：请立即妥善保存</span>
 						<span class="inline-flex gap-1.5">
 							<button
 								class="btn btn-sm"
 								type="button"
-								onclick={() => copy(recoveryKey!, 'Recovery key')}>Copy</button
+								onclick={() => copy(recoveryKey!, '恢复密钥')}>复制</button
 							>
 							<button class="btn btn-sm" type="button" onclick={() => (recoveryKey = null)}
-								>Done</button
+								>完成</button
 							>
 						</span>
 					</div>
 					<code class="block font-mono text-[13px] break-all">{recoveryKey}</code>
-					<p class="mt-2 text-mist-400">It is not shown again. Using it discards it.</p>
+					<p class="mt-2 text-mist-400">密钥不会再次显示，使用后即失效。</p>
 				</div>
 			{:else}
 				<div class="flex flex-wrap items-center gap-3">
 					{#if data.methods.recoveryKey}
-						<Badge tone="ok">saved {fmtTime(data.recoveryKeyAt)}</Badge>
+						<Badge tone="ok">保存于 {fmtTime(data.recoveryKeyAt)}</Badge>
 					{:else}
-						<Badge tone="warn">none</Badge>
+						<Badge tone="warn">无</Badge>
 					{/if}
 					<form
 						method="post"
@@ -443,23 +431,20 @@
 						use:enhance={async ({ cancel }) => {
 							if (
 								data.methods.recoveryKey &&
-								!(await confirmDialog(
-									'Generate a new recovery key? The current one stops working.',
-									{
-										okLabel: 'Generate'
-									}
-								))
+								!(await confirmDialog('生成新的恢复密钥？当前密钥会立即失效。', {
+									okLabel: '生成'
+								}))
 							)
 								cancel();
 						}}
 					>
 						<button class="btn btn-sm" type="submit" disabled={busy}
-							>{data.methods.recoveryKey ? 'Replace key' : 'Generate key'}</button
+							>{data.methods.recoveryKey ? '更换密钥' : '生成密钥'}</button
 						>
 					</form>
 					{#if data.methods.recoveryKey}
 						<form method="post" action="?/recoveryKeyClear" use:enhance>
-							<button class="btn btn-sm" type="submit" disabled={busy}>Discard</button>
+							<button class="btn btn-sm" type="submit" disabled={busy}>放弃</button>
 						</form>
 					{/if}
 				</div>
@@ -468,12 +453,10 @@
 
 		<!-- Password -->
 		<div class="mt-6 border-t border-white/8 pt-4">
-			<span class="label-sm">{data.hasPassword ? 'Password' : 'Password (optional)'}</span>
+			<span class="label-sm">{data.hasPassword ? '密码' : '密码（可选）'}</span>
 			{#if !data.hasPassword}
 				<p class="mb-2 text-[13px] text-mist-400">
-					This account has no password, which is the recommended state. Set one only if you must
-					sign in somewhere passkeys and providers cannot reach; it will then need the authenticator
-					app too.
+					当前账号没有密码。只有在无法使用通行密钥或关联账号的环境中才需要设置密码；设置后还需启用身份验证器。
 				</p>
 			{/if}
 			<form
@@ -490,7 +473,7 @@
 			>
 				{#if data.hasPassword}
 					<label class="block"
-						><span class="field-label">Current password</span><input
+						><span class="field-label">当前密码</span><input
 							class="input"
 							type="password"
 							name="current"
@@ -500,7 +483,7 @@
 					>
 				{/if}
 				<label class="block"
-					><span class="field-label">New password (10+ characters)</span><input
+					><span class="field-label">新密码（至少 10 位）</span><input
 						class="input"
 						type="password"
 						name="next"
@@ -510,7 +493,7 @@
 					/></label
 				>
 				<label class="block"
-					><span class="field-label">Repeat new password</span><input
+					><span class="field-label">再次输入新密码</span><input
 						class="input"
 						type="password"
 						name="again"
@@ -520,7 +503,7 @@
 					/></label
 				>
 				<button class="btn {data.hasPassword ? 'btn-primary' : ''}" type="submit" disabled={busy}
-					>{data.hasPassword ? 'Change password' : 'Set password'}</button
+					>{data.hasPassword ? '修改密码' : '设置密码'}</button
 				>
 			</form>
 			{#if data.hasPassword && (data.passkeys.length || steamLinked || discordLinked)}
@@ -533,17 +516,17 @@
 								name="confirm"
 								autocomplete="off"
 								spellcheck="false"
-								placeholder="Type @{data.user.username} to confirm"
+								placeholder="输入 @{data.user.username} 以确认"
 								required
 							/>
-							<button class="btn btn-danger" type="submit" disabled={busy}>Remove password</button>
+							<button class="btn btn-danger" type="submit" disabled={busy}>移除密码</button>
 						</form>
 					{:else}
 						<button
 							type="button"
 							class="text-[12.5px] text-mist-400 underline hover:text-mist-100"
 							onclick={() => (wantRemovePassword = true)}
-							>Remove the password and rely on passkeys and linked accounts</button
+							>移除密码，仅使用通行密钥和关联账号登录</button
 						>
 					{/if}
 				</div>
@@ -553,10 +536,10 @@
 
 	<div class="space-y-4">
 		<div class="panel">
-			<span class="label-sm">Your sessions</span>
+			<span class="label-sm">你的会话</span>
 			<div class="table-wrap">
 				<table>
-					<thead><tr><th>Started</th><th>Last seen</th><th>Client</th><th></th></tr></thead>
+					<thead><tr><th>开始时间</th><th>最近出现</th><th>客户端</th><th></th></tr></thead>
 					<tbody>
 						{#each data.sessions as s (s.id)}
 							<tr>
@@ -567,11 +550,11 @@
 								>
 								<td class="text-right">
 									{#if s.current}
-										<Badge tone="ok">this session</Badge>
+										<Badge tone="ok">当前会话</Badge>
 									{:else}
 										<form method="post" action="?/revoke" use:enhance>
 											<input type="hidden" name="id" value={s.id} />
-											<button class="btn btn-sm btn-danger" type="submit">Revoke</button>
+											<button class="btn btn-sm btn-danger" type="submit">撤销</button>
 										</form>
 									{/if}
 								</td>
@@ -583,7 +566,7 @@
 		</div>
 
 		<div class="panel">
-			<span class="label-sm">Steam ID for reserved slots</span>
+			<span class="label-sm">预留位使用的 SteamID</span>
 			<form method="post" action="?/steam" use:enhance class="join w-full">
 				<input
 					class="input font-mono"
@@ -591,29 +574,28 @@
 					name="steamId"
 					inputmode="numeric"
 					maxlength="17"
-					placeholder="SteamID64, e.g. 7656119…"
+					placeholder="SteamID64，例如 7656119…"
 					value={data.steamId}
 				/>
-				<button class="btn" type="submit">Save</button>
+				<button class="btn" type="submit">保存</button>
 			</form>
 			<p class="note">
-				Your own SteamID64 (linking Steam above fills it in). Organisations that hand their members
-				a reserved slot use it; leave it blank to opt out.
+				填写你自己的 SteamID64；关联上方 Steam
+				账号后会自动填入。组织据此向成员分配预留位，留空表示不参与。
 			</p>
 
 			{#if data.orgs.length > 1}
 				<div class="mt-6 border-t border-white/8 pt-4">
-					<span class="label-sm">Default organisation</span>
+					<span class="label-sm">默认组织</span>
 					<form method="post" action="?/defaultOrg" use:enhance class="join w-full">
 						<select class="input" name="orgId" value={data.defaultOrgId}>
-							<option value="">Every organisation</option>
+							<option value="">每个组织</option>
 							{#each data.orgs as o (o.id)}<option value={o.id}>{o.name}</option>{/each}
 						</select>
-						<button class="btn" type="submit">Save</button>
+						<button class="btn" type="submit">保存</button>
 					</form>
 					<p class="note">
-						The dashboard, the server switcher and the Servers page open narrowed to this
-						organisation. The picker in the header changes it for one browser at a time.
+						总览、服务器切换器和服务器页面默认只显示该组织；顶部选择器可在当前浏览器中临时切换。
 					</p>
 				</div>
 			{/if}
@@ -621,18 +603,13 @@
 	</div>
 
 	<div class="panel lg:col-span-2">
-		<span class="label-sm">Delete account</span>
+		<span class="label-sm">删除账号</span>
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 			<div class="space-y-2 text-[13px] leading-relaxed text-mist-400">
+				<p>删除账号会立即移除登录凭据、通行密钥、会话、服务器角色和组织成员身份，无法撤销。</p>
 				<p>
-					This removes your account, sign-in credentials, passkeys, sessions, server roles and
-					organisation memberships straight away. It cannot be undone.
-				</p>
-				<p>
-					Audit entries you caused are kept for the record but stripped of your name, IP address and
-					browser. Organisations and servers you created stay with their other owners. You cannot
-					delete your account while you are the only owner of an organisation, or the only site
-					owner.
+					你产生的审计记录会保留，但会去除姓名、IP
+					地址和浏览器信息。你创建的组织与服务器仍归其他所有者管理。若你是某组织或站点的唯一所有者，则无法删除账号。
 				</p>
 			</div>
 			<form
@@ -640,10 +617,11 @@
 				action="?/deleteAccount"
 				class="space-y-3"
 				use:enhance={async ({ cancel }) => {
-					const ok = await confirmDialog(
-						'Delete your account and everything it can sign in to? This cannot be undone.',
-						{ title: 'Delete account', okLabel: 'Delete my account', danger: true }
-					);
+					const ok = await confirmDialog('删除账号及全部登录凭据？此操作无法撤销。', {
+						title: '删除账号',
+						okLabel: '删除我的账号',
+						danger: true
+					});
 					if (!ok) {
 						cancel();
 						return;
@@ -657,7 +635,7 @@
 			>
 				{#if data.hasPassword}
 					<label class="block"
-						><span class="field-label">Your password</span><input
+						><span class="field-label">你的密码</span><input
 							class="input"
 							type="password"
 							name="password"
@@ -667,8 +645,7 @@
 					>
 				{:else}
 					<label class="block"
-						><span class="field-label">Type your username (@{data.user.username}) to confirm</span
-						><input
+						><span class="field-label">输入用户名（@{data.user.username}）以确认</span><input
 							class="input"
 							type="text"
 							name="confirm"
@@ -678,7 +655,7 @@
 						/></label
 					>
 				{/if}
-				<button class="btn btn-danger" type="submit" disabled={busy}>Delete my account</button>
+				<button class="btn btn-danger" type="submit" disabled={busy}>删除我的账号</button>
 			</form>
 		</div>
 	</div>

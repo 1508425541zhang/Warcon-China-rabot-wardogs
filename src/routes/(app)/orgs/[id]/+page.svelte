@@ -83,7 +83,7 @@
 		}
 	}
 
-	async function copy(text: string, what = 'Invite link') {
+	async function copy(text: string, what = '邀请链接') {
 		try {
 			await navigator.clipboard.writeText(text);
 			toast(`${what} copied.`, 'ok');
@@ -132,11 +132,11 @@
 			}))
 		)
 			return;
-		await run(() => api('DELETE', `${orgPath}/keys/${k.id}`), 'API key revoked.', false);
+		await run(() => api('DELETE', `${orgPath}/keys/${k.id}`), 'API 密钥已撤销。', false);
 	}
 	const keyServers = (k: ApiKeyView) =>
 		k.serverIds === null
-			? 'every server'
+			? '每台服务器'
 			: k.serverIds.map((id) => data.orgServers.find((s) => s.id === id)?.name ?? '?').join(', ');
 
 	const openInvite = () => {
@@ -169,16 +169,13 @@
 	}
 	async function revoke(inv: InviteView) {
 		if (
-			!(await confirmDialog(
-				'Revoke this invite link? Anyone who already joined keeps their access.',
-				{
-					okLabel: 'Revoke',
-					danger: true
-				}
-			))
+			!(await confirmDialog('确定撤销此邀请链接？已加入的成员仍保留访问权限。', {
+				okLabel: 'Revoke',
+				danger: true
+			}))
 		)
 			return;
-		await run(() => api('DELETE', `${orgPath}/invites/${inv.id}`), 'Invite link revoked.');
+		await run(() => api('DELETE', `${orgPath}/invites/${inv.id}`), '邀请链接已撤销。');
 	}
 
 	function setRole(m: OrgMemberView, role: string) {
@@ -204,7 +201,7 @@
 			))
 		)
 			return;
-		await run(() => api('DELETE', `${orgPath}/members/${m.userId}`), 'Member removed.');
+		await run(() => api('DELETE', `${orgPath}/members/${m.userId}`), '成员已移除。');
 	}
 
 	const STATUS_BADGE: Record<InviteView['status'], { tone: 'ok' | 'warn' | 'err'; text: string }> =
@@ -268,18 +265,18 @@
 				d.id
 					? api('PATCH', `${orgPath}/webhooks/${d.id}`, body)
 					: api('POST', `${orgPath}/webhooks`, body),
-			d.id ? 'Webhook updated.' : 'Webhook added.'
+			d.id ? '网络钩子已更新。' : '网络钩子已添加。'
 		);
 	}
 	function toggleWebhook(w: WebhookView) {
 		void run(
 			() => api('PATCH', `${orgPath}/webhooks/${w.id}`, { enabled: !w.enabled }),
-			w.enabled ? 'Webhook paused.' : 'Webhook enabled.',
+			w.enabled ? '网络钩子已暂停。' : '网络钩子已启用。',
 			false
 		);
 	}
 	function testWebhook(w: WebhookView) {
-		void run(() => api('POST', `${orgPath}/webhooks/${w.id}/test`), 'Test message sent.', false);
+		void run(() => api('POST', `${orgPath}/webhooks/${w.id}/test`), '测试消息已发送。', false);
 	}
 	/** A throwaway card for the first server the webhook covers, gone in a minute. */
 	function testCard(w: WebhookView) {
@@ -287,7 +284,7 @@
 		if (!serverId) return;
 		void run(
 			() => api('POST', `${orgPath}/webhooks/${w.id}/card`, { serverId }),
-			'Test card sent. It disappears in a minute.',
+			'测试卡片已发送，将在一分钟后消失。',
 			false
 		);
 	}
@@ -296,7 +293,7 @@
 			!(await confirmDialog(`Remove the ${w.label} webhook?`, { okLabel: 'Remove', danger: true }))
 		)
 			return;
-		await run(() => api('DELETE', `${orgPath}/webhooks/${w.id}`), 'Webhook removed.', false);
+		await run(() => api('DELETE', `${orgPath}/webhooks/${w.id}`), '网络钩子已移除。', false);
 	}
 	const eventLabel = (key: string) =>
 		data.webhookEvents.find((e) => e.key === key)?.label.split(' (')[0] ?? key;
@@ -311,7 +308,7 @@
 	function saveLimit() {
 		void run(
 			() => api('PATCH', orgPath, { serverLimit: limitInput }),
-			'Server limit updated.',
+			'服务器数量上限已更新。',
 			false
 		);
 	}
@@ -325,12 +322,12 @@
 			return;
 		await run(
 			() => api('PATCH', orgPath, { suspended: true, reason: suspendReason.trim() }),
-			'Organisation suspended.',
+			'组织已暂停。',
 			false
 		);
 	}
 	function restore() {
-		void run(() => api('PATCH', orgPath, { suspended: false }), 'Organisation restored.', false);
+		void run(() => api('PATCH', orgPath, { suspended: false }), '组织已恢复。', false);
 	}
 	const ALLOW_KEY = {
 		status: 'allowPublicStatus',
@@ -351,7 +348,7 @@
 	function saveInvite() {
 		void run(
 			() => api('PATCH', orgPath, { discordInviteUrl: inviteUrl.trim() }),
-			inviteUrl.trim() ? 'Discord invite saved.' : 'Discord invite removed.',
+			inviteUrl.trim() ? 'Discord 邀请链接已保存。' : 'Discord 邀请链接已移除。',
 			false
 		);
 	}
@@ -362,23 +359,21 @@
 	<div class="space-y-4">
 		<div class="panel">
 			<div class="mb-3 flex items-center gap-3">
-				<span class="label-sm mb-0!">Invite links</span>
-				<button class="ml-auto btn btn-sm btn-primary" onclick={openInvite}>New invite link</button>
+				<span class="label-sm mb-0!">邀请链接</span>
+				<button class="ml-auto btn btn-sm btn-primary" onclick={openInvite}>新邀请链接</button>
 			</div>
 			<p class="mb-3 text-[13px] text-mist-400">
-				Paste a link into your Discord. Whoever opens it signs in with Discord (or an existing
-				username) and joins with the roles below.
+				把邀请链接发到 Discord。打开链接的人可用 Discord 或已有用户名登录，并按下方设置加入组织。
 				{#if !data.discord}<span class="text-warn"
-						>Discord sign-in is not configured, so only people who already have an account can use a
-						link.</span
+						>尚未配置 Discord 登录，因此只有已注册的用户能使用邀请链接。</span
 					>{/if}
 			</p>
 			<div class="table-wrap">
 				<table>
 					<thead
 						><tr
-							><th>Label</th><th>Joins as</th><th class="num">Uses</th><th>Expires</th><th
-								>Status</th
+							><th>标签</th><th>加入时的角色</th><th class="num">使用次数</th><th>到期时间</th><th
+								>状态</th
 							><th></th></tr
 						></thead
 					>
@@ -398,7 +393,7 @@
 										{#if inv.serverRoleName}<RoleBadge
 												role={inv.serverRoleName}
 												builtin={builtinOf(inv.serverRoleId)}
-											/>{:else}<Badge>no servers</Badge>{/if}
+											/>{:else}<Badge>没有服务器</Badge>{/if}
 									</span>
 								</td>
 								<td class="num">{usesLabel(inv)}</td>
@@ -410,19 +405,15 @@
 								<td class="text-right whitespace-nowrap">
 									<span class="inline-flex gap-1.5">
 										{#if status === 'live'}
-											<button class="btn btn-sm" onclick={() => copy(inv.url)}>Copy link</button>
-											<button class="btn btn-sm btn-danger" onclick={() => revoke(inv)}
-												>Revoke</button
+											<button class="btn btn-sm" onclick={() => copy(inv.url)}>复制链接</button>
+											<button class="btn btn-sm btn-danger" onclick={() => revoke(inv)}>撤销</button
 											>
 										{/if}
 									</span>
 								</td>
 							</tr>
 						{:else}
-							<tr
-								><td colspan="6" class="py-6 text-center text-mist-600">No invite links yet.</td
-								></tr
-							>
+							<tr><td colspan="6" class="py-6 text-center text-mist-600">暂无邀请链接。</td></tr>
 						{/each}
 					</tbody>
 				</table>
@@ -431,12 +422,12 @@
 
 		<div class="panel">
 			<div class="mb-3 flex flex-wrap items-center gap-2">
-				<span class="label-sm mb-0!">Members</span>
+				<span class="label-sm mb-0!">成员</span>
 				<input
 					class="input w-full sm:ml-auto sm:w-64"
 					type="search"
-					placeholder="Filter by name or username…"
-					aria-label="Filter members"
+					placeholder="按名称或用户名筛选…"
+					aria-label="筛选成员"
 					bind:value={memberSearch}
 				/>
 			</div>
@@ -444,10 +435,10 @@
 				<table>
 					<thead>
 						<tr>
-							<SortHeader sort={memberSort} key="member">Member</SortHeader>
-							<SortHeader sort={memberSort} key="role">Org role</SortHeader>
-							<SortHeader sort={memberSort} key="access">Server access</SortHeader>
-							<SortHeader sort={memberSort} key="joined">Joined</SortHeader>
+							<SortHeader sort={memberSort} key="member">成员</SortHeader>
+							<SortHeader sort={memberSort} key="role">组织角色</SortHeader>
+							<SortHeader sort={memberSort} key="access">服务器权限</SortHeader>
+							<SortHeader sort={memberSort} key="joined">加入时间</SortHeader>
 							<th></th>
 						</tr>
 					</thead>
@@ -457,8 +448,8 @@
 								<td>
 									<div>
 										{m.name || m.username}
-										{#if m.siteOwner}<Badge tone="accent" class="ml-1">site owner</Badge>{/if}
-										{#if m.disabled}<Badge tone="err" class="ml-1">disabled</Badge>{/if}
+										{#if m.siteOwner}<Badge tone="accent" class="ml-1">站点所有者</Badge>{/if}
+										{#if m.disabled}<Badge tone="err" class="ml-1">已停用</Badge>{/if}
 									</div>
 									<div class="font-mono text-[12px] text-mist-600">@{m.username}</div>
 								</td>
@@ -469,13 +460,13 @@
 										disabled={busy}
 										onchange={(e) => setRole(m, (e.currentTarget as HTMLSelectElement).value)}
 									>
-										<option value="member">member</option>
-										<option value="owner">owner</option>
+										<option value="member">成员</option>
+										<option value="owner">所有者</option>
 									</select>
 								</td>
 								<td>
 									{#if m.role === 'owner'}
-										<span class="text-mist-400">all servers (owner)</span>
+										<span class="text-mist-400">所有服务器（所有者）</span>
 									{:else if m.grants.length}
 										<a
 											href={accessHref}
@@ -483,7 +474,7 @@
 											title={m.grants.map((g) => `${g.serverName}: ${g.roleName}`).join('\n')}
 										>
 											<div>
-												{m.grants.length} of {data.orgServers.length} server{data.orgServers
+												{m.grants.length} of {data.orgServers.length} 服务器{data.orgServers
 													.length === 1
 													? ''
 													: 's'}
@@ -491,18 +482,17 @@
 											<div class="text-[12px] text-mist-400">{grantSummary(m)}</div>
 										</a>
 									{:else}
-										<span class="text-mist-600">none</span>
+										<span class="text-mist-600">无</span>
 									{/if}
 								</td>
 								<td class="whitespace-nowrap text-mist-400">{fmtTime(m.joinedAt)}</td>
 								<td class="text-right whitespace-nowrap">
 									<span class="inline-flex gap-1.5">
 										{#if m.role !== 'owner'}
-											<a class="btn btn-sm" href={accessHref}>Access</a>
+											<a class="btn btn-sm" href={accessHref}>访问权限</a>
 										{/if}
 										{#if m.userId !== data.user.id}
-											<button class="btn btn-sm btn-danger" onclick={() => remove(m)}>Remove</button
-											>
+											<button class="btn btn-sm btn-danger" onclick={() => remove(m)}>移除</button>
 										{/if}
 									</span>
 								</td>
@@ -517,16 +507,16 @@
 	<div class="space-y-4 self-start">
 		{#if data.user.role === 'owner'}
 			<div class="panel border-accent/40">
-				<span class="label-sm">Site owner controls</span>
+				<span class="label-sm">站点所有者设置</span>
 				<div class="kv">
-					<span class="text-mist-400">Created</span>
+					<span class="text-mist-400">创建时间</span>
 					<span
 						>{fmtTime(data.org.createdAt)}{#if data.org.createdBy}&nbsp;by @{data.org.createdBy
 								.username}{/if}</span
 					>
 				</div>
 				<div class="kv items-center">
-					<span class="text-mist-400">Server limit</span>
+					<span class="text-mist-400">服务器上限</span>
 					<span class="join">
 						<input
 							class="input w-24 text-right"
@@ -535,19 +525,18 @@
 							max="1000"
 							bind:value={limitInput}
 							placeholder="default"
-							aria-label="Server limit"
+							aria-label="服务器上限"
 						/>
 						<button type="button" class="btn btn-sm h-auto" onclick={saveLimit} disabled={busy}
-							>Save</button
+							>保存</button
 						>
 					</span>
 				</div>
 				<p class="note">
-					Blank uses the instance default. Currently {data.org.serverCount} of {data.org
-						.serverLimit}.
+					留空则使用实例默认值。当前为 {data.org.serverCount} of {data.org.serverLimit}.
 				</p>
 				<div class="mt-3 border-t border-white/8 pt-3">
-					<span class="field-label">Public pages this organisation may switch on</span>
+					<span class="field-label">本组织可开启的公开页面</span>
 					{#each PUBLIC_FEATURES as feature (feature)}
 						<label class="flex items-center gap-2 py-1 text-[13px]">
 							<input
@@ -560,14 +549,13 @@
 						</label>
 					{/each}
 					<p class="note">
-						Allowed by default: the org's owners open each page per server. Unticking one closes
-						every such page in this organisation at once.
+						默认允许：组织所有者可按服务器开启公开页面。取消勾选后，本组织的所有同类公开页面会立即关闭。
 					</p>
 				</div>
 				<div class="mt-3 border-t border-white/8 pt-3">
 					{#if data.org.suspended}
 						<button type="button" class="btn btn-sm" onclick={restore} disabled={busy}
-							>Restore organisation</button
+							>恢复组织</button
 						>
 					{:else}
 						<div class="join w-full">
@@ -575,14 +563,14 @@
 								class="input"
 								type="text"
 								bind:value={suspendReason}
-								placeholder="Reason (shown to its owners)"
+								placeholder="原因（组织所有者可见）"
 								maxlength="300"
 							/>
 							<button
 								type="button"
 								class="btn btn-sm h-auto btn-danger"
 								onclick={suspend}
-								disabled={busy}>Suspend</button
+								disabled={busy}>停用</button
 							>
 						</div>
 					{/if}
@@ -591,21 +579,18 @@
 		{/if}
 
 		<div class="panel">
-			<span class="label-sm">Public pages</span>
+			<span class="label-sm">公开页面</span>
 			{#if anyAllowed}
 				<p class="mb-3 text-[13px] text-mist-400">
-					This organisation may open a {PUBLIC_FEATURES.filter((f) => allowed(data.org, f))
+					本组织可以开放 {PUBLIC_FEATURES.filter((f) => allowed(data.org, f))
 						.map((f) => FEATURE_LABELS[f].toLowerCase())
-						.join(' and ')}. Switch each on per server from the server's <b>Settings</b> tab or its edit
-					dialog.
+						.join(' and ')}。请到各服务器的 <b>设置</b> 标签页或编辑对话框中分别开启。
 				</p>
 			{:else}
-				<p class="mb-3 text-[13px] text-mist-400">
-					The site owner has closed the public pages for this organisation.
-				</p>
+				<p class="mb-3 text-[13px] text-mist-400">站点所有者已关闭本组织的公开页面。</p>
 			{/if}
 			<label class="block"
-				><span class="field-label">Discord invite shown on the public pages</span>
+				><span class="field-label">公开页面显示的 Discord 邀请链接</span>
 				<span class="join w-full">
 					<input
 						class="input font-mono text-[12.5px]"
@@ -618,34 +603,33 @@
 						type="button"
 						class="btn btn-sm h-auto"
 						onclick={saveInvite}
-						disabled={busy || inviteUrl.trim() === data.org.discordInviteUrl}>Save</button
+						disabled={busy || inviteUrl.trim() === data.org.discordInviteUrl}>保存</button
 					>
 				</span>
 			</label>
-			<p class="note">A discord.gg or discord.com/invite link; blank removes the button.</p>
+			<p class="note">填写 discord.gg 或 discord.com/invite 邀请链接；留空会移除按钮。</p>
 		</div>
 
 		<div class="panel">
 			<div class="mb-3 flex items-center gap-3">
-				<span class="label-sm mb-0!">Discord webhooks</span>
+				<span class="label-sm mb-0!">Discord 网络钩子</span>
 				<button class="ml-auto btn btn-sm btn-primary" onclick={() => openWebhook(null)}
-					>New webhook</button
+					>新建 Webhook</button
 				>
 			</div>
 			<p class="mb-3 text-[13px] text-mist-400">
-				A webhook is one Discord channel, and each one carries what you tick for it: the audit trail
-				(bans, kicks, trigger actions, sign-ins), team kills from the kill feed, and live status
-				cards, one per server, showing the map and who is on. Add one webhook per channel; a
-				team-kill channel is simply a webhook with only that box ticked. In Discord, open the
-				channel's settings → Integrations → Webhooks, copy the URL and paste it here.
+				每个 Webhook 对应一个 Discord
+				频道，并发送你勾选的内容：审计记录（封禁、踢出、规则操作、登录）、游戏击杀事件中的误杀队友，以及每台服务器的实时状态卡片（地图和在线玩家）。一个频道添加一个
+				Webhook；只勾选“误杀队友”即可创建专用频道。在 Discord 频道设置中打开“集成 →
+				Webhook”，复制地址后粘贴到这里。
 			</p>
 			{#each data.webhooks as w (w.id)}
 				<div class="kv items-start">
 					<div class="min-w-0">
 						<div>
 							{w.label}
-							{#if !w.enabled}<Badge class="ml-1">paused</Badge>{/if}
-							{#if w.lastError}<Badge tone="err" class="ml-1">failing</Badge
+							{#if !w.enabled}<Badge class="ml-1">已暂停</Badge>{/if}
+							{#if w.lastError}<Badge tone="err" class="ml-1">异常</Badge
 								>{:else if w.lastSentAt}<Badge tone="ok" class="ml-1">ok</Badge>{/if}
 						</div>
 						<div class="truncate font-mono text-[11px] text-mist-600">{w.urlHint}</div>
@@ -654,76 +638,76 @@
 								...(w.statusEnabled ? [`Status cards (${w.statusStyle})`] : []),
 								...w.events.map(eventLabel)
 							].join(' · ')}
-							{#if w.serverIds}· {w.serverIds.length} server{w.serverIds.length === 1
+							{#if w.serverIds}· {w.serverIds.length} 服务器{w.serverIds.length === 1
 									? ''
 									: 's'}{/if}
 							{#if w.lastError}<div class="text-danger">{w.lastError}</div>{:else if w.lastSentAt}·
-								last sent {fmtTime(w.lastSentAt)}{/if}
+								上次发送 {fmtTime(w.lastSentAt)}{/if}
 						</div>
 					</div>
 					<span class="inline-flex shrink-0 flex-wrap justify-end gap-1.5">
-						<button class="btn btn-sm" onclick={() => testWebhook(w)} disabled={busy}>Test</button>
+						<button class="btn btn-sm" onclick={() => testWebhook(w)} disabled={busy}>测试</button>
 						{#if w.statusEnabled}
 							<button class="btn btn-sm" onclick={() => testCard(w)} disabled={busy || !w.enabled}
-								>Test card</button
+								>测试卡片</button
 							>
 						{/if}
-						<button class="btn btn-sm" onclick={() => openWebhook(w)}>Edit</button>
+						<button class="btn btn-sm" onclick={() => openWebhook(w)}>编辑</button>
 						<button class="btn btn-sm" onclick={() => toggleWebhook(w)} disabled={busy}
 							>{w.enabled ? 'Pause' : 'Enable'}</button
 						>
 						<button class="btn btn-sm btn-danger" onclick={() => deleteWebhook(w)} disabled={busy}
-							>Remove</button
+							>移除</button
 						>
 					</span>
 				</div>
 			{:else}
-				<p class="text-[13px] text-mist-600">No webhooks yet.</p>
+				<p class="text-[13px] text-mist-600">暂无 Webhook。</p>
 			{/each}
 		</div>
 
 		<div class="panel">
 			<div class="mb-3 flex items-center gap-3">
-				<span class="label-sm mb-0!">API keys</span>
-				<button class="ml-auto btn btn-sm btn-primary" onclick={openKey}>New key</button>
+				<span class="label-sm mb-0!">API 密钥</span>
+				<button class="ml-auto btn btn-sm btn-primary" onclick={openKey}>新密钥</button>
 			</div>
 			<p class="mb-3 text-[13px] text-mist-400">
-				For a Discord bot or a script: a bearer token for the JSON API with its own capabilities and
-				servers. It can never manage the organisation. See the README for the request shape.
+				供 Discord 机器人或脚本使用的 JSON API
+				令牌，可单独指定权限和服务器，但不能管理组织。请求格式见 README。
 			</p>
 			{#each data.keys as k (k.id)}
 				<div class="kv items-start">
 					<div class="min-w-0">
 						<div>
 							{k.label}
-							{#if k.revokedAt}<Badge tone="err" class="ml-1">revoked</Badge
+							{#if k.revokedAt}<Badge tone="err" class="ml-1">已撤销</Badge
 								>{:else if k.expiresAt && new Date(k.expiresAt) < new Date()}<Badge
 									tone="err"
-									class="ml-1">expired</Badge
+									class="ml-1">已过期</Badge
 								>{/if}
 						</div>
 						<div class="truncate font-mono text-[11px] text-mist-600">{k.hint}</div>
 						<div class="text-[12px] text-mist-400">
 							{capabilitySummary(k.capabilities)} · {keyServers(k)}
-							{#if k.lastUsedAt}· last used {fmtTime(k.lastUsedAt)}{:else}· never used{/if}
-							{#if k.expiresAt && !k.revokedAt}· expires {fmtTime(k.expiresAt)}{/if}
+							{#if k.lastUsedAt}· 上次使用 {fmtTime(k.lastUsedAt)}{:else}· 从未使用{/if}
+							{#if k.expiresAt && !k.revokedAt}· 到期时间 {fmtTime(k.expiresAt)}{/if}
 						</div>
 					</div>
 					{#if !k.revokedAt}
 						<button
 							class="btn btn-sm shrink-0 btn-danger"
 							onclick={() => revokeKey(k)}
-							disabled={busy}>Revoke</button
+							disabled={busy}>撤销</button
 						>
 					{/if}
 				</div>
 			{:else}
-				<p class="text-[13px] text-mist-600">No keys yet.</p>
+				<p class="text-[13px] text-mist-600">暂无密钥。</p>
 			{/each}
 		</div>
 
 		<div class="panel">
-			<span class="label-sm">Ban list and reserved slots</span>
+			<span class="label-sm">封禁名单与预留位</span>
 			<div class="space-y-1.5">
 				{#each data.lists.lists as l (l.id)}
 					<div class="kv items-center">
@@ -731,21 +715,19 @@
 							href="/orgs/{encodeURIComponent(data.org.id)}/{l.kind === 'ban'
 								? 'bans'
 								: 'reserved'}"
-							class="text-accent hover:underline"
-							>{l.kind === 'ban' ? 'Ban list' : 'Reserved slots'}</a
+							class="text-accent hover:underline">{l.kind === 'ban' ? '封禁列表' : '预留席位'}</a
 						>
 						<span class="text-mist-400"
-							>{l.entryCount} entr{l.entryCount === 1
+							>{l.entryCount} 条记录{l.entryCount === 1
 								? 'y'
 								: 'ies'}{#if l.kind === 'reserve' && data.lists.membersReserved}
-								· members get a slot{/if}</span
+								· 成员获得席位{/if}</span
 						>
 					</div>
 				{/each}
 			</div>
 			<p class="note">
-				Pushed to every server in {data.org.name} (see the Servers tab). Server admins can add and remove
-				entries too.
+				已同步至以下组织的所有服务器： {data.org.name} （见“服务器”标签页）。服务器管理员也可以添加和移除名单条目。
 			</p>
 		</div>
 	</div>
@@ -753,7 +735,7 @@
 
 {#if dialog?.kind === 'invite'}
 	{@const d = dialog}
-	<Modal title="New invite link" onclose={() => (dialog = null)}>
+	<Modal title="新邀请链接" onclose={() => (dialog = null)}>
 		<form
 			class="space-y-3"
 			onsubmit={(e) => {
@@ -762,80 +744,79 @@
 			}}
 		>
 			<label class="block"
-				><span class="field-label">Label (for you)</span><input
+				><span class="field-label">标签（仅供管理员查看）</span><input
 					class="input"
 					type="text"
 					bind:value={d.label}
-					placeholder="e.g. #recruitment channel"
+					placeholder="例如 #recruitment"
 					maxlength="60"
 				/></label
 			>
 			<div class="grid grid-cols-2 gap-2">
 				<label class="block"
-					><span class="field-label">Joins as</span>
+					><span class="field-label">加入时的角色</span>
 					<select class="input" bind:value={d.orgRole}
-						><option value="member">member</option><option value="owner">owner</option></select
+						><option value="member">成员</option><option value="owner">所有者</option></select
 					>
 				</label>
 				<label class="block"
-					><span class="field-label">Access to current servers</span>
+					><span class="field-label">当前服务器的访问权限</span>
 					<select class="input" bind:value={d.serverRoleId}>
-						<option value="">none (grant later)</option>
+						<option value="">无（稍后授予）</option>
 						{#each data.roles as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
 					</select>
 				</label>
 				<label class="block"
-					><span class="field-label">Expires</span>
+					><span class="field-label">到期时间</span>
 					<select class="input" bind:value={d.expiresDays}>
-						<option value="1">in 1 day</option>
-						<option value="7">in 7 days</option>
-						<option value="30">in 30 days</option>
-						<option value="">never</option>
+						<option value="1">1 天后</option>
+						<option value="7">7 天后</option>
+						<option value="30">30 天后</option>
+						<option value="">从不</option>
 					</select>
 				</label>
 				<label class="block"
-					><span class="field-label">Max uses</span><input
+					><span class="field-label">最多使用次数</span><input
 						class="input"
 						type="number"
 						bind:value={d.maxUses}
-						placeholder="unlimited"
+						placeholder="不限"
 						min="1"
 					/></label
 				>
 			</div>
 			<p class="note">
-				An <b>owner</b> link lets joiners do everything on every server and manage the org. Keep those
-				short-lived and single-use. What each server role may do is set on the Roles tab.
+				An <b>所有者</b> 邀请链接可让加入者管理组织并操作所有服务器。请设置较短有效期和一次使用限制。各服务器角色的权限在“角色”标签页设置。
 			</p>
 			<div class="flex justify-end gap-2 pt-2">
-				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
-				<button type="submit" class="btn btn-primary" disabled={busy}>Create link</button>
+				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>取消</button>
+				<button type="submit" class="btn btn-primary" disabled={busy}>创建链接</button>
 			</div>
 		</form>
 	</Modal>
 {:else if dialog?.kind === 'created'}
 	{@const d = dialog}
-	<Modal title="Invite link ready" onclose={() => (dialog = null)}>
-		<p class="mb-3 text-[13.5px]">Paste this into your Discord:</p>
+	<Modal title="邀请链接已创建" onclose={() => (dialog = null)}>
+		<p class="mb-3 text-[13.5px]">复制到 Discord 中：</p>
 		<div class="join w-full">
 			<input class="input font-mono text-[12.5px]" type="text" readonly value={d.invite.url} />
-			<button type="button" class="btn btn-primary" onclick={() => copy(d.invite.url)}>Copy</button>
+			<button type="button" class="btn btn-primary" onclick={() => copy(d.invite.url)}>复制</button>
 		</div>
 		<p class="note">
-			Joins as <b>{d.invite.orgRole}</b>{#if d.invite.serverRoleName}, <b
+			加入时的角色 <b>{d.invite.orgRole}</b>{#if d.invite.serverRoleName}, <b
 					>{d.invite.serverRoleName}</b
-				> on every current server{/if}. {d.invite.expiresAt
+				> 在当前所有服务器上{/if}. {d.invite.expiresAt
 				? `Expires ${fmtTime(d.invite.expiresAt)}.`
-				: 'Never expires.'}
-			{d.invite.maxUses ? `${d.invite.maxUses} use${d.invite.maxUses === 1 ? '' : 's'}.` : ''}
+				: '永不过期。'}
+			{d.invite.maxUses ? `最多使用 ${d.invite.maxUses} 次。` : ''}
 		</p>
 		{#snippet actions()}<button type="button" class="btn" onclick={() => (dialog = null)}
-				>Done</button
+				>完成</button
 			>{/snippet}
 	</Modal>
 {:else if dialog?.kind === 'webhook'}
 	{@const d = dialog}
-	<Modal title={d.id ? 'Edit webhook' : 'New Discord webhook'} onclose={() => (dialog = null)}>
+	<Modal title={d.id ? '编辑网络钩子' : '新建 Discord 网络钩子'} onclose={() => (dialog = null)}>
 		<form
 			class="space-y-3"
 			onsubmit={(e) => {
@@ -844,16 +825,16 @@
 			}}
 		>
 			<label class="block"
-				><span class="field-label">Label</span><input
+				><span class="field-label">标签</span><input
 					class="input"
 					type="text"
 					bind:value={d.label}
-					placeholder="e.g. #admin-log"
+					placeholder="例如 #admin-log"
 					maxlength="60"
 				/></label
 			>
 			<label class="block"
-				><span class="field-label">Webhook URL{d.id ? ' (leave blank to keep)' : ''}</span><input
+				><span class="field-label">网络钩子地址{d.id ? '（留空则保持不变）' : ''}</span><input
 					class="input font-mono text-[12.5px]"
 					type="url"
 					bind:value={d.url}
@@ -863,13 +844,13 @@
 				/></label
 			>
 			<div>
-				<span class="field-label">Live status</span>
+				<span class="field-label">实时状态</span>
 				<label class="flex items-center gap-2 text-[13px]"
-					><input type="checkbox" bind:checked={d.status} /> Keep status cards in the channel</label
+					><input type="checkbox" bind:checked={d.status} /> 在频道中保留状态卡片</label
 				>
 				{#if d.status}
 					<label class="mt-2 block"
-						><span class="field-label">Card style</span><select class="input" bind:value={d.style}>
+						><span class="field-label">卡片样式</span><select class="input" bind:value={d.style}>
 							{#each STATUS_STYLES as st (st)}<option value={st}>{STATUS_STYLE_LABELS[st]}</option
 								>{/each}
 						</select></label
@@ -884,14 +865,13 @@
 					</div>
 				{/if}
 				<p class="note mt-1">
-					One card per server below, edited in place by the worker: players online, map, a score bar
-					per faction and who is on. Pin them in Discord. Pausing the webhook or switching this off
-					removes the cards.{#if d.status && !data.https}
-						<b> This panel is not on https, so cards go out without map art or the icon.</b>{/if}
+					后台进程会为每台服务器创建一张状态卡片并持续更新：在线人数、地图、各阵营分数和玩家名单。可以在
+					Discord 中置顶。暂停 Webhook 或关闭此功能后，卡片会被移除。{#if d.status && !data.https}
+						<b> 面板未使用 HTTPS，卡片不会附带地图图片或图标。</b>{/if}
 				</p>
 			</div>
 			<div>
-				<span class="field-label">Mirror</span>
+				<span class="field-label">同步镜像</span>
 				<div class="space-y-1">
 					{#each data.webhookEvents as e (e.key)}
 						<label class="flex items-center gap-2 text-[13px]"
@@ -902,9 +882,9 @@
 			</div>
 			{#if data.orgServers.length > 1}
 				<div>
-					<span class="field-label">Servers</span>
+					<span class="field-label">服务器</span>
 					<label class="flex items-center gap-2 text-[13px]"
-						><input type="checkbox" bind:checked={d.allServers} /> Every server in the organisation</label
+						><input type="checkbox" bind:checked={d.allServers} /> 组织中的每台服务器</label
 					>
 					{#if !d.allServers}
 						<div class="mt-1 space-y-1 pl-5">
@@ -918,23 +898,23 @@
 				</div>
 			{/if}
 			<p class="note">
-				The URL lets anyone post to that channel, so it is stored encrypted and never shown again.
-				IP addresses are never sent to Discord.
+				持有此地址的人都能向该频道发消息，因此地址会加密保存，之后不会再次显示。不会向 Discord 发送
+				IP 地址。
 			</p>
 			<div class="flex justify-end gap-2 pt-2">
-				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
+				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>取消</button>
 				<button
 					type="submit"
 					class="btn btn-primary"
 					disabled={busy || (!d.allServers && !Object.values(d.servers).some(Boolean))}
-					>{d.id ? 'Save' : 'Add webhook'}</button
+					>{d.id ? '保存' : '添加网络钩子'}</button
 				>
 			</div>
 		</form>
 	</Modal>
 {:else if dialog?.kind === 'key'}
 	{@const d = dialog}
-	<Modal title="New API key" onclose={() => (dialog = null)}>
+	<Modal title="新 API 密钥" onclose={() => (dialog = null)}>
 		<form
 			class="space-y-3"
 			onsubmit={(e) => {
@@ -943,24 +923,23 @@
 			}}
 		>
 			<label class="block"
-				><span class="field-label">Label</span><input
+				><span class="field-label">标签</span><input
 					class="input"
 					type="text"
 					bind:value={d.label}
-					placeholder="e.g. Discord bot"
+					placeholder="例如 Discord 机器人"
 					maxlength="60"
 					required
 				/></label
 			>
 			<div>
-				<span class="field-label">May</span>
+				<span class="field-label">可能</span>
 				<CapabilityPicker bind:value={d.capabilities} compact />
 			</div>
 			<div>
-				<span class="field-label">Servers</span>
+				<span class="field-label">服务器</span>
 				<label class="flex items-center gap-2 text-[13px]"
-					><input type="checkbox" bind:checked={d.allServers} /> Every server in the organisation, including
-					ones added later</label
+					><input type="checkbox" bind:checked={d.allServers} /> 包括以后新增的组织服务器</label
 				>
 				{#if !d.allServers}
 					<div class="mt-1 space-y-1 pl-5">
@@ -973,51 +952,50 @@
 				{/if}
 			</div>
 			<label class="block"
-				><span class="field-label">Expires</span>
+				><span class="field-label">到期时间</span>
 				<select class="input" bind:value={d.expiresDays}>
-					<option value="">never</option>
-					<option value="30">in 30 days</option>
-					<option value="90">in 90 days</option>
-					<option value="365">in a year</option>
+					<option value="">从不</option>
+					<option value="30">30 天后</option>
+					<option value="90">90 天后</option>
+					<option value="365">一年后</option>
 				</select>
 			</label>
 			<p class="note">
-				The org's ban list needs <b>Org ban list</b> and its reserved slots
-				<b>Org reserved slots</b>, each with every server; reading servers needs <b>View</b>. The
-				token is shown once and stored hashed.
+				组织封禁名单需要 <b>组织封禁名单</b> ，组织预留位需要
+				<b>组织预留位</b>；要读取服务器数据还需要 <b>查看</b>。令牌只显示一次，并以摘要形式保存。
 			</p>
 			<div class="flex justify-end gap-2 pt-2">
-				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
+				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>取消</button>
 				<button
 					type="submit"
 					class="btn btn-primary"
 					disabled={busy ||
 						!d.capabilities.length ||
-						(!d.allServers && !Object.values(d.servers).some(Boolean))}>Create key</button
+						(!d.allServers && !Object.values(d.servers).some(Boolean))}>创建密钥</button
 				>
 			</div>
 		</form>
 	</Modal>
 {:else if dialog?.kind === 'keyCreated'}
 	{@const d = dialog}
-	<Modal title="API key ready" onclose={() => (dialog = null)}>
+	<Modal title="API 密钥已创建" onclose={() => (dialog = null)}>
 		<p class="mb-3 text-[13.5px]">
-			Copy it now: this is the only time the token is shown. Send it as
-			<code class="font-mono text-[12.5px]">Authorization: Bearer …</code> on
-			<code class="font-mono text-[12.5px]">/api</code> calls.
+			请立即复制令牌；关闭后无法再次查看。发送请求时使用
+			<code class="font-mono text-[12.5px]">Authorization: Bearer …</code> 标头调用
+			<code class="font-mono text-[12.5px]">/api</code> 接口。
 		</p>
 		<div class="join w-full">
 			<input class="input font-mono text-[12.5px]" type="text" readonly value={d.token} />
-			<button type="button" class="btn btn-primary" onclick={() => copy(d.token, 'API key')}
-				>Copy</button
+			<button type="button" class="btn btn-primary" onclick={() => copy(d.token, 'API 密钥')}
+				>复制</button
 			>
 		</div>
 		<p class="note">
 			<b>{d.key.label}</b>: {capabilitySummary(d.key.capabilities)} · {keyServers(d.key)}.
-			{d.key.expiresAt ? `Expires ${fmtTime(d.key.expiresAt)}.` : 'Never expires.'}
+			{d.key.expiresAt ? `Expires ${fmtTime(d.key.expiresAt)}.` : '永不过期。'}
 		</p>
 		{#snippet actions()}<button type="button" class="btn" onclick={() => (dialog = null)}
-				>Done</button
+				>完成</button
 			>{/snippet}
 	</Modal>
 {/if}

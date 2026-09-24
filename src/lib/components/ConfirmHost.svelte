@@ -8,8 +8,7 @@
 	<Modal title={c.title} onclose={() => settleConfirm(false)}>
 		<p class="m-0 leading-relaxed">{c.message}</p>
 		{#snippet actions()}
-			<button type="button" class="btn" data-close onclick={() => settleConfirm(false)}
-				>Cancel</button
+			<button type="button" class="btn" data-close onclick={() => settleConfirm(false)}>取消</button
 			>
 			<button
 				type="button"

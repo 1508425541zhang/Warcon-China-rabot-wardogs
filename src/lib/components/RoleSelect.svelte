@@ -7,8 +7,8 @@
 		value = $bindable(''),
 		roles,
 		disabled = false,
-		label = 'Server role',
-		none = 'no access',
+		label = '服务器角色',
+		none = '无权限',
 		mixed = false,
 		onchange
 	}: {
@@ -33,5 +33,9 @@
 <select class="input-sm input" aria-label={label} {disabled} value={value ?? ''} onchange={pick}>
 	{#if mixed && value === null}<option value="">–</option>{/if}
 	{#if none}<option value="">{none}</option>{/if}
-	{#each roles as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
+	{#each roles as r (r.id)}<option value={r.id}
+			>{({ admin: '管理员', operator: '操作员', viewer: '查看者' } as Record<string, string>)[
+				r.name
+			] ?? r.name}</option
+		>{/each}
 </select>

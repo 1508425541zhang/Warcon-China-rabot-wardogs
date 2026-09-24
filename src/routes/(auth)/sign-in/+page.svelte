@@ -5,6 +5,7 @@
 	import DiscordMark from '$lib/components/DiscordMark.svelte';
 	import SteamMark from '$lib/components/SteamMark.svelte';
 	import { errorMessage } from '$lib/api';
+	import { uiMessageZh } from '$lib/ui-message-zh';
 	import { passkeysSupported, signInWithPasskey } from '$lib/passkeys';
 	import type { PageProps } from './$types';
 
@@ -134,7 +135,7 @@
 				class="rounded-ctl border border-danger/30 bg-danger/12 px-3 py-2 text-[13px] text-danger"
 				role="alert"
 			>
-				{form.error}
+				{uiMessageZh(form.error)}
 			</div>
 		{/if}
 		<button class="btn w-full {canPasskey ? '' : 'btn-primary'}" type="submit" disabled={busy}

@@ -1,26 +1,21 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PageProps } from './$types';
 	import IntegritySettings from './IntegritySettings.svelte';
+	import { integrityCaseStatus, integrityPartText } from '$lib/integrity-display';
 
 	let { data }: PageProps = $props();
 	let lang = $state<'zh' | 'en'>('zh');
-	onMount(() => {
-		const saved = localStorage.getItem('warcon-integrity-lang');
-		if (saved === 'en' || saved === 'zh') lang = saved;
-	});
 	function switchLanguage() {
 		lang = lang === 'zh' ? 'en' : 'zh';
-		localStorage.setItem('warcon-integrity-lang', lang);
 	}
 	const words = {
 		zh: {
-			title: '社区完整性',
+			title: '社区风控',
 			intro: '服务器侧行为风险与证据。分数是审核线索，不代表作弊定论。',
 			language: 'English',
 			mode: '当前模式',
-			dryRun: '仅记录（Dry Run）',
+			dryRun: '仅记录（模拟运行）',
 			version: '规则版本',
 			feed: '最近击杀事件',
 			noFeed: '尚无记录',
@@ -39,7 +34,7 @@
 			status: '状态',
 			breakdown: '评分依据',
 			noActions: '自动踢人和隔离尚未启用。',
-			dryRunTitle: 'Dry Run 影响预览',
+			dryRunTitle: '模拟运行影响预览',
 			dryRunHint:
 				'按当前阈值统计已记录的异常窗口评分；历史权重版本可能不同，不等同于规则回放。不会执行处罚。',
 			period: '时间范围',
@@ -238,7 +233,7 @@
 										<ul class="mt-2 space-y-1 text-xs">
 											{#each parts(player.riskBreakdown) as part (part.code)}<li>
 													+{part.points}
-													{part.detail}
+													{integrityPartText(part.code, part.detail, lang)}
 												</li>{/each}
 										</ul>
 									</details>{:else}—{/if}</td
@@ -286,8 +281,9 @@
 	<IntegritySettings
 		orgId={data.server.orgId}
 		config={data.ruleConfig}
+		ruleDefaults={data.ruleDefaults!}
 		overrides={data.weaponOverrides}
-		defaults={data.weaponDefaults}
+		weaponDefaults={data.weaponDefaults}
 		categories={data.weaponCategories}
 		{lang}
 	/>
@@ -318,13 +314,13 @@
 							<td class="font-mono">{item.id}</td>
 							<td>{item.riskScore}</td>
 							<td>{item.confidence}</td>
-							<td>{item.status}</td>
+							<td>{lang === 'zh' ? integrityCaseStatus(item.status) : item.status}</td>
 							<td>
 								<details>
 									<summary class="cursor-pointer">{t.breakdown}</summary>
 									<ul class="mt-2 space-y-1 text-xs">
 										{#each parts(item.riskBreakdown) as part (part.code)}
-											<li>+{part.points} {part.detail}</li>
+											<li>+{part.points} {integrityPartText(part.code, part.detail, lang)}</li>
 										{/each}
 									</ul>
 								</details>
@@ -352,7 +348,7 @@
 							<td class="whitespace-nowrap">{when(item.createdAt)}</td>
 							<td class="font-mono">{item.targetSteamId}</td>
 							<td>{item.reason}</td>
-							<td>{item.status}</td>
+							<td>{lang === 'zh' ? integrityCaseStatus(item.status) : item.status}</td>
 						</tr>
 					{/each}
 				</tbody>

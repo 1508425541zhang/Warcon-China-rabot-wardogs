@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { uiMessageZh } from '$lib/ui-message-zh';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	let busy = $state(false);
 </script>
 
-<svelte:head><title>Recover · {data.appName}</title></svelte:head>
+<svelte:head><title>恢复账号 · {data.appName}</title></svelte:head>
 
-<div class="caps text-mist-400">Account recovery</div>
-<div class="mt-1 text-[22px] font-semibold tracking-tight">Use your recovery key</div>
+<div class="caps text-mist-400">账号恢复</div>
+<div class="mt-1 text-[22px] font-semibold tracking-tight">使用恢复密钥</div>
 <p class="mt-2 text-[13px] leading-relaxed text-mist-400">
-	The 40-character key you saved from your account page. It works once: you are signed in and asked
-	to set up new sign-in methods straight away. No key? An owner of your organisation can reset your
-	sign-in methods from the Users page.
+	输入你在账号页面保存的 40
+	位恢复密钥。密钥只能使用一次；登录后系统会立即要求你设置新的登录方式。没有密钥？请联系组织所有者，在“用户”页面重置你的登录方式。
 </p>
 
 <form
@@ -28,7 +28,7 @@
 	}}
 >
 	<label class="block">
-		<span class="field-label">Username</span>
+		<span class="field-label">用户名</span>
 		<input
 			class="input"
 			name="username"
@@ -40,7 +40,7 @@
 		/>
 	</label>
 	<label class="block">
-		<span class="field-label">Recovery key</span>
+		<span class="field-label">恢复密钥</span>
 		<input
 			class="input font-mono"
 			name="key"
@@ -56,13 +56,13 @@
 			class="rounded-ctl border border-danger/30 bg-danger/12 px-3 py-2 text-[13px] text-danger"
 			role="alert"
 		>
-			{form.error}
+			{uiMessageZh(form.error)}
 		</div>
 	{/if}
 	<button class="btn w-full btn-primary" type="submit" disabled={busy}
-		>{busy ? 'Checking…' : 'Sign in and recover'}</button
+		>{busy ? 'Checking…' : '登录并恢复账号'}</button
 	>
 </form>
 <p class="note text-center">
-	<a href="/sign-in" class="text-accent underline">Back to sign in</a>
+	<a href="/sign-in" class="text-accent underline">返回登录</a>
 </p>

@@ -150,7 +150,7 @@
 	async function addReserved() {
 		const steamId = newId.trim();
 		if (!isSteamId(steamId)) {
-			toast('Enter a 17-digit SteamID64.', 'err');
+			toast('请输入 17 位 SteamID64。', 'err');
 			return;
 		}
 		busy = true;
@@ -182,7 +182,7 @@
 				{ membersReserved: on }
 			);
 			toast(
-				describeSync(res.sync, on ? 'Members now get a reserved slot.' : 'Member slots withdrawn.'),
+				describeSync(res.sync, on ? '成员现在可获得预留席位。' : '成员预留席位已撤销。'),
 				'ok',
 				8000
 			);
@@ -201,7 +201,7 @@
 				'POST',
 				`/api/orgs/${encodeURIComponent(org.id)}/lists/sync`
 			);
-			toast(describeSync(res.sync, 'Sync ran.'), 'ok', 8000);
+			toast(describeSync(res.sync, '同步已执行。'), 'ok', 8000);
 			await invalidateAll();
 		} catch (err) {
 			toast(errorMessage(err), 'err');
@@ -237,32 +237,32 @@
 
 <div class="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
 	<div class="panel">
-		<span class="label-sm">On the list</span>
+		<span class="label-sm">在名单中</span>
 		<div class="flex items-baseline gap-2">
 			<span class="font-display text-[34px] leading-none font-semibold tabular"
 				>{entries.length}</span
 			>
 			{#if playing}
 				<span class="ml-auto inline-flex items-center gap-1.5 text-[12.5px] text-ok"
-					><span class="size-1.5 rounded-full bg-ok"></span>{playing} playing now</span
+					><span class="size-1.5 rounded-full bg-ok"></span>{playing} 当前在线</span
 				>
 			{/if}
 		</div>
 		<div class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
-			<span><b>{picked}</b> reserved by hand</span>
-			{#if lists.membersReserved || members}<span><b>{members}</b> members</span>{/if}
+			<span><b>{picked}</b> 手动预留</span>
+			{#if lists.membersReserved || members}<span><b>{members}</b> 名成员</span>{/if}
 		</div>
 		<p class="note">
-			Anyone on the list skips the join queue on every server in {org.name}. The list has no length
-			limit; each server's MaxReservedSlots only sets how many player slots it holds back.
+			名单中的玩家可跳过 {org.name}所有服务器的加入队列。名单没有长度上限；各服务器的
+			MaxReservedSlots 只决定保留多少个玩家位。
 		</p>
 	</div>
 
 	<div class="panel">
 		<div class="mb-3 flex flex-wrap items-center gap-2">
-			<span class="label-sm mb-0!">On the servers</span>
+			<span class="label-sm mb-0!">在服务器上</span>
 			<button class="ml-auto btn btn-sm" disabled={busy || !lists.servers.length} onclick={syncNow}
-				>Sync now</button
+				>立即同步</button
 			>
 		</div>
 		{#each standing as s (s.id)}
@@ -274,25 +274,24 @@
 						<span class="font-medium">{s.name}</span>
 					{/if}
 					<div class="text-[12px] text-mist-400">
-						{#if s.syncedAt}synced {fmtTime(s.syncedAt)}{:else}never synced{/if}
+						{#if s.syncedAt}已同步 {fmtTime(s.syncedAt)}{:else}从未同步{/if}
 						{#if s.lastError}<span class="text-danger"> · {s.lastError}</span>{/if}
 					</div>
 				</div>
 				<span class="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
 					<span><b>{s.applied}</b> <span class="text-mist-400">of {entries.length}</span></span>
-					{#if s.pending}<Badge tone="warn">{s.pending} pending</Badge>{/if}
+					{#if s.pending}<Badge tone="warn">{s.pending} 等待中</Badge>{/if}
 				</span>
 			</div>
 		{:else}
 			<p class="text-[13px] text-mist-400">
-				{org.name} has no servers yet, so there is nothing to push the list to. Entries are kept and applied
-				when a server is added.
+				{org.name} 尚无服务器，因此无法同步名单。条目会保留，并在添加服务器后应用。
 			</p>
 		{/each}
 	</div>
 
 	<div class="flex flex-col panel">
-		<span class="label-sm">Reserve a slot everywhere</span>
+		<span class="label-sm">在所有服务器预留位置</span>
 		<form
 			class="space-y-2"
 			onsubmit={(e) => {
@@ -310,25 +309,23 @@
 					required
 					bind:value={newId}
 				/>
-				<button type="submit" class="btn btn-primary" disabled={busy || !newId.trim()}
-					>Reserve</button
-				>
+				<button type="submit" class="btn btn-primary" disabled={busy || !newId.trim()}>预留</button>
 			</div>
 			{#if previewId && preview}
 				<div class="text-[12.5px]"><SteamName profile={preview} /></div>
 			{:else if previewId && preview === null}
-				<div class="text-[12.5px] text-mist-600">No Steam profile for that id.</div>
+				<div class="text-[12.5px] text-mist-600">找不到该 SteamID 的资料。</div>
 			{/if}
 			<input
 				class="input"
 				type="text"
 				maxlength="200"
-				placeholder="Note, e.g. donor, clan member (optional)"
+				placeholder="备注，例如捐赠者、战队成员（可选）"
 				bind:value={newReason}
 			/>
 			<div class="flex flex-wrap gap-2">
 				<label class="block sm:w-40"
-					><span class="field-label">Expires</span><select class="input" bind:value={newExpiry}>
+					><span class="field-label">到期时间</span><select class="input" bind:value={newExpiry}>
 						{#each EXPIRY_OPTIONS as [value, label] (value)}
 							<option {value}>{label}</option>
 						{/each}
@@ -336,7 +333,7 @@
 				>
 				{#if newExpiry === 'custom'}
 					<label class="block sm:flex-1"
-						><span class="field-label">Until (local time)</span><input
+						><span class="field-label">截止时间（本地）</span><input
 							class="input"
 							type="datetime-local"
 							bind:value={newCustom}
@@ -347,9 +344,7 @@
 			</div>
 		</form>
 		<p class="note">
-			Handed out on every server in {org.name}, now and when one is added later. A slot with an
-			expiry is withdrawn by the panel when the time comes. To reserve a slot on one server only,
-			use that server's Reserved slots tab.
+			已在以下组织的所有服务器分配： {org.name}当前服务器及以后新增的服务器都会分配。设有到期时间的预留位会由面板届时撤回。若只想在一台服务器分配，请使用该服务器的“预留位”标签页。
 		</p>
 		{#if owner}
 			<label class="mt-3 flex items-start gap-2 border-t border-white/8 pt-3 text-[13px]">
@@ -361,10 +356,9 @@
 					onchange={(e) => setMembersReserved((e.currentTarget as HTMLInputElement).checked)}
 				/>
 				<span
-					><b>Members get a reserved slot.</b>
+					><b>成员将获得预留位。</b>
 					<span class="block text-mist-400"
-						>Every member of {org.name} who linked a SteamID on their Account page is reserved a slot
-						on all its servers. Banned members are skipped.</span
+						>以下组织的每位成员： {org.name} 在账号页面关联 SteamID 的成员可在所有服务器获得预留位；受到封禁的成员会跳过。</span
 					></span
 				>
 			</label>
@@ -376,16 +370,16 @@
 
 <div class="panel">
 	<div class="mb-3 flex flex-wrap items-center gap-2">
-		<span class="label-sm mb-0!">Who holds a slot</span>
+		<span class="label-sm mb-0!">预留位玩家</span>
 		<div class="flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:min-w-[320px]">
 			<input
 				class="input"
 				type="search"
-				placeholder="Filter by name, SteamID, note, admin…"
+				placeholder="按名称、SteamID、备注或管理员筛选…"
 				bind:value={search}
 			/>
 			<span class="shrink-0 text-[12.5px] whitespace-nowrap text-mist-600"
-				>{entries.length} slot{entries.length === 1 ? '' : 's'}</span
+				>{entries.length} 个席位</span
 			>
 		</div>
 	</div>
@@ -394,13 +388,13 @@
 			<table>
 				<thead>
 					<tr>
-						<SortHeader {sort} key="player">Player</SortHeader>
+						<SortHeader {sort} key="player">玩家</SortHeader>
 						<SortHeader {sort} key="steamId">SteamID64</SortHeader>
-						<SortHeader {sort} key="source">Source</SortHeader>
-						<SortHeader {sort} key="note">Note</SortHeader>
-						<SortHeader {sort} key="added">Added</SortHeader>
-						<SortHeader {sort} key="expires">Expires</SortHeader>
-						<SortHeader {sort} key="servers">Servers</SortHeader>
+						<SortHeader {sort} key="source">来源</SortHeader>
+						<SortHeader {sort} key="note">备注</SortHeader>
+						<SortHeader {sort} key="added">添加时间</SortHeader>
+						<SortHeader {sort} key="expires">到期时间</SortHeader>
+						<SortHeader {sort} key="servers">服务器</SortHeader>
 						<th></th>
 					</tr>
 				</thead>
@@ -416,7 +410,7 @@
 											: 'bg-ink-700'}"
 										title={r.live
 											? `Playing now on ${r.live.servers.join(', ')}`
-											: 'Not on a server right now'}
+											: '当前不在服务器上'}
 									></span>
 									{#if r.avatar}<img
 											src={r.avatar}
@@ -431,24 +425,24 @@
 											class="truncate font-medium hover:text-accent hover:underline {r.name
 												? ''
 												: 'text-mist-400 italic'}"
-											title="Open dossier">{r.name ?? 'Not seen yet'}</a
+											title="打开玩家档案">{r.name ?? '尚未观测到'}</a
 										>
 									{:else}
 										<span class="truncate font-medium {r.name ? '' : 'text-mist-400 italic'}"
-											>{r.name ?? 'Not seen yet'}</span
+											>{r.name ?? '尚未观测到'}</span
 										>
 									{/if}
 								</span>
 								{#if r.live}<div class="mt-0.5 pl-[18px] caps text-[10px] text-ok">
-										playing on {r.live.servers.join(', ')}
+										正在游玩： {r.live.servers.join(', ')}
 									</div>{/if}
 							</td>
 							<td class="font-mono text-[12.5px] text-mist-400">{e.steamId}</td>
 							<td>
 								{#if e.member}
-									<Badge tone="accent">member</Badge>
+									<Badge tone="accent">成员</Badge>
 								{:else}
-									<Badge tone="ok">list</Badge>
+									<Badge tone="ok">列表</Badge>
 								{/if}
 							</td>
 							<td class="max-w-[280px]">
@@ -456,7 +450,7 @@
 							</td>
 							<td class="text-[12.5px] whitespace-nowrap">
 								{#if e.member}
-									<span class="text-mist-400">by membership</span>
+									<span class="text-mist-400">按成员身份</span>
 								{:else}
 									<div>{e.addedByName || '—'}</div>
 									<div class="text-mist-400">{fmtTime(e.addedAt)}</div>
@@ -464,9 +458,9 @@
 							</td>
 							<td class="text-[12.5px] whitespace-nowrap">
 								{#if !e.expiresAt}
-									<span class="text-mist-600">never</span>
+									<span class="text-mist-600">从不</span>
 								{:else if e.expired}
-									<Badge tone="warn">expired, withdrawing</Badge>
+									<Badge tone="warn">已过期，正在撤回</Badge>
 								{:else}
 									{fmtTime(e.expiresAt)}
 								{/if}
@@ -488,17 +482,16 @@
 									<button
 										type="button"
 										class="btn btn-sm btn-ghost"
-										title="Withdraw this slot on every server"
+										title="在所有服务器撤回此预留位"
 										disabled={busy}
-										onclick={() => remove(e, r.name)}>Withdraw</button
+										onclick={() => remove(e, r.name)}>撤回</button
 									>
 								{/if}
 							</td>
 						</tr>
 					{:else}
 						<tr
-							><td colspan="8" class="py-6 text-center text-mist-600"
-								>Nobody matches that filter.</td
+							><td colspan="8" class="py-6 text-center text-mist-600">没有符合筛选条件的玩家。</td
 							></tr
 						>
 					{/each}
@@ -506,19 +499,18 @@
 			</table>
 		</div>
 		<p class="note">
-			<Badge tone="ok">list</Badge> slots were reserved here and can be withdrawn; <Badge
-				tone="accent">member</Badge
-			> slots follow membership and go when the member leaves or the switch above is turned off. Server
-			badges: <Badge tone="ok">applied</Badge> by the panel, <Badge tone="warn">pending</Badge> the next
-			sync, <Badge tone="err">failed</Badge> (hover for why), <Badge>local</Badge> already on that server
-			but added outside the panel, so the panel never removes it.
+			<Badge tone="ok">列表</Badge> 个预留位在这里手动分配，可随时撤回； <Badge tone="accent"
+				>成员</Badge
+			> 个预留位随成员身份生效，成员退出或关闭上方开关后自动撤回。服务器标记： <Badge tone="ok"
+				>已应用</Badge
+			> 由面板管理， <Badge tone="warn">待处理</Badge> 下次同步时， <Badge tone="err">失败</Badge> （悬停查看原因），
+			<Badge>本服</Badge> 该服务器上已有此条目，但由面板外部添加，因此面板不会移除。
 		</p>
 	{:else}
 		<div class="callout mb-0">
-			<b>Nobody holds a reserved slot yet.</b>
+			<b>尚无人持有预留位。</b>
 			<span class="block text-mist-400"
-				>A reserved slot lets your admins, donors and clan members skip the queue when a server is
-				full. Reserve one above and the panel hands it out on every server in {org.name}.</span
+				>预留位让管理员、捐赠者和战队成员在服务器满员时跳过队列。在上方分配后，面板会将其应用到 {org.name}.</span
 			>
 		</div>
 	{/if}

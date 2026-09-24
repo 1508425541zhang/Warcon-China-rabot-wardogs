@@ -11,7 +11,7 @@
 		rows,
 		roles = [],
 		grants = $bindable(),
-		empty = 'Nothing to grant yet.'
+		empty = '暂无可授权的条目。'
 	}: {
 		rows: Row[];
 		/** the roles every row offers, unless a row brings its own */
@@ -40,19 +40,13 @@
 
 {#if rows.length}
 	{#if rows.length > 6}
-		<input
-			class="mb-2 input"
-			type="search"
-			placeholder="Filter…"
-			bind:value={q}
-			aria-label="Filter"
-		/>
+		<input class="mb-2 input" type="search" placeholder="筛选…" bind:value={q} aria-label="筛选" />
 	{/if}
 	{#if shared}
 		<div class="kv items-center border-b border-white/10 text-mist-400">
 			<span class="caps"
 				>{#if shown.length !== rows.length}{shown.length} of {rows.length} ·
-				{/if}set all</span
+				{/if}全部设置</span
 			>
 			<RoleSelect value={common} {roles} mixed label="Set every shown row" onchange={setAll} />
 		</div>
@@ -67,7 +61,7 @@
 				<RoleSelect bind:value={grants[r.id]} roles={r.roles ?? roles} label={r.label} />
 			</div>
 		{:else}
-			<p class="py-3 text-center text-mist-600">Nothing matches.</p>
+			<p class="py-3 text-center text-mist-600">没有符合条件的结果。</p>
 		{/each}
 	</div>
 {:else}

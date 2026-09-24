@@ -129,7 +129,7 @@
 				`/api/servers/${encodeURIComponent(id)}/lists/state`
 			);
 		} catch (err) {
-			console.warn('list state', err);
+			console.warn('列表状态', err);
 		}
 	}
 	$effect(() => {
@@ -190,18 +190,18 @@
 </script>
 
 <div class="panel">
-	<div class="join mb-3" role="tablist" aria-label="Which players">
+	<div class="join mb-3" role="tablist" aria-label="目标玩家">
 		<button
 			class="btn {view === 'online' ? 'btn-primary' : ''}"
 			role="tab"
 			aria-selected={view === 'online'}
-			onclick={() => (view = 'online')}>Online now · {all.length}</button
+			onclick={() => (view = 'online')}>当前在线 · {all.length}</button
 		>
 		<button
 			class="btn {view === 'past' ? 'btn-primary' : ''}"
 			role="tab"
 			aria-selected={view === 'past'}
-			onclick={() => (view = 'past')}>Past players</button
+			onclick={() => (view = 'past')}>历史玩家</button
 		>
 	</div>
 	{#if view === 'past'}
@@ -222,27 +222,27 @@
 				<input
 					class="input"
 					type="search"
-					placeholder="Filter by name or SteamID…"
-					aria-label="Filter players"
+					placeholder="按名称或 SteamID 筛选…"
+					aria-label="筛选玩家"
 					bind:value={search}
 				/>
-				<button class="btn" onclick={refreshPlayers}>Refresh</button>
+				<button class="btn" onclick={refreshPlayers}>刷新</button>
 			</div>
-			<span class="ml-auto text-[12.5px] text-mist-600">{rows.length} / {all.length} players</span>
+			<span class="ml-auto text-[12.5px] text-mist-600">{rows.length} / {all.length} 名玩家</span>
 		</div>
 		<div class="table-wrap">
 			<table>
 				<thead>
 					<tr>
-						<SortHeader {sort} key="player">Player</SortHeader>
-						<SortHeader {sort} key="flags">Flags</SortHeader>
-						<SortHeader {sort} key="reserved">Reserved</SortHeader>
-						<SortHeader {sort} key="faction">Faction</SortHeader>
+						<SortHeader {sort} key="player">玩家</SortHeader>
+						<SortHeader {sort} key="flags">标记</SortHeader>
+						<SortHeader {sort} key="reserved">已预留</SortHeader>
+						<SortHeader {sort} key="faction">阵营</SortHeader>
 						<SortHeader {sort} key="kills" num>K</SortHeader>
 						<SortHeader {sort} key="deaths" num>D</SortHeader>
-						<SortHeader {sort} key="cash" num>Cash</SortHeader>
-						<SortHeader {sort} key="ping" num>Ping</SortHeader>
-						{#if anyAction}<th class="text-right">Actions</th>{/if}
+						<SortHeader {sort} key="cash" num>现金</SortHeader>
+						<SortHeader {sort} key="ping" num>延迟</SortHeader>
+						{#if anyAction}<th class="text-right">操作</th>{/if}
 					</tr>
 				</thead>
 				<tbody>
@@ -260,25 +260,25 @@
 							>
 							<td class="whitespace-nowrap">
 								{#if m}
-									{#if m.watched}<Badge tone="warn" class="mr-1">watch</Badge>{/if}
+									{#if m.watched}<Badge tone="warn" class="mr-1">观察</Badge>{/if}
 									{#if m.risk.level === 'high'}<Badge tone="err" class="mr-1"
-											>risk {m.risk.score}</Badge
+											>风险 {m.risk.score}</Badge
 										>{:else if m.risk.level === 'medium'}<Badge tone="warn" class="mr-1"
-											>risk {m.risk.score}</Badge
+											>风险 {m.risk.score}</Badge
 										>{/if}
-									{#if m.firstVisit}<Badge tone="info">new</Badge>{/if}
+									{#if m.firstVisit}<Badge tone="info">新玩家</Badge>{/if}
 								{/if}
 							</td>
 							<td class="whitespace-nowrap">
 								{#if r}
 									{#if r.member}
-										<Badge tone="accent">member</Badge>
+										<Badge tone="accent">成员</Badge>
 									{:else if r.managed}
 										<Badge tone={STATE_TONE[r.state]}
-											>org{r.state === 'applied' ? '' : ` · ${r.state}`}</Badge
+											>组织{r.state === 'applied' ? '' : ` · ${r.state}`}</Badge
 										>
 									{:else}
-										<Badge>local</Badge>
+										<Badge>本服</Badge>
 									{/if}
 								{/if}
 							</td>
@@ -295,7 +295,7 @@
 														class="btn btn-sm"
 														disabled={busy}
 														aria-label="Whisper to {p.name}"
-														onclick={() => open('whisper', p)}>Whisper</button
+														onclick={() => open('whisper', p)}>私聊</button
 													>
 												{/if}
 												{#if moderate && data.features.changeTeam}
@@ -303,7 +303,7 @@
 														class="btn btn-sm"
 														disabled={busy}
 														aria-label="Move {p.name} to another faction"
-														onclick={() => open('move', p)}>Move</button
+														onclick={() => open('move', p)}>换队</button
 													>
 												{/if}
 												{#if moderate}
@@ -311,7 +311,7 @@
 														class="btn btn-sm"
 														disabled={busy}
 														aria-label="Kill {p.name}"
-														onclick={() => kill(p)}>Kill</button
+														onclick={() => kill(p)}>击杀</button
 													>
 												{/if}
 											</div>
@@ -323,7 +323,7 @@
 														class="btn btn-sm btn-danger"
 														disabled={busy}
 														aria-label="Kick {p.name}"
-														onclick={() => open('kick', p)}>Kick</button
+														onclick={() => open('kick', p)}>踢出</button
 													>
 												{/if}
 												{#if bans}
@@ -331,7 +331,7 @@
 														class="btn btn-sm btn-danger"
 														disabled={busy}
 														aria-label="Ban {p.name}"
-														onclick={() => (banning = p)}>Ban</button
+														onclick={() => (banning = p)}>封禁</button
 													>
 												{/if}
 											</div>
@@ -343,28 +343,26 @@
 					{:else}
 						<tr
 							><td colspan={anyAction ? 9 : 8} class="py-6 text-center text-mist-600"
-								>{all.length ? 'No matches.' : 'No players connected.'}</td
+								>{all.length ? 'No matches.' : '当前没有玩家在线。'}</td
 							></tr
 						>
 					{/each}
 				</tbody>
 			</table>
 		</div>
-		{#if !anyAction}<p class="note">You have view-only access; player actions are disabled.</p>{/if}
+		{#if !anyAction}<p class="note">你只有查看权限，无法对玩家执行操作。</p>{/if}
 		<p class="note">
-			{#if listState?.canEditOrgBans || listState?.canEditOrgSlots}Everyone who has ever joined is
-				under
+			{#if listState?.canEditOrgBans || listState?.canEditOrgSlots}所有曾加入过的玩家都可在
 				<a
 					href="/orgs/{encodeURIComponent(data.server.orgId)}/players?server={encodeURIComponent(
 						id
 					)}"
-					class="text-accent hover:underline">Players seen</a
-				>, with the names they used.
-			{/if}This server's ban list is under
-			<a href="/server/{encodeURIComponent(id)}/bans" class="text-accent hover:underline">Bans</a>
-			and its reserved slots under
-			<a href="/server/{encodeURIComponent(id)}/slots" class="text-accent hover:underline"
-				>Reserved slots</a
+					class="text-accent hover:underline">出现过的玩家</a
+				>中查看，包含他们使用过的昵称。
+			{/if}本服封禁名单在
+			<a href="/server/{encodeURIComponent(id)}/bans" class="text-accent hover:underline">封禁</a>
+			，预留位在
+			<a href="/server/{encodeURIComponent(id)}/slots" class="text-accent hover:underline">预留位</a
 			>.
 		</p>
 	{/if}
@@ -384,37 +382,37 @@
 			<div class="flex flex-wrap items-center gap-2 font-mono text-[12px] text-mist-400">
 				<FactionChip faction={who.faction} scores={status?.scores} />
 				{p.steamId}
-				{#if !live}<Badge tone="err">left the server</Badge>{/if}
+				{#if !live}<Badge tone="err">已离开服务器</Badge>{/if}
 			</div>
 			{#if kind === 'whisper'}
-				<label class="sr-only" for="dialog-text">Message</label>
+				<label class="sr-only" for="dialog-text">消息</label>
 				<input
 					id="dialog-text"
 					class="input"
 					type="text"
-					placeholder="Private message…"
+					placeholder="私聊消息…"
 					maxlength="200"
 					bind:value={text}
 				/>
 			{:else if kind === 'kick'}
-				<label class="sr-only" for="dialog-text">Reason</label>
+				<label class="sr-only" for="dialog-text">原因</label>
 				<input
 					id="dialog-text"
 					class="input"
 					type="text"
-					placeholder="Reason (optional)…"
+					placeholder="原因（可选）…"
 					maxlength="200"
 					bind:value={text}
 				/>
 			{:else}
-				<label class="sr-only" for="dialog-team">Faction</label>
+				<label class="sr-only" for="dialog-team">阵营</label>
 				<select id="dialog-team" class="input" bind:value={team} disabled={!destinations.length}>
 					{#each destinations as f (f)}<option value={f}>{f}</option>{/each}
 				</select>
 			{/if}
 			<div class="flex justify-end gap-2">
 				<button type="button" class="btn btn-ghost" data-close onclick={() => (dialog = null)}
-					>Cancel</button
+					>取消</button
 				>
 				<button
 					type="submit"

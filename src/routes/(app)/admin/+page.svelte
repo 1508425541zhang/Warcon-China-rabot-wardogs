@@ -111,60 +111,59 @@
 	const SUB = 'mt-1.5 text-[12px] text-mist-400';
 </script>
 
-<svelte:head><title>Overview · Admin · {data.appName}</title></svelte:head>
+<svelte:head><title>概览 · 站点管理 · {data.appName}</title></svelte:head>
 
 <div class="mb-4 flex flex-wrap items-center gap-2">
-	{#if !worker}<Badge tone="err">worker unreachable</Badge>{:else if worker.owner}<Badge tone="ok"
-			>worker holds the lease</Badge
-		>{:else if worker.enabled}<Badge tone="warn">another process holds the lease</Badge
-		>{:else}<Badge tone="err">worker not running</Badge>{/if}
-	{#if worker?.behind}<Badge tone="err">{worker.behind} behind</Badge>{/if}
-	{#if worker?.stuck}<Badge tone="err">{worker.stuck} stuck</Badge>{/if}
-	{#if buildsDiffer}<Badge tone="warn">web and worker on different builds</Badge>{/if}
-	{#if !live.metricsOn}<Badge tone="warn">metrics off: set METRICS_TOKEN</Badge>{/if}
-	<span class="ml-auto text-[12px] text-mist-600"
-		>Updated {fmtAgo(live.at)} · refreshes every 5 s</span
-	>
+	{#if !worker}<Badge tone="err">无法连接后台进程</Badge>{:else if worker.owner}<Badge tone="ok"
+			>后台进程持有租约</Badge
+		>{:else if worker.enabled}<Badge tone="warn">另一个进程持有租约</Badge>{:else}<Badge tone="err"
+			>后台进程未运行</Badge
+		>{/if}
+	{#if worker?.behind}<Badge tone="err">{worker.behind} 滞后</Badge>{/if}
+	{#if worker?.stuck}<Badge tone="err">{worker.stuck} 卡住</Badge>{/if}
+	{#if buildsDiffer}<Badge tone="warn">网页与后台进程版本不同</Badge>{/if}
+	{#if !live.metricsOn}<Badge tone="warn">指标未启用：请设置 METRICS_TOKEN</Badge>{/if}
+	<span class="ml-auto text-[12px] text-mist-600">已更新 {fmtAgo(live.at)} · 每 5 秒刷新</span>
 </div>
 
 <div class="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-6">
 	<div class={TILE}>
-		<span class="caps text-mist-400">Players online</span>
+		<span class="caps text-mist-400">在线玩家</span>
 		<div class={BIG}>{fmtNum(players)}</div>
-		<div class={SUB}>on {fmtNum(live.fleet.serversOk)} servers</div>
+		<div class={SUB}>分布于 {fmtNum(live.fleet.serversOk)} 台服务器</div>
 	</div>
 	<div class={TILE}>
-		<span class="caps text-mist-400">Servers</span>
+		<span class="caps text-mist-400">服务器</span>
 		<div class={BIG}>
 			{fmtNum(live.fleet.serversOk)}<small class={SMALL}> / {fmtNum(live.fleet.servers)}</small>
 		</div>
 		<div class={SUB}>
-			{fmtNum(unreachable)} unreachable{#if unobserved > 0}
-				· {fmtNum(unobserved)} never observed{/if}
+			{fmtNum(unreachable)} 无法连接{#if unobserved > 0}
+				· {fmtNum(unobserved)} 尚未观测到{/if}
 		</div>
 	</div>
 	<div class={TILE}>
-		<span class="caps text-mist-400">Organisations</span>
+		<span class="caps text-mist-400">组织</span>
 		<div class={BIG}>{fmtNum(live.fleet.orgs)}</div>
-		<div class={SUB}>{fmtNum(live.fleet.orgsWeek)} joined in the last 7 days</div>
+		<div class={SUB}>{fmtNum(live.fleet.orgsWeek)} 过去 7 天加入</div>
 	</div>
 	<div class={TILE}>
-		<span class="caps text-mist-400">Users</span>
+		<span class="caps text-mist-400">用户</span>
 		<div class={BIG}>{fmtNum(live.fleet.users)}</div>
-		<div class={SUB}>{fmtNum(live.fleet.usersWeek)} signed in this week</div>
+		<div class={SUB}>{fmtNum(live.fleet.usersWeek)} 本周登录</div>
 	</div>
 	<div class={TILE}>
-		<span class="caps text-mist-400">Kill feed</span>
-		<div class={BIG}>{fmtRate(killsPerSec, '')}<small class={SMALL}> kills/s</small></div>
+		<span class="caps text-mist-400">击杀事件</span>
+		<div class={BIG}>{fmtRate(killsPerSec, '')}<small class={SMALL}> 次击杀/秒</small></div>
 		<div class={SUB}>
-			{fmtRate(postsPerSec, '')} posts/s from {fmtNum(live.fleet.serversFeeding)} servers
+			{fmtRate(postsPerSec, '')} 次发送/秒，来自 {fmtNum(live.fleet.serversFeeding)} 台服务器
 		</div>
 	</div>
 	<div class={TILE}>
-		<span class="caps text-mist-400">Observations</span>
+		<span class="caps text-mist-400">观测记录</span>
 		<div class={BIG}>{fmtRate(obsPerSec, '')}<small class={SMALL}> /s</small></div>
 		<div class={SUB}>
-			avg {ms(obsMean)} · {worker?.behind ?? '…'} behind · {worker?.stuck ?? '…'} stuck
+			平均 {ms(obsMean)} · {worker?.behind ?? '…'} 滞后 · {worker?.stuck ?? '…'} 卡住
 		</div>
 	</div>
 </div>
@@ -172,115 +171,114 @@
 <div class="mb-3 grid gap-3 lg:grid-cols-3">
 	<div class="panel px-5 py-4">
 		<div class="mb-1 flex items-center gap-2">
-			<span class="caps text-mist-400">Worker</span>
-			{#if worker?.owner}<Badge tone="ok">holds the lease</Badge>{/if}
+			<span class="caps text-mist-400">后台进程</span>
+			{#if worker?.owner}<Badge tone="ok">持有租约</Badge>{/if}
 		</div>
 		{#if worker}
 			<div class="kv">
-				<span class="text-mist-400">Build</span><span class={buildsDiffer ? 'text-warn' : ''}
+				<span class="text-mist-400">版本</span><span class={buildsDiffer ? 'text-warn' : ''}
 					>{build(worker.process.build)}</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Tiers</span><span class="text-right"
-					>{worker.tiers.watched} watched · {worker.tiers.hot} busy · {worker.tiers.idle} idle · {worker
-						.tiers.offline} unreachable</span
+				<span class="text-mist-400">等级</span><span class="text-right"
+					>{worker.tiers.watched} 监控中 · {worker.tiers.hot} 繁忙 · {worker.tiers.idle} 空闲 · {worker
+						.tiers.offline} 无法连接</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">In flight</span><span class="text-right"
-					>{worker.active} / {worker.concurrency} · lanes busy {worker.lanes.busy}, queued {worker
+				<span class="text-mist-400">发送中</span><span class="text-right"
+					>{worker.active} / {worker.concurrency} · 通道繁忙 {worker.lanes.busy}，排队中 {worker
 						.lanes.queued}</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Beat</span><span
-					>{worker.beatAgoMs === null ? '—' : `${secs(worker.beatAgoMs)} ago`}</span
+				<span class="text-mist-400">心跳</span><span
+					>{worker.beatAgoMs === null ? '—' : `${secs(worker.beatAgoMs)} 前`}</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Deliveries</span><span class="text-right"
-					>{worker.delivery.pending} pending{#if worker.delivery.oldestMs !== null}
-						(oldest {secs(worker.delivery.oldestMs)}){/if} · {fmtRate(deliveriesPerMin, ' / min')} · {fmtNum(
+				<span class="text-mist-400">发送记录</span><span class="text-right"
+					>{worker.delivery.pending} 等待中{#if worker.delivery.oldestMs !== null}
+						（最早 {secs(worker.delivery.oldestMs)}){/if} · {fmtRate(deliveriesPerMin, ' / min')} · {fmtNum(
 						worker.delivery.failed
-					)} failed since start</span
+					)} 启动以来失败</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Memory</span><span
-					>{fmtBytes(worker.process.rssBytes)} resident{lag(worker.process.eventLoopLagP99)}</span
+				<span class="text-mist-400">内存</span><span
+					>{fmtBytes(worker.process.rssBytes)} 内存占用{lag(worker.process.eventLoopLagP99)}</span
 				>
 			</div>
 		{:else}
-			<p class="note">The worker did not answer the health call.</p>
+			<p class="note">后台进程未响应健康检查。</p>
 		{/if}
 	</div>
 
 	<div class="panel px-5 py-4">
 		<div class="mb-1 flex items-center gap-2">
-			<span class="caps text-mist-400">Kill feed</span><Badge>web process</Badge>
+			<span class="caps text-mist-400">击杀事件</span><Badge>网页进程</Badge>
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Servers feeding</span><span
-				>{fmtNum(live.fleet.serversFeeding)} of {fmtNum(live.fleet.serversOk)} online</span
+			<span class="text-mist-400">上报数据的服务器</span><span
+				>{fmtNum(live.fleet.serversFeeding)} of {fmtNum(live.fleet.serversOk)} 在线</span
 			>
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Posts</span><span
-				>{fmtRate(postsPerSec)} · {fmtRate(killsPerSec, '')} kills / s</span
+			<span class="text-mist-400">发送条数</span><span
+				>{fmtRate(postsPerSec)} · {fmtRate(killsPerSec, '')} 次击杀/秒</span
 			>
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Skipped · duplicates</span><span
+			<span class="text-mist-400">已跳过 · 重复项</span><span
 				>{fmtRate(skippedPerSec)} · {fmtRate(dupesPerSec)}</span
 			>
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Refused (bad token)</span><span
+			<span class="text-mist-400">已拒绝（令牌错误）</span><span
 				class={web.feed.unauthorized ? 'text-warn' : ''}
-				>{fmtNum(web.feed.unauthorized)} since start</span
+				>{fmtNum(web.feed.unauthorized)} 自启动以来</span
 			>
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Rejected · rate limited</span><span
-				>{fmtNum(web.feed.rejected)} · {fmtNum(web.rateLimited.feed)} since start</span
+			<span class="text-mist-400">已拒绝 · 触发限流</span><span
+				>{fmtNum(web.feed.rejected)} · {fmtNum(web.rateLimited.feed)} 自启动以来</span
 			>
 		</div>
 	</div>
 
 	<div class="panel px-5 py-4">
 		<div class="mb-1 flex items-center gap-2">
-			<span class="caps text-mist-400">Web</span><Badge>web process</Badge>
+			<span class="caps text-mist-400">网页</span><Badge>网页进程</Badge>
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Build</span><span class={buildsDiffer ? 'text-warn' : ''}
+			<span class="text-mist-400">版本</span><span class={buildsDiffer ? 'text-warn' : ''}
 				>{build(web.build)}</span
 			>
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Requests</span><span
-				>{fmtRate(reqPerSec)} · avg {ms(reqMean)}</span
+			<span class="text-mist-400">请求数</span><span>{fmtRate(reqPerSec)} · 平均 {ms(reqMean)}</span
 			>
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Public pages</span><span
-				>{fmtRate(publicPerSec)} · {fmtNum(live.fleet.serversPublic)} servers public</span
+			<span class="text-mist-400">公开页面</span><span
+				>{fmtRate(publicPerSec)} · {fmtNum(live.fleet.serversPublic)} 台服务器公开</span
 			>
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Errors (5xx)</span><span
+			<span class="text-mist-400">服务器错误（5xx）</span><span
 				class={web.requests.errors ? 'text-danger' : ''}
-				>{fmtNum(web.requests.errors)} since start</span
+				>{fmtNum(web.requests.errors)} 自启动以来</span
 			>
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Rate limited</span><span
-				>{fmtNum(web.rateLimited.total)} since start</span
+			<span class="text-mist-400">触发限流</span><span
+				>{fmtNum(web.rateLimited.total)} 自启动以来</span
 			>
 		</div>
 		<div class="kv">
-			<span class="text-mist-400">Memory</span><span
-				>{fmtBytes(web.rssBytes)} resident{lag(web.eventLoopLagP99)}</span
+			<span class="text-mist-400">内存</span><span
+				>{fmtBytes(web.rssBytes)} 内存占用{lag(web.eventLoopLagP99)}</span
 			>
 		</div>
 	</div>
@@ -289,17 +287,17 @@
 <div class="mb-3 grid gap-3 lg:grid-cols-[2fr_1fr]">
 	<div class="panel px-5 py-4">
 		<div class="mb-3 flex items-center gap-2">
-			<span class="caps text-mist-400">Database</span><Badge class="whitespace-nowrap"
+			<span class="caps text-mist-400">数据库</span><Badge class="whitespace-nowrap"
 				>{fmtBytes(live.database.bytes)}</Badge
 			>
-			<span class="ml-auto text-[12px] text-mist-600">sizes from the catalog, rows estimated</span>
+			<span class="ml-auto text-[12px] text-mist-600">目录中的大小；行数为估算值</span>
 		</div>
 		<div class="table-wrap">
 			<table>
 				<thead>
 					<tr
-						><th>Table</th><th class="num">Rows</th><th class="num">Size</th><th class="w-[36%]"
-							>Share</th
+						><th>表格</th><th class="num">行数</th><th class="num">大小</th><th class="w-[36%]"
+							>分享</th
 						></tr
 					>
 				</thead>
@@ -318,7 +316,7 @@
 					{/each}
 					{#if rest > 0}
 						<tr>
-							<td class="text-mist-400">everything else</td>
+							<td class="text-mist-400">其他</td>
 							<td class="num text-mist-400">—</td>
 							<td class="num whitespace-nowrap text-mist-400">{fmtBytes(rest)}</td>
 							<td>
@@ -332,48 +330,48 @@
 			</table>
 		</div>
 		<p class="note">
-			Samples grow by about 4,300 rows per server per day and roll up hourly; nothing is deleted. On
-			TimescaleDB, samples and kills are compressed as they age.
+			每台服务器每天约增加 4,300 行采样数据，并每小时汇总；数据不会删除。使用 TimescaleDB
+			时，旧采样和击杀记录会压缩。
 		</p>
 	</div>
 
 	<div class="flex flex-col gap-3">
 		<div class="panel px-5 py-4">
 			<div class="mb-1 flex items-center gap-2">
-				<span class="caps text-mist-400">Players seen</span>
+				<span class="caps text-mist-400">出现过的玩家</span>
 				<span class="ml-auto text-[12px] text-mist-600"
 					>{live.seen ? `counted ${fmtAgo(live.seen.at)}` : 'counting…'}</span
 				>
 				<button type="button" class="btn btn-sm" disabled={recounting} onclick={recount}
-					>Recount</button
+					>重新统计</button
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Today</span><span
+				<span class="text-mist-400">今天</span><span
 					>{live.seen ? fmtNum(live.seen.today) : '…'}</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Last 30 days</span><span
+				<span class="text-mist-400">最近 30 天</span><span
 					>{live.seen ? fmtNum(live.seen.month) : '…'}</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">All time</span><span
+				<span class="text-mist-400">全部时间</span><span
 					>{live.seen ? fmtNum(live.seen.all) : '…'}</span
 				>
 			</div>
 		</div>
 		<div class="panel px-5 py-4">
-			<span class="mb-1 block caps text-mist-400">Servers by build</span>
+			<span class="mb-1 block caps text-mist-400">按版本统计服务器</span>
 			{#each live.builds as b (b.build)}
 				<div class="kv">
-					<span class={b.build ? '' : 'text-mist-400'}>{b.build || 'not yet read'}</span><span
+					<span class={b.build ? '' : 'text-mist-400'}>{b.build || '尚未读取'}</span><span
 						>{fmtNum(b.count)}</span
 					>
 				</div>
 			{:else}
-				<p class="note">No servers yet.</p>
+				<p class="note">暂无服务器。</p>
 			{/each}
 		</div>
 	</div>
@@ -382,9 +380,9 @@
 <div class="flex flex-wrap items-center gap-4 panel px-5 py-3.5">
 	<span class="caps text-mist-400">Prometheus</span>
 	<span class="text-[13px]">
-		Every figure here and its history is exported at <code class="chip">/metrics</code> on the web
-		and worker processes, bearer <code class="chip">METRICS_TOKEN</code>, for the Prometheus and
-		Grafana you already run; the README has the scrape config and a dashboard to import.
+		这里的所有指标和历史数据均通过 <code class="chip">/metrics</code> 在 Web
+		和工作进程上导出，使用令牌 <code class="chip">METRICS_TOKEN</code>；可供现有的 Prometheus 和
+		Grafana 使用。README 提供抓取配置和可导入的仪表板。
 	</span>
-	{#if live.metricsOn}<Badge tone="ok">on</Badge>{:else}<Badge tone="warn">off</Badge>{/if}
+	{#if live.metricsOn}<Badge tone="ok">开启</Badge>{:else}<Badge tone="warn">关闭</Badge>{/if}
 </div>

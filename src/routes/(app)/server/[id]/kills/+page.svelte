@@ -126,29 +126,29 @@
 		<input
 			class="input"
 			type="search"
-			placeholder="Any side: name or SteamID"
-			aria-label="Filter by player on either side"
+			placeholder="任一方的昵称或 SteamID"
+			aria-label="按任一方玩家筛选"
 			bind:value={filter.player}
 		/>
 		<input
 			class="input"
 			type="search"
-			placeholder="Killer: name or SteamID"
-			aria-label="Filter by killer"
+			placeholder="击杀者昵称或 SteamID"
+			aria-label="按击杀者筛选"
 			bind:value={filter.killer}
 		/>
 		<input
 			class="input"
 			type="search"
-			placeholder="Victim: name or SteamID"
-			aria-label="Filter by victim"
+			placeholder="受害者昵称或 SteamID"
+			aria-label="按受害者筛选"
 			bind:value={filter.victim}
 		/>
-		<select class="input" aria-label="Filter by weapon or vehicle" bind:value={filter.cause}>
-			<option value="">Any weapon or vehicle</option>
+		<select class="input" aria-label="按武器或载具筛选" bind:value={filter.cause}>
+			<option value="">任意武器或载具</option>
 			{#each causeOptions as c (c.cause)}<option value={c.cause}>{c.label}</option>{/each}
 		</select>
-		<select class="input" aria-label="Filter by kind of kill" bind:value={filter.kind}>
+		<select class="input" aria-label="按击杀类型筛选" bind:value={filter.kind}>
 			{#each KINDS as k (k.key)}<option value={k.key}>{k.label}</option>{/each}
 		</select>
 		<input
@@ -156,8 +156,8 @@
 			type="number"
 			min="1"
 			step="1"
-			placeholder="At least this many metres"
-			aria-label="Minimum distance in metres"
+			placeholder="至少达到的距离（米）"
+			aria-label="最短距离（米）"
 			bind:value={filter.minM}
 		/>
 	</div>
@@ -166,14 +166,14 @@
 			{#if total === null}{loading ? 'Counting…' : ''}{:else}{fmtNum(total)}
 				{total === 1 ? 'kill' : 'kills'}{filtered ? ' match' : ''}{/if}
 		</span>
-		{#if filtered}<button class="btn btn-sm" onclick={clear}>Clear filters</button>{/if}
-		<span class="ml-auto">newest first · new kills appear as the game posts them</span>
+		{#if filtered}<button class="btn btn-sm" onclick={clear}>清除筛选</button>{/if}
+		<span class="ml-auto">最新优先 · 游戏上报后自动显示新击杀</span>
 	</div>
 	<div class="table-wrap">
 		<table>
 			<thead>
 				<tr
-					><th>When</th><th>Killer</th><th>Victim</th><th>Cause</th><th class="num">Distance</th><th
+					><th>时间</th><th>击杀者</th><th>受害者</th><th>击杀原因</th><th class="num">距离</th><th
 					></th></tr
 				>
 			</thead>
@@ -193,7 +193,7 @@
 								<button
 									type="button"
 									class="block cursor-pointer font-mono text-[11px] text-mist-600 hover:text-accent"
-									title="Only kills by this player"
+									title="仅该玩家的击杀"
 									onclick={() => (filter.killer = k.killer?.steamId ?? '')}
 									>{k.killer.steamId}</button
 								>
@@ -210,16 +210,16 @@
 							<button
 								type="button"
 								class="block cursor-pointer font-mono text-[11px] text-mist-600 hover:text-accent"
-								title="Only deaths of this player"
+								title="仅该玩家的死亡"
 								onclick={() => (filter.victim = k.victim.steamId)}>{k.victim.steamId}</button
 							>
 						</td>
 						<td class="text-mist-200">{causeText(k)}</td>
 						<td class="num">{k.distanceM === null ? '—' : `${Math.round(k.distanceM)} m`}</td>
 						<td class="whitespace-nowrap">
-							{#if k.teamKill}<span class="chip">team kill</span>{/if}
-							{#if k.suicide}<span class="chip">suicide</span>{/if}
-							{#if k.headshot}<span class="chip">headshot</span>{/if}
+							{#if k.teamKill}<span class="chip">误杀队友</span>{/if}
+							{#if k.suicide}<span class="chip">自杀</span>{/if}
+							{#if k.headshot}<span class="chip">爆头</span>{/if}
 							{#each k.tags as t (t)}<span class="chip"
 									>{t.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()}</span
 								>{/each}
@@ -228,13 +228,11 @@
 				{:else}
 					<tr
 						><td colspan="6" class="py-6 text-center text-mist-600">
-							{#if loading}Loading…{:else if configured === false}This server has no kill feed yet.
-								An org owner turns it on under
+							{#if loading}加载中…{:else if configured === false}本服尚未启用击杀事件。组织所有者可在
 								<a
 									href="/server/{encodeURIComponent(id)}/config"
-									class="text-accent hover:underline">Config</a
-								>.{:else if filtered}Nothing matches.{:else}No kills received yet. They appear here
-								as the game posts them.{/if}
+									class="text-accent hover:underline">配置</a
+								>.{:else if filtered}没有符合条件的记录。{:else}尚未收到击杀事件；游戏上报后会显示在这里。{/if}
 						</td></tr
 					>
 				{/each}
@@ -243,12 +241,11 @@
 	</div>
 	{#if more}
 		<button class="mt-3 btn" onclick={() => load(true)} disabled={loading}>
-			{loading ? 'Loading…' : 'Load older kills'}
+			{loading ? 'Loading…' : '加载更早的击杀记录'}
 		</button>
 	{/if}
 	<p class="note">
-		Every kill the game's feed delivered, kept for good. Names link to the player's dossier; a
-		SteamID under a name narrows the list to that player. Team kills are inferred from the factions
-		Warcon observed at the time.
+		这里保存游戏上报的所有击杀事件。点击昵称可打开玩家档案；点击昵称下方的 SteamID
+		可筛选该玩家。误杀队友根据 Warcon 当时观测到的阵营推断。
 	</p>
 </div>

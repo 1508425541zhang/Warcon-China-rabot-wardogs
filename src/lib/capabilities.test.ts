@@ -54,6 +54,6 @@ describe('can', () => {
 	});
 
 	test('summary uses labels in catalogue order', () => {
-		expect(capabilitySummary(['bans.manage', 'server.view'])).toBe('View · Bans');
+		expect(capabilitySummary(['bans.manage', 'server.view'])).toBe('查看服务器 · 封禁');
 	});
 });

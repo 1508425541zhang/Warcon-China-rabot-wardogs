@@ -117,12 +117,12 @@
 				<div class="mb-1.5 flex flex-wrap items-center gap-2">
 					<span class="caps text-mist-400">{row.label}</span>
 					{#if b}<span class="pip {b.cls}" title={b.title}>{b.label}</span>{/if}
-					{#if row.fields.some(changed)}<span class="pip bg-accent/15 text-accent">modified</span
+					{#if row.fields.some(changed)}<span class="pip bg-accent/15 text-accent">已修改</span
 						>{/if}
 					{#if !row.fields.every(inFile)}<span
 							class="text-[11px] text-mist-600"
-							title="The file does not set this key; the value shown is the game's default. Editing adds it."
-							>not in file</span
+							title="配置文件未设置此项；当前显示游戏默认值。编辑后会写入配置文件。"
+							>文件中不存在</span
 						>{/if}
 				</div>
 				<div class="flex flex-wrap items-center gap-2">
@@ -136,7 +136,7 @@
 									disabled={disabled || locked(f)}
 									onchange={(e) => set(f, e.currentTarget.checked)}
 								/>
-								{v ? 'On' : 'Off'}
+								{v ? '开启' : '关闭'}
 							</label>
 						{:else if f.type === 'enum'}
 							<select
@@ -183,7 +183,7 @@
 								class="input"
 								value={String(v)}
 								disabled={disabled || locked(f)}
-								placeholder={f.key === 'serverPassword' ? 'none (open server)' : ''}
+								placeholder={f.key === 'serverPassword' ? '无（开放服务器）' : ''}
 								spellcheck="false"
 								onchange={(e) => set(f, e.currentTarget.value)}
 							/>
@@ -192,7 +192,7 @@
 				</div>
 				<p class="note mt-1.5">
 					{row.help}
-					{#if first.live && liveRoutes}Also changeable at once, without a file apply, from {first.live}.{/if}
+					{#if first.live && liveRoutes}也可以直接修改，无需应用配置文件；请前往 {first.live}.{/if}
 				</p>
 			</div>
 		{/each}

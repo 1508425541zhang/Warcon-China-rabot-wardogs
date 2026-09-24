@@ -1,3 +1,5 @@
+import { uiMessageZh } from './ui-message-zh';
+
 export interface ConfirmRequest {
 	title: string;
 	message: string;
@@ -15,9 +17,9 @@ export function confirmDialog(
 	return new Promise((resolve) => {
 		confirmState.current?.resolve(false);
 		confirmState.current = {
-			title: opts.title ?? 'Confirm',
-			message,
-			okLabel: opts.okLabel ?? 'Confirm',
+			title: uiMessageZh(opts.title ?? 'Confirm'),
+			message: uiMessageZh(message),
+			okLabel: uiMessageZh(opts.okLabel ?? 'Confirm'),
 			danger: !!opts.danger,
 			resolve
 		};

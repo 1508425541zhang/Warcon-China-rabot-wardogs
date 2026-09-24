@@ -53,7 +53,7 @@
 		busy = true;
 		try {
 			const res = await api<{ id: string }>('POST', '/api/orgs', { name: d.name.trim() });
-			toast('Organisation created.', 'ok');
+			toast('组织已创建。', 'ok');
 			dialog = null;
 			await invalidateAll();
 			await goto(`/orgs/${encodeURIComponent(res.id)}`);
@@ -78,38 +78,38 @@
 	function restore(o: OrgView) {
 		void run(
 			() => api('PATCH', `/api/orgs/${encodeURIComponent(o.id)}`, { suspended: false }),
-			`${o.name} restored.`
+			`${o.name} 已恢复。`
 		);
 	}
 	async function remove(o: OrgView) {
 		if (
 			!(await confirmDialog(
-				`Delete ${o.name}? This removes its ${o.serverCount} server${o.serverCount === 1 ? '' : 's'} from the panel, every membership and invite link. Audit history is kept.`,
-				{ okLabel: 'Delete organisation', danger: true }
+				`确定删除“${o.name}”？这会从面板移除其 ${o.serverCount} 台服务器、所有成员关系和邀请链接。审计历史会保留。`,
+				{ okLabel: '删除组织', danger: true }
 			))
 		)
 			return;
-		await run(() => api('DELETE', `/api/orgs/${encodeURIComponent(o.id)}`), `${o.name} deleted.`);
+		await run(() => api('DELETE', `/api/orgs/${encodeURIComponent(o.id)}`), `${o.name} 已删除。`);
 	}
 </script>
 
-<svelte:head><title>Organisations · {data.appName}</title></svelte:head>
+<svelte:head><title>组织 · {data.appName}</title></svelte:head>
 
 <div class="mb-5 flex items-center gap-3">
-	<h1 class="text-xl font-semibold tracking-tight">Organisations</h1>
+	<h1 class="text-xl font-semibold tracking-tight">组织</h1>
 	{#if data.canCreateOrg}
 		<button class="ml-auto btn btn-primary" onclick={() => (dialog = { kind: 'create', name: '' })}
-			>New organisation</button
+			>新组织</button
 		>
 	{/if}
 </div>
 
 <div class="callout">
-	An <b>organisation</b> is a clan or community with its own servers, members and invite links. Its
-	<b>owners</b> add servers, mint invite links and decide who gets which role on each server; they
-	are admin on every server in it. <b>Members</b> see the servers they were granted.
-	{#if siteOwner}As site owner you see and run every organisation: raise a server limit, suspend or
-		delete one from here or from its page.{/if}
+	An <b>组织</b> 是拥有独立服务器、成员和邀请链接的战队或社区。其
+	<b>所有者</b> 可以添加服务器、创建邀请链接，并决定各服务器的成员角色；他们管理组织内所有服务器。
+	<b>成员</b>
+	仅能查看获授权的服务器。
+	{#if siteOwner}作为平台所有者，你可以管理所有组织：在此或组织页面提高服务器上限、暂停或删除组织。{/if}
 </div>
 
 {#if data.orgViews.length > 5}
@@ -117,8 +117,8 @@
 		<input
 			class="input w-full sm:w-72"
 			type="search"
-			placeholder="Search name or slug…"
-			aria-label="Search organisations"
+			placeholder="搜索名称或标识…"
+			aria-label="搜索组织"
 			bind:value={search}
 		/>
 		{#if search.trim()}
@@ -131,15 +131,15 @@
 	<table>
 		<thead>
 			<tr>
-				<SortHeader {sort} key="name">Organisation</SortHeader>
+				<SortHeader {sort} key="name">组织</SortHeader>
 				{#if siteOwner}
-					<SortHeader {sort} key="created">Created</SortHeader>
-					<SortHeader {sort} key="status">Status</SortHeader>
+					<SortHeader {sort} key="created">创建时间</SortHeader>
+					<SortHeader {sort} key="status">状态</SortHeader>
 				{:else}
-					<SortHeader {sort} key="role">Your role</SortHeader>
+					<SortHeader {sort} key="role">你的角色</SortHeader>
 				{/if}
-				<SortHeader {sort} key="members" num>Members</SortHeader>
-				<SortHeader {sort} key="servers" num>Servers</SortHeader>
+				<SortHeader {sort} key="members" num>成员</SortHeader>
+				<SortHeader {sort} key="servers" num>服务器</SortHeader>
 				<th></th>
 			</tr>
 		</thead>
@@ -173,7 +173,7 @@
 						</td>
 						<td>
 							{#if o.suspended}
-								<Badge tone="err">suspended</Badge>
+								<Badge tone="err">已停用</Badge>
 								{#if o.suspended.reason}<div
 										class="mt-1 max-w-[220px] truncate text-[12px] text-mist-600"
 										title={o.suspended.reason}
@@ -181,11 +181,11 @@
 										{o.suspended.reason}
 									</div>{/if}
 							{:else}
-								<Badge tone="ok">active</Badge>
+								<Badge tone="ok">启用中</Badge>
 							{/if}
 							{#if o.allowPublicStatus || o.allowPublicLeaderboards}
 								<div class="mt-1 text-[12px] text-mist-600">
-									public: {[
+									公开： {[
 										o.allowPublicStatus ? 'status' : '',
 										o.allowPublicLeaderboards ? 'leaderboards' : ''
 									]
@@ -197,7 +197,7 @@
 					{:else}
 						<td>
 							<RoleBadge role={o.role} />
-							{#if o.suspended}<Badge tone="err" class="ml-1">suspended</Badge>{/if}
+							{#if o.suspended}<Badge tone="err" class="ml-1">已停用</Badge>{/if}
 						</td>
 					{/if}
 					<td class="num">{o.memberCount}</td>
@@ -208,30 +208,27 @@
 					<td class="text-right whitespace-nowrap">
 						<span class="inline-flex gap-1.5">
 							{#if o.role === 'owner' && (!o.suspended || siteOwner)}
-								<a class="btn btn-sm" href="/orgs/{encodeURIComponent(o.id)}">Manage</a>
+								<a class="btn btn-sm" href="/orgs/{encodeURIComponent(o.id)}">管理</a>
 							{/if}
 							{#if o.listKinds.includes('ban')}
-								<a class="btn btn-sm" href="/orgs/{encodeURIComponent(o.id)}/bans">Ban list</a>
+								<a class="btn btn-sm" href="/orgs/{encodeURIComponent(o.id)}/bans">封禁名单</a>
 							{/if}
 							{#if o.listKinds.includes('reserve')}
-								<a class="btn btn-sm" href="/orgs/{encodeURIComponent(o.id)}/reserved"
-									>Reserved slots</a
-								>
+								<a class="btn btn-sm" href="/orgs/{encodeURIComponent(o.id)}/reserved">预留位</a>
 							{/if}
 							{#if siteOwner}
 								{#if o.suspended}
-									<button class="btn btn-sm" onclick={() => restore(o)} disabled={busy}
-										>Restore</button
+									<button class="btn btn-sm" onclick={() => restore(o)} disabled={busy}>恢复</button
 									>
 								{:else}
 									<button
 										class="btn btn-sm"
 										onclick={() => (dialog = { kind: 'suspend', org: o, reason: '' })}
-										disabled={busy}>Suspend</button
+										disabled={busy}>停用</button
 									>
 								{/if}
 								<button class="btn btn-sm btn-danger" onclick={() => remove(o)} disabled={busy}
-									>Delete</button
+									>删除</button
 								>
 							{/if}
 						</span>
@@ -241,10 +238,10 @@
 				<tr
 					><td colspan="6" class="py-8 text-center text-mist-600"
 						>{siteOwner
-							? 'No organisations yet.'
+							? '还没有组织。'
 							: data.canCreateOrg
-								? 'You are not in an organisation yet. Ask for an invite link, or create your own.'
-								: 'You are not in an organisation yet. Ask for an invite link.'}</td
+								? '你尚未加入组织。可以索取邀请链接，或创建自己的组织。'
+								: '你尚未加入组织，请索取邀请链接。'}</td
 					></tr
 				>
 			{/each}
@@ -254,7 +251,7 @@
 
 {#if dialog?.kind === 'create'}
 	{@const d = dialog}
-	<Modal title="New organisation" onclose={() => (dialog = null)}>
+	<Modal title="新组织" onclose={() => (dialog = null)}>
 		<form
 			class="space-y-3"
 			onsubmit={(e) => {
@@ -263,26 +260,26 @@
 			}}
 		>
 			<label class="block"
-				><span class="field-label">Name</span><input
+				><span class="field-label">名称</span><input
 					class="input"
 					type="text"
 					bind:value={d.name}
-					placeholder="Clan or community name"
+					placeholder="战队或社区名称"
 					minlength="2"
 					maxlength="60"
 					required
 				/></label
 			>
-			<p class="note">You become its first owner. Add servers and invite links from its page.</p>
+			<p class="note">你将成为首位所有者。创建后可在组织页面添加服务器和邀请链接。</p>
 			<div class="flex justify-end gap-2 pt-2">
-				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
-				<button type="submit" class="btn btn-primary" disabled={busy}>Create</button>
+				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>取消</button>
+				<button type="submit" class="btn btn-primary" disabled={busy}>创建</button>
 			</div>
 		</form>
 	</Modal>
 {:else if dialog?.kind === 'suspend'}
 	{@const d = dialog}
-	<Modal title="Suspend {d.org.name}" onclose={() => (dialog = null)}>
+	<Modal title="停用 {d.org.name}" onclose={() => (dialog = null)}>
 		<form
 			class="space-y-3"
 			onsubmit={(e) => {
@@ -291,11 +288,10 @@
 			}}
 		>
 			<p class="text-[13.5px]">
-				Members lose access to its servers, its owners cannot add servers or mint links, and its
-				invite links stop working until you restore it. Nothing is deleted.
+				成员将失去服务器访问权限，组织所有者无法添加服务器或创建邀请链接，邀请链接也会失效，直到恢复组织。数据不会删除。
 			</p>
 			<label class="block"
-				><span class="field-label">Reason (shown to its owners)</span><input
+				><span class="field-label">原因（组织所有者可见）</span><input
 					class="input"
 					type="text"
 					bind:value={d.reason}
@@ -303,8 +299,8 @@
 				/></label
 			>
 			<div class="flex justify-end gap-2 pt-2">
-				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
-				<button type="submit" class="btn btn-danger" disabled={busy}>Suspend</button>
+				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>取消</button>
+				<button type="submit" class="btn btn-danger" disabled={busy}>停用</button>
 			</div>
 		</form>
 	</Modal>

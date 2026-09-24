@@ -11,15 +11,17 @@
 	let {
 		orgId,
 		config,
+		ruleDefaults,
 		overrides,
-		defaults,
+		weaponDefaults,
 		categories,
 		lang
 	}: {
 		orgId: string;
 		config: Rules;
+		ruleDefaults: Rules;
 		overrides: PageData['weaponOverrides'];
-		defaults: PageData['weaponDefaults'];
+		weaponDefaults: PageData['weaponDefaults'];
 		categories: PageData['weaponCategories'];
 		lang: 'zh' | 'en';
 	} = $props();
@@ -33,6 +35,62 @@
 	let busy = $state(false);
 	let notice = $state('');
 	let problem = $state('');
+	let ranges = $derived([
+		{ start: 0, end: draft.passiveWatchThreshold - 1, zh: '正常', en: 'Normal' },
+		{
+			start: draft.passiveWatchThreshold,
+			end: draft.activeWatchThreshold - 1,
+			zh: '被动观察',
+			en: 'Passive watch'
+		},
+		{
+			start: draft.activeWatchThreshold,
+			end: draft.koThreshold - 1,
+			zh: '主动观察',
+			en: 'Active watch'
+		},
+		{
+			start: draft.koThreshold,
+			end: draft.quarantineThreshold - 1,
+			zh: '达到移出阈值',
+			en: 'KO threshold met'
+		},
+		{
+			start: draft.quarantineThreshold,
+			end: 100,
+			zh: '达到隔离资格阈值',
+			en: 'Quarantine eligibility'
+		}
+	]);
+	let validationError = $derived.by(() => {
+		if (!(
+			draft.passiveWatchThreshold < draft.activeWatchThreshold &&
+			draft.activeWatchThreshold < draft.koThreshold &&
+			draft.koThreshold < draft.quarantineThreshold
+		))
+			return lang === 'zh'
+				? '风险阈值必须依次递增：被动观察 < 主动观察 < 移出 < 隔离。'
+				: 'Risk thresholds must increase from passive watch through quarantine.';
+		for (const [name, bands] of [
+			['KPM', draft.kpmBands],
+			[lang === 'zh' ? '独立受害者' : 'Unique victims', draft.uniqueVictimBands],
+			[lang === 'zh' ? '独立举报人' : 'Unique reporters', draft.reportBands]
+		] as const) {
+			if (
+				bands.some(
+					(band, i) => i > 0 && (band.min <= bands[i - 1].min || band.points < bands[i - 1].points)
+				)
+			)
+				return lang === 'zh'
+					? `${name} 的门槛必须递增，加分不能递减。`
+					: `${name} thresholds must increase and points cannot decrease.`;
+		}
+		if (draft.oldVac > draft.recentVac || draft.oldGameBan > draft.recentGameBan)
+			return lang === 'zh'
+				? '旧封禁加分不能高于近期封禁加分。'
+				: 'Older bans cannot add more points than recent bans.';
+		return '';
+	});
 
 	const fields: { headingZh: string; headingEn: string; entries: Field[] }[] = [
 		{
@@ -204,6 +262,10 @@
 	];
 
 	async function saveRules() {
+		if (validationError) {
+			problem = validationError;
+			return;
+		}
 		busy = true;
 		problem = notice = '';
 		try {
@@ -265,6 +327,22 @@
 				? '数据接入状态：步兵 KPM、独立受害者、独立举报人、独立异常窗口已接入；爆头率、穿透率、短时爆发、Steam 处罚与公开游戏时间仍等待可信数据源，当前不参与实时评分。'
 				: 'Data status: infantry KPM, unique victims, unique reporters and independent windows are connected. Headshots, penetration, bursts, Steam bans and public playtime await trusted feeds and do not currently affect live scores.'}
 		</p>
+		<div
+			class="mt-4 grid gap-2 sm:grid-cols-5"
+			aria-label={lang === 'zh' ? '当前风险等级区间预览' : 'Current risk level ranges'}
+		>
+			{#each ranges as range (range.zh)}
+				<div class="rounded-ctl border border-white/10 p-3">
+					<div class="font-mono text-lg text-white">{range.start}–{range.end}</div>
+					<div class="text-xs text-mist-300">{lang === 'zh' ? range.zh : range.en}</div>
+				</div>
+			{/each}
+		</div>
+		<p class="mt-2 text-xs text-mist-400">
+			{lang === 'zh'
+				? '区间会随输入实时更新。当前仅用于记录和人工审核，达到阈值也不会自动踢出或隔离玩家。'
+				: 'Ranges update as you edit. In record-only mode, reaching a threshold never kicks or quarantines a player.'}
+		</p>
 		<h4 class="mt-5 text-sm font-semibold text-white">
 			{lang === 'zh' ? '180 秒纯步兵 KPM 分段' : '180-second infantry KPM bands'}
 		</h4>
@@ -280,7 +358,7 @@
 							max="20"
 							step="0.1"
 							bind:value={band.min}
-							aria-label="KPM minimum"
+							aria-label="最低 KPM"
 						/><span>→</span><input
 							class="input w-20"
 							type="number"
@@ -288,7 +366,7 @@
 							max="100"
 							step="1"
 							bind:value={band.points}
-							aria-label="Risk points"
+							aria-label="风险分"
 						/></span
 					>
 				</label>
@@ -352,8 +430,26 @@
 				</div>
 			{/each}
 		</div>
-		<button class="mt-5 btn btn-primary" type="button" disabled={busy} onclick={saveRules}
-			>{lang === 'zh' ? '保存风控规则' : 'Save integrity rules'}</button
+		{#if validationError}<p class="mt-4 text-sm text-danger" role="alert">{validationError}</p>{/if}
+		<button
+			class="mt-5 btn btn-primary"
+			type="button"
+			disabled={busy || !!validationError}
+			onclick={saveRules}>{lang === 'zh' ? '保存风控规则' : 'Save integrity rules'}</button
+		>
+		<button
+			class="btn-quiet mt-5 ml-2 btn"
+			type="button"
+			disabled={busy}
+			onclick={() => (draft = structuredClone(config))}
+			>{lang === 'zh' ? '撤销未保存修改' : 'Discard unsaved changes'}</button
+		>
+		<button
+			class="btn-quiet mt-5 ml-2 btn"
+			type="button"
+			disabled={busy}
+			onclick={() => (draft = structuredClone(ruleDefaults))}
+			>{lang === 'zh' ? '载入附件默认值' : 'Load default values'}</button
 		>
 	</div>
 
@@ -374,7 +470,7 @@
 			}}
 		>
 			<label class="text-xs text-mist-300"
-				>cause<input
+				>原因标签<input
 					class="mt-1 input w-72 max-w-full"
 					bind:value={cause}
 					required
@@ -396,7 +492,7 @@
 			<div class="mt-4 table-wrap">
 				<table>
 					<thead
-						><tr><th>cause</th><th>{lang === 'zh' ? '当前分类' : 'Category'}</th><th></th></tr
+						><tr><th>原因标签</th><th>{lang === 'zh' ? '当前分类' : 'Category'}</th><th></th></tr
 						></thead
 					><tbody
 						>{#each overrides as row (row.cause)}<tr
@@ -422,7 +518,7 @@
 			<summary class="cursor-pointer"
 				>{lang === 'zh' ? '查看内置步兵武器标签' : 'Built-in infantry weapon tags'}</summary
 			>
-			<p class="mt-2 font-mono break-all">{Object.keys(defaults).join(' · ')}</p>
+			<p class="mt-2 font-mono break-all">{Object.keys(weaponDefaults).join(' · ')}</p>
 		</details>
 	</div>
 	{#if notice}<p class="text-sm text-green-400" role="status">{notice}</p>{/if}

@@ -32,10 +32,10 @@ export const VIEW: Capability = 'server.view';
 export type CapabilityGroup = 'read' | 'play' | 'moderate' | 'manage';
 
 export const CAPABILITY_GROUPS: { key: CapabilityGroup; label: string; hint: string }[] = [
-	{ key: 'read', label: 'Read', hint: 'See the server without touching it.' },
-	{ key: 'play', label: 'Play', hint: 'Day-to-day running of a match.' },
-	{ key: 'moderate', label: 'Moderate', hint: 'Bans, reserved slots and the org lists.' },
-	{ key: 'manage', label: 'Manage', hint: 'Settings, automation and raw access.' }
+	{ key: 'read', label: '查看', hint: '查看服务器状态，不执行操作。' },
+	{ key: 'play', label: '比赛管理', hint: '管理日常比赛。' },
+	{ key: 'moderate', label: '玩家管理', hint: '管理封禁、预留位和组织名单。' },
+	{ key: 'manage', label: '系统管理', hint: '管理设置、自动化和原始接口。' }
 ];
 
 export interface CapabilityInfo {
@@ -47,84 +47,84 @@ export interface CapabilityInfo {
 
 export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
 	'server.view': {
-		label: 'View',
-		hint: 'What is happening on the server: status, players, kills, rotation, who is banned and who holds a reserved slot, analytics, leaderboards and player stats.',
+		label: '查看服务器',
+		hint: '查看状态、玩家、击杀、地图轮换、封禁、预留位、分析、排行榜和玩家统计。',
 		group: 'read'
 	},
 	'chat.send': {
-		label: 'Chat',
-		hint: 'Broadcast to everyone; whisper to a player.',
+		label: '聊天与广播',
+		hint: '向全服广播，或向单个玩家发送私聊。',
 		group: 'play'
 	},
 	'players.moderate': {
-		label: 'Kick, kill, move',
-		hint: 'Kick or kill a player; move them to another team.',
+		label: '踢出、击杀与换队',
+		hint: '踢出或击杀玩家，或将其移到另一阵营。',
 		group: 'play'
 	},
 	'match.control': {
-		label: 'Match control',
-		hint: 'End or restart the match, change map, set the next map, set weather.',
+		label: '比赛控制',
+		hint: '结束或重开比赛、切换地图、设置下一张地图或天气。',
 		group: 'play'
 	},
 	'rotation.edit': {
-		label: 'Live rotation',
-		hint: 'Add, remove and reorder rotation entries on the running server.',
+		label: '实时地图轮换',
+		hint: '在运行中的服务器上添加、移除或重新排列轮换地图。',
 		group: 'play'
 	},
 	'players.notes': {
-		label: 'Notes & watchlist',
-		hint: 'Read and add player notes, delete your own, watch or unwatch players and see why they are watched.',
+		label: '备注与观察名单',
+		hint: '查看或添加玩家备注、删除自己的备注、管理观察名单并查看原因。',
 		group: 'play'
 	},
-	'bans.manage': { label: 'Bans', hint: 'Ban and unban on this server.', group: 'moderate' },
+	'bans.manage': { label: '封禁', hint: '在本服封禁或解除封禁。', group: 'moderate' },
 	'slots.manage': {
-		label: 'Reserved slots',
-		hint: 'Reserve and unreserve slots on this server (through its config document on builds without the live routes), and read the note on each.',
+		label: '预留位',
+		hint: '在本服分配或撤回预留位，并查看每项备注；旧版服务器通过配置文件同步。',
 		group: 'moderate'
 	},
 	'lists.ban': {
-		label: 'Org ban list',
-		hint: "Ban and unban on every server through the organisation's ban list, and push the lists to servers; see a player's entry on it in the dossier.",
+		label: '组织封禁名单',
+		hint: '通过组织名单在所有服务器封禁或解封，并同步到服务器；玩家档案中可查看记录。',
 		group: 'moderate'
 	},
 	'lists.reserve': {
-		label: 'Org reserved slots',
-		hint: "Reserve and withdraw slots on every server through the organisation's reserved-slot list, and push the lists to servers; see a player's entry on it in the dossier.",
+		label: '组织预留位',
+		hint: '通过组织名单在所有服务器分配或撤回预留位，并同步到服务器；玩家档案中可查看记录。',
 		group: 'moderate'
 	},
 	'players.notes.manage': {
-		label: "Others' notes",
-		hint: 'Delete notes written by anyone.',
+		label: '管理他人备注',
+		hint: '删除任何人撰写的玩家备注。',
 		group: 'moderate'
 	},
 	'integrity.view': {
-		label: 'Integrity cases',
-		hint: 'Read server-side integrity scores, evidence cases and review status on this server.',
+		label: '风控案件',
+		hint: '查看本服的社区风控评分、证据案件和复核状态。',
 		group: 'moderate'
 	},
 	'rotation.save': {
-		label: 'Save rotation',
-		hint: 'Persist the rotation, switch rotation mode on or off.',
+		label: '保存地图轮换',
+		hint: '保存地图轮换并启用或关闭轮换模式。',
 		group: 'manage'
 	},
 	'config.apply': {
-		label: 'Config & settings',
-		hint: 'Read, validate and apply the config document; score tick, sponsor image, connection test.',
+		label: '配置与设置',
+		hint: '读取、验证和应用配置文件，调整得分周期与图片并测试连接。',
 		group: 'manage'
 	},
 	'automation.manage': {
-		label: 'Automation',
-		hint: 'See the triggers and what they did; create, edit, dry-run and delete them.',
+		label: '自动化',
+		hint: '查看规则及执行结果，创建、编辑、模拟或删除规则。',
 		group: 'manage'
 	},
 	'audit.read': {
-		label: 'Audit trail',
-		hint: "See everyone's actions on this server in the audit log, not just your own, and the game server's own RCON log.",
+		label: '审计记录',
+		hint: '查看本服所有管理员操作及游戏服务器原始 RCON 日志。',
 		group: 'manage'
 	},
 	'rcon.raw': {
-		label: 'Raw RCON',
-		hint: 'Call any /v1 route on the game server directly, except the config document.',
+		label: '原始 RCON',
+		hint: '直接调用游戏服务器的 /v1 接口（配置文件除外）。',
 		group: 'manage'
 	}
 };

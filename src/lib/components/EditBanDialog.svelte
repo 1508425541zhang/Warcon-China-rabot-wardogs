@@ -44,7 +44,7 @@
 				reason: reason.trim(),
 				...([expiry, custom].join() === expiryWas ? {} : { expiresAt: expiryIso(expiry, custom) })
 			});
-			toast(`Ban on ${who} changed.`, 'ok');
+			toast(`${who} 的封禁已修改。`, 'ok');
 			await ondone();
 			onclose();
 		} catch (err) {
@@ -55,7 +55,7 @@
 	}
 </script>
 
-<Modal title="Edit ban: {who}" {onclose}>
+<Modal title="编辑封禁：{who}" {onclose}>
 	<form
 		class="space-y-3"
 		onsubmit={(e) => {
@@ -63,9 +63,9 @@
 			void submit();
 		}}
 	>
-		<p class="note mt-0!">{placed} Who placed it and when stay as they are.</p>
+		<p class="note mt-0!">{placed} 执行人和执行时间保持不变。</p>
 		<label class="block"
-			><span class="field-label">Reason</span><input
+			><span class="field-label">原因</span><input
 				class="input"
 				type="text"
 				maxlength="200"
@@ -74,7 +74,7 @@
 		>
 		<div class="flex flex-wrap gap-3">
 			<label class="block sm:w-48"
-				><span class="field-label">Expires</span><select class="input" bind:value={expiry}>
+				><span class="field-label">到期时间</span><select class="input" bind:value={expiry}>
 					{#each EXPIRY_OPTIONS as [value, label] (value)}
 						<option {value}>{label}</option>
 					{/each}
@@ -82,7 +82,7 @@
 			>
 			{#if expiry === 'custom'}
 				<label class="block sm:flex-1"
-					><span class="field-label">Until (local time)</span><input
+					><span class="field-label">截止时间（本地）</span><input
 						class="input"
 						type="datetime-local"
 						bind:value={custom}
@@ -92,8 +92,8 @@
 			{/if}
 		</div>
 		<div class="flex justify-end gap-2 pt-2">
-			<button type="button" class="btn" data-close onclick={onclose}>Cancel</button>
-			<button type="submit" class="btn btn-primary" disabled={busy}>Save</button>
+			<button type="button" class="btn" data-close onclick={onclose}>取消</button>
+			<button type="submit" class="btn btn-primary" disabled={busy}>保存</button>
 		</div>
 	</form>
 </Modal>
