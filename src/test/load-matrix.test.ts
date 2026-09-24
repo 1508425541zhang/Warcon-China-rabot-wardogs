@@ -56,7 +56,7 @@ const loads = (dir: string): string[] =>
 		e.isDirectory()
 			? loads(join(dir, e.name))
 			: /^\+(page|layout)\.server\.ts$/.test(e.name)
-				? [relative(APP, join(dir, e.name))]
+				? [relative(APP, join(dir, e.name)).replaceAll('\\', '/')]
 				: []
 	);
 

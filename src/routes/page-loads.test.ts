@@ -44,7 +44,7 @@ describe('page loads under (app)', () => {
 	});
 
 	for (const file of files) {
-		const name = relative(APP, file);
+		const name = relative(APP, file).replaceAll('\\', '/');
 		const source = readFileSync(file, 'utf8');
 		// A page that only redirects reads nothing and has nothing to guard.
 		if (!source.includes('$lib/server/')) continue;
