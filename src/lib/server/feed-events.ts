@@ -3,10 +3,10 @@
 // through the relay stream), and the team-kill rules get their turn. Their intents go through
 // the same outbox as every other trigger, so delivery, audit and the Discord mirror are shared.
 // The Kill rate rules see every batch; the rest of the work is for batches with team kills.
-import { and, eq, gte, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { emit } from './events';
-import { integrityWindows, kills, playerSessions } from './db/schema';
+import { integrityScores, integrityWindows, kills, playerSessions } from './db/schema';
 import { enabledTriggers, renderTemplate, teamKillStage, type Evaluation } from './triggers';
 import type { TeamKillConfig } from './trigger-rules';
 import {
@@ -31,6 +31,8 @@ import { servers, type ServerRow } from './db/schema';
 import type { KillView } from '$lib/types';
 import { InfantryWindows } from './integrity/windows';
 import { weaponOverrides } from './integrity/weapon-map';
+import { getIntegrityRules } from './integrity/rules';
+import { scoreIntegrity } from './integrity/score';
 
 const infantry = new InfantryWindows();
 const infantryTasks = new Map<string, Promise<void>>();
@@ -83,25 +85,80 @@ function queueInfantryWindows(env: Env, serverId: string, batch: KillView[]): Pr
 async function recordInfantryWindows(env: Env, serverId: string, batch: KillView[]): Promise<void> {
 	const orgId = memoryOf(serverId)?.server.orgId;
 	if (!orgId) return;
-	const findings = infantry.observe(serverId, batch, await weaponOverrides(env, orgId));
+	const rules = await getIntegrityRules(env, orgId);
+	const findings = infantry.observe(
+		serverId,
+		batch,
+		await weaponOverrides(env, orgId),
+		rules.config.kpmBands[0].min
+	);
 	if (!findings.length) return;
 	await withOwnedTransaction(env, async (tx) => {
-		await tx.insert(integrityWindows).values(
-			findings.map((finding) => ({
+		for (const finding of findings) {
+			const now = new Date();
+			const recent = await tx
+				.select({ kpm180: integrityWindows.kpm180 })
+				.from(integrityWindows)
+				.where(
+					and(
+						eq(integrityWindows.orgId, orgId),
+						eq(integrityWindows.steamId, finding.steamId),
+						gte(
+							integrityWindows.observedAt,
+							new Date(now.getTime() - rules.config.repeatWindowMinutes * 60_000)
+						)
+					)
+				)
+				.orderBy(desc(integrityWindows.observedAt))
+				.limit(2);
+			const [window] = await tx
+				.insert(integrityWindows)
+				.values({
+					orgId,
+					serverId,
+					steamId: finding.steamId,
+					instanceId: finding.instanceId,
+					map: finding.map,
+					clockFrom: finding.clockFrom,
+					clockTo: finding.clockTo,
+					observedAt: now,
+					infantryKills: finding.infantryKills,
+					kpm180: finding.kpm180,
+					uniqueVictims: finding.uniqueVictims,
+					eventIds: finding.eventIds
+				})
+				.returning({ id: integrityWindows.id });
+			const score = scoreIntegrity(
+				{
+					kpm180: finding.kpm180,
+					uniqueVictims: finding.uniqueVictims,
+					previousKpm: recent.map((row) => row.kpm180),
+					uniqueReporters: 0,
+					repeatAutoKo: false,
+					infantryKills: finding.infantryKills,
+					headshots: 0,
+					penetrations: 0,
+					burstPoints: 0,
+					vacBans: 0,
+					gameBans: 0,
+					daysSinceLastBan: null,
+					wardogsPlaytimeHours: null
+				},
+				rules.config
+			);
+			await tx.insert(integrityScores).values({
+				windowId: window.id,
 				orgId,
 				serverId,
 				steamId: finding.steamId,
-				instanceId: finding.instanceId,
-				map: finding.map,
-				clockFrom: finding.clockFrom,
-				clockTo: finding.clockTo,
-				observedAt: new Date(),
-				infantryKills: finding.infantryKills,
-				kpm180: finding.kpm180,
-				uniqueVictims: finding.uniqueVictims,
-				eventIds: finding.eventIds
-			}))
-		);
+				scoredAt: now,
+				ruleVersion: rules.version,
+				score: score.score,
+				level: score.level,
+				breakdown: score.breakdown,
+				currentBehaviorAnomaly: score.currentBehaviorAnomaly
+			});
+		}
 	});
 }
 
