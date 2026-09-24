@@ -22,6 +22,7 @@
 		['/rotation', 'Map rotation'],
 		['/config', 'Config', 'config.apply'],
 		['/automation', 'Automation', 'automation.manage'],
+		['/integrity', '完整性 / Integrity', 'integrity.view'],
 		['/analytics', 'Analytics'],
 		['/leaderboard', 'Leaderboards'],
 		['/log', 'Server log', 'audit.read']

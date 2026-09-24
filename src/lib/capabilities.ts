@@ -13,6 +13,7 @@ export const CAPABILITIES = [
 	'players.notes',
 	'rotation.save',
 	'players.notes.manage',
+	'integrity.view',
 	'bans.manage',
 	'slots.manage',
 	'lists.ban',
@@ -94,6 +95,11 @@ export const CAPABILITY_INFO: Record<Capability, CapabilityInfo> = {
 	'players.notes.manage': {
 		label: "Others' notes",
 		hint: 'Delete notes written by anyone.',
+		group: 'moderate'
+	},
+	'integrity.view': {
+		label: 'Integrity cases',
+		hint: 'Read server-side integrity scores, evidence cases and review status on this server.',
 		group: 'moderate'
 	},
 	'rotation.save': {
