@@ -10,6 +10,12 @@ The work is being added to Warcon in reviewable phases. **No automated integrity
 
 This profile does not collect device IDs, local files, browsing data or IP-derived player profiles.
 
+## Weapon classification (Phase 2)
+
+`src/lib/server/integrity/weapons.ts` classifies only explicitly observed small-arm cause tags as `INFANTRY`. Unmapped causes remain `UNKNOWN` and do not count toward infantry KPM. Road kills, vehicle explosions, falls and suicides take precedence over any cause mapping. A kill is eligible for infantry rate calculations only when both SteamID64s and distinct factions are known.
+
+Organisation owners can list, set and remove exact cause overrides through `GET`/`PUT`/`DELETE /api/orgs/:id/integrity/weapons`. Changes are audited; removing an override returns the cause to its built-in classification. The configuration UI will follow with the Integrity dashboard. The classifier is not yet connected to automated actions.
+
 ## Protocol limit
 
 Warcon has a verified outgoing player whisper and a server-to-panel kill feed, but no verified incoming game-chat event. In-game `!report` and `!BAN` commands cannot be enabled until an authorised chat source is available. `!BAN` will only create a report, never a ban, when such a source exists.
