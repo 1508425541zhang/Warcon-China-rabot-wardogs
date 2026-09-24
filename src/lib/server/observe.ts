@@ -16,6 +16,7 @@ import { GameError, WardogsClient } from './rcon';
 import { matches, samples, serverLive } from './db/schema';
 import type { DbOrTx } from './db';
 import { getProfiles, steamEnabled } from './steam';
+import { recordProfiles } from './integrity/profile';
 import {
 	enabledTriggers,
 	evaluateTriggers,
@@ -665,7 +666,10 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 		}
 	}
 	const presenceDue =
-		diff.joined.length > 0 || diff.left.length > 0 || (heartbeatDue && diff.stayed.length > 0);
+		diff.joined.length > 0 ||
+		diff.left.length > 0 ||
+		diff.renamed.length > 0 ||
+		(heartbeatDue && diff.stayed.length > 0);
 	if (riskWaitNote.length) ev.updates.push(...riskWaitNote);
 	const needWrite =
 		presenceDue || ev.intents.length > 0 || ev.updates.length > 0 || liveDue || sampleDue;
@@ -684,6 +688,16 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 						heartbeatDue,
 						firstVisit,
 						teams
+					);
+				if (players && presenceDue)
+					await recordProfiles(
+						tx,
+						server.orgId,
+						[
+							...diff.joined,
+							...(heartbeatDue ? diff.stayed.map((item) => item.player) : diff.renamed)
+						],
+						ts
 					);
 				if (ev.intents.length) intents = await enqueueIntents(tx, server.id, ev.intents);
 				if (ev.updates.length) await applyTriggerUpdates(tx, ev.updates);

@@ -7,6 +7,8 @@
 
 # Warcon
 
+This is NOT a client anti-cheat. It does not inspect player devices. It is a server-side behavioral integrity and moderation system. The proposed WARDOGS Community Integrity System is being developed in phases; see [its current status](docs/integrity-system.md).
+
 A self-hostable, multi-server RCON panel for **WARDOGS** dedicated servers. Bun, SvelteKit and
 Postgres/TimescaleDB, deployed with Docker Compose. Run it beside your game server, on any VPS, or
 on a container host, with the database wherever you like.
