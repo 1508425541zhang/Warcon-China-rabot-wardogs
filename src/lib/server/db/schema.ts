@@ -476,6 +476,21 @@ export const integrityProfiles = pgTable(
 	]
 );
 
+/** Organisation overrides for exact cause tags; unknown causes are never assumed infantry. */
+export const integrityWeaponMap = pgTable(
+	'integrity_weapon_map',
+	{
+		orgId: text('org_id')
+			.notNull()
+			.references(() => organizations.id, { onDelete: 'cascade' }),
+		cause: text('cause').notNull(),
+		category: text('category').notNull(),
+		updatedBy: text('updated_by'),
+		updatedAt: ts('updated_at').notNull().defaultNow()
+	},
+	(t) => [primaryKey({ columns: [t.orgId, t.cause] })]
+);
+
 export const matches = pgTable(
 	'matches',
 	{
