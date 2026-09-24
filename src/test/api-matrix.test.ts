@@ -22,6 +22,7 @@ const ROUTES = join(import.meta.dir, '..', 'routes');
 const NOT_ROLE_BASED = [
 	'GET api/health',
 	'POST api/ingest/events',
+	'POST api/reports',
 	'POST api/passkeys',
 	'POST api/passkeys/auth-options',
 	'POST api/passkeys/auth',
