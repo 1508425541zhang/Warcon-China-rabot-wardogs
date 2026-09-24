@@ -36,6 +36,7 @@ export function liveInfantryMetrics(
 					cause: row.cause,
 					tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
 					suicide: row.suicide,
+					teamKill: row.teamKill,
 					killerSteamId: row.killerSteamId,
 					victimSteamId: row.victimSteamId,
 					killerFaction: row.killerFaction,

@@ -169,6 +169,13 @@
 					max: 30
 				},
 				{
+					key: 'repeatKoWindowHours',
+					zh: '重复 KO 回顾期（小时）',
+					en: 'Repeat KO review period (hours)',
+					min: 1,
+					max: 720
+				},
+				{
 					key: 'headshotMinKills',
 					zh: '爆头率最低样本击杀',
 					en: 'Headshot sample kills',
@@ -216,6 +223,13 @@
 					en: 'Kill burst maximum points',
 					min: 1,
 					max: 20
+				},
+				{
+					key: 'burstFindingMin',
+					zh: '短时爆发独立触发点数',
+					en: 'Burst finding threshold',
+					min: 1,
+					max: 12
 				}
 			]
 		},
@@ -324,8 +338,8 @@
 		</p>
 		<p class="mt-2 text-xs text-warn">
 			{lang === 'zh'
-				? '数据接入状态：步兵 KPM、独立受害者、独立举报人、独立异常窗口已接入；爆头率、穿透率、短时爆发、Steam 处罚与公开游戏时间仍等待可信数据源，当前不参与实时评分。'
-				: 'Data status: infantry KPM, unique victims, unique reporters and independent windows are connected. Headshots, penetration, bursts, Steam bans and public playtime await trusted feeds and do not currently affect live scores.'}
+				? '数据接入状态：180 秒步兵 KPM、独立受害者、爆头率、穿透率、游戏时钟短时爆发、独立举报人数与重复 KO 已接入；Steam VAC / 游戏封禁仅在缓存有效且查询成功时计分。WARDOGS 官方总游戏时间与游戏聊天接收未接入。'
+				: 'Data status: infantry KPM, unique victims, headshot rate, penetration rate, game-clock bursts, unique reporters and repeat KO are connected. Steam VAC/game bans count only with valid lookup data. Official WARDOGS playtime and inbound game chat are unavailable.'}
 		</p>
 		<div
 			class="mt-4 grid gap-2 sm:grid-cols-5"

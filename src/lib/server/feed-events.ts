@@ -41,6 +41,9 @@ import { getIntegrityRules } from './integrity/rules';
 import { scoreIntegrity } from './integrity/score';
 import { freezeFindingEvidence } from './integrity/evidence';
 import { captureReportEvidence } from './integrity/reports';
+import { hadRecentAutoKo } from './integrity/history';
+import { getProfiles, steamEnabled } from './steam';
+import { steamBanSignals } from './integrity/steam-signals';
 
 const infantry = new InfantryWindows();
 const infantryTasks = new Map<string, Promise<void>>();
@@ -103,13 +106,26 @@ async function recordInfantryWindows(env: Env, serverId: string, batch: KillView
 		serverId,
 		batch,
 		await weaponOverrides(env, orgId),
-		rules.config.kpmBands[0].min
+		rules.config
 	);
 	if (!findings.length) return;
+	// Only the strongest state of each active window in this batch needs a database write.
+	const byWindow = new Map<string, (typeof findings)[number]>();
+	for (const finding of findings)
+		byWindow.set(`${finding.steamId}:${finding.instanceId}:${finding.anchorClock}`, finding);
+	const latest = [...byWindow.values()];
+	const profiles = steamEnabled(env)
+		? await getProfiles(
+				env,
+				latest.map((finding) => finding.steamId),
+				{ skipFriends: true }
+			)
+		: new Map();
 	const alerts: IntegrityCaseAlert[] = [];
 	await withOwnedTransaction(env, async (tx) => {
-		for (const finding of findings) {
+		for (const finding of latest) {
 			const now = new Date();
+			const steam = steamBanSignals(profiles.get(finding.steamId), now);
 			const [reporters] = await tx
 				.select({ count: sql<number>`COUNT(DISTINCT ${integrityReports.reporterSteamId})` })
 				.from(integrityReports)
@@ -127,6 +143,9 @@ async function recordInfantryWindows(env: Env, serverId: string, batch: KillView
 					and(
 						eq(integrityWindows.orgId, orgId),
 						eq(integrityWindows.steamId, finding.steamId),
+						finding.windowId === null
+							? sql`TRUE`
+							: sql`${integrityWindows.id} <> ${finding.windowId}`,
 						gte(
 							integrityWindows.observedAt,
 							new Date(now.getTime() - rules.config.repeatWindowMinutes * 60_000)
@@ -135,43 +154,66 @@ async function recordInfantryWindows(env: Env, serverId: string, batch: KillView
 				)
 				.orderBy(desc(integrityWindows.observedAt))
 				.limit(2);
-			const [window] = await tx
-				.insert(integrityWindows)
-				.values({
-					orgId,
-					serverId,
-					steamId: finding.steamId,
-					instanceId: finding.instanceId,
-					map: finding.map,
-					clockFrom: finding.clockFrom,
-					clockTo: finding.clockTo,
-					observedAt: now,
-					infantryKills: finding.infantryKills,
-					kpm180: finding.kpm180,
-					uniqueVictims: finding.uniqueVictims,
-					eventIds: finding.eventIds
-				})
-				.returning({ id: integrityWindows.id });
-			const score = scoreIntegrity(
-				{
-					kpm180: finding.kpm180,
-					uniqueVictims: finding.uniqueVictims,
-					previousKpm: recent.map((row) => row.kpm180),
-					uniqueReporters: Number(reporters?.count ?? 0),
-					repeatAutoKo: false,
-					infantryKills: finding.infantryKills,
-					headshots: 0,
-					penetrations: 0,
-					burstPoints: 0,
-					vacBans: 0,
-					gameBans: 0,
-					daysSinceLastBan: null,
-					wardogsPlaytimeHours: null
-				},
-				rules.config
+			let windowId = finding.windowId;
+			if (windowId === null) {
+				const [window] = await tx
+					.insert(integrityWindows)
+					.values({
+						orgId,
+						serverId,
+						steamId: finding.steamId,
+						instanceId: finding.instanceId,
+						map: finding.map,
+						clockFrom: finding.clockFrom,
+						clockTo: finding.clockTo,
+						observedAt: now,
+						infantryKills: finding.infantryKills,
+						kpm180: finding.kpm180,
+						uniqueVictims: finding.uniqueVictims,
+						eventIds: finding.eventIds
+					})
+					.returning({ id: integrityWindows.id });
+				windowId = window.id;
+			} else {
+				await tx
+					.update(integrityWindows)
+					.set({
+						clockFrom: finding.clockFrom,
+						clockTo: finding.clockTo,
+						infantryKills: finding.infantryKills,
+						kpm180: finding.kpm180,
+						uniqueVictims: finding.uniqueVictims,
+						eventIds: finding.eventIds
+					})
+					.where(eq(integrityWindows.id, windowId));
+			}
+			const repeatAutoKo = await hadRecentAutoKo(
+				tx,
+				orgId,
+				finding.steamId,
+				now,
+				rules.config.repeatKoWindowHours,
+				windowId
 			);
+			const signals = {
+				behaviorReasons: finding.reasons,
+				kpm180: finding.kpm180,
+				uniqueVictims: finding.uniqueVictims,
+				previousKpm: recent.map((row) => row.kpm180),
+				uniqueReporters: Number(reporters?.count ?? 0),
+				repeatAutoKo,
+				infantryKills: finding.infantryKills,
+				headshots: finding.headshots,
+				penetrations: finding.penetrations,
+				burstPoints: finding.burstPoints,
+				vacBans: steam.vacBans,
+				gameBans: steam.gameBans,
+				daysSinceLastBan: steam.daysSinceLastBan,
+				wardogsPlaytimeHours: null
+			};
+			const score = scoreIntegrity(signals, rules.config);
 			await tx.insert(integrityScores).values({
-				windowId: window.id,
+				windowId,
 				orgId,
 				serverId,
 				steamId: finding.steamId,
@@ -189,6 +231,8 @@ async function recordInfantryWindows(env: Env, serverId: string, batch: KillView
 					steamId: finding.steamId,
 					finding,
 					score,
+					signals,
+					steamKnown: steam.known,
 					ruleVersion: rules.version,
 					rulesSnapshot: rules.config,
 					createdAt: now
@@ -209,6 +253,7 @@ async function recordInfantryWindows(env: Env, serverId: string, batch: KillView
 					createdAt: now
 				});
 			}
+			infantry.markPersisted(serverId, finding, windowId);
 		}
 	});
 	for (const alert of alerts) await notifyIntegrityCase(env, orgId, alert);

@@ -18,6 +18,7 @@ const bounds: Record<string, [number, number]> = {
 	repeatBoth5: [0, 30],
 	repeatBoth6: [0, 30],
 	repeatKo: [0, 30],
+	repeatKoWindowHours: [1, 720],
 	steamPriorCap: [0, 30],
 	recentVac: [0, 30],
 	recentGameBan: [0, 30],
@@ -33,6 +34,7 @@ const bounds: Record<string, [number, number]> = {
 	penetrationMinPct: [1, 100],
 	penetrationMax: [0, 6],
 	burstMax: [1, 20],
+	burstFindingMin: [1, 12],
 	passiveWatchThreshold: [1, 99],
 	activeWatchThreshold: [1, 99],
 	koThreshold: [1, 100],
@@ -48,12 +50,15 @@ export function validateIntegrityRules(
 	const allowed = new Set(Object.keys(DEFAULT_INTEGRITY_RULES));
 	for (const key of Object.keys(patch))
 		if (!allowed.has(key)) throw new ApiError(400, `Unknown integrity rule '${key}'.`);
-	const next = { ...base, ...patch } as IntegrityRuleConfig;
+	// Existing JSON rows predate newly added fields; defaults remain effective without a migration.
+	const next = { ...DEFAULT_INTEGRITY_RULES, ...base, ...patch } as IntegrityRuleConfig;
 	for (const [key, [min, max]] of Object.entries(bounds)) {
 		const value = next[key as keyof IntegrityRuleConfig];
 		if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max)
 			throw new ApiError(400, `${key} must be between ${min} and ${max}.`);
 	}
+	if (!Number.isInteger(next.burstFindingMin) || !Number.isInteger(next.repeatKoWindowHours))
+		throw new ApiError(400, 'Burst and repeat KO periods must be whole numbers.');
 	for (const key of ['kpmBands', 'uniqueVictimBands', 'reportBands'] as const) {
 		const bands = next[key];
 		if (

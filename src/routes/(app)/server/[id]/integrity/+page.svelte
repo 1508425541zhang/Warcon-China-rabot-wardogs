@@ -33,7 +33,8 @@
 			confidence: '证据等级',
 			status: '状态',
 			breakdown: '评分依据',
-			noActions: '自动踢人和隔离尚未启用。',
+			noActions:
+				'Dry Run：不会自动踢出、封禁或隔离玩家。游戏聊天接收与 WARDOGS 官方总游戏时间未接入。',
 			dryRunTitle: '模拟运行影响预览',
 			dryRunHint:
 				'按当前阈值统计已记录的异常窗口评分；历史权重版本可能不同，不等同于规则回放。不会执行处罚。',
@@ -83,7 +84,8 @@
 			confidence: 'Confidence',
 			status: 'Status',
 			breakdown: 'Score breakdown',
-			noActions: 'Automated kicks and quarantine are not enabled.',
+			noActions:
+				'Dry Run: no automatic kick, ban or quarantine. Inbound game chat and official WARDOGS playtime are unavailable.',
 			dryRunTitle: 'Dry Run impact preview',
 			dryRunHint:
 				'Counts recorded abnormal-window scores against current thresholds. Historical weight versions may differ; this is not rule replay. No action is taken.',
@@ -120,6 +122,22 @@
 						!!item && typeof item.code === 'string' && typeof item.points === 'number'
 				)
 			: [];
+	const caseSignals = (snapshot: unknown): string => {
+		if (!snapshot || typeof snapshot !== 'object') return '';
+		const data = snapshot as Record<string, unknown>;
+		const names: Record<string, [string, string]> = {
+			kpm: ['步兵 KPM', 'Infantry KPM'],
+			headshot: ['爆头率', 'Headshot rate'],
+			penetration: ['穿透率', 'Penetration rate'],
+			burst: ['短时爆发', 'Kill burst']
+		};
+		return Array.isArray(data.behaviorReasons)
+			? data.behaviorReasons
+					.filter((reason): reason is string => typeof reason === 'string')
+					.map((reason) => names[reason]?.[lang === 'zh' ? 0 : 1] ?? reason)
+					.join(' · ')
+			: '';
+	};
 	const kd = (kills: number, deaths: number) =>
 		deaths ? (kills / deaths).toFixed(2) : kills ? '∞' : '—';
 	const levelName = (value: string | null) => {
@@ -151,6 +169,51 @@
 			Date.now() - new Date(data.feedAt).getTime() < 5 * 60_000 &&
 			!data.feedRowsTruncated
 	);
+	const signalSources = [
+		{
+			zh: '180 秒步兵 KPM',
+			en: '180s infantry KPM',
+			sourceZh: '有效 Kill Feed',
+			sourceEn: 'Validated Kill Feed'
+		},
+		{
+			zh: '独立受害者',
+			en: 'Unique victims',
+			sourceZh: '有效 Kill Feed',
+			sourceEn: 'Validated Kill Feed'
+		},
+		{
+			zh: '爆头率',
+			en: 'Headshot rate',
+			sourceZh: '180 秒有效步兵击杀',
+			sourceEn: '180s valid infantry kills'
+		},
+		{
+			zh: '穿透率',
+			en: 'Penetration rate',
+			sourceZh: 'Kill Feed Penetration 标签',
+			sourceEn: 'Kill Feed Penetration tag'
+		},
+		{ zh: '短时爆发', en: 'Kill burst', sourceZh: '游戏事件时钟', sourceEn: 'Game event clock' },
+		{
+			zh: 'Steam VAC / 游戏封禁',
+			en: 'Steam VAC / game bans',
+			sourceZh: '有效 Steam 缓存；无密钥或查询失败时未知',
+			sourceEn: 'Valid Steam cache; unknown without key or on failure'
+		},
+		{
+			zh: '重复 KO',
+			en: 'Repeat KO',
+			sourceZh: '回顾期内已保存的风险级别',
+			sourceEn: 'Recorded risk level in review period'
+		},
+		{
+			zh: '独立举报人数',
+			en: 'Unique reporters',
+			sourceZh: '24 小时内已验证的 Steam 举报人',
+			sourceEn: 'Verified Steam reporters in 24h'
+		}
+	];
 </script>
 
 <svelte:head><title>{t.title} · {data.server.name}</title></svelte:head>
@@ -186,6 +249,27 @@
 <p class="mb-5 rounded-ctl border border-warn/20 bg-warn/5 px-4 py-3 text-sm text-warn">
 	{t.noActions}
 </p>
+
+<section class="mb-6 panel p-4">
+	<h3 class="text-base font-semibold text-white">
+		{lang === 'zh' ? '信号接入状态' : 'Signal sources'}
+	</h3>
+	<div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+		{#each signalSources as signal (signal.en)}
+			<div class="rounded-ctl border border-white/10 p-3">
+				<div class="text-sm font-medium text-white">{lang === 'zh' ? signal.zh : signal.en}</div>
+				<div class="mt-1 text-xs text-mist-400">
+					{lang === 'zh' ? signal.sourceZh : signal.sourceEn}
+				</div>
+			</div>
+		{/each}
+	</div>
+	<p class="mt-3 text-xs text-mist-400">
+		{lang === 'zh'
+			? '未接入：WARDOGS 官方总游戏时间、游戏内聊天接收。缺少可靠 Feed 时，实时行为指标显示为未知。'
+			: 'Unavailable: official WARDOGS playtime and inbound game chat. Live behavior metrics are unknown without a reliable feed.'}
+	</p>
+</section>
 
 <section class="mb-6 panel p-4">
 	<div class="flex flex-wrap items-center justify-between gap-2">
@@ -318,6 +402,9 @@
 							<td>
 								<details>
 									<summary class="cursor-pointer">{t.breakdown}</summary>
+									{#if caseSignals(item.snapshot)}<p class="mt-2 text-xs text-accent">
+											{caseSignals(item.snapshot)}
+										</p>{/if}
 									<ul class="mt-2 space-y-1 text-xs">
 										{#each parts(item.riskBreakdown) as part (part.code)}
 											<li>+{part.points} {integrityPartText(part.code, part.detail, lang)}</li>

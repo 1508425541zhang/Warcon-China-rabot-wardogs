@@ -238,6 +238,7 @@ export async function submitReport(
 			);
 		const score = scoreIntegrity(
 			{
+				behaviorReasons: [],
 				kpm180: 0,
 				uniqueVictims: 0,
 				previousKpm: [],

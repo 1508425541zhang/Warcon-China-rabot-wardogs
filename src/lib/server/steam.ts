@@ -282,7 +282,7 @@ export async function cachedProfiles(
 export async function getProfiles(
 	env: Env,
 	ids: string[],
-	opts: { refresh?: boolean; maxAgeMs?: number; awaitFriends?: boolean } = {}
+	opts: { refresh?: boolean; maxAgeMs?: number; awaitFriends?: boolean; skipFriends?: boolean } = {}
 ): Promise<Map<string, SteamProfileRow>> {
 	const unique = [...new Set(ids.filter(isSteamId))];
 	const map = new Map<string, SteamProfileRow>();
@@ -316,6 +316,7 @@ export async function getProfiles(
 		}
 	// The friends lists are looked at behind the answer, so nothing that reads a profile waits on
 	// a call per player; only a refresh someone asked for waits for them.
+	if (opts.skipFriends) return map;
 	const rows = [...map.values()];
 	if (opts.awaitFriends)
 		for (const row of await refreshFriendEvidence(env, rows)) map.set(row.steamId, row);
