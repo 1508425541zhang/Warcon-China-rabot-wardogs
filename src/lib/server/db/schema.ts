@@ -542,6 +542,31 @@ export const integrityScores = pgTable(
 	(t) => [index('integrity_scores_player_idx').on(t.orgId, t.steamId, t.scoredAt.desc())]
 );
 
+/** Immutable evidence snapshots; review state lives alongside, raw feed rows stay in kills. */
+export const integrityCases = pgTable(
+	'integrity_cases',
+	{
+		id: text('id').primaryKey(),
+		orgId: text('org_id').notNull(),
+		serverId: text('server_id').notNull(),
+		steamId: text('steam_id').notNull(),
+		createdAt: ts('created_at').notNull(),
+		status: text('status').notNull().default('OPEN'),
+		confidence: text('confidence').notNull(),
+		trigger: text('trigger').notNull(),
+		ruleVersion: integer('rule_version').notNull(),
+		riskScore: integer('risk_score').notNull(),
+		riskBreakdown: jsonb('risk_breakdown').notNull(),
+		snapshot: jsonb('snapshot').notNull(),
+		reviewedBy: text('reviewed_by'),
+		reviewedAt: ts('reviewed_at')
+	},
+	(t) => [
+		index('integrity_cases_queue_idx').on(t.orgId, t.status, t.createdAt.desc()),
+		index('integrity_cases_player_idx').on(t.orgId, t.steamId, t.createdAt.desc())
+	]
+);
+
 export const matches = pgTable(
 	'matches',
 	{
