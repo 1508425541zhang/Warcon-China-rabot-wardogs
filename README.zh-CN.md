@@ -1,6 +1,6 @@
-# Warcon 中文说明
+# Warcon China 中文说明
 
-Warcon 是面向 WARDOGS 社区服务器的自托管 RCON 面板。它使用 Bun、SvelteKit 和 PostgreSQL/TimescaleDB，Web 界面与 Worker 共用数据库，Worker 负责与游戏服务器通信。项目直接沿用上游 Warcon 的 WARDOGS RCON 客户端和已验证的 Kill Feed，不重新逆向协议。
+Warcon China 是基于 Warcon 的 WARDOGS 社区服务器自托管 RCON 面板与行为风控扩展。它使用 Bun、SvelteKit 和 PostgreSQL/TimescaleDB，Web 界面与 Worker 共用数据库，Worker 负责与游戏服务器通信。项目直接沿用上游 Warcon 的 WARDOGS RCON 客户端和已验证的 Kill Feed，不重新逆向协议。[项目首页](README.md)提供功能概览与插图，[技术文档](docs/architecture.zh-CN.md)说明系统边界和数据流。
 
 > 本项目不是客户端反作弊软件，不扫描玩家设备。正在开发的社区完整性系统只使用服务器行为数据和经过授权的公开 Steam 信息；当前自动踢人、自动隔离均未启用。
 
@@ -22,9 +22,9 @@ Warcon 是面向 WARDOGS 社区服务器的自托管 RCON 面板。它使用 Bun
 1. 安装 Docker 和 Docker Compose。
 2. 复制 `.env.example` 为 `.env`，为 `BETTER_AUTH_SECRET`、`ENCRYPTION_KEY`、`RELAY_SECRET` 设置不同的长随机值，填写 `POSTGRES_PASSWORD` 和实际访问地址 `ORIGIN`。
 3. 在仓库目录运行 `docker compose up -d --build`。
-4. 打开 `ORIGIN`，完成所有者初始化。可以先用内置 demo server 查看面板，不必连接真实服务器。
+4. 打开 `ORIGIN`，完成所有者初始化。可以先创建组织，然后添加主机 `demo`、端口 `1`、密码 `demo` 的内置模拟服务器查看面板，不必连接真实服务器。
 
-详细部署、代理、备份和服务器接入说明见[上游英文 README](README.md)及[入门文档](docs/getting-started.md)。不要提交 `.env`。
+详细部署、代理、备份和服务器接入说明见[上游英文 README](README.upstream.md)及[入门文档](docs/getting-started.md)。不要提交 `.env`。
 
 ## 重要限制
 

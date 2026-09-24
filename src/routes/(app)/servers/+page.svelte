@@ -220,8 +220,8 @@
 		>[/Script/WDRCON.WDRCONSettings]</code
 	>
 	区块）。RCON 密码会加密保存，之后不会再次显示。
-	{#if data.demoAllowed}主机 <code class="chip">演示</code> 使用密码
-		<code class="chip">演示</code> 使用内置模拟服务器。{/if}
+	{#if data.demoAllowed}无需真实游戏服务器时，可填写主机 <code class="chip">demo</code>、端口
+		<code class="chip">1</code>、密码 <code class="chip">demo</code> 使用内置模拟服务器。{/if}
 	{#if !data.ownedOrgs.length}服务器必须归属某个组织。你还没有自己的组织，请先到“组织”页面创建。 <a
 			href="/orgs"
 			class="font-semibold text-accent underline">组织</a

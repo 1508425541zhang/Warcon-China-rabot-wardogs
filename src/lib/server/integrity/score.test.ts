@@ -26,6 +26,24 @@ describe('explainable Integrity score', () => {
 		expect(score.currentBehaviorAnomaly).toBe(false);
 	});
 
+	test('KPM bands are exclusive and award only the highest matching tier', () => {
+		for (const [kpm180, points] of [
+			[3.99, 0],
+			[4, 18],
+			[4.49, 18],
+			[4.5, 24],
+			[4.99, 24],
+			[5, 32],
+			[5.99, 32],
+			[6, 42],
+			[7.99, 42],
+			[8, 52]
+		] as const) {
+			const score = scoreIntegrity({ ...normal, kpm180 });
+			expect(score.score).toBe(points);
+		}
+	});
+
 	test('KPM bands, unique victims and independent windows are counted once', () => {
 		const score = scoreIntegrity({ ...normal, kpm180: 5, uniqueVictims: 12, previousKpm: [5] });
 		expect(score.score).toBe(32 + 6 + 8 + 8);

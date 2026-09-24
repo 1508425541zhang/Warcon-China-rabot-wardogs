@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 286" role="img" aria-labelledby="title desc">
+  <title id="title">Warcon China 事件分析与证据链</title>
+  <desc id="desc">四个连续步骤：接收事件、筛选有效步兵击杀、形成可解释风险、保存案件供人工审核。</desc>
+  <defs>
+    <linearGradient id="back" x2="1" y2="1"><stop stop-color="#151c26"/><stop offset="1" stop-color="#20212a"/></linearGradient>
+    <linearGradient id="line" x2="1"><stop stop-color="#5e7984"/><stop offset="1" stop-color="#d4a843"/></linearGradient>
+  </defs>
+  <rect width="1200" height="286" rx="24" fill="url(#back)"/>
+  <path d="M187 142H1012" stroke="url(#line)" stroke-width="3" stroke-dasharray="8 10" opacity=".75"/>
+  <g font-family="'Microsoft YaHei','Noto Sans CJK SC',sans-serif" text-anchor="middle">
+    <g transform="translate(158 142)">
+      <circle r="61" fill="#25343b" stroke="#68bfc2" stroke-width="2"/>
+      <path d="M-23-18h46M-23-3h30M-23 12h42" stroke="#a0dcda" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="25" cy="12" r="5" fill="#68bfc2"/>
+      <text y="-87" fill="#7fcfce" font-size="14" font-weight="700">01</text>
+      <text y="92" fill="#f2f2ef" font-size="19" font-weight="700">接收 Kill Feed</text>
+      <text y="119" fill="#adb8c5" font-size="14">令牌校验 · 事件去重</text>
+    </g>
+    <g transform="translate(453 142)">
+      <circle r="61" fill="#28323b" stroke="#8eb6c4" stroke-width="2"/>
+      <path d="M-19-5l14 15 28-33" fill="none" stroke="#a8d1d9" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      <text y="-87" fill="#a8d1d9" font-size="14" font-weight="700">02</text>
+      <text y="92" fill="#f2f2ef" font-size="19" font-weight="700">筛选有效击杀</text>
+      <text y="119" fill="#adb8c5" font-size="14">武器分类 · 180 秒窗口</text>
+    </g>
+    <g transform="translate(748 142)">
+      <circle r="61" fill="#3b3429" stroke="#d4a843" stroke-width="2"/>
+      <path d="M-27 20v-17M-10 20v-34M7 20V0M24 20v-47" stroke="#e8bf6b" stroke-width="7" stroke-linecap="round"/>
+      <text y="-87" fill="#e2b85f" font-size="14" font-weight="700">03</text>
+      <text y="92" fill="#f2f2ef" font-size="19" font-weight="700">计算可解释风险</text>
+      <text y="119" fill="#adb8c5" font-size="14">只取最高 KPM 档 · 分项留痕</text>
+    </g>
+    <g transform="translate(1043 142)">
+      <circle r="61" fill="#3a3029" stroke="#e5a96d" stroke-width="2"/>
+      <path d="M-22-20h32l13 13v34h-45zM10-20v14h13M-10 4h20M-10 15h19" fill="none" stroke="#f0c391" stroke-width="4" stroke-linejoin="round"/>
+      <text y="-87" fill="#e5a96d" font-size="14" font-weight="700">04</text>
+      <text y="92" fill="#f2f2ef" font-size="19" font-weight="700">保存证据案件</text>
+      <text y="119" fill="#adb8c5" font-size="14">规则版本 · 人工复核</text>
+    </g>
+  </g>
+</svg>

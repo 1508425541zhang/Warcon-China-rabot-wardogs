@@ -11,5 +11,5 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 			code: 'config'
 		});
 	}
-	return { user: locals.user, appName: env.APP_NAME || 'Warcon' };
+	return { user: locals.user, appName: env.APP_NAME || 'Warcon China' };
 };
