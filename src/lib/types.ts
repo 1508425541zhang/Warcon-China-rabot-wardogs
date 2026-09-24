@@ -155,6 +155,9 @@ export interface LiveView {
 /** One kill as the game's feed reported it and Warcon stored it (kills table). */
 export interface KillView {
 	eventId: string;
+	/** Game instance and match identifiers are per boot in observed builds. */
+	instanceId?: string;
+	matchId?: string;
 	/** when Warcon received it */
 	ts: string;
 	map: string;

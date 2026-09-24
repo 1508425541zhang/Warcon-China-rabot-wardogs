@@ -16,6 +16,10 @@ This profile does not collect device IDs, local files, browsing data or IP-deriv
 
 Organisation owners can list, set and remove exact cause overrides through `GET`/`PUT`/`DELETE /api/orgs/:id/integrity/weapons`. Changes are audited; removing an override returns the cause to its built-in classification. The configuration UI will follow with the Integrity dashboard. The classifier is not yet connected to automated actions.
 
+## Infantry KPM (Phase 3)
+
+The worker now observes accepted Kill Feed events in an in-memory, rolling 180-second game-clock window for each SteamID64 and server. It counts only classified infantry kills with two known, opposing factions. An abnormal window starts at 12 valid kills (KPM 4.0); another finding cannot be recorded until 180 game-clock seconds later. Map changes, instance changes and substantial clock rewinds clear the window. Distinct abnormal findings are stored in `integrity_windows` with their event IDs and unique victim count. The game-clock data is not sufficient to claim an aim cheat, and these findings **do not kick or ban players**. Configurable thresholds, scoring and evidence confidence are later phases.
+
 ## Protocol limit
 
 Warcon has a verified outgoing player whisper and a server-to-panel kill feed, but no verified incoming game-chat event. In-game `!report` and `!BAN` commands cannot be enabled until an authorised chat source is available. `!BAN` will only create a report, never a ban, when such a source exists.

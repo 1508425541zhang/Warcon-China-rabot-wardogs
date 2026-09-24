@@ -491,6 +491,27 @@ export const integrityWeaponMap = pgTable(
 	(t) => [primaryKey({ columns: [t.orgId, t.cause] })]
 );
 
+/** Non-overlapping abnormal infantry windows; no action is implied by a row. */
+export const integrityWindows = pgTable(
+	'integrity_windows',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		orgId: text('org_id').notNull(),
+		serverId: text('server_id').notNull(),
+		steamId: text('steam_id').notNull(),
+		instanceId: text('instance_id').notNull(),
+		map: text('map').notNull(),
+		clockFrom: real('clock_from').notNull(),
+		clockTo: real('clock_to').notNull(),
+		observedAt: ts('observed_at').notNull(),
+		infantryKills: integer('infantry_kills').notNull(),
+		kpm180: real('kpm_180').notNull(),
+		uniqueVictims: integer('unique_victims').notNull(),
+		eventIds: jsonb('event_ids').notNull()
+	},
+	(t) => [index('integrity_windows_player_idx').on(t.orgId, t.steamId, t.observedAt.desc())]
+);
+
 export const matches = pgTable(
 	'matches',
 	{

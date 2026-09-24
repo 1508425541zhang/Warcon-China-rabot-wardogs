@@ -151,6 +151,8 @@ export interface IngestResult {
 export function killView(r: KillRow): KillView {
 	return {
 		eventId: r.eventId,
+		instanceId: r.instanceId,
+		matchId: r.matchId,
 		ts: r.ts.toISOString(),
 		map: r.map,
 		eventTime: r.eventTime,
