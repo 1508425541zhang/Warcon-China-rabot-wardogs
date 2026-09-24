@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 import { getEnv } from '$lib/server/env';
 import { requireServerCap } from '$lib/server/access';
@@ -65,13 +65,51 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 				.limit(1),
 			getIntegrityRules(env, server.orgId)
 		]);
+		const dryRun = await Promise.all(
+			([24, 72, 168] as const).map(async (hours) => {
+				const [row] = await env.db
+					.select({
+						windows: sql<number>`COUNT(*)`,
+						koPlayers: sql<number>`COUNT(DISTINCT ${integrityScores.steamId}) FILTER (WHERE ${integrityScores.score} >= ${rules.config.koThreshold} AND ${integrityScores.currentBehaviorAnomaly})`,
+						quarantinePlayers: sql<number>`COUNT(DISTINCT ${integrityScores.steamId}) FILTER (WHERE ${integrityScores.score} >= ${rules.config.quarantineThreshold} AND ${integrityScores.currentBehaviorAnomaly})`
+					})
+					.from(integrityScores)
+					.where(
+						and(
+							eq(integrityScores.serverId, server.id),
+							eq(integrityScores.source, 'window'),
+							gte(integrityScores.scoredAt, new Date(Date.now() - hours * 60 * 60_000))
+						)
+					);
+				return {
+					hours,
+					windows: Number(row?.windows ?? 0),
+					koPlayers: Number(row?.koPlayers ?? 0),
+					quarantinePlayers: Number(row?.quarantinePlayers ?? 0)
+				};
+			})
+		);
+		const contributorRows = (await env.db.execute(sql`
+			SELECT part.item->>'code' AS code,
+			       SUM((part.item->>'points')::integer)::integer AS points
+			FROM integrity_scores AS s
+			CROSS JOIN LATERAL jsonb_array_elements(s.breakdown) AS part(item)
+			WHERE s.server_id = ${server.id}
+			  AND s.source = 'window'
+			  AND s.scored_at >= ${new Date(Date.now() - 7 * 24 * 60 * 60_000)}
+			GROUP BY part.item->>'code'
+			ORDER BY points DESC
+			LIMIT 5
+		`)) as { code: string; points: number }[];
 		return {
 			cases: cases.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
 			scores: scores.map((item) => ({ ...item, scoredAt: item.scoredAt.toISOString() })),
 			reports: reports.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
 			feedAt: live?.feedAt?.toISOString() ?? null,
 			ruleVersion: rules.version,
-			mode: rules.config.mode
+			mode: rules.config.mode,
+			dryRun,
+			contributors: contributorRows.map((row) => ({ code: row.code, points: Number(row.points) }))
 		};
 	} catch (err) {
 		const known = normalizeError(err);
