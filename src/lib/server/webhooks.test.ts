@@ -44,6 +44,7 @@ describe('classify', () => {
 		expect(classify({ category: 'rcon', action: 'rcon.kick' })).toBe('commands');
 		expect(classify({ category: 'trigger', action: 'trigger.welcome' })).toBe('triggers');
 		expect(classify({ category: 'player', action: 'player.note' })).toBe('players');
+		expect(classify({ category: 'player', action: 'integrity.report.create' })).toBeNull();
 		expect(classify({ category: 'org', action: 'org.invite.create' })).toBe('management');
 		expect(classify({ category: 'auth', action: 'login' })).toBe('auth');
 		expect(classify({ category: 'weird', action: 'x' })).toBeNull();
