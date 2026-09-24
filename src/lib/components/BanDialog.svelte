@@ -14,7 +14,7 @@
 
 	let {
 		orgId,
-		orgName = 'the organisation',
+		orgName = '该组织',
 		steamId = '',
 		name = '',
 		server = null,
@@ -60,7 +60,7 @@
 		});
 	});
 
-	let who = $derived(name ? `${name} (${steamId})` : steamId || 'a player');
+	let who = $derived(name ? `${name} (${steamId})` : steamId || '玩家');
 	// A typed id is looked up so the admin sees who they are about to ban.
 	let previewId = $derived(steamId ? '' : isSteamId(id.trim()) ? id.trim() : '');
 	let preview = $state<SteamProfile | null | undefined>(undefined);
@@ -76,7 +76,7 @@
 	async function submit() {
 		const target = id.trim();
 		if (!/^\d{17}$/.test(target)) {
-			toast('Enter a 17-digit SteamID64.', 'err');
+			toast('请输入 17 位 SteamID64。', 'err');
 			return;
 		}
 		busy = true;
@@ -87,7 +87,7 @@
 					`/api/orgs/${encodeURIComponent(orgId)}/lists/ban/entries`,
 					{ steamId: target, reason: reason.trim(), expiresAt: expiryIso(expiry, custom) }
 				);
-				toast(describeSync(res.sync, `Banned ${target} across ${orgName}.`), 'ok', 8000);
+				toast(describeSync(res.sync, `已在“${orgName}”组织中封禁 ${target}。`), 'ok', 8000);
 			} else if (server) {
 				const res = await api<{ sync: ListSyncServer }>(
 					'POST',
@@ -97,8 +97,8 @@
 				// The game only bans a connected player; the list keeps the ban for when they join.
 				toast(
 					res.sync.ok && res.sync.failed
-						? `${target} is not on ${server.name} right now: they are banned the moment they join.`
-						: describeSync({ servers: [res.sync] }, `Banned ${target} on ${server.name}.`),
+						? `${target} 当前不在 ${server.name}，下次加入时将被封禁。`
+						: describeSync({ servers: [res.sync] }, `已在 ${server.name} 封禁 ${target}。`),
 					'ok',
 					8000
 				);
@@ -136,46 +136,43 @@
 			{#if previewId && preview}
 				<div class="mt-1.5 text-[12.5px]"><SteamName profile={preview} /></div>
 			{:else if previewId && preview === null}
-				<div class="mt-1.5 text-[12.5px] text-mist-600">No Steam profile for that id.</div>
+				<div class="mt-1.5 text-[12.5px] text-mist-600">找不到该 SteamID 的资料。</div>
 			{/if}
 		{/if}
 
 		{#if server && canOrg}
 			<fieldset class="space-y-1.5">
-				<legend class="field-label">Where</legend>
+				<legend class="field-label">位置</legend>
 				<label class="flex items-start gap-2">
 					<input type="radio" class="mt-1" bind:group={scope} value="org" />
 					<span
-						><b>Every server in {orgName}</b>
+						><b>以下组织的每台服务器： {orgName}</b>
 						<span class="block text-[12.5px] text-mist-400"
-							>Goes on the organisation's ban list and is pushed to all its servers, now and in
-							future.</span
+							>加入组织封禁列表，立即和将来都同步到组织所有服务器。</span
 						></span
 					>
 				</label>
 				<label class="flex items-start gap-2">
 					<input type="radio" class="mt-1" bind:group={scope} value="server" />
 					<span
-						><b>{server.name} only</b>
+						><b>{server.name} 仅限</b>
 						<span class="block text-[12.5px] text-mist-400"
-							>Goes on this server's own ban list. If the player is not connected, they are banned
-							the moment they join.</span
+							>加入此服务器的封禁列表。如果玩家当前不在线，将在下次进入时封禁。</span
 						></span
 					>
 				</label>
 			</fieldset>
 		{:else if server}
 			<p class="note">
-				Goes on {server.name}'s own ban list. If the player is not connected, they are banned the
-				moment they join.
+				加入 {server.name}的封禁列表。如果玩家当前不在线，将在下次进入时封禁。
 			</p>
 		{/if}
 
 		<label class="block"
-			><span class="field-label">Reason</span><input
+			><span class="field-label">原因</span><input
 				class="input"
 				type="text"
-				placeholder="Optional, shown in the server's ban list"
+				placeholder="可选，显示在服务器封禁名单中"
 				maxlength="200"
 				bind:value={reason}
 			/></label
@@ -192,7 +189,7 @@
 
 		<div class="flex flex-wrap gap-3">
 			<label class="block sm:w-48"
-				><span class="field-label">Expires</span><select class="input" bind:value={expiry}>
+				><span class="field-label">到期时间</span><select class="input" bind:value={expiry}>
 					{#each EXPIRY_OPTIONS as [value, label] (value)}
 						<option {value}>{label}</option>
 					{/each}
@@ -200,7 +197,7 @@
 			>
 			{#if expiry === 'custom'}
 				<label class="block sm:flex-1"
-					><span class="field-label">Until (local time)</span><input
+					><span class="field-label">截止时间（本地）</span><input
 						class="input"
 						type="datetime-local"
 						bind:value={custom}
@@ -212,19 +209,19 @@
 
 		{#if shown}
 			<div>
-				<span class="field-label">The player is shown</span>
+				<span class="field-label">玩家可见内容</span>
 				<div
 					class="rounded-ctl border border-black bg-ink-950 px-3.5 py-2.5 font-mono text-[12.5px] leading-relaxed break-words"
 				>
 					{shown}
 				</div>
-				<p class="note">From {orgName}'s ban message.</p>
+				<p class="note">从 {orgName}的封禁消息。</p>
 			</div>
 		{/if}
 
 		<div class="flex justify-end gap-2 pt-2">
-			<button type="button" class="btn" data-close onclick={onclose}>Cancel</button>
-			<button type="submit" class="btn btn-danger" disabled={busy}>Ban</button>
+			<button type="button" class="btn" data-close onclick={onclose}>取消</button>
+			<button type="submit" class="btn btn-danger" disabled={busy}>封禁</button>
 		</div>
 	</form>
 </Modal>

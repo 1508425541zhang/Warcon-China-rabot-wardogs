@@ -10,7 +10,7 @@
 		label = (name: string) => name || 'Unassigned',
 		range = 'live',
 		view = 'chart',
-		emptyText = 'No cash samples yet.'
+		emptyText = '暂无金钱采样数据。'
 	}: {
 		points: CashPoint[];
 		/** faction name -> line colour; '' is the unassigned bucket */
@@ -156,7 +156,7 @@
 			type="button"
 			class="btn inline-flex btn-sm items-center gap-1.5 {hidden.has(key) ? 'opacity-45' : ''}"
 			aria-pressed={!hidden.has(key)}
-			title={hidden.has(key) ? 'Show this series' : 'Hide this series'}
+			title={hidden.has(key) ? '显示此数据系列' : '隐藏此数据系列'}
 			onclick={() => toggle(key)}
 		>
 			<span class="inline-block h-2.5 w-2.5 rounded-full" style="background:{paint(key)}"></span>
@@ -174,7 +174,7 @@
 		<table>
 			<thead
 				><tr
-					><th>Time</th>{#each series as key (key)}<th class="num">{name(key)}</th>{/each}</tr
+					><th>时间</th>{#each series as key (key)}<th class="num">{name(key)}</th>{/each}</tr
 				></thead
 			>
 			<tbody>
@@ -196,7 +196,7 @@
 			viewBox="0 0 {W} {H}"
 			class="block h-auto w-full"
 			role="img"
-			aria-label="Cash in play over time"
+			aria-label="场内现金变化"
 			onmousemove={onmove}
 			onmouseleave={() => (hover = null)}
 		>

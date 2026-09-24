@@ -42,8 +42,8 @@
 	<table>
 		<thead>
 			<tr
-				><th>Started</th><th>Map</th><th class="num">Length</th><th>Result</th><th class="num"
-					>Players</th
+				><th>开始时间</th><th>地图</th><th class="num">时长</th><th>结果</th><th class="num"
+					>玩家</th
 				></tr
 			>
 		</thead>
@@ -64,15 +64,15 @@
 					<td class="num whitespace-nowrap">{fmtLength(durationOf(m, now))}</td>
 					<td>
 						{#if r.kind === 'running'}
-							<span class="text-mist-400">In progress</span>
+							<span class="text-mist-400">进行中</span>
 							{#if liveScores}<span class="ml-2 text-[12.5px] whitespace-nowrap text-mist-600"
 									>{liveScores}</span
 								>{/if}
-						{:else if r.kind === 'abandoned'}<span class="text-mist-600">Abandoned</span>
+						{:else if r.kind === 'abandoned'}<span class="text-mist-600">已中止</span>
 						{:else}
 							{#if m.winner}<span class="font-semibold" style="color:{colorOf(m.winner)}"
 									>{m.winner}</span
-								>{:else}<span class="text-mist-400">Draw</span>{/if}
+								>{:else}<span class="text-mist-400">平局</span>{/if}
 							<span class="ml-2 text-[12.5px] whitespace-nowrap text-mist-400">{r.scores}</span>
 						{/if}
 					</td>
@@ -81,7 +81,7 @@
 			{:else}
 				<tr
 					><td colspan="5" class="py-6 text-center text-mist-600"
-						>{loading ? 'Loading…' : 'No matches recorded yet.'}</td
+						>{loading ? 'Loading…' : '暂无已记录的对局。'}</td
 					></tr
 				>
 			{/each}

@@ -104,10 +104,10 @@
 	}
 	const SINCE_LABEL: Record<string, string> = {
 		'': 'ever',
-		'1': 'in the last day',
-		'7': 'in the last 7 days',
-		'30': 'in the last 30 days',
-		'90': 'in the last 90 days'
+		'1': '最近 1 天',
+		'7': '最近 7 天',
+		'30': '最近 30 天',
+		'90': '最近 90 天'
 	};
 </script>
 
@@ -115,43 +115,43 @@
 	<input
 		class="input w-full sm:w-80"
 		type="search"
-		placeholder="Name, alias or SteamID…"
-		aria-label="Search past players"
+		placeholder="名称、曾用名或 SteamID…"
+		aria-label="搜索历史玩家"
 		bind:value={q}
 		oninput={loadSoon}
 	/>
 	<select
 		class="input w-full sm:w-40"
-		aria-label="Seen within"
+		aria-label="出现时间范围"
 		bind:value={since}
 		onchange={() => load()}
 	>
-		<option value="1">Last day</option>
-		<option value="7">Last 7 days</option>
-		<option value="30">Last 30 days</option>
-		<option value="90">Last 90 days</option>
-		<option value="">Ever</option>
+		<option value="1">最近 24 小时</option>
+		<option value="7">最近 7 天</option>
+		<option value="30">最近 30 天</option>
+		<option value="90">最近 90 天</option>
+		<option value="">全部时间</option>
 	</select>
-	<select class="input w-full sm:w-40" aria-label="Flag" bind:value={flag} onchange={() => load()}>
-		<option value="">Everyone</option>
-		<option value="online">Online now</option>
-		<option value="banned">Banned</option>
-		<option value="watched">On watchlist</option>
+	<select class="input w-full sm:w-40" aria-label="标记" bind:value={flag} onchange={() => load()}>
+		<option value="">所有人</option>
+		<option value="online">当前在线</option>
+		<option value="banned">已封禁</option>
+		<option value="watched">在观察名单中</option>
 	</select>
 	<span class="text-[12.5px] text-mist-600 sm:ml-auto"
-		>{#if loading && !rows.length}Searching…{:else}{fmtNum(rows.length)} of {fmtNum(total)} players seen
-			here {SINCE_LABEL[since]}{/if}</span
+		>{#if loading && !rows.length}搜索中…{:else}{fmtNum(rows.length)} of {fmtNum(total)} 名玩家曾在此游玩
+			{SINCE_LABEL[since]}{/if}</span
 	>
 </div>
 <div class="table-wrap">
 	<table>
 		<thead>
 			<tr>
-				<SortHeader {sort} key="name">Player</SortHeader>
-				<SortHeader {sort} key="lastSeen">Last seen</SortHeader>
-				<SortHeader {sort} key="firstSeen">First seen</SortHeader>
-				<SortHeader {sort} key="sessions" num>Sessions</SortHeader>
-				<SortHeader {sort} key="minutes" num>Playtime</SortHeader>
+				<SortHeader {sort} key="name">玩家</SortHeader>
+				<SortHeader {sort} key="lastSeen">最近出现</SortHeader>
+				<SortHeader {sort} key="firstSeen">首次出现</SortHeader>
+				<SortHeader {sort} key="sessions" num>场次</SortHeader>
+				<SortHeader {sort} key="minutes" num>游戏时间</SortHeader>
 				<SortHeader {sort} key="kills" num>K</SortHeader>
 				<SortHeader {sort} key="deaths" num>D</SortHeader>
 				<th></th>
@@ -166,11 +166,11 @@
 							<a
 								href="/server/{encodeURIComponent(server.id)}/players/{p.steamId}"
 								class="font-medium hover:text-accent hover:underline"
-								title="Open profile">{p.name}</a
+								title="打开资料">{p.name}</a
 							>
 							{#if p.aliases.length}
 								<span class="text-[12px] text-mist-600" title={p.aliases.join(', ')}
-									>also: {p.aliases.slice(0, 3).join(', ')}{#if p.aliases.length > 3}
+									>另有： {p.aliases.slice(0, 3).join(', ')}{#if p.aliases.length > 3}
 										+{p.aliases.length - 3}{/if}</span
 								>
 							{/if}
@@ -185,11 +185,10 @@
 					<td class="num">{fmtNum(p.deaths)}</td>
 					<td class="whitespace-nowrap">
 						<span class="inline-flex gap-1">
-							{#if p.online}<Badge tone="ok">online</Badge>{/if}
-							{#if p.banned}<Badge tone="warn"
-									>{p.banned === 'org' ? 'banned' : 'banned here'}</Badge
+							{#if p.online}<Badge tone="ok">在线</Badge>{/if}
+							{#if p.banned}<Badge tone="warn">{p.banned === 'org' ? 'banned' : '本服已封禁'}</Badge
 								>{/if}
-							{#if p.watched}<Badge tone="info">watched</Badge>{/if}
+							{#if p.watched}<Badge tone="info">已观察</Badge>{/if}
 						</span>
 					</td>
 					{#if canBan || canWatch}
@@ -204,7 +203,7 @@
 									<button
 										class="btn btn-sm btn-danger"
 										disabled={!!p.banned}
-										onclick={() => (banning = p)}>Ban</button
+										onclick={() => (banning = p)}>封禁</button
 									>
 								{/if}
 							</span>
@@ -214,7 +213,7 @@
 			{:else}
 				<tr
 					><td colspan="9" class="py-6 text-center text-mist-600"
-						>{loading ? 'Searching…' : 'Nobody matching has played here.'}</td
+						>{loading ? 'Searching…' : '没有符合条件的玩家曾在此游玩。'}</td
 					></tr
 				>
 			{/each}
@@ -223,15 +222,13 @@
 </div>
 {#if rows.length < total}
 	<div class="mt-3 text-center">
-		<button class="btn btn-sm" disabled={loading} onclick={() => load(rows.length)}
-			>Show more</button
+		<button class="btn btn-sm" disabled={loading} onclick={() => load(rows.length)}>查看更多</button
 		>
 	</div>
 {/if}
 <p class="note">
-	Everyone who has played on this server, from its own session history. A SteamID that never joined
-	here cannot be found. Names open the player's profile{#if canBan}; Ban places the ban on this
-		server's list, and it lands when they next join{/if}.
+	根据本服务器的会话历史，显示所有曾在此游玩的玩家。未曾加入的 SteamID
+	无法在这里找到。点击昵称可打开玩家档案{#if canBan}；封禁会加入此服务器的列表，并在玩家下次进入时生效{/if}.
 </p>
 
 {#if banning}

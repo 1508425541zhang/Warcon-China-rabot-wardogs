@@ -42,31 +42,32 @@
 
 <div class="panel">
 	<div class="mb-3 flex flex-wrap items-center gap-3">
-		<span class="label-sm mb-0">Tail</span>
+		<span class="label-sm mb-0">尾部</span>
 		<select class="input w-24" bind:value={tail} onchange={refresh}>
 			{#each [25, 50, 100, 200, 500] as n (n)}<option value={n}>{n}</option>{/each}
 		</select>
 		<label class="inline-flex items-center gap-2 text-[13px]"
-			><input type="checkbox" bind:checked={auto} /> Auto-refresh</label
+			><input type="checkbox" bind:checked={auto} /> 自动刷新</label
 		>
-		<button class="btn btn-sm" onclick={refresh}>Refresh</button>
+		<button class="btn btn-sm" onclick={refresh}>刷新</button>
 		<input
 			class="input w-full sm:w-64"
 			type="search"
-			placeholder={siteOwner ? 'Filter by peer, event, detail…' : 'Filter by event, detail…'}
-			aria-label="Filter log entries"
+			placeholder={siteOwner ? '按来源、事件、详情筛选…' : '按事件和详情筛选…'}
+			aria-label="筛选日志"
 			bind:value={search}
 		/>
 		<span class="ml-auto text-[12.5px] text-mist-600"
-			>{search.trim() ? `${rows.length} of ` : ''}{entries.length} entries (newest first)</span
+			>{search.trim() ? `${rows.length} of ` : ''}{entries.length} 条记录（最新优先）</span
 		>
 	</div>
 	<div class="table-wrap">
 		<table>
 			<thead
 				><tr
-					><th>Timestamp (UTC)</th>{#if siteOwner}<th>Peer</th>{/if}<th>Session</th><th>Event</th
-					><th>Detail</th></tr
+					><th>时间戳（UTC）</th>{#if siteOwner}<th>对端</th>{/if}<th>场次</th><th>事件</th><th
+						>详情</th
+					></tr
 				></thead
 			>
 			<tbody>
@@ -81,7 +82,7 @@
 				{:else}
 					<tr
 						><td colspan={siteOwner ? 5 : 4} class="py-6 text-center text-mist-600"
-							>{!loaded ? 'Loading…' : entries.length ? 'Nothing matches.' : 'No entries.'}</td
+							>{!loaded ? 'Loading…' : entries.length ? '没有符合条件的记录。' : 'No entries.'}</td
 						></tr
 					>
 				{/each}
@@ -89,8 +90,7 @@
 		</table>
 	</div>
 	<p class="note">
-		This is the game server's own RCON listener log (GET /v1/audit): connections, authentication and
-		commands from every client, including other admin tools. The panel's own audit trail is under
-		Audit.
+		这是游戏服务器自己的 RCON 监听日志（GET
+		/v1/audit），包含所有客户端的连接、认证和命令，也包括其他管理工具。面板自身的操作记录请查看“审计”。
 	</p>
 </div>

@@ -138,10 +138,10 @@
 		if (d.password) payload.password = d.password;
 		if (d.server) {
 			const id = d.server.id;
-			void run(() => api('PATCH', `/api/servers/${id}`, payload), 'Server updated.');
+			void run(() => api('PATCH', `/api/servers/${id}`, payload), '服务器已更新。');
 		} else {
 			payload.orgId = d.orgId;
-			void run(() => api('POST', '/api/servers', payload), 'Server added.');
+			void run(() => api('POST', '/api/servers', payload), '服务器已添加。');
 		}
 	}
 
@@ -187,7 +187,10 @@
 		const grants = Object.entries(d.grants)
 			.filter(([, roleId]) => roleId)
 			.map(([userId, roleId]) => ({ userId, roleId }));
-		void run(() => api('PUT', `/api/servers/${d.server.id}/grants`, { grants }), 'Access updated.');
+		void run(
+			() => api('PUT', `/api/servers/${d.server.id}/grants`, { grants }),
+			'访问权限已更新。'
+		);
 	}
 	async function remove(s: ServerInfo) {
 		if (
@@ -197,30 +200,32 @@
 			))
 		)
 			return;
-		await run(() => api('DELETE', `/api/servers/${s.id}`), 'Server removed.');
+		await run(() => api('DELETE', `/api/servers/${s.id}`), '服务器已移除。');
 	}
 </script>
 
-<svelte:head><title>Servers · {data.appName}</title></svelte:head>
+<svelte:head><title>服务器 · {data.appName}</title></svelte:head>
 
 <div class="mb-5 flex items-center gap-3">
-	<h1 class="text-xl font-semibold tracking-tight">Servers</h1>
+	<h1 class="text-xl font-semibold tracking-tight">服务器</h1>
 	<button
 		class="ml-auto btn btn-primary"
 		onclick={() => openEdit(null)}
-		disabled={!data.ownedOrgs.length}>Add server</button
+		disabled={!data.ownedOrgs.length}>添加服务器</button
 	>
 </div>
 
 <div class="callout">
-	Each entry is one WARDOGS dedicated server's RCON listener (the <code class="chip"
+	每个条目对应一台 WARDOGS 专用服务器的 RCON 监听端口（配置文件中的 <code class="chip"
 		>[/Script/WDRCON.WDRCONSettings]</code
 	>
-	section of its ServerSettings.ini). RCON passwords are encrypted at rest and never shown again.
-	{#if data.demoAllowed}Host <code class="chip">demo</code> with password
-		<code class="chip">demo</code> uses the built-in mock server.{/if}
-	{#if !data.ownedOrgs.length}Servers belong to an organisation, and you do not own one yet: create
-		one under <a href="/orgs" class="font-semibold text-accent underline">Orgs</a> first.{/if}
+	区块）。RCON 密码会加密保存，之后不会再次显示。
+	{#if data.demoAllowed}主机 <code class="chip">演示</code> 使用密码
+		<code class="chip">演示</code> 使用内置模拟服务器。{/if}
+	{#if !data.ownedOrgs.length}服务器必须归属某个组织。你还没有自己的组织，请先到“组织”页面创建。 <a
+			href="/orgs"
+			class="font-semibold text-accent underline">组织</a
+		> 后再继续。{/if}
 </div>
 
 {#if data.managed.length > 5 || multiOrg}
@@ -228,13 +233,13 @@
 		<input
 			class="input sm:w-72"
 			type="search"
-			placeholder="Search name, host, notes…"
+			placeholder="搜索名称、主机或备注…"
 			bind:value={q}
-			aria-label="Search servers"
+			aria-label="搜索服务器"
 		/>
 		{#if multiOrg}
-			<select class="input sm:w-56" bind:value={orgFilter} aria-label="Organisation">
-				<option value="">All organisations</option>
+			<select class="input sm:w-56" bind:value={orgFilter} aria-label="组织">
+				<option value="">全部组织</option>
 				{#each data.ownedOrgs as o (o.id)}<option value={o.id}>{o.name}</option>{/each}
 			</select>
 		{/if}
@@ -248,10 +253,10 @@
 	<table>
 		<thead>
 			<tr>
-				<SortHeader {sort} key="name">Name</SortHeader>
-				{#if multiOrg}<SortHeader {sort} key="org">Organisation</SortHeader>{/if}
-				<SortHeader {sort} key="target">Target</SortHeader>
-				<SortHeader {sort} key="order" num>Order</SortHeader>
+				<SortHeader {sort} key="name">名称</SortHeader>
+				{#if multiOrg}<SortHeader {sort} key="org">组织</SortHeader>{/if}
+				<SortHeader {sort} key="target">目标</SortHeader>
+				<SortHeader {sort} key="order" num>顺序</SortHeader>
 				<th></th>
 			</tr>
 		</thead>
@@ -263,7 +268,7 @@
 							href="/server/{encodeURIComponent(s.id)}"
 							class="font-medium text-accent hover:underline">{s.name}</a
 						>
-						{#if s.demo}<Badge tone="info" class="ml-1">demo</Badge>{/if}
+						{#if s.demo}<Badge tone="info" class="ml-1">演示</Badge>{/if}
 						{#if s.notes}<div class="text-[12px] text-mist-400">{s.notes}</div>{/if}
 					</td>
 					{#if multiOrg}<td
@@ -274,17 +279,17 @@
 					<td class="num">{s.sortOrder}</td>
 					<td class="text-right whitespace-nowrap">
 						<span class="inline-flex gap-1.5">
-							<button class="btn btn-sm" onclick={() => test(s)}>Test</button>
-							<button class="btn btn-sm" onclick={() => openEdit(s)}>Edit</button>
-							<button class="btn btn-sm" onclick={() => access(s)}>Access</button>
-							<button class="btn btn-sm btn-danger" onclick={() => remove(s)}>Delete</button>
+							<button class="btn btn-sm" onclick={() => test(s)}>测试</button>
+							<button class="btn btn-sm" onclick={() => openEdit(s)}>编辑</button>
+							<button class="btn btn-sm" onclick={() => access(s)}>访问权限</button>
+							<button class="btn btn-sm btn-danger" onclick={() => remove(s)}>删除</button>
 						</span>
 					</td>
 				</tr>
 			{:else}
 				<tr
 					><td colspan={multiOrg ? 5 : 4} class="py-8 text-center text-mist-600"
-						>{filtering ? 'No server matches.' : 'No servers yet.'}</td
+						>{filtering ? '没有符合条件的服务器。' : '还没有服务器。'}</td
 					></tr
 				>
 			{/each}
@@ -294,7 +299,7 @@
 
 {#if dialog?.kind === 'edit'}
 	{@const d = dialog}
-	<Modal title={d.server ? `Edit ${d.server.name}` : 'Add server'} onclose={() => (dialog = null)}>
+	<Modal title={d.server ? `编辑 ${d.server.name}` : '添加服务器'} onclose={() => (dialog = null)}>
 		<form
 			class="space-y-3"
 			onsubmit={(e) => {
@@ -304,34 +309,34 @@
 		>
 			{#if !d.server && multiOrg}
 				<label class="block"
-					><span class="field-label">Organisation</span>
+					><span class="field-label">组织</span>
 					<select class="input" bind:value={d.orgId} required>
 						{#each data.ownedOrgs as o (o.id)}<option value={o.id}>{o.name}</option>{/each}
 					</select>
 				</label>
 			{/if}
 			<label class="block"
-				><span class="field-label">Name</span><input
+				><span class="field-label">名称</span><input
 					class="input"
 					type="text"
 					bind:value={d.name}
-					placeholder="Display name"
+					placeholder="显示名称"
 					required
 				/></label
 			>
 			<div class="grid grid-cols-2 gap-2 sm:grid-cols-[3fr_1fr_1fr]">
 				<label class="col-span-2 block sm:col-span-1"
-					><span class="field-label">Host</span><input
+					><span class="field-label">主机地址</span><input
 						class="input"
 						type="text"
 						bind:value={d.host}
-						placeholder={data.user.role === 'owner' ? 'IP or hostname' : 'Public IP or hostname'}
+						placeholder={data.user.role === 'owner' ? 'IP or hostname' : '公网 IP 或主机名'}
 						spellcheck="false"
 						required
 					/></label
 				>
 				<label class="block"
-					><span class="field-label">Port</span><input
+					><span class="field-label">端口</span><input
 						class="input"
 						type="number"
 						bind:value={d.port}
@@ -342,21 +347,21 @@
 					/></label
 				>
 				<label class="block"
-					><span class="field-label">Scheme</span>
+					><span class="field-label">协议</span>
 					<select class="input" bind:value={d.scheme}
 						><option value="http">http</option><option value="https">https</option></select
 					>
 				</label>
 			</div>
 			<label class="block"
-				><span class="field-label">RCON password</span><input
+				><span class="field-label">RCON 密码</span><input
 					class="input"
 					type="password"
 					bind:value={d.password}
 					placeholder={!d.server
-						? 'RCON password'
+						? 'RCON 密码'
 						: moved(d)
-							? 'needed again: the address changed'
+							? '地址已变化，需要重新输入'
 							: '(unchanged)'}
 					autocomplete="new-password"
 					required={!d.server || moved(d)}
@@ -364,14 +369,14 @@
 			>
 			<div class="grid grid-cols-1 gap-2 sm:grid-cols-[4fr_1fr]">
 				<label class="block"
-					><span class="field-label">Notes</span><textarea
+					><span class="field-label">备注</span><textarea
 						class="input"
 						rows="2"
 						bind:value={d.notes}
-						placeholder="Notes shown to everyone with access (optional)"></textarea></label
+						placeholder="所有有权限者可见的备注（可选）"></textarea></label
 				>
 				<label class="block"
-					><span class="field-label">Sort order</span><input
+					><span class="field-label">排序顺序</span><input
 						class="input"
 						type="number"
 						bind:value={d.sortOrder}
@@ -379,7 +384,7 @@
 				>
 			</div>
 			<div>
-				<span class="field-label">Public pages</span>
+				<span class="field-label">公开页面</span>
 				{#each PUBLIC_FEATURES as feature (feature)}
 					{@const st = featureState(allowancesOf(d), d, feature)}
 					<label
@@ -394,20 +399,20 @@
 			</div>
 			<p class="note">
 				{#if data.user.role === 'owner'}
-					The listener must be reachable from the machine running Warcon: keep BindAddress 127.0.0.1
-					when they share a host, otherwise 0.0.0.0 behind a firewall or reverse proxy. As site
-					owner you may point at private addresses; servers other people add must be public.
+					Warcon 所在主机必须能连接此端口：若与游戏服务器同机，可使用 BindAddress
+					127.0.0.1；否则需在防火墙或反向代理后使用
+					0.0.0.0。站点所有者可以添加私有地址；其他用户添加的服务器必须有公开地址。
 				{:else}
-					The host must be publicly reachable: BindAddress 0.0.0.0 behind a firewall that allows
-					Warcon, or a reverse proxy. Private and internal addresses are refused. If the game server
-					shares a machine or network with Warcon, ask the site owner to add it.
+					此主机必须可从公网访问：可在允许 Warcon 连接的防火墙后使用 BindAddress
+					0.0.0.0，或通过反向代理暴露。私有和内部地址会被拒绝。若游戏服务器与 Warcon
+					位于同一主机或网络，请联系站点所有者添加。
 				{/if}
-				https needs a certificate Warcon trusts, or GAME_TLS_INSECURE=true for self-signed.
+				使用 HTTPS 时需要 Warcon 信任的证书；自签名证书需设置 GAME_TLS_INSECURE=true。
 			</p>
 			<div class="flex justify-end gap-2 pt-2">
-				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
+				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>取消</button>
 				<button type="submit" class="btn btn-primary" disabled={busy}
-					>{d.server ? 'Save' : 'Add'}</button
+					>{d.server ? '保存' : '添加'}</button
 				>
 			</div>
 		</form>
@@ -419,19 +424,17 @@
 		onclose={() => (dialog = null)}
 	>
 		<div class="kv">
-			<span class="text-mist-400">Server name</span><span>{d.result.status.serverName}</span>
+			<span class="text-mist-400">服务器名称</span><span>{d.result.status.serverName}</span>
 		</div>
-		<div class="kv"><span class="text-mist-400">Map</span><span>{d.result.status.map}</span></div>
+		<div class="kv"><span class="text-mist-400">地图</span><span>{d.result.status.map}</span></div>
 		<div class="kv">
-			<span class="text-mist-400">Players</span><span
+			<span class="text-mist-400">玩家</span><span
 				>{fmtNum(d.result.status.playerCount)} / {fmtNum(d.result.status.maxPlayers)}</span
 			>
 		</div>
 		{#if d.result.status.raw}
 			<details class="mt-2">
-				<summary class="cursor-pointer text-[12.5px] text-mist-400"
-					>Status as the server sent it</summary
-				>
+				<summary class="cursor-pointer text-[12.5px] text-mist-400">服务器原始状态</summary>
 				<pre
 					class="mt-2 max-h-56 overflow-auto rounded-card border border-black bg-ink-950 p-3 font-mono text-[12px] leading-relaxed">{JSON.stringify(
 						d.result.status.raw,
@@ -442,25 +445,25 @@
 		{/if}
 		{#if d.result.capabilities?.raw?.build}
 			<div class="kv">
-				<span class="text-mist-400">Build</span>
+				<span class="text-mist-400">版本</span>
 				<span class="text-right font-mono">{String(d.result.capabilities.raw.build)}</span>
 			</div>
 		{/if}
 		{#if d.result.serverId}
 			<div class="kv">
-				<span class="text-mist-400">Join code</span>
+				<span class="text-mist-400">加入代码</span>
 				<span class="text-right font-mono">{d.result.serverId}</span>
 			</div>
 		{/if}
 		<div class="kv">
-			<span class="text-mist-400">Capabilities</span>
+			<span class="text-mist-400">权限项</span>
 			<span class="text-right">
-				{#if d.result.capabilities}{d.result.capabilities.routes.length} routes; change team {d
-						.result.capabilities.features.changeTeam
+				{#if d.result.capabilities}{d.result.capabilities.routes.length} 路由；切换阵营 {d.result
+						.capabilities.features.changeTeam
 						? 'yes'
-						: 'no'}; config document {d.result.capabilities.features.configDocument
+						: 'no'}；配置文档 {d.result.capabilities.features.configDocument
 						? 'yes'
-						: 'no'}{:else}not reported (older plugin){/if}
+						: 'no'}{:else}旧版插件未上报{/if}
 			</span>
 		</div>
 		{#if d.result.capabilities?.raw}
@@ -476,16 +479,14 @@
 		{/if}
 		{#if d.result.capabilities?.routes.length}
 			<details class="mt-2">
-				<summary class="cursor-pointer text-[12.5px] text-mist-400"
-					>Routes this build serves</summary
-				>
+				<summary class="cursor-pointer text-[12.5px] text-mist-400">当前版本提供的路由</summary>
 				<ul class="mt-2 max-h-56 overflow-y-auto font-mono text-[12px] leading-relaxed">
 					{#each d.result.capabilities.routes as r (r)}<li>{r}</li>{/each}
 				</ul>
 			</details>
 		{/if}
 		{#snippet actions()}<button type="button" class="btn" onclick={() => (dialog = null)}
-				>Close</button
+				>关闭</button
 			>{/snippet}
 	</Modal>
 {:else if dialog?.kind === 'access'}
@@ -502,23 +503,23 @@
 				bind:grants={d.grants}
 			/>
 			<p class="note">
-				Owners of {d.server.orgName} hold everything regardless. The whole organisation at once:
+				以下组织的所有者： {d.server.orgName} 无论设置如何，所有者始终拥有全部权限。一次设置整个组织：
 				<a href="/orgs/{encodeURIComponent(d.server.orgId)}/access" class="text-accent underline"
-					>access matrix</a
+					>权限矩阵</a
 				>.
 			</p>
 		{:else}
 			<p class="text-mist-400">
-				No members besides owners yet. Share an invite link from <a
+				除所有者外暂无成员。请到组织页面分享邀请链接。 <a
 					href="/orgs/{encodeURIComponent(d.server.orgId)}"
 					class="text-accent underline">{d.server.orgName}</a
-				>. Owners always have access.
+				>。所有者始终拥有访问权限。
 			</p>
 		{/if}
 		{#snippet actions()}
-			<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
+			<button type="button" class="btn" data-close onclick={() => (dialog = null)}>取消</button>
 			<button type="button" class="btn btn-primary" onclick={saveAccess} disabled={busy}
-				>Save access</button
+				>保存权限</button
 			>
 		{/snippet}
 	</Modal>

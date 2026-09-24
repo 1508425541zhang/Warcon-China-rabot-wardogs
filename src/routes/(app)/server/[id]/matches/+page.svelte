@@ -45,8 +45,8 @@
 <div class="panel">
 	<div class="mb-3 flex items-center gap-2 text-[12.5px] text-mist-400">
 		<span class="text-mist-200">
-			{#if view}{view.total} match{view.total === 1 ? '' : 'es'}{#if loading}
-					· loading…{/if}{:else}Loading…{/if}
+			{#if view}{view.total} 场对局{view.total === 1 ? '' : 'es'}{#if loading}
+					· 加载中…{/if}{:else}加载中…{/if}
 		</span>
 	</div>
 	<MatchList
@@ -58,18 +58,17 @@
 	{#if view && view.pages > 1}
 		<div class="mt-3 flex items-center gap-2 text-[12.5px] text-mist-400">
 			<button class="btn btn-sm" disabled={current <= 1 || loading} onclick={() => (current -= 1)}
-				>← Newer</button
+				>← 较新</button
 			>
-			<span>Page {current} of {view.pages}</span>
+			<span>第 {current} of {view.pages}</span>
 			<button
 				class="btn btn-sm"
 				disabled={current >= view.pages || loading}
-				onclick={() => (current += 1)}>Older →</button
+				onclick={() => (current += 1)}>更早 →</button
 			>
 		</div>
 	{/if}
 	<p class="note">
-		Every match the worker saw, kept for good. A match opens to its scoreboard once it has ended;
-		the one in progress is on the Overview. Players is everyone who was on during the match.
+		这里保存工作进程观测到的所有对局。对局结束后可以打开计分板；正在进行的对局显示在“概览”中。“玩家”包含该对局期间曾进入的所有人。
 	</p>
 </div>

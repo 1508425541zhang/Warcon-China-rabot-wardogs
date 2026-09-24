@@ -81,13 +81,12 @@
 		<div class="join">
 			<button
 				class="btn btn-sm {query.scope === 'server' ? 'btn-primary' : ''}"
-				onclick={() => set({ scope: 'server' })}>This server</button
+				onclick={() => set({ scope: 'server' })}>本服务器</button
 			>
 			<button
 				class="btn btn-sm {query.scope === 'org' ? 'btn-primary' : ''}"
 				onclick={() => set({ scope: 'org' })}
-				title={orgName ? `Every server of ${orgName}` : 'Every server of the organisation'}
-				>Organisation</button
+				title={orgName ? `Every server of ${orgName}` : '组织中的每台服务器'}>组织</button
 			>
 		</div>
 	{/if}
@@ -99,23 +98,23 @@
 			>
 		{/each}
 	</div>
-	<label class="join items-center" title="Players with less playtime in the range are left out">
-		<span class="pointer-events-none btn btn-sm">At least</span>
+	<label class="join items-center" title="低于游戏时间门槛的玩家不会纳入统计">
+		<span class="pointer-events-none btn btn-sm">至少</span>
 		<input
 			class="h-[30px] input w-20 py-0 text-right"
 			type="number"
 			min="0"
 			step="10"
-			aria-label="Playtime floor in minutes"
+			aria-label="最低游戏时间（分钟）"
 			bind:value={floor}
 			onchange={applyFloor}
 			onkeydown={(e) => e.key === 'Enter' && applyFloor()}
 		/>
-		<span class="pointer-events-none btn btn-sm">min played</span>
+		<span class="pointer-events-none btn btn-sm">最短游戏时间</span>
 	</label>
 	<span class="ml-auto text-[12.5px] text-mist-600">
-		{#if board}{fmtNum(board.total)} player{board.total === 1 ? '' : 's'}{#if loading}
-				· loading…{/if}{:else}Loading…{/if}
+		{#if board}{fmtNum(board.total)} 名玩家{#if loading}
+				· 加载中…{/if}{:else}加载中…{/if}
 	</span>
 </div>
 
@@ -124,25 +123,22 @@
 		<thead>
 			<tr>
 				<th class="num">#</th>
-				<th>Player</th>
-				<SortHeader {sort} key="playtime" num>Playtime</SortHeader>
-				<SortHeader
-					{sort}
-					key="seeded"
-					num
-					title="Time on with the server low, as a Seeding reward rule counts it">Seeded</SortHeader
+				<th>玩家</th>
+				<SortHeader {sort} key="playtime" num>游戏时间</SortHeader>
+				<SortHeader {sort} key="seeded" num title="暖服规则统计的低人数在线时间"
+					>种子服时间</SortHeader
 				>
 				<SortHeader {sort} key="kills" num>K</SortHeader>
 				<SortHeader {sort} key="deaths" num>D</SortHeader>
 				<SortHeader {sort} key="kd" num>K/D</SortHeader>
-				<SortHeader {sort} key="perHour" num title="Kills per hour of playtime">K/h</SortHeader>
-				<th class="num" title="Headshots">HS</th>
-				<th class="num" title="Team kills">TK</th>
-				<SortHeader {sort} key="matches" num>Matches</SortHeader>
-				<SortHeader {sort} key="wins" num title="Wins, losses, draws">W-L-D</SortHeader>
-				<SortHeader {sort} key="winRate" num>Win %</SortHeader>
-				<SortHeader {sort} key="cash" num>Cash</SortHeader>
-				<th>Last seen</th>
+				<SortHeader {sort} key="perHour" num title="每小时游戏时间击杀数">K/h</SortHeader>
+				<th class="num" title="爆头">HS</th>
+				<th class="num" title="误杀队友">TK</th>
+				<SortHeader {sort} key="matches" num>比赛记录</SortHeader>
+				<SortHeader {sort} key="wins" num title="胜、负、平">W-L-D</SortHeader>
+				<SortHeader {sort} key="winRate" num>胜率</SortHeader>
+				<SortHeader {sort} key="cash" num>现金</SortHeader>
+				<th>最近出现</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -170,9 +166,8 @@
 			{:else}
 				<tr>
 					<td colspan="15" class="py-6 text-center text-mist-600">
-						{#if !board || loading}Loading…{:else if board.total === 0 && query.minMinutes > 0}Nobody
-							has {fmtMinutes(query.minMinutes)} of playtime in this range yet.{:else}No players in
-							this range yet.{/if}
+						{#if !board || loading}加载中…{:else if board.total === 0 && query.minMinutes > 0}还没有人达到
+							{fmtMinutes(query.minMinutes)} 的游玩时间。{:else}此时间范围内还没有玩家。{/if}
 					</td>
 				</tr>
 			{/each}
@@ -184,20 +179,18 @@
 		<button
 			class="btn btn-sm"
 			disabled={query.page <= 1 || loading}
-			onclick={() => onchange({ ...query, page: query.page - 1 })}>← Newer</button
+			onclick={() => onchange({ ...query, page: query.page - 1 })}>← 较新</button
 		>
-		<span>Page {query.page} of {pages}</span>
+		<span>第 {query.page} of {pages}</span>
 		<button
 			class="btn btn-sm"
 			disabled={query.page >= pages || loading}
-			onclick={() => onchange({ ...query, page: query.page + 1 })}>Next →</button
+			onclick={() => onchange({ ...query, page: query.page + 1 })}>下一页 →</button
 		>
 	</div>
 {/if}
 {#if board && !board.hasFeed}
 	<p class="note">
-		{query.scope === 'org' ? 'None of these servers has' : 'This server has no'} kill feed, so headshots,
-		team kills, suicides and streaks are not recorded; kills, deaths and results come from the game's
-		own scoreboard, match by match.
+		{query.scope === 'org' ? '这些服务器均没有' : '此服务器没有'} 击杀事件，因此爆头、队友击杀、自杀和连续击杀未被记录；击杀、死亡及对局结果仍按场次来自游戏计分板。
 	</p>
 {/if}

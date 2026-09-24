@@ -58,18 +58,18 @@
 
 <div class="panel">
 	<a href="/server/{encodeURIComponent(id)}/matches" class="caps text-mist-400 hover:text-mist-100"
-		>← Matches</a
+		>← 比赛记录</a
 	>
 	<div class="mt-3">
 		<MatchPanel {view} hrefFor={dossier} showIds />
 	</div>
 	{#if view.kills}
-		<span class="mt-4 field-label">Kill feed · {view.kills}</span>
+		<span class="mt-4 field-label">击杀事件 · {view.kills}</span>
 		<div class="table-wrap">
 			<table>
 				<thead>
 					<tr
-						><th>Clock</th><th>Killer</th><th>Victim</th><th>Cause</th><th class="num">Distance</th
+						><th>时钟</th><th>击杀者</th><th>受害者</th><th>击杀原因</th><th class="num">距离</th
 						><th></th></tr
 					>
 				</thead>
@@ -102,15 +102,15 @@
 							<td class="text-mist-200">{causeText(k)}</td>
 							<td class="num">{k.distanceM === null ? '—' : `${Math.round(k.distanceM)} m`}</td>
 							<td class="whitespace-nowrap">
-								{#if k.teamKill}<span class="chip">team kill</span>{/if}
-								{#if k.suicide}<span class="chip">suicide</span>{/if}
-								{#if k.headshot}<span class="chip">headshot</span>{/if}
+								{#if k.teamKill}<span class="chip">误杀队友</span>{/if}
+								{#if k.suicide}<span class="chip">自杀</span>{/if}
+								{#if k.headshot}<span class="chip">爆头</span>{/if}
 							</td>
 						</tr>
 					{:else}
 						<tr
 							><td colspan="6" class="py-4 text-center text-mist-600"
-								>{loading ? 'Loading…' : 'No kills of this match were received.'}</td
+								>{loading ? 'Loading…' : '尚未收到本场对局的击杀记录。'}</td
 							></tr
 						>
 					{/each}
@@ -119,14 +119,12 @@
 		</div>
 		{#if more}
 			<button class="mt-3 btn" onclick={() => load(true)} disabled={loading}>
-				{loading ? 'Loading…' : 'Load older kills'}
+				{loading ? 'Loading…' : '加载更早的击杀记录'}
 			</button>
 		{/if}
 	{/if}
 	<p class="note">
-		Kills, deaths and cash are the game's own scoreboard counters over this match; time is how long
-		each player was on during it. {#if view.hasFeed}Headshots, team kills, vehicle kills and streaks
-			come from the kill feed, newest kill first below.{:else}This server has no kill feed, so there
-			are no feed columns.{/if} Awards need a match of twenty minutes; best K/D needs ten kills.
+		击杀、死亡和现金来自游戏计分板在本场比赛中的累计值；时间为各玩家在本场的在线时长。 {#if view.hasFeed}爆头、误杀队友、载具击杀和连续击杀来自游戏击杀事件；下方按最新击杀优先显示。{:else}本服未启用击杀事件，因此无法显示相关列。{/if}
+		颁发奖项要求比赛至少持续 20 分钟；最高 KD 奖要求至少 10 次击杀。
 	</p>
 </div>

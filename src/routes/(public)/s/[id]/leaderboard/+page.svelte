@@ -25,7 +25,7 @@
 </script>
 
 <svelte:head>
-	<title>Leaderboard · {data.heading.name} · {data.appName}</title>
+	<title>排行榜 · {data.heading.name} · {data.appName}</title>
 	<meta
 		name="description"
 		content="Leaderboard of {data.heading.name}, run by {data.heading.orgName}."
@@ -44,8 +44,6 @@
 		relative
 	/>
 	<p class="note">
-		Kills and deaths from the game's scoreboard, match by match; headshots, team kills and streaks
-		from the kill feed; playtime from time seen on the server. A match counts once it has ended.
-		Names open a player's career.
+		击杀与死亡来自游戏计分板，按对局记录；爆头、队友击杀和连续击杀来自击杀事件；游玩时间来自服务器在线记录。对局结束后才计入统计。点击昵称可查看玩家生涯。
 	</p>
 </div>

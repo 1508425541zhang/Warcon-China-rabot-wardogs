@@ -4,7 +4,7 @@
 	// and so does any click outside, including on another row's ⋯.
 	import type { Snippet } from 'svelte';
 	let {
-		label = 'More actions',
+		label = '更多操作',
 		children
 	}: {
 		label?: string;

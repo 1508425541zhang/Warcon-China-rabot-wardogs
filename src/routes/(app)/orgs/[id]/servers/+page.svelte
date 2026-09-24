@@ -57,24 +57,24 @@
 <div class="mb-4 flex flex-wrap items-center gap-3">
 	<div>
 		<h2 class="text-lg font-semibold tracking-tight">
-			Servers
+			服务器
 			<span class="font-normal text-mist-600"
 				>{data.orgServers.length} / {data.org.serverLimit}</span
 			>
 		</h2>
 		<p class="text-[13px] text-mist-400">
 			{#if !data.orgServers.length}
-				Nothing here yet.
+				这里还没有内容。
 			{:else if seen.length}
-				{reachable} of {data.orgServers.length} reachable, {fmtNum(playing)} playing now.
+				{reachable} of {data.orgServers.length} 可连接， {fmtNum(playing)} 当前在线。
 			{:else}
-				Checking…
+				检查中…
 			{/if}
 		</p>
 	</div>
 	{#if owner}
 		<span class="ml-auto inline-flex gap-1.5">
-			<a class="btn btn-primary" href="/servers">Manage servers</a>
+			<a class="btn btn-primary" href="/servers">管理服务器</a>
 		</span>
 	{/if}
 </div>
@@ -82,11 +82,9 @@
 {#if !data.orgServers.length}
 	<div class="callout">
 		{#if owner}
-			No servers yet. <a href="/servers" class="font-semibold text-accent underline">Add one</a> on the
-			Servers page; members with a default server role on their invite link only get access to servers
-			that exist when they join.
+			还没有服务器。 <a href="/servers" class="font-semibold text-accent underline">添加</a> 上的“服务器”页面添加；通过邀请链接获得默认服务器角色的成员，只会访问其加入时已经存在的服务器。
 		{:else}
-			You do not have access to any of {data.org.name}'s servers.
+			你无权访问其中任何一台 {data.org.name}的服务器。
 		{/if}
 	</div>
 {:else}
@@ -95,9 +93,9 @@
 			<input
 				class="input sm:w-72"
 				type="search"
-				placeholder="Search name, host, map…"
+				placeholder="搜索名称、主机或地图…"
 				bind:value={q}
-				aria-label="Search servers"
+				aria-label="搜索服务器"
 			/>
 		</div>
 	{/if}
@@ -105,11 +103,11 @@
 		<table>
 			<thead>
 				<tr>
-					<SortHeader {sort} key="server">Server</SortHeader>
-					<SortHeader {sort} key="target">Target</SortHeader>
-					<SortHeader {sort} key="map">Map</SortHeader>
-					<SortHeader {sort} key="players" num>Players</SortHeader>
-					<SortHeader {sort} key="access">Your access</SortHeader>
+					<SortHeader {sort} key="server">服务器</SortHeader>
+					<SortHeader {sort} key="target">目标</SortHeader>
+					<SortHeader {sort} key="map">地图</SortHeader>
+					<SortHeader {sort} key="players" num>玩家</SortHeader>
+					<SortHeader {sort} key="access">你的权限</SortHeader>
 					<th></th>
 				</tr>
 			</thead>
@@ -125,7 +123,7 @@
 									href="/server/{encodeURIComponent(s.id)}"
 									class="truncate font-medium text-accent hover:underline">{s.name}</a
 								>
-								{#if s.demo}<Badge tone="info">demo</Badge>{/if}
+								{#if s.demo}<Badge tone="info">演示</Badge>{/if}
 							</span>
 							{#if st?.serverName && st.serverName !== s.name}
 								<div class="truncate text-[12px] text-mist-400">{st.serverName}</div>
@@ -137,7 +135,7 @@
 							{#if st}
 								{mapName(st.map)}
 								{#if st.matchSeconds !== null}<div class="text-[12px] text-mist-400">
-										{Math.floor(st.matchSeconds / 60)} min in
+										{Math.floor(st.matchSeconds / 60)} 分钟内
 									</div>{/if}
 							{:else if v}
 								<span class="text-[12.5px] text-danger">{v.error || 'Unreachable.'}</span>
@@ -149,7 +147,7 @@
 							{#if st}
 								<b>{fmtNum(st.playerCount)}</b>
 								<span class="text-mist-400">/ {fmtNum(st.maxPlayers)}</span>{#if v.reservedSlots}
-									<div class="text-[12px] text-mist-400">+ {v.reservedSlots} reserved</div>{/if}
+									<div class="text-[12px] text-mist-400">+ {v.reservedSlots} 预留</div>{/if}
 							{:else}
 								<span class="text-mist-600">—</span>
 							{/if}
@@ -157,15 +155,14 @@
 						<td><RoleBadge role={s.roleName} /></td>
 						<td class="text-right whitespace-nowrap">
 							<span class="inline-flex gap-1.5">
-								<a class="btn btn-sm" href="/server/{encodeURIComponent(s.id)}/players">Players</a>
-								<a class="btn btn-sm" href="/server/{encodeURIComponent(s.id)}/slots"
-									>Reserved slots</a
-								>
+								<a class="btn btn-sm" href="/server/{encodeURIComponent(s.id)}/players">玩家</a>
+								<a class="btn btn-sm" href="/server/{encodeURIComponent(s.id)}/slots">预留位</a>
 							</span>
 						</td>
 					</tr>
 				{:else}
-					<tr><td colspan="6" class="py-8 text-center text-mist-600">No server matches.</td></tr>
+					<tr><td colspan="6" class="py-8 text-center text-mist-600">没有符合条件的服务器。</td></tr
+					>
 				{/each}
 			</tbody>
 		</table>

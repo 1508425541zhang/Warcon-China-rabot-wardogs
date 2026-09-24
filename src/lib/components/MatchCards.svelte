@@ -43,10 +43,10 @@
 		<div class="caps">
 			{#if r.kind === 'won' && m.winner}
 				<span style="color:{colorOf(m.winner)}">{m.winner}</span>
-				<span class="text-mist-400">· winner</span>
-			{:else if r.kind === 'draw'}<span class="text-mist-400">Draw</span>
-			{:else if r.kind === 'abandoned'}<span class="text-mist-600">Abandoned</span>
-			{:else}<span class="text-mist-400">In progress</span>{/if}
+				<span class="text-mist-400">· 获胜方</span>
+			{:else if r.kind === 'draw'}<span class="text-mist-400">平局</span>
+			{:else if r.kind === 'abandoned'}<span class="text-mist-600">已中止</span>
+			{:else}<span class="text-mist-400">进行中</span>{/if}
 		</div>
 	</div>
 	{#if scores.length && total > 0}
@@ -67,9 +67,9 @@
 		</div>
 	{/if}
 	<div class="mt-2 caps text-mist-400">
-		Started {fmtTime(m.startedAt)} · {fmtLength(durationOf(m, now))} · {m.endedAt
+		开始于 {fmtTime(m.startedAt)} · {fmtLength(durationOf(m, now))} · {m.endedAt
 			? m.players || m.peakPlayers
-			: m.peakPlayers} played
+			: m.peakPlayers} 已游玩
 	</div>
 {/snippet}
 
@@ -83,6 +83,6 @@
 			<div class="panel py-4">{@render card(m)}</div>
 		{/if}
 	{:else}
-		<div class="panel py-6 text-center text-mist-600">No matches recorded yet.</div>
+		<div class="panel py-6 text-center text-mist-600">暂无比赛记录。</div>
 	{/each}
 </div>

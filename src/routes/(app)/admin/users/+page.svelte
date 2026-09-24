@@ -110,7 +110,7 @@
 						disabled: d.disabled,
 						mustChangePassword: d.mustChange
 					}),
-				'User updated.'
+				'用户已更新。'
 			);
 		} else {
 			void run(
@@ -122,7 +122,7 @@
 						role: d.role,
 						mustChangePassword: d.mustChange
 					}),
-				'User created.'
+				'用户已创建。'
 			);
 		}
 	}
@@ -132,7 +132,7 @@
 		const grants = Object.entries(d.grants)
 			.filter(([, roleId]) => roleId)
 			.map(([serverId, roleId]) => ({ serverId, roleId }));
-		void run(() => api('PUT', `/api/users/${d.user.id}/grants`, { grants }), 'Access updated.');
+		void run(() => api('PUT', `/api/users/${d.user.id}/grants`, { grants }), '访问权限已更新。');
 	}
 	function reset() {
 		const d = dialog;
@@ -144,7 +144,7 @@
 					mustChangePassword: d.mustChange,
 					resetAuth: d.resetAuth
 				}),
-			d.resetAuth ? 'Sign-in methods reset.' : 'Password reset.'
+			d.resetAuth ? '登录方式已重置。' : '密码已重置。'
 		);
 	}
 	async function remove(u: UserView) {
@@ -155,54 +155,47 @@
 			))
 		)
 			return;
-		await run(() => api('DELETE', `/api/users/${u.id}`), 'User deleted.');
+		await run(() => api('DELETE', `/api/users/${u.id}`), '用户已删除。');
 	}
 </script>
 
-<svelte:head><title>Users · Admin · {data.appName}</title></svelte:head>
+<svelte:head><title>用户 · 站点管理 · {data.appName}</title></svelte:head>
 
 <div class="mb-4 flex items-center gap-3">
-	<button class="ml-auto btn btn-primary" onclick={() => openEdit(null)}>Add user</button>
+	<button class="ml-auto btn btn-primary" onclick={() => openEdit(null)}>添加用户</button>
 </div>
 
 <div class="callout">
-	<b>Every account on this panel.</b> A site <b>owner</b> runs the whole panel and can do everything
-	on every server. A <b>member</b> belongs to one or more
-	<a href="/orgs" class="text-accent underline">organisations</a>, usually by opening an invite
-	link, and sees the servers they are granted there with one of that organisation's roles. Every org
-	starts with <b>viewer</b> (read-only), <b>operator</b> (kick, kill, whisper, broadcast, map and
-	match control, live rotation edits, notes) and <b>admin</b> (everything on the server); its owners can
-	change what those mean and add roles of their own. Granting a server here also makes them a member of
-	its organisation.
+	<b>本面板上的所有账号。</b> 一个站点 <b>所有者</b> 管理整个平台，可以操作所有服务器。 <b>成员</b>
+	属于一个或多个
+	<a href="/orgs" class="text-accent underline">组织</a
+	>通常通过邀请链接加入组织，并以组织分配的角色访问获授权的服务器。每个组织初始提供 <b>查看者</b>
+	（只读）， <b>操作员</b> （踢人、处决、私信、广播、地图及对局控制、实时轮换编辑、备注）和
+	<b>管理员</b> （拥有服务器全部权限）；组织所有者可调整权限并添加自定义角色。在此授予服务器权限时，该用户也会加入所属组织。
 </div>
 
 <div class="mb-3 flex flex-wrap items-center gap-2">
 	<input
 		class="input w-full sm:w-80"
 		type="search"
-		placeholder="Filter by name, username, organisation…"
-		aria-label="Filter users"
+		placeholder="按名称、用户名或组织筛选…"
+		aria-label="筛选用户"
 		bind:value={search}
 	/>
-	<span class="text-[12.5px] text-mist-600"
-		>{rows.length === data.users.length ? '' : `${rows.length} of `}{data.users.length} user{data
-			.users.length === 1
-			? ''
-			: 's'}</span
-	>
+	<span class="text-[12.5px] text-mist-600">显示 {rows.length} / {data.users.length} 位用户</span>
 </div>
 
 <div class="table-wrap">
 	<table>
 		<thead>
 			<tr>
-				<SortHeader {sort} key="user">User</SortHeader>
-				<SortHeader {sort} key="role">Role</SortHeader>
-				<SortHeader {sort} key="status">Status</SortHeader>
-				<SortHeader {sort} key="signIn">Sign-in</SortHeader>
-				<SortHeader {sort} key="orgs">Organisations</SortHeader>
-				<SortHeader {sort} key="access">Server access</SortHeader>
-				<SortHeader {sort} key="lastLogin">Last login</SortHeader>
+				<SortHeader {sort} key="user">用户</SortHeader>
+				<SortHeader {sort} key="role">角色</SortHeader>
+				<SortHeader {sort} key="status">状态</SortHeader>
+				<SortHeader {sort} key="signIn">登录</SortHeader>
+				<SortHeader {sort} key="orgs">组织</SortHeader>
+				<SortHeader {sort} key="access">服务器权限</SortHeader>
+				<SortHeader {sort} key="lastLogin">上次登录</SortHeader>
 				<th></th>
 			</tr>
 		</thead>
@@ -215,16 +208,15 @@
 					</td>
 					<td><RoleBadge role={u.role} /></td>
 					<td>
-						{#if u.disabled}<Badge tone="err">disabled</Badge>{:else if u.mustChangePassword}<Badge
-								tone="info">must change pw</Badge
-							>{:else}<Badge tone="ok">active</Badge>{/if}
+						{#if u.disabled}<Badge tone="err">已停用</Badge>{:else if u.mustChangePassword}<Badge
+								tone="info">必须修改密码</Badge
+							>{:else}<Badge tone="ok">启用中</Badge>{/if}
 					</td>
 					<td>
 						<div class="flex flex-wrap items-center gap-1.5 text-[12px] text-mist-400">
-							{#if u.signIn.length}{u.signIn.join(' · ')}{:else}<span class="text-mist-600"
-									>none</span
+							{#if u.signIn.length}{u.signIn.join(' · ')}{:else}<span class="text-mist-600">无</span
 								>{/if}
-							{#if !u.authComplete}<Badge tone="warn">incomplete</Badge>{/if}
+							{#if !u.authComplete}<Badge tone="warn">未完成</Badge>{/if}
 						</div>
 					</td>
 					<td>
@@ -238,12 +230,12 @@
 								{/each}
 							</div>
 						{:else}
-							<span class="text-mist-600">none</span>
+							<span class="text-mist-600">无</span>
 						{/if}
 					</td>
 					<td>
 						{#if u.role === 'owner'}
-							<span class="text-mist-400">all servers (site owner)</span>
+							<span class="text-mist-400">所有服务器（站点所有者）</span>
 						{:else if u.grants.length}
 							<button
 								type="button"
@@ -252,33 +244,31 @@
 								onclick={() => openGrants(u)}
 							>
 								<div>
-									{u.grants.length} of {data.servers.length} server{data.servers.length === 1
-										? ''
-										: 's'}
+									已授权 {u.grants.length} / {data.servers.length} 台服务器
 								</div>
 								<div class="text-[12px] text-mist-400">{grantSummary(u)}</div>
 							</button>
 						{:else}
-							<span class="text-mist-600">none</span>
+							<span class="text-mist-600">无</span>
 						{/if}
 					</td>
 					<td class="whitespace-nowrap text-mist-400">{fmtTime(u.lastLoginAt)}</td>
 					<td class="text-right whitespace-nowrap">
 						<span class="inline-flex gap-1.5">
-							<button class="btn btn-sm" onclick={() => openEdit(u)}>Edit</button>
+							<button class="btn btn-sm" onclick={() => openEdit(u)}>编辑</button>
 							{#if u.role !== 'owner'}<button class="btn btn-sm" onclick={() => openGrants(u)}
-									>Access</button
+									>访问权限</button
 								>{/if}
-							<button class="btn btn-sm" onclick={() => openReset(u)}>Reset sign-in</button>
+							<button class="btn btn-sm" onclick={() => openReset(u)}>重置登录方式</button>
 							{#if u.id !== data.user.id}<button
 									class="btn btn-sm btn-danger"
-									onclick={() => remove(u)}>Delete</button
+									onclick={() => remove(u)}>删除</button
 								>{/if}
 						</span>
 					</td>
 				</tr>
 			{:else}
-				<tr><td colspan="7" class="py-6 text-center text-mist-600">Nobody matches.</td></tr>
+				<tr><td colspan="7" class="py-6 text-center text-mist-600">没有符合条件的玩家。</td></tr>
 			{/each}
 		</tbody>
 	</table>
@@ -286,7 +276,7 @@
 
 {#if dialog?.kind === 'edit'}
 	{@const d = dialog}
-	<Modal title={d.user ? `Edit @${d.user.username}` : 'Add user'} onclose={() => (dialog = null)}>
+	<Modal title={d.user ? `编辑 @${d.user.username}` : '添加用户'} onclose={() => (dialog = null)}>
 		<form
 			class="space-y-3"
 			onsubmit={(e) => {
@@ -295,7 +285,7 @@
 			}}
 		>
 			<label class="block"
-				><span class="field-label">Username</span><input
+				><span class="field-label">用户名</span><input
 					class="input"
 					type="text"
 					bind:value={d.username}
@@ -306,7 +296,7 @@
 				/></label
 			>
 			<label class="block"
-				><span class="field-label">Display name</span><input
+				><span class="field-label">显示名称</span><input
 					class="input"
 					type="text"
 					bind:value={d.displayName}
@@ -314,7 +304,7 @@
 			>
 			{#if !d.user}
 				<label class="block"
-					><span class="field-label">Initial password (10+ characters)</span><input
+					><span class="field-label">初始密码（至少 10 位）</span><input
 						class="input"
 						type="password"
 						bind:value={d.password}
@@ -325,23 +315,23 @@
 				>
 			{/if}
 			<label class="block"
-				><span class="field-label">Global role</span>
+				><span class="field-label">全局角色</span>
 				<select class="input" bind:value={d.role}
-					><option value="member">member</option><option value="owner">site owner</option></select
+					><option value="member">成员</option><option value="owner">站点所有者</option></select
 				>
 			</label>
 			<div class="flex flex-wrap gap-5 pt-1 text-[13px]">
 				{#if d.user}<label class="inline-flex items-center gap-2"
-						><input type="checkbox" bind:checked={d.disabled} /> Disabled (signs them out)</label
+						><input type="checkbox" bind:checked={d.disabled} /> 停用（同时退出所有会话）</label
 					>{/if}
 				<label class="inline-flex items-center gap-2"
-					><input type="checkbox" bind:checked={d.mustChange} /> Must change password at next sign-in</label
+					><input type="checkbox" bind:checked={d.mustChange} /> 下次登录时必须修改密码</label
 				>
 			</div>
 			<div class="flex justify-end gap-2 pt-2">
-				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
+				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>取消</button>
 				<button type="submit" class="btn btn-primary" disabled={busy}
-					>{d.user ? 'Save' : 'Create'}</button
+					>{d.user ? '保存' : '创建'}</button
 				>
 			</div>
 		</form>
@@ -360,9 +350,9 @@
 			empty="No servers exist yet."
 		/>
 		{#snippet actions()}
-			<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
+			<button type="button" class="btn" data-close onclick={() => (dialog = null)}>取消</button>
 			<button type="button" class="btn btn-primary" onclick={saveGrants} disabled={busy}
-				>Save access</button
+				>保存权限</button
 			>
 		{/snippet}
 	</Modal>
@@ -377,7 +367,7 @@
 			}}
 		>
 			<label class="block"
-				><span class="field-label">New password (10+ characters)</span><input
+				><span class="field-label">新密码（至少 10 位）</span><input
 					class="input"
 					type="password"
 					bind:value={d.password}
@@ -387,19 +377,19 @@
 				/></label
 			>
 			<label class="inline-flex items-center gap-2 text-[13px]"
-				><input type="checkbox" bind:checked={d.mustChange} /> Require a new password at next sign-in</label
+				><input type="checkbox" bind:checked={d.mustChange} /> 要求下次登录时设置新密码</label
 			>
 			<label class="flex items-start gap-2 text-[13px]"
 				><input type="checkbox" class="mt-0.5" bind:checked={d.resetAuth} />
 				<span
-					>Lost device: also remove their authenticator app, every passkey and their recovery key.
-					Linked Discord and Steam accounts stay.</span
+					>设备丢失：同时移除其验证器、所有通行密钥和恢复密钥。已关联的 Discord 和 Steam
+					账号会保留。</span
 				></label
 			>
-			<p class="note">All of their sessions are signed out. Tell them the password another way.</p>
+			<p class="note">该用户的所有会话已退出。请通过其他渠道告知新密码。</p>
 			<div class="flex justify-end gap-2 pt-2">
-				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>Cancel</button>
-				<button type="submit" class="btn btn-primary" disabled={busy}>Reset</button>
+				<button type="button" class="btn" data-close onclick={() => (dialog = null)}>取消</button>
+				<button type="submit" class="btn btn-primary" disabled={busy}>重置</button>
 			</div>
 		</form>
 	</Modal>

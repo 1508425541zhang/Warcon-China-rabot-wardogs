@@ -52,7 +52,7 @@
 	) {
 		if (
 			opts.confirm &&
-			!(await confirmDialog(opts.confirm, { okLabel: 'Do it', danger: opts.danger }))
+			!(await confirmDialog(opts.confirm, { okLabel: '确认执行', danger: opts.danger }))
 		)
 			return null;
 		try {
@@ -117,7 +117,7 @@
 	});
 	function withSel(fn: (i: number) => unknown) {
 		if (selected < 0 || !rows[selected]) {
-			toast('Select a rotation entry first.', 'err');
+			toast('请先选择一个地图轮换条目。', 'err');
 			return;
 		}
 		return fn(selected);
@@ -200,7 +200,7 @@
 			const r = await rconPost<ConfigResult>(id, 'configApply', { text, revision: doc.revision });
 			if (r.conflict) {
 				toast(
-					`${r.errorMessage || 'The config changed on the server since it was loaded.'} Reloaded; your edits are kept, press Apply again.`,
+					`${r.errorMessage || '加载后服务器上的配置已发生变化。'} 已重新加载；你的修改已保留，请再次点击“应用”。`,
 					'err'
 				);
 				const keep = clone(staged);
@@ -235,7 +235,7 @@
 
 <div class="panel">
 	<div class="mb-3 flex flex-wrap items-center gap-3">
-		<span class="mr-auto label-sm mb-0">Rotation</span>
+		<span class="mr-auto label-sm mb-0">地图轮换</span>
 		{#if rotation || doc}
 			<label class="inline-flex items-center gap-2 text-[13px]">
 				<input
@@ -243,7 +243,7 @@
 					checked={enabledShown}
 					disabled={!canToggle}
 					onchange={(e) => setEnabled(e.currentTarget.checked)}
-				/> Enabled
+				/> 已启用
 			</label>
 			<select
 				class="input w-32"
@@ -251,36 +251,36 @@
 				disabled={!canToggle}
 				onchange={(e) => setMode(e.currentTarget.value)}
 			>
-				<option value="ordered">Ordered</option>
-				<option value="random">Random</option>
+				<option value="ordered">已排序</option>
+				<option value="random">随机</option>
 			</select>
 		{/if}
 	</div>
 	{#if viaDoc}
 		<div class="callout">
-			This server build serves no live rotation editing, so edits here are staged and written to the
-			<a class="link" href={configHref}>config document</a> in one apply. The server rebuilds its
-			rotation at once and uses the new order from the next map change; if it still runs the old
-			order after that, a restart makes it re-read the file.
-			{#if docError}<br />No config document could be read ({docError}), so nothing can be changed
-				from here.{:else if doc && !doc.writable}<br />The config document is read-only on this
-				server, so nothing can be changed from here.{/if}
+			此服务器版本不支持实时编辑地图轮换。这里的修改会先暂存，然后一次性写入
+			<a class="link" href={configHref}>配置文件</a>
+			。服务器会立即重建轮换列表，并从下次切图起使用新顺序；如果之后仍按旧顺序运行，请重启服务器以重新读取配置文件。
+			{#if docError}<br
+				/>无法读取配置文件（{docError}），因此无法在此修改。{:else if doc && !doc.writable}<br
+				/>此服务器的配置文件为只读，无法在此修改。{/if}
 		</div>
 	{:else if !liveToggle}
 		<div class="callout">
-			This server build cannot switch the rotation on or off, or change its mode, live. Set bEnabled
-			and RotationMode in the <a class="link" href={configHref}>config document</a> instead.
+			此版本无法实时开启、关闭地图轮换或修改轮换模式。请在 <a class="link" href={configHref}
+				>配置文件</a
+			> 中设置 bEnabled 和 RotationMode。
 		</div>
 	{/if}
 	<div class="mb-3 flex flex-wrap items-end gap-x-4 gap-y-3">
 		<div class="field-group">
-			<span class="field-label">Selected entry</span>
+			<span class="field-label">选中条目</span>
 			<div class="join join-stack w-full">
 				<button class="btn" disabled={!canEdit} onclick={() => withSel((i) => move(i, 'up'))}
-					>Move up</button
+					>上移</button
 				>
 				<button class="btn" disabled={!canEdit} onclick={() => withSel((i) => move(i, 'down'))}
-					>Move down</button
+					>下移</button
 				>
 				{#if !viaDoc}
 					<button
@@ -288,27 +288,27 @@
 						disabled={!matchControl}
 						onclick={() =>
 							withSel((i) => act('setNextMap', entryToSelection(rows[i]), { after: refresh }))}
-						>Play next</button
+						>设为下一张地图</button
 					>
 				{/if}
 				<button class="btn btn-danger" disabled={!canEdit} onclick={() => withSel(remove)}
-					>Remove</button
+					>移除</button
 				>
 			</div>
 		</div>
 		{#if viaDoc}
 			<div class="join join-stack w-full sm:ml-auto sm:w-auto">
-				<button class="btn" disabled={!dirty || busy} onclick={discard}>Discard</button>
+				<button class="btn" disabled={!dirty || busy} onclick={discard}>放弃</button>
 				<button class="btn btn-primary" disabled={!dirty || !canApply || busy} onclick={applyDoc}
-					>Apply to server{#if dirty}
-						&nbsp;({staged.entries.length} entries){/if}</button
+					>应用到服务器{#if dirty}
+						&nbsp;（{staged.entries.length} 项）{/if}</button
 				>
 			</div>
 		{:else}
 			<button
 				class="btn w-full btn-primary sm:ml-auto sm:w-auto"
 				disabled={!rotationSave || !data.features.rotationSave}
-				onclick={() => act('rotationSave', {})}>Save rotation</button
+				onclick={() => act('rotationSave', {})}>保存地图轮换</button
 			>
 		{/if}
 	</div>
@@ -316,9 +316,9 @@
 		<table>
 			<thead
 				><tr
-					><th class="num">#</th><th>Map</th><th>Game mode &amp; mods</th><th
-						>Time of day &amp; weather</th
-					><th>Control zone</th></tr
+					><th class="num">#</th><th>地图</th><th>游戏模式与模组</th><th>时间与天气</th><th
+						>控制区</th
+					></tr
 				></thead
 			>
 			<tbody>
@@ -339,9 +339,9 @@
 								/>
 								{mapLabel(data.catalog, e.map)}
 							</span>
-							{#if i === nowIndex}<Badge tone="accent" class="ml-1">now</Badge
-								>{:else if i === nextIndex}<Badge tone="info" class="ml-1">next</Badge>{/if}
-							{#if e.denied}<Badge tone="err" class="ml-1">denied</Badge>{/if}
+							{#if i === nowIndex}<Badge tone="accent" class="ml-1">当前</Badge
+								>{:else if i === nextIndex}<Badge tone="info" class="ml-1">下一张</Badge>{/if}
+							{#if e.denied}<Badge tone="err" class="ml-1">已拒绝</Badge>{/if}
 						</td>
 						<td>{expSetLabel(data.catalog, e.experiences)}</td>
 						<td>{lightingLabel(data.catalog, e.lighting)}</td>
@@ -350,7 +350,7 @@
 				{:else}
 					<tr
 						><td colspan="5" class="py-6 text-center text-mist-600"
-							>{rotation || doc ? 'The rotation is empty.' : 'Loading…'}</td
+							>{rotation || doc ? '地图轮换列表为空。' : '加载中…'}</td
 						></tr
 					>
 				{/each}
@@ -359,20 +359,19 @@
 	</div>
 	<p class="note">
 		{#if viaDoc}
-			{#if dirty}Unapplied edits: {staged.entries.length} entries staged against the server's {base
-					.entries.length}. Nothing is sent until you press Apply.{:else}Matches the config document
-				(revision {doc?.revision || '—'}).{/if}
+			{#if dirty}未应用的修改：已暂存 {staged.entries.length} 项，服务器当前有 {base.entries.length} 项。点击“应用”前不会发送。{:else}与配置文件一致（版本
+				{doc?.revision || '—'}）。{/if}
 		{:else}
-			Edits apply to the running server's rotation immediately. Save rotation writes them to the
-			config so a restart keeps them (needs the server launched with -StandaloneConfig).
+			修改会立即应用到正在运行的地图轮换。点击“保存轮换”可写入配置文件，使重启后仍保留；服务器需以
+			-StandaloneConfig 启动。
 		{/if}
 	</p>
 </div>
 
 <div class="mt-4 panel">
-	<span class="label-sm">Add rotation entry</span>
+	<span class="label-sm">添加轮换地图</span>
 	<MapPicker bind:this={picker} serverId={id} catalog={data.catalog} disabled={!canEdit} />
 	<div class="mt-4">
-		<button class="btn btn-primary" disabled={!canEdit} onclick={add}>Add to rotation</button>
+		<button class="btn btn-primary" disabled={!canEdit} onclick={add}>加入地图轮换</button>
 	</div>
 </div>

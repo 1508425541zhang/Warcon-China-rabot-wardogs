@@ -22,7 +22,7 @@
 				{ name: typed.trim() }
 			);
 			done = `${r.counts.kills} kills, ${r.counts.matches} matches and ${r.counts.matchPlayers} match rows deleted.`;
-			toast('Stats purged.', 'ok');
+			toast('统计数据已清除。', 'ok');
 			open = false;
 			typed = '';
 		} catch (err) {
@@ -34,20 +34,17 @@
 </script>
 
 <div class="panel">
-	<span class="label-sm">Stats</span>
+	<span class="label-sm">统计</span>
 	<p class="mb-3 text-[13px] text-mist-400">
-		Purge this server's stats: every recorded kill, match and match row is deleted, for good. Player
-		sessions (who was on, playtime, seed time, first visits) stay. Careers and boards for this
-		server start again from the next match; the match in progress is recorded from the purge on. The
-		purge is audited.
+		清除本服务器统计数据：所有已记录的击杀、对局和对局明细将永久删除。玩家会话（在线记录、游玩时间、种子期时间、首次访问）会保留。本服务器的生涯数据和排行榜从下一场对局开始重新计算；当前对局从清除时刻起记录。本操作会写入审计日志。
 	</p>
 	{#if done}<p class="mb-3 text-[13px] text-ok">{done}</p>{/if}
 	{#if !open}
-		<button type="button" class="btn btn-danger" onclick={() => (open = true)}>Purge stats…</button>
+		<button type="button" class="btn btn-danger" onclick={() => (open = true)}>清除统计…</button>
 	{:else}
 		<div class="flex flex-wrap items-end gap-2">
 			<label class="block">
-				<span class="label-sm">Type the server name to confirm</span>
+				<span class="label-sm">输入服务器名称以确认</span>
 				<input
 					class="input w-72 max-w-full"
 					type="text"
@@ -67,7 +64,7 @@
 				onclick={() => {
 					open = false;
 					typed = '';
-				}}>Cancel</button
+				}}>取消</button
 			>
 		</div>
 	{/if}

@@ -81,7 +81,7 @@
 		if (writable) await writeFeedConfig();
 		else
 			toast(
-				'Token created. The config document cannot be written from here, so set [WDServerFeed] Url and Token on the host by hand.',
+				'令牌已创建。这里无法写入配置文件，请在服务器主机上手动设置 [WDServerFeed] 的 Url 和 Token。',
 				'ok'
 			);
 		await loadFeed();
@@ -89,37 +89,34 @@
 	async function rotateFeed() {
 		if (
 			!(await confirmDialog(
-				'Replace the token? The game keeps posting with the old one until the config is rewritten and the server restarts, and those posts will be refused.',
+				'确定更换令牌？在更新配置并重启游戏服务器前，旧令牌仍会用于发送数据，但请求会被拒绝。',
 				{ okLabel: 'Replace', danger: true }
 			))
 		)
 			return;
-		await feedAction(() => api('POST', feedPath), 'Token replaced. Write it to the config again.');
+		await feedAction(() => api('POST', feedPath), '令牌已更换，请重新写入配置文件。');
 	}
 	async function disableFeed() {
 		if (
 			!(await confirmDialog(
-				'Turn the kill feed off? Kills already stored stay; the game’s posts will be refused until a new token is written to its config.',
-				{ okLabel: 'Turn off', danger: true }
+				'确定关闭击杀事件源？已存储的记录会保留；在配置新令牌前，游戏服务器发送的数据会被拒绝。',
+				{ okLabel: '关闭', danger: true }
 			))
 		)
 			return;
-		await feedAction(() => api('DELETE', feedPath), 'Kill feed turned off.');
+		await feedAction(() => api('DELETE', feedPath), '击杀事件源已关闭。');
 	}
 	async function writeFeedConfig() {
 		if (!feed?.token || !doc) return;
 		if (
 			dirty &&
-			!(await confirmDialog(
-				'You have other unapplied config edits. Apply them to the server together with the kill feed settings?'
-			))
+			!(await confirmDialog('还有其他未应用的配置修改。是否与击杀事件源设置一起应用到服务器？'))
 		)
 			return;
 		text = setScalarInText(text, 'WDServerFeed', 'Url', feed.url);
 		text = setScalarInText(text, 'WDServerFeed', 'Token', feed.token);
 		await runConfig('configApply');
-		if (!failure)
-			toast('Kill feed configured. The game starts posting after its next restart.', 'ok');
+		if (!failure) toast('击杀事件源已配置，游戏服务器下次重启后开始发送数据。', 'ok');
 	}
 	async function copyFeed(value: string, what: string) {
 		try {
@@ -131,7 +128,7 @@
 	}
 	const feedAge = (iso: string) => {
 		const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
-		return s < 90 ? `${s}s ago` : s < 5400 ? `${Math.round(s / 60)} min ago` : fmtTime(iso);
+		return s < 90 ? `${s} 秒前` : s < 5400 ? `${Math.round(s / 60)} 分钟前` : fmtTime(iso);
 	};
 	$effect(() => {
 		void loadFeed();
@@ -156,8 +153,7 @@
 		}
 	}
 	async function reload() {
-		if (dirty && !(await confirmDialog('Reload from the server and drop your unapplied edits?')))
-			return;
+		if (dirty && !(await confirmDialog('确定从服务器重新加载并放弃尚未应用的修改？'))) return;
 		await loadDoc();
 	}
 	function discard() {
@@ -168,9 +164,9 @@
 	async function copyText() {
 		try {
 			await navigator.clipboard.writeText(text);
-			toast('Config copied to the clipboard.', 'ok');
+			toast('配置已复制到剪贴板。', 'ok');
 		} catch {
-			toast('Could not copy; select the raw file and copy it by hand.', 'err');
+			toast('复制失败，请选中原始配置文件手动复制。', 'err');
 		}
 	}
 	function download() {
@@ -207,7 +203,7 @@
 	async function saveTick() {
 		try {
 			const r = await rconPost<{ message?: string }>(id, 'settings', { scoreTick: tick });
-			toast(r?.message || 'Score tick saved.', 'ok');
+			toast(r?.message || '计分周期已保存。', 'ok');
 		} catch (err) {
 			toast(errorMessage(err), 'err');
 		}
@@ -220,9 +216,7 @@
 		if (readOnly) return;
 		if (
 			dirty &&
-			!(await confirmDialog(
-				'You have other unapplied config edits. Apply them to the server together with the sponsor image?'
-			))
+			!(await confirmDialog('还有其他未应用的配置修改。是否与赞助图片一起应用到服务器？'))
 		)
 			return;
 		text = setScalarInText(text, S_SESSION, 'ServerImageURL', sponsor.trim());
@@ -244,7 +238,7 @@
 				action === 'configApply' ? { text, revision: doc?.revision, force } : { text }
 			);
 			if (r.conflict) {
-				failure = `${r.errorMessage || 'The config changed on the server since you loaded it.'} Reload to see the current version, or tick Force to overwrite.`;
+				failure = `${r.errorMessage || '加载后服务器上的配置已发生变化。'} Reload to see the current version, or tick Force to overwrite.`;
 				return;
 			}
 			if (!r.ok) {
@@ -259,7 +253,7 @@
 				// Re-read so the change marks and revision reflect what the server actually kept.
 				await loadDoc({ keepResult: true });
 			} else {
-				toast('Config is valid.', 'ok');
+				toast('配置有效。', 'ok');
 			}
 		} catch (err) {
 			failure = errorMessage(err);
@@ -285,7 +279,7 @@
 
 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 	<div class="panel">
-		<span class="label-sm">Score tick (KOTH ScorePeriod)</span>
+		<span class="label-sm">得分周期（KOTH ScorePeriod）</span>
 		<div class="flex items-center gap-3">
 			<span class="text-mist-400">{tickMin}s</span>
 			<input
@@ -303,13 +297,13 @@
 		</div>
 		<TickReward seconds={tickKnown ? tick : null} class="mt-2" />
 		<p class="note">
-			{#if data.features.liveSettings}Live route (PATCH /v1/settings).{:else}This server build has
-				no live settings route; set ScorePeriod in the document below instead.{/if}
-			Faster ticks reduce the cash multiplier; the game clamps to its allowed range.
+			{#if data.features.liveSettings}通过实时接口（PATCH /v1/settings）修改。{:else}当前服务器版本不支持实时设置接口，请在下方配置文件中修改
+				ScorePeriod。{/if}
+			得分周期越短，现金倍率越低；游戏会把数值限制在允许范围内。
 		</p>
 	</div>
 	<div class="panel">
-		<span class="label-sm">Sponsor image</span>
+		<span class="label-sm">赞助图片</span>
 		<form
 			class="join w-full"
 			onsubmit={(e) => {
@@ -324,7 +318,7 @@
 				bind:value={sponsor}
 				disabled={readOnly}
 			/>
-			<button class="btn btn-primary" type="submit" disabled={readOnly || busy}>Apply</button>
+			<button class="btn btn-primary" type="submit" disabled={readOnly || busy}>应用</button>
 		</form>
 		{#if sponsorShown}<img
 				src={sponsorShown}
@@ -333,41 +327,39 @@
 				referrerpolicy="no-referrer"
 			/>{/if}
 		<p class="note">
-			The banner beside this server in the browser. Direct link to a 1024×256 PNG/JPEG on the
-			server's image allow-list (catbox.moe, imgbb.com, postimg.cc). Written to the config document
-			as ServerImageURL and applied like any other setting; the server fetches and checks the image
-			before advertising it, so the result reads as pending until that finishes.
-			{#if docError}No config document on this server, so the banner cannot be changed from here.{:else if doc && !doc.writable}The
-				config document is read-only, so the banner cannot be changed from here.{/if}
+			服务器浏览器中显示的横幅。请填写服务器图片白名单域名（catbox.moe、imgbb.com、postimg.cc）上的
+			1024×256 PNG/JPEG 直链。保存时写入配置文件的
+			ServerImageURL；服务器下载并验证图片后才会对外展示，因此在验证完成前会显示为待生效。
+			{#if docError}该服务器没有配置文件，无法在此更换横幅。{:else if doc && !doc.writable}配置文件为只读状态，无法在此更换横幅。{/if}
 		</p>
 	</div>
 </div>
 
 <div class="mt-4 panel">
 	<div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-		<span class="label-sm mb-0">Kill feed</span>
+		<span class="label-sm mb-0">击杀事件</span>
 		{#if feed}
 			{#if feed.configured}
-				<span class="badge bg-ok/15 text-ok">on</span>
+				<span class="badge bg-ok/15 text-ok">开启</span>
 				<span class="text-[12.5px] text-mist-600"
-					>{feed.feedAt ? `last batch ${feedAge(feed.feedAt)}` : 'no batch received yet'}</span
+					>{feed.feedAt ? `last batch ${feedAge(feed.feedAt)}` : '尚未收到任何批次'}</span
 				>
 			{:else}
-				<span class="badge">off</span>
+				<span class="badge">关闭</span>
 			{/if}
 		{/if}
 		{#if data.server.manager && feed}
 			<span class="ml-auto inline-flex flex-wrap gap-1.5">
 				{#if feed.configured}
-					<button class="btn btn-sm" disabled={feedBusy} onclick={rotateFeed}>Replace token</button>
+					<button class="btn btn-sm" disabled={feedBusy} onclick={rotateFeed}>更换令牌</button>
 					<button class="btn btn-sm btn-danger" disabled={feedBusy} onclick={disableFeed}
-						>Turn off</button
+						>关闭</button
 					>
 				{:else}
 					<button
 						class="btn btn-sm btn-primary"
 						disabled={feedBusy || busy || !doc}
-						onclick={configureFeed}>Configure</button
+						onclick={configureFeed}>配置</button
 					>
 				{/if}
 			</span>
@@ -375,83 +367,80 @@
 	</div>
 	{#if feed?.configured && feed.token}
 		<div class="grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr]">
-			<span class="text-[13px] text-mist-400 md:pt-1.5">Url</span>
+			<span class="text-[13px] text-mist-400 md:pt-1.5">地址</span>
 			<div class="flex items-center gap-2">
 				<code
 					class="min-w-0 grow truncate rounded-ctl border border-black bg-ink-950 px-2.5 py-1.5 font-mono text-[12.5px]"
 					>{feed.url}</code
 				>
-				<button class="btn btn-sm" onclick={() => copyFeed(feed!.url, 'URL')}>Copy</button>
-				<span class="text-[12.5px] text-mist-600">the game adds /api/ingest/events itself</span>
+				<button class="btn btn-sm" onclick={() => copyFeed(feed!.url, 'URL')}>复制</button>
+				<span class="text-[12.5px] text-mist-600">游戏会自行添加 /api/ingest/events</span>
 			</div>
-			<span class="text-[13px] text-mist-400 md:pt-1.5">Token</span>
+			<span class="text-[13px] text-mist-400 md:pt-1.5">令牌</span>
 			<div class="flex items-center gap-2">
 				<code
 					class="min-w-0 grow truncate rounded-ctl border border-black bg-ink-950 px-2.5 py-1.5 font-mono text-[12.5px]"
 					>{feed.token}</code
 				>
-				<button class="btn btn-sm" onclick={() => copyFeed(feed!.token, 'Token')}>Copy</button>
+				<button class="btn btn-sm" onclick={() => copyFeed(feed!.token, 'Token')}>复制</button>
 			</div>
 		</div>
 		<div class="mt-3 flex flex-wrap items-center gap-2">
 			<button class="btn btn-sm" disabled={readOnly || busy} onclick={writeFeedConfig}
-				>Write to config again</button
+				>再次写入配置</button
 			>
 			<span class="text-[12.5px] text-mist-600"
-				>the two keys are in the document below; write them again after replacing the token, or if
-				the file was edited on the host</span
+				>下方配置文件已包含两个必需键；更换令牌或在主机上直接编辑文件后，请重新写入。</span
 			>
 		</div>
 	{/if}
 	<p class="note">
-		With <span class="chip">[WDServerFeed]</span> set, the game posts every kill (killer, victim,
-		weapon, distance, headshot) to Warcon a second or two after it happens: the kill feed on the
-		Overview tab, combat stats on Analytics and player dossiers, and the team-kill trigger.
-		{#if feed && !feed.configured}Configure writes the endpoint and a token into the config
-			document; the game reads them at its next restart (its own 24-hour one, or a manual restart).{:else if feed && !data.server.manager}An
-			owner of the organisation holds the token.{/if}
+		与 <span class="chip">[WDServerFeed]</span> 配置完成后，游戏会在击杀发生后一两秒向 Warcon
+		上报击杀者、受害者、武器、距离和爆头信息，用于概览页的击杀事件、分析与玩家档案中的战斗统计，以及误杀规则。
+		{#if feed && !feed.configured}“配置”会把接收地址和令牌写入配置文件；游戏在下次重启时读取（可等待自身每
+			24 小时的重启或手动重启）。{:else if feed && !data.server.manager}令牌由组织所有者保管。{/if}
 	</p>
 </div>
 
 <div class="mt-4 panel">
 	<div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-		<span class="label-sm mb-0">Config document (ServerSettings.ini)</span>
+		<span class="label-sm mb-0">配置文件（ServerSettings.ini）</span>
 		<span class="text-[12.5px] text-mist-400"
-			>Revision <span class="font-mono">{doc?.revision || (doc ? '(none)' : '—')}</span>{#if dirty}
-				· <span class="text-accent">unapplied edits</span>{/if}</span
+			>修订版 <span class="font-mono">{doc?.revision || (doc ? '(none)' : '—')}</span>{#if dirty}
+				· <span class="text-accent">未应用的修改</span>{/if}</span
 		>
 		<span class="join ml-auto">
 			<button
 				class="btn btn-sm {mode === 'form' ? 'btn-primary' : ''}"
-				onclick={() => (mode = 'form')}>Form</button
+				onclick={() => (mode = 'form')}>表单</button
 			>
 			<button
 				class="btn btn-sm {mode === 'raw' ? 'btn-primary' : ''}"
-				onclick={() => (mode = 'raw')}>Raw file</button
+				onclick={() => (mode = 'raw')}>原始文件</button
 			>
 		</span>
 	</div>
 	<div class="mb-4 flex flex-wrap items-center gap-2">
 		<div class="join">
-			<button class="btn btn-sm" onclick={reload}>Reload</button>
-			<button class="btn btn-sm" disabled={!dirty} onclick={discard}>Discard edits</button>
+			<button class="btn btn-sm" onclick={reload}>重新加载</button>
+			<button class="btn btn-sm" disabled={!dirty} onclick={discard}>放弃修改</button>
 			<button
 				class="btn btn-sm"
 				disabled={!admin || !doc || busy}
-				onclick={() => runConfig('configValidate')}>Validate</button
+				onclick={() => runConfig('configValidate')}>验证</button
 			>
 			<button
 				class="btn btn-sm btn-primary"
 				disabled={readOnly || busy}
-				onclick={() => runConfig('configApply')}>Apply to server</button
+				onclick={() => runConfig('configApply')}>应用到服务器</button
 			>
 		</div>
 		<div class="join">
-			<button class="btn btn-sm" disabled={!doc} onclick={copyText}>Copy</button>
-			<button class="btn btn-sm" disabled={!doc} onclick={download}>Download .ini</button>
+			<button class="btn btn-sm" disabled={!doc} onclick={copyText}>复制</button>
+			<button class="btn btn-sm" disabled={!doc} onclick={download}>下载 .ini</button>
 		</div>
 		<label class="inline-flex items-center gap-2 text-[12.5px]"
-			><input type="checkbox" bind:checked={force} /> Force (ignore revision conflict)</label
+			><input type="checkbox" bind:checked={force} /> 强制保存（忽略版本冲突）</label
 		>
 	</div>
 	{#if failure}
@@ -479,9 +468,8 @@
 			liveRoutes={data.features.liveSettings}
 		/>
 		<p class="note mt-4">
-			Fields edit the file one line at a time, so keys the form does not know (rotation entries, ban
-			and reserved lists, the RCON block) and any comments stay exactly as they are. Switch to Raw
-			file to see or edit the whole document.
+			表单按行修改配置文件，未列出的键（地图轮换、封禁与预留位名单、RCON
+			区块）及注释都会原样保留。切换到“原始文件”可查看或编辑完整内容。
 		</p>
 	{:else}
 		<textarea
@@ -494,18 +482,16 @@
 
 	{#if docError}
 		<div class="mt-3 callout mb-0">
-			No config document on this server ({docError}). Older WDRCON builds only expose the live
-			settings above.
+			该服务器没有配置文件（{docError}）。较旧的 WDRCON 版本只提供上方的实时设置。
 		</div>
 	{:else if doc && !doc.writable}
 		<div class="mt-3 callout mb-0">
-			This server reports its config document as read-only (no -StandaloneConfig). Edits here cannot
-			be applied.
+			该服务器报告配置文件为只读（未启用 -StandaloneConfig），这里的修改无法应用。
 		</div>
 	{/if}
 	{#if pinned.length}
 		<div class="mt-3 callout mb-0">
-			Pinned by this server's launch arguments and shown read-only:
+			以下值由服务器启动参数固定，只能查看：
 			<ul class="mt-1 list-disc pl-5">
 				{#each pinned as k (k.section + '|' + k.key)}
 					<li>
@@ -534,14 +520,14 @@
 			{/each}
 			{#each result.shadowed as s (s.section + s.key)}
 				<div class="flex flex-wrap items-center gap-2 text-[13px]">
-					<span class="pip {PIP.shadowed}">patch override</span><span class="font-mono"
+					<span class="pip {PIP.shadowed}">覆盖修改</span><span class="font-mono"
 						>{s.section} {s.key}</span
-					><span class="text-mist-400">declared {s.declared}, effective {s.effective}</span>
+					><span class="text-mist-400">声明值 {s.declared}，生效值 {s.effective}</span>
 				</div>
 			{/each}
 			{#each result.warnings as w, i (i)}
 				<div class="flex flex-wrap items-center gap-2 text-[13px]">
-					<span class="pip {PIP.pending}">warning</span><span
+					<span class="pip {PIP.pending}">警告</span><span
 						>{typeof w === 'object' && w && 'message' in w
 							? String((w as { message: unknown }).message)
 							: String(w)}</span
@@ -554,8 +540,7 @@
 		</div>
 	{/if}
 	<p class="note">
-		Apply sends the whole file back; the server validates it as one unit and reports per section
-		whether it is live now, next match, or needs a restart. Requires the server launched with
-		-StandaloneConfig=&lt;path&gt;; otherwise the document is read-only here.
+		“应用”会提交完整文件。服务器会整体验证，并按区块告知修改是立即生效、下场比赛生效，还是需要重启。服务器必须使用
+		-StandaloneConfig=&lt;path&gt; 启动，否则这里的配置文件为只读。
 	</p>
 </div>

@@ -2,7 +2,7 @@
 import type { Tone } from './components/Badge.svelte';
 import type { ListEntryState, ListKind, ListSyncSummary } from './types';
 
-export const KIND_TITLE: Record<ListKind, string> = { ban: 'Ban list', reserve: 'Reserved slots' };
+export const KIND_TITLE: Record<ListKind, string> = { ban: '封禁名单', reserve: '预留位' };
 
 export const STATE_TONE: Record<ListEntryState, Tone> = {
 	applied: 'ok',
@@ -12,28 +12,28 @@ export const STATE_TONE: Record<ListEntryState, Tone> = {
 };
 
 export const STATE_TEXT: Record<ListEntryState, string> = {
-	applied: 'applied by the panel',
-	failed: 'could not be applied',
-	pending: 'waiting for the next sync',
-	local: 'already on the server, added outside the panel'
+	applied: '面板已应用',
+	failed: '应用失败',
+	pending: '等待下次同步',
+	local: '服务器上已有，非面板添加'
 };
 
 export const REASON_PRESETS = [
-	'Cheating',
-	'Team killing',
-	'Toxic behaviour',
-	'Racism / hate speech',
-	'Ban evasion',
-	'Griefing'
+	'作弊',
+	'误杀队友',
+	'恶意言行',
+	'种族歧视／仇恨言论',
+	'规避封禁',
+	'恶意破坏'
 ];
 
 /** value = days; 0 = permanent; 'custom' = a datetime-local input */
 export const EXPIRY_OPTIONS = [
-	['0', 'Permanent'],
-	['1', '1 day'],
-	['7', '7 days'],
-	['30', '30 days'],
-	['custom', 'Until a date…']
+	['0', '永久'],
+	['1', '1 天'],
+	['7', '7 天'],
+	['30', '30 天'],
+	['custom', '指定日期…']
 ] as const;
 
 /** The ISO timestamp an expiry choice stands for, or null for permanent. */
@@ -46,16 +46,15 @@ export function expiryIso(choice: string, custom: string): string | null {
 /** One line for a toast: where a list change landed. */
 export function describeSync(sync: ListSyncSummary, done: string): string {
 	const s = sync.servers;
-	if (!s.length) return `${done} Servers pick it up on the next poll.`;
+	const action = done.replace(/[。.!！]+$/, '');
+	if (!s.length) return `${action}；服务器会在下次轮询时同步。`;
 	const applied = s.filter((x) => x.ok && !x.failed).length;
-	const parts = [
-		`${done} Applied on ${applied} of ${s.length} server${s.length === 1 ? '' : 's'}.`
-	];
+	const parts = [`${action}；已在 ${applied} / ${s.length} 台服务器应用。`];
 	const pending = s.filter((x) => x.pending).map((x) => x.serverName);
 	const down = s.filter((x) => !x.ok && !x.pending).map((x) => x.serverName);
 	const failed = s.filter((x) => x.ok && x.failed).map((x) => x.serverName);
-	if (pending.length) parts.push(`Still syncing: ${pending.join(', ')}.`);
-	if (down.length) parts.push(`Unreachable, will retry: ${down.join(', ')}.`);
-	if (failed.length) parts.push(`Refused by: ${failed.join(', ')} (see the list page).`);
+	if (pending.length) parts.push(`仍在同步：${pending.join('、')}。`);
+	if (down.length) parts.push(`暂时无法连接，稍后重试：${down.join('、')}。`);
+	if (failed.length) parts.push(`服务器拒绝：${failed.join('、')}（请查看名单页面）。`);
 	return parts.join(' ');
 }

@@ -51,22 +51,19 @@
 
 <svelte:head>
 	<title>{mapName(view.match.map)} · {data.heading.name} · {data.appName}</title>
-	<meta name="description" content="A match on {data.heading.name}: {mapName(view.match.map)}." />
+	<meta name="description" content="{data.heading.name} 的对局：{mapName(view.match.map)}。" />
 </svelte:head>
 
 <div class="rise">
-	<a href="{base}/matches" class="caps text-mist-400 hover:text-mist-100">← Matches</a>
+	<a href="{base}/matches" class="caps text-mist-400 hover:text-mist-100">← 比赛记录</a>
 	<div class="mt-3 panel">
 		<MatchPanel {view} hrefFor={(steamId) => `${base}/players/${steamId}`} />
 		{#if view.kills}
-			<span class="mt-4 field-label">Kill feed · {view.kills}</span>
+			<span class="mt-4 field-label">击杀事件 · {view.kills}</span>
 			<div class="table-wrap">
 				<table>
 					<thead>
-						<tr
-							><th>Clock</th><th>Killer</th><th>Victim</th><th>With</th><th class="num">Range</th
-							></tr
-						>
+						<tr><th>时钟</th><th>击杀者</th><th>受害者</th><th>与</th><th class="num">范围</th></tr>
 					</thead>
 					<tbody>
 						{#each feed as k (k.eventId)}
@@ -81,9 +78,9 @@
 								</td>
 								<td>
 									<span style="color:{colorOf(k.victim.faction)}">{k.victim.name}</span>
-									{#if k.teamKill}<span class="chip">team kill</span>{/if}
-									{#if k.suicide}<span class="chip">suicide</span>{/if}
-									{#if k.headshot}<span class="chip">headshot</span>{/if}
+									{#if k.teamKill}<span class="chip">误杀队友</span>{/if}
+									{#if k.suicide}<span class="chip">自杀</span>{/if}
+									{#if k.headshot}<span class="chip">爆头</span>{/if}
 								</td>
 								<td class="text-mist-400">{causeText(k)}</td>
 								<td class="num text-mist-400"
@@ -93,7 +90,7 @@
 						{:else}
 							<tr
 								><td colspan="5" class="py-4 text-center text-mist-600"
-									>No kills of this match were received.</td
+									>尚未收到本场比赛的击杀记录。</td
 								></tr
 							>
 						{/each}
@@ -102,7 +99,7 @@
 			</div>
 			{#if more}
 				<button class="mt-3 btn" onclick={older} disabled={loading}>
-					{loading ? 'Loading…' : 'Load older kills'}
+					{loading ? 'Loading…' : '加载更早的击杀记录'}
 				</button>
 			{/if}
 		{/if}

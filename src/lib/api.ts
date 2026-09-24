@@ -1,5 +1,6 @@
 // Browser-side client for the JSON API. Every mutation carries the CSRF header.
 import { goto } from '$app/navigation';
+import { uiMessageZh } from './ui-message-zh';
 
 export class ApiError extends Error {
 	constructor(
@@ -26,7 +27,7 @@ export async function api<T = any>(method: string, path: string, body?: unknown)
 			cache: 'no-store'
 		});
 	} catch {
-		throw new ApiError('Could not reach the panel. Check your connection.', 0, 'network');
+		throw new ApiError('无法连接管理面板，请检查网络。', 0, 'network');
 	}
 	const text = await res.text();
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,7 +44,7 @@ export async function api<T = any>(method: string, path: string, body?: unknown)
 	if (data?.error?.code === 'enrolment_required') void goto('/account?enrol=1');
 	if (!res.ok || (data && data.ok === false)) {
 		throw new ApiError(
-			data?.error?.message || `Request failed (${res.status}).`,
+			data?.error?.message || `请求失败（${res.status}）。`,
 			res.status,
 			data?.error?.code,
 			data
@@ -75,4 +76,4 @@ export const rconPost = <T = any>(serverId: string, action: string, params?: obj
 	api<{ result: T }>('POST', rconPath(serverId, action), params || {}).then((d) => d.result);
 
 export const errorMessage = (err: unknown): string =>
-	err instanceof Error ? err.message : String(err);
+	uiMessageZh(err instanceof Error ? err.message : String(err));

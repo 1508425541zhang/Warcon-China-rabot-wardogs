@@ -15,6 +15,7 @@
 	import { TableSort } from '$lib/table.svelte';
 	import type { DossierView, ListSyncServer, ListSyncSummary } from '$lib/types';
 	import type { PageProps } from './$types';
+	import { integrityPartText, legacyRiskReasonZh } from '$lib/integrity-display';
 
 	let { data }: PageProps = $props();
 	let d = $derived<DossierView>(data.dossier);
@@ -57,10 +58,10 @@
 	async function orgRemove(kind: 'ban' | 'reserve') {
 		const what =
 			kind === 'ban'
-				? `Unban ${d.name} across ${data.server.orgName}? The panel lifts the ban on every server it applied it to.`
-				: `Withdraw ${d.name}'s reserved slot across ${data.server.orgName}?`;
+				? `在 ${data.server.orgName} 的所有服务器解除 ${d.name} 的封禁？面板会撤销此前应用的封禁。`
+				: `在 ${data.server.orgName} 的所有服务器撤回 ${d.name} 的预留位？`;
 		if (
-			!(await confirmDialog(what, { okLabel: kind === 'ban' ? 'Unban' : 'Withdraw', danger: true }))
+			!(await confirmDialog(what, { okLabel: kind === 'ban' ? '解除封禁' : '撤回', danger: true }))
 		)
 			return;
 		await run(async () => {
@@ -68,7 +69,7 @@
 				'DELETE',
 				`${orgListsPath}/${kind}/entries/${d.steamId}`
 			);
-			toast(describeSync(r.sync, kind === 'ban' ? 'Unbanned.' : 'Slot withdrawn.'), 'ok', 8000);
+			toast(describeSync(r.sync, kind === 'ban' ? '已解除封禁。' : '已撤回预留位。'), 'ok', 8000);
 		}, '');
 	}
 	const orgReserve = () =>
@@ -77,7 +78,7 @@
 				steamId: d.steamId,
 				reason: d.name
 			});
-			toast(describeSync(r.sync, 'Reserved slot handed out.'), 'ok', 8000);
+			toast(describeSync(r.sync, '预留位已分配。'), 'ok', 8000);
 		}, '');
 	let note = $state('');
 	let watchReason = $state('');
@@ -105,31 +106,31 @@
 		void run(async () => {
 			await api('POST', `${base}/notes`, { body });
 			note = '';
-		}, 'Note added.');
+		}, '备注已添加。');
 	};
 	async function deleteNote(noteId: number) {
-		if (!(await confirmDialog('Delete this note?', { okLabel: 'Delete', danger: true }))) return;
-		await run(() => api('DELETE', `${base}/notes/${noteId}`), 'Note deleted.');
+		if (!(await confirmDialog('删除这条备注？', { okLabel: '删除', danger: true }))) return;
+		await run(() => api('DELETE', `${base}/notes/${noteId}`), '备注已删除。');
 	}
 	const setWatch = (watched: boolean) =>
 		run(
 			() => api('PUT', `${base}/watch`, { watched, reason: watchReason.trim() }),
-			watched ? 'On the watchlist.' : 'Removed from the watchlist.'
+			watched ? '已加入关注名单。' : '已从关注名单移除。'
 		);
-	const refreshSteam = () => run(() => api('POST', `${base}/steam`), 'Steam data refreshed.');
+	const refreshSteam = () => run(() => api('POST', `${base}/steam`), 'Steam 数据已刷新。');
 
 	async function act(action: string, params: object, confirm?: string) {
-		if (confirm && !(await confirmDialog(confirm, { okLabel: 'Do it', danger: true }))) return;
+		if (confirm && !(await confirmDialog(confirm, { okLabel: '确认执行', danger: true }))) return;
 		await run(async () => {
 			const r = await rconPost<{ message?: string }>(id, action, params);
-			toast(r?.message || `${action} done.`, 'ok');
+			toast(r?.message || '操作已完成。', 'ok');
 		}, '');
 	}
 
 	// A ban goes on the server's own list, so the panel keeps the reason and who placed it.
 	async function banHere() {
-		const sure = await confirmDialog(`Ban ${d.name} (${d.steamId}) on ${data.server.name}?`, {
-			okLabel: 'Do it',
+		const sure = await confirmDialog(`在 ${data.server.name} 封禁 ${d.name}（${d.steamId}）？`, {
+			okLabel: '确认封禁',
 			danger: true
 		});
 		if (!sure) return;
@@ -139,12 +140,12 @@
 				`/api/servers/${encodeURIComponent(id)}/lists/ban/entries`,
 				{ steamId: d.steamId, reason: reason.trim() }
 			);
-			toast(describeSync({ servers: [res.sync] }, `Banned ${d.name}.`), 'ok', 8000);
+			toast(describeSync({ servers: [res.sync] }, `已封禁 ${d.name}。`), 'ok', 8000);
 		}, '');
 	}
 
 	const SCOREBOARD_NOTE = '游戏计分板数据，按玩家各场次汇总。';
-	const minutes = (m: number) => (m >= 90 ? `${(m / 60).toFixed(1)} h` : `${m} min`);
+	const minutes = (m: number) => (m >= 90 ? `${(m / 60).toFixed(1)} 小时` : `${m} 分钟`);
 	const kd = (k: number, dd: number) => (dd ? (k / dd).toFixed(2) : k ? `${k}.00` : '—');
 	const integrityLevelName = (value: string | null) =>
 		value
@@ -189,16 +190,17 @@
 				)
 			: [];
 	const RISK_TONE = { low: 'ok', medium: 'warn', high: 'err' } as const;
+	const legacyLevelName = { low: '低', medium: '中', high: '高' } as const;
 	const ACTION_LABEL: Record<string, string> = {
-		'rcon.kick': 'kick',
-		'rcon.ban': 'ban',
-		'rcon.unban': 'unban',
-		'rcon.kill': 'kill',
-		'rcon.whisper': 'whisper',
-		'rcon.changeTeam': 'move',
-		'player.note': 'note',
-		'player.note.delete': 'note deleted',
-		'player.watch': 'watchlist'
+		'rcon.kick': '踢出',
+		'rcon.ban': '封禁',
+		'rcon.unban': '解除封禁',
+		'rcon.kill': '击杀',
+		'rcon.whisper': '私聊',
+		'rcon.changeTeam': '换队',
+		'player.note': '备注',
+		'player.note.delete': '删除备注',
+		'player.watch': '观察名单'
 	};
 </script>
 
@@ -219,7 +221,9 @@
 			{#if d.online}<Badge tone="ok">在线 · {onThisServer ? '本服务器' : d.online.serverName}</Badge
 				>{/if}
 			{#if d.watch.watched}<Badge tone="warn">观察名单</Badge>{/if}
-			<Badge tone={RISK_TONE[d.risk.level]}>旧版风险 {d.risk.level} · {d.risk.score}</Badge>
+			<Badge tone={RISK_TONE[d.risk.level]}
+				>旧版风险 {legacyLevelName[d.risk.level]} · {d.risk.score}</Badge
+			>
 		</h2>
 		<div class="mt-1 flex flex-wrap items-center gap-2 text-[12.5px] text-mist-400">
 			<span class="font-mono">{d.steamId}</span>
@@ -248,7 +252,7 @@
 {#if data.integrity}
 	<section class="mb-4 panel p-4">
 		<div class="flex flex-wrap items-center justify-between gap-2">
-			<h3 class="text-base font-semibold text-white">社区完整性 · Integrity</h3>
+			<h3 class="text-base font-semibold text-white">社区风控</h3>
 			<a class="text-sm text-accent" href="/server/{id}/integrity">查看风控总览 →</a>
 		</div>
 		<p class="mt-1 text-xs text-mist-400">
@@ -280,7 +284,7 @@
 				<ul class="mt-2 space-y-1 text-xs text-mist-300">
 					{#each integrityParts(data.integrity.breakdown) as part (part.code)}<li>
 							+{part.points}
-							{part.detail}
+							{integrityPartText(part.code, part.detail)}
 						</li>{/each}
 				</ul>
 			</details>{/if}
@@ -291,32 +295,28 @@
 	<div class="space-y-4">
 		{#if d.bannedOn.length}
 			<div class="callout border-l-danger">
-				<b
-					>Banned on {d.bannedOn.length} of {d.orgServerCount} server{d.orgServerCount === 1
-						? ''
-						: 's'} in this organisation.</b
-				>
+				<b>该玩家已在本组织 {d.bannedOn.length} / {d.orgServerCount} 台服务器被封禁。</b>
 				{#each d.bannedOn as b (b.serverId)}
 					<div>
 						{b.serverName}{#if b.reason}: {b.reason}{/if}{#if b.bannedBy}
-							<span class="text-mist-400">(by {b.bannedBy})</span>{/if}
+							<span class="text-mist-400">（操作人：{b.bannedBy}）</span>{/if}
 					</div>
 				{/each}
 			</div>
 		{/if}
 
 		<div class="panel">
-			<span class="label-sm">By server</span>
+			<span class="label-sm">按服务器</span>
 			<div class="table-wrap">
 				<table>
 					<thead>
 						<tr>
-							<SortHeader sort={serverSort} key="server">Server</SortHeader>
-							<SortHeader sort={serverSort} key="sessions" num>Sessions</SortHeader>
-							<SortHeader sort={serverSort} key="minutes" num>Playtime</SortHeader>
+							<SortHeader sort={serverSort} key="server">服务器</SortHeader>
+							<SortHeader sort={serverSort} key="sessions" num>场次</SortHeader>
+							<SortHeader sort={serverSort} key="minutes" num>游戏时间</SortHeader>
 							<SortHeader sort={serverSort} key="kills" num>K</SortHeader>
 							<SortHeader sort={serverSort} key="deaths" num>D</SortHeader>
-							<SortHeader sort={serverSort} key="lastSeen">Last seen</SortHeader>
+							<SortHeader sort={serverSort} key="lastSeen">最近出现</SortHeader>
 						</tr>
 					</thead>
 					<tbody>
@@ -335,7 +335,7 @@
 						{:else}
 							<tr
 								><td colspan="6" class="py-6 text-center text-mist-600"
-									>Never seen on a server you can access.</td
+									>在你有权访问的服务器上未见过该玩家。</td
 								></tr
 							>
 						{/each}
@@ -345,20 +345,20 @@
 		</div>
 
 		<div class="panel">
-			<span class="label-sm">Recent sessions</span>
+			<span class="label-sm">近期场次</span>
 			<div class="max-h-[420px] table-wrap">
 				<table>
 					<thead>
 						<tr>
-							<SortHeader sort={sessionSort} key="joined">Joined</SortHeader>
-							<SortHeader sort={sessionSort} key="server">Server</SortHeader>
-							<SortHeader sort={sessionSort} key="name">Name</SortHeader>
-							<SortHeader sort={sessionSort} key="faction">Faction</SortHeader>
-							<SortHeader sort={sessionSort} key="minutes" num>Length</SortHeader>
-							<SortHeader sort={sessionSort} key="seeded" num>Seeded</SortHeader>
+							<SortHeader sort={sessionSort} key="joined">加入时间</SortHeader>
+							<SortHeader sort={sessionSort} key="server">服务器</SortHeader>
+							<SortHeader sort={sessionSort} key="name">名称</SortHeader>
+							<SortHeader sort={sessionSort} key="faction">阵营</SortHeader>
+							<SortHeader sort={sessionSort} key="minutes" num>时长</SortHeader>
+							<SortHeader sort={sessionSort} key="seeded" num>种子服时间</SortHeader>
 							<SortHeader sort={sessionSort} key="kills" num>K</SortHeader>
 							<SortHeader sort={sessionSort} key="deaths" num>D</SortHeader>
-							<SortHeader sort={sessionSort} key="cash" num>Cash</SortHeader>
+							<SortHeader sort={sessionSort} key="cash" num>现金</SortHeader>
 						</tr>
 					</thead>
 					<tbody>
@@ -369,7 +369,7 @@
 								<td>{s.name}</td>
 								<td>{s.faction || '—'}</td>
 								<td class="num"
-									>{minutes(s.minutes)}{#if !s.leftAt}<Badge tone="ok" class="ml-1">live</Badge
+									>{minutes(s.minutes)}{#if !s.leftAt}<Badge tone="ok" class="ml-1">实时</Badge
 										>{/if}</td
 								>
 								<td class="num">{s.seedMinutes ? minutes(s.seedMinutes) : '—'}</td>
@@ -377,7 +377,7 @@
 								<td class="num">{fmtNum(s.cash)}</td>
 							</tr>
 						{:else}
-							<tr><td colspan="9" class="py-6 text-center text-mist-600">No sessions yet.</td></tr>
+							<tr><td colspan="9" class="py-6 text-center text-mist-600">暂无场次。</td></tr>
 						{/each}
 					</tbody>
 				</table>
@@ -386,16 +386,14 @@
 
 		{#if d.combat}
 			<div class="panel">
-				<span class="label-sm">Combat</span>
+				<span class="label-sm">战斗数据</span>
 				<p class="mb-3 text-[12.5px] text-mist-600">
-					From the game's kill feed, across the organisation's servers you can see. A team kill
-					counts as a kill here and a suicide as a death, and the feed only knows the time since it
-					was set up, so these differ from the scoreboard totals at the top.
+					数据来自你有权查看的组织服务器击杀事件。误杀队友计为击杀，自杀计为死亡；击杀事件只覆盖接入后的时间，因此可能与上方计分板汇总不同。
 					<a
 						href="/server/{encodeURIComponent(data.server.id)}/kills?player={encodeURIComponent(
 							d.steamId
 						)}"
-						class="text-accent hover:underline">Every kill and death on this server →</a
+						class="text-accent hover:underline">查看本服全部击杀与死亡 →</a
 					>
 				</p>
 				<CombatSummary
@@ -403,13 +401,13 @@
 					hrefFor={(steamId) => `/server/${encodeURIComponent(id)}/players/${steamId}`}
 				/>
 				{#if d.combat.recent.length}
-					<span class="mt-4 field-label">Recent kills and deaths</span>
+					<span class="mt-4 field-label">近期击杀与死亡</span>
 					<div class="max-h-[320px] table-wrap">
 						<table>
 							<thead
 								><tr
-									><th>When</th><th>Server</th><th>Killer</th><th>Victim</th><th>Cause</th><th
-										class="num">Distance</th
+									><th>时间</th><th>服务器</th><th>击杀者</th><th>受害者</th><th>击杀原因</th><th
+										class="num">距离</th
 									><th></th></tr
 								></thead
 							>
@@ -426,14 +424,14 @@
 										<td class={k.victim.steamId === d.steamId ? 'font-semibold' : ''}
 											>{k.victim.name}</td
 										>
-										<td>{causeLabel(k.cause) || (k.tags.includes('Falling') ? 'Fall' : '—')}</td>
+										<td>{causeLabel(k.cause) || (k.tags.includes('Falling') ? '坠落' : '—')}</td>
 										<td class="num"
 											>{k.distanceM === null ? '—' : `${Math.round(k.distanceM)} m`}</td
 										>
 										<td class="whitespace-nowrap">
-											{#if k.teamKill}<span class="chip">team kill</span>{/if}
-											{#if k.suicide}<span class="chip">suicide</span>{/if}
-											{#if k.headshot}<span class="chip">headshot</span>{/if}
+											{#if k.teamKill}<span class="chip">误杀队友</span>{/if}
+											{#if k.suicide}<span class="chip">自杀</span>{/if}
+											{#if k.headshot}<span class="chip">爆头</span>{/if}
 										</td>
 									</tr>
 								{/each}
@@ -446,10 +444,10 @@
 
 		<div class="panel">
 			<div class="mb-3 flex items-center gap-2">
-				<span class="label-sm mb-0!">Career</span>
+				<span class="label-sm mb-0!">生涯数据</span>
 				<a
 					href="/server/{encodeURIComponent(id)}/leaderboard"
-					class="ml-auto text-[12px] text-accent hover:underline">Leaderboards →</a
+					class="ml-auto text-[12px] text-accent hover:underline">查看排行榜 →</a
 				>
 			</div>
 			<CareerPanel
@@ -462,11 +460,11 @@
 		</div>
 
 		<div class="panel">
-			<span class="label-sm">Admin actions on this player</span>
+			<span class="label-sm">对该玩家的管理操作</span>
 			<div class="max-h-[360px] table-wrap">
 				<table>
 					<thead
-						><tr><th>When</th><th>By</th><th>Action</th><th>Server</th><th>Result</th></tr></thead
+						><tr><th>时间</th><th>操作人</th><th>操作</th><th>服务器</th><th>结果</th></tr></thead
 					>
 					<tbody>
 						{#each d.actions as a (a.id)}
@@ -484,7 +482,7 @@
 						{:else}
 							<tr
 								><td colspan="5" class="py-6 text-center text-mist-600"
-									>Nothing you can see. Actions on this player would appear here.</td
+									>你可查看的操作记录为空；对该玩家的操作会显示在这里。</td
 								></tr
 							>
 						{/each}
@@ -497,12 +495,12 @@
 	<div class="space-y-4 self-start">
 		{#if onThisServer && (moderate || chat)}
 			<div class="panel border-accent/40">
-				<span class="label-sm">Quick actions (online here)</span>
+				<span class="label-sm">快捷操作（玩家在本服在线）</span>
 				<div class="join w-full">
 					<input
 						class="input"
 						type="text"
-						placeholder="Private message…"
+						placeholder="私聊消息…"
 						maxlength="200"
 						bind:value={whisper}
 					/>
@@ -512,14 +510,14 @@
 						onclick={async () => {
 							await act('whisper', { steamId: d.steamId, message: whisper.trim() });
 							whisper = '';
-						}}>Whisper</button
+						}}>私聊</button
 					>
 				</div>
 				<div class="join join-wrap mt-2 w-full">
 					<input
 						class="input"
 						type="text"
-						placeholder="Reason (optional)…"
+						placeholder="原因（可选）…"
 						maxlength="200"
 						bind:value={reason}
 					/>
@@ -527,10 +525,10 @@
 						class="btn btn-danger"
 						disabled={busy || !moderate}
 						onclick={() =>
-							act('kick', { steamId: d.steamId, reason: reason.trim() }, `Kick ${d.name}?`)}
-						>Kick</button
+							act('kick', { steamId: d.steamId, reason: reason.trim() }, `踢出 ${d.name}？`)}
+						>踢出</button
 					>
-					<button class="btn btn-danger" disabled={busy || !bans} onclick={banHere}>Ban</button>
+					<button class="btn btn-danger" disabled={busy || !bans} onclick={banHere}>封禁</button>
 				</div>
 			</div>
 		{/if}
@@ -539,12 +537,12 @@
 		{#if d.orgLists.canBan || d.orgLists.canReserve}
 			<div class="panel">
 				<div class="mb-3 flex items-center gap-2">
-					<span class="label-sm mb-0!">Organisation lists</span>
+					<span class="label-sm mb-0!">组织名单</span>
 					<a
 						href="/orgs/{encodeURIComponent(data.server.orgId)}/{d.orgLists.canBan
 							? 'bans'
 							: 'reserved'}"
-						class="ml-auto text-[12px] text-accent hover:underline">Open the lists →</a
+						class="ml-auto text-[12px] text-accent hover:underline">打开名单 →</a
 					>
 				</div>
 				<div class="space-y-3 text-[13px]">
@@ -552,10 +550,10 @@
 						<div class="flex flex-wrap items-center gap-2">
 							{#if d.orgLists.ban}
 								{@const b = d.orgLists.ban}
-								<Badge tone="err">banned org-wide</Badge>
+								<Badge tone="err">已在全组织封禁</Badge>
 								<span class="min-w-0 flex-1 truncate text-mist-400"
-									>{b.reason || 'no reason'} · by {b.addedByName || '—'}{#if b.expiresAt}
-										· until {fmtTime(b.expiresAt)}{/if}</span
+									>{b.reason || '未填写原因'} · 操作人：{b.addedByName || '—'}{#if b.expiresAt}
+										· 截止 {fmtTime(b.expiresAt)}{/if}</span
 								>
 								<span class="inline-flex flex-wrap gap-1">
 									{#each b.servers as s (s.serverId)}
@@ -565,14 +563,14 @@
 									{/each}
 								</span>
 								<button class="btn btn-sm" disabled={busy} onclick={() => orgRemove('ban')}
-									>Unban org-wide</button
+									>在全组织解除封禁</button
 								>
 							{:else}
-								<span class="text-mist-400">Not on the organisation's ban list.</span>
+								<span class="text-mist-400">不在组织封禁名单中。</span>
 								<button
 									class="ml-auto btn btn-sm btn-danger"
 									disabled={busy}
-									onclick={() => (banning = true)}>Ban org-wide</button
+									onclick={() => (banning = true)}>在全组织封禁</button
 								>
 							{/if}
 						</div>
@@ -581,11 +579,11 @@
 						<div class="flex flex-wrap items-center gap-2">
 							{#if d.orgLists.reserve}
 								{@const r = d.orgLists.reserve}
-								<Badge tone="accent">reserved slot</Badge>
+								<Badge tone="accent">预留位</Badge>
 								<span class="min-w-0 flex-1 truncate text-mist-400"
-									>{r.reason || 'org-wide'}{#if r.member}
-										· member{/if}{#if r.expiresAt}
-										· until {fmtTime(r.expiresAt)}{/if}</span
+									>{r.reason || '全组织'}{#if r.member}
+										· 成员{/if}{#if r.expiresAt}
+										· 截止 {fmtTime(r.expiresAt)}{/if}</span
 								>
 								<span class="inline-flex flex-wrap gap-1">
 									{#each r.servers as s (s.serverId)}
@@ -596,13 +594,13 @@
 								</span>
 								{#if !r.member}
 									<button class="btn btn-sm" disabled={busy} onclick={() => orgRemove('reserve')}
-										>Withdraw</button
+										>撤回</button
 									>
 								{/if}
 							{:else}
-								<span class="text-mist-400">No reserved slot from the organisation.</span>
+								<span class="text-mist-400">组织未分配预留位。</span>
 								<button class="ml-auto btn btn-sm" disabled={busy} onclick={orgReserve}
-									>Reserve a slot</button
+									>预留一个位置</button
 								>
 							{/if}
 						</div>
@@ -613,8 +611,9 @@
 
 		<div class="panel">
 			<div class="mb-3 flex items-center gap-2">
-				<span class="label-sm mb-0!">Risk</span>
-				<Badge tone={RISK_TONE[d.risk.level]} class="ml-auto">{d.risk.level} · {d.risk.score}</Badge
+				<span class="label-sm mb-0!">风险</span>
+				<Badge tone={RISK_TONE[d.risk.level]} class="ml-auto"
+					>{legacyLevelName[d.risk.level]} · {d.risk.score}</Badge
 				>
 			</div>
 			{#if d.risk.reasons.length}
@@ -622,18 +621,18 @@
 					{#each d.risk.reasons as r (r.code + r.text)}
 						<li class="flex gap-2">
 							<span class="font-mono text-[12px] text-mist-600 tabular">+{r.weight}</span>
-							<span>{r.text}</span>
+							<span>{legacyRiskReasonZh(r.code, r.text)}</span>
 						</li>
 					{/each}
 				</ul>
 			{:else}
-				<p class="text-[13px] text-mist-400">Nothing stands out.</p>
+				<p class="text-[13px] text-mist-400">暂无异常。</p>
 			{/if}
 			<p class="note">
-				Advisory only, from the Steam Web API, recorded game stats, this organisation's ban lists
-				and the watchlist. It cannot see aim, position or input.
+				这是 Warcon 原有的参考分，依据 Steam
+				公开资料、已记录的游戏统计、组织封禁名单和观察名单计算；无法读取玩家瞄准、位置或输入数据。
 				{#if !d.steamEnabled}<span class="text-warn"
-						>Steam lookup is off (set STEAM_API_KEY), so account age and VAC status are unknown.</span
+						>未设置 STEAM_API_KEY，无法获取 Steam 账号年龄与 VAC 状态。</span
 					>{/if}
 			</p>
 		</div>
@@ -642,120 +641,116 @@
 			<div class="mb-3 flex items-center gap-2">
 				<span class="label-sm mb-0!">Steam</span>
 				{#if d.steamEnabled}
-					<button class="ml-auto btn btn-sm" onclick={refreshSteam} disabled={busy}>Refresh</button>
+					<button class="ml-auto btn btn-sm" onclick={refreshSteam} disabled={busy}>刷新</button>
 				{/if}
 			</div>
 			{#if d.steam}
 				{#if d.steam.error}<p class="mb-2 text-[13px] text-warn">{d.steam.error}</p>{/if}
 				<div class="kv">
-					<span class="text-mist-400">Persona</span><span>{d.steam.persona || '—'}</span>
+					<span class="text-mist-400">昵称</span><span>{d.steam.persona || '—'}</span>
 				</div>
 				<div class="kv">
-					<span class="text-mist-400">Account age</span>
+					<span class="text-mist-400">账号年龄</span>
 					<span
-						>{#if d.steam.accountAgeDays === null}unknown ({d.steam.public
-								? 'no date'
-								: 'private profile'}){:else}{d.steam.accountAgeDays} days · since {fmtTime(
+						>{#if d.steam.accountAgeDays === null}未知（{d.steam.public
+								? '无创建日期'
+								: '私人资料'}）{:else}{d.steam.accountAgeDays} 天 · 创建于 {fmtTime(
 								d.steam.accountCreatedAt
 							).slice(0, 12)}{/if}</span
 					>
 				</div>
 				<div class="kv">
-					<span class="text-mist-400">VAC bans</span>
+					<span class="text-mist-400">VAC 封禁</span>
 					<span class={d.steam.vacBans ? 'text-danger' : ''}
 						>{d.steam.vacBans}{#if d.steam.vacBans && d.steam.daysSinceLastBan !== null}
-							· last {d.steam.daysSinceLastBan} days ago{/if}</span
+							· 最近一次在 {d.steam.daysSinceLastBan} 天前{/if}</span
 					>
 				</div>
 				<div class="kv">
-					<span class="text-mist-400">Game bans</span>
+					<span class="text-mist-400">游戏封禁</span>
 					<span class={d.steam.gameBans ? 'text-danger' : ''}>{d.steam.gameBans}</span>
 				</div>
 				<div class="kv">
-					<span class="text-mist-400">Steam friends</span>
+					<span class="text-mist-400">Steam 好友</span>
 					<span>
-						{#if d.steam.friendsState === 'private'}private list
-						{:else if d.steam.friendsState === 'unknown'}unavailable
-						{:else}{d.steam.bannedFriends} banned among {d.steam.friendsChecked} checked{#if d.steam.friendsState === 'partial'}
-								of {d.steam.friendsTotal}{/if}{/if}
+						{#if d.steam.friendsState === 'private'}好友列表未公开
+						{:else if d.steam.friendsState === 'unknown'}无法获取
+						{:else}已检查 {d.steam.friendsChecked} 位好友，其中 {d.steam.bannedFriends} 位有封禁记录{#if d.steam.friendsState === 'partial'}
+								（总计 {d.steam.friendsTotal} 位）{/if}{/if}
 					</span>
 				</div>
 				{#if d.steam.communityBanned || d.steam.economyBan !== 'none'}
 					<div class="kv">
-						<span class="text-mist-400">Other</span>
+						<span class="text-mist-400">其他</span>
 						<span class="text-warn"
 							>{[
-								d.steam.communityBanned ? 'community ban' : '',
-								d.steam.economyBan !== 'none' ? `economy: ${d.steam.economyBan}` : ''
+								d.steam.communityBanned ? '社区封禁' : '',
+								d.steam.economyBan !== 'none' ? `交易限制：${d.steam.economyBan}` : ''
 							]
 								.filter(Boolean)
 								.join(', ')}</span
 						>
 					</div>
 				{/if}
-				<p class="note">Fetched {fmtTime(d.steam.fetchedAt)}.</p>
+				<p class="note">获取时间：{fmtTime(d.steam.fetchedAt)}。</p>
 			{:else if d.steamEnabled}
 				<p class="text-[13px] text-mist-400">
-					Not looked up yet. <button class="text-accent underline" onclick={refreshSteam}
-						>Fetch now</button
-					>.
+					尚未查询。<button class="text-accent underline" onclick={refreshSteam}>立即获取</button>。
 				</p>
 			{:else}
 				<p class="text-[13px] text-mist-400">
-					Set <code class="font-mono">STEAM_API_KEY</code> to see persona, account age and ban records.
+					设置 <code class="font-mono">STEAM_API_KEY</code> 后可查看昵称、账号年龄和封禁记录。
 				</p>
 			{/if}
 		</div>
 
 		<div class="panel {d.watch.watched ? 'border-warn/50' : ''}">
-			<span class="label-sm">Watchlist</span>
+			<span class="label-sm">观察名单</span>
 			{#if d.watch.watched}
 				<p class="mb-2 text-[13px]">
-					On the watchlist{#if d.watch.reason}: <b>{d.watch.reason}</b>{/if}.
+					已加入观察名单{#if d.watch.reason}：<b>{d.watch.reason}</b>{/if}。
 					{#if notes}
 						<span class="text-mist-400"
-							>Added by {d.watch.updatedByName || '?'} · {fmtTime(d.watch.updatedAt)}</span
+							>添加人：{d.watch.updatedByName || '?'} · {fmtTime(d.watch.updatedAt)}</span
 						>
 					{/if}
 				</p>
 				<button class="btn btn-sm" disabled={busy || !notes} onclick={() => setWatch(false)}
-					>Remove from watchlist</button
+					>移出观察名单</button
 				>
 			{:else}
 				<div class="join w-full">
 					<input
 						class="input"
 						type="text"
-						placeholder="Why (shown to every admin)…"
+						placeholder="原因（所有管理员可见）…"
 						maxlength="300"
 						bind:value={watchReason}
 					/>
-					<button class="btn" disabled={busy || !notes} onclick={() => setWatch(true)}>Watch</button
-					>
+					<button class="btn" disabled={busy || !notes} onclick={() => setWatch(true)}>观察</button>
 				</div>
 			{/if}
 			<p class="note">
-				Shared by every server in {data.server.orgName}. Watched players are flagged in the players
-				table, and a trigger can act on it.
+				该名单在 {data.server.orgName} 的所有服务器共享。观察中的玩家会在玩家表中标记，也可作为自动化规则条件。
 			</p>
 		</div>
 
 		<!-- notes are read by those who may write them -->
 		{#if notes}
 			<div class="panel">
-				<span class="label-sm">Notes</span>
+				<span class="label-sm">备注</span>
 				{#if notes}
 					<div class="mb-3">
 						<textarea
 							class="min-h-[70px] input"
-							placeholder="Anything the next admin should know…"
+							placeholder="下一位管理员需要了解的情况…"
 							maxlength="2000"
 							bind:value={note}></textarea>
 						<div class="mt-2 flex justify-end">
 							<button
 								class="btn btn-sm btn-primary"
 								disabled={busy || !note.trim()}
-								onclick={addNote}>Add note</button
+								onclick={addNote}>添加备注</button
 							>
 						</div>
 					</div>
@@ -768,7 +763,7 @@
 								<span>{fmtTime(n.createdAt)}</span>
 								{#if n.deletable}<button
 										class="ml-auto btn btn-sm btn-ghost"
-										aria-label="Delete note"
+										aria-label="删除备注"
 										disabled={busy}
 										onclick={() => deleteNote(n.id)}>✕</button
 									>{/if}
@@ -776,7 +771,7 @@
 							<div class="text-[13.5px] whitespace-pre-wrap">{n.body}</div>
 						</div>
 					{:else}
-						<p class="text-[13px] text-mist-600">No notes yet.</p>
+						<p class="text-[13px] text-mist-600">暂无备注。</p>
 					{/each}
 				</div>
 			</div>

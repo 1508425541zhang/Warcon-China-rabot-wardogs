@@ -12,6 +12,7 @@ import {
 	serverLive
 } from '$lib/server/db/schema';
 import { getIntegrityRules } from '$lib/server/integrity/rules';
+import { DEFAULT_INTEGRITY_RULES } from '$lib/server/integrity/score';
 import { weaponMappings, weaponOverrides } from '$lib/server/integrity/weapon-map';
 import { DEFAULT_WEAPON_MAP, WEAPON_CATEGORIES } from '$lib/server/integrity/weapons';
 import { liveInfantryMetrics } from '$lib/server/integrity/live';
@@ -176,6 +177,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			contributors: contributorRows.map((row) => ({ code: row.code, points: Number(row.points) })),
 			canConfigure,
 			ruleConfig: canConfigure ? rules.config : null,
+			ruleDefaults: canConfigure ? DEFAULT_INTEGRITY_RULES : null,
 			weaponOverrides: overrides.map((row) => ({ cause: row.cause, category: row.category })),
 			weaponDefaults: canConfigure ? DEFAULT_WEAPON_MAP : {},
 			weaponCategories: canConfigure ? WEAPON_CATEGORIES : []

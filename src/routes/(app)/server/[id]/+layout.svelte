@@ -22,7 +22,7 @@
 		['/rotation', '地图轮换'],
 		['/config', '服务器配置', 'config.apply'],
 		['/automation', '自动化', 'automation.manage'],
-		['/integrity', '风控 / Integrity', 'integrity.view'],
+		['/integrity', '社区风控', 'integrity.view'],
 		['/analytics', '数据分析'],
 		['/leaderboard', '排行榜'],
 		['/log', '服务器日志', 'audit.read']
@@ -58,9 +58,9 @@
 	async function copyId(text: string) {
 		try {
 			await navigator.clipboard.writeText(text);
-			toast('Join code copied.', 'ok');
+			toast('加入代码已复制。', 'ok');
 		} catch {
-			window.prompt('Copy the join code:', text);
+			window.prompt('请复制加入代码：', text);
 		}
 	}
 	let live = $derived(health[data.server.id]);
@@ -94,7 +94,7 @@
 			<h1 class="flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight">
 				<span class="truncate">{data.server.name}</span>
 				<RoleBadge role={data.server.roleName} />
-				{#if data.server.demo}<Badge tone="info">demo</Badge>{/if}
+				{#if data.server.demo}<Badge tone="info">演示</Badge>{/if}
 			</h1>
 			<div class="mt-1.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[12.5px] text-mist-400">
 				{#if data.server.host}
@@ -105,7 +105,7 @@
 					<button
 						type="button"
 						class="group inline-flex cursor-pointer items-center gap-1.5 text-left"
-						title="Click to copy"
+						title="点击复制"
 						onclick={() => copyId(ident.gameServerId)}
 					>
 						<span class="font-mono break-all text-mist-200 group-hover:text-white"
@@ -135,7 +135,7 @@
 			class="flex divide-x divide-white/8 rounded-ctl border border-white/8 bg-ink-950/70 text-[13px]"
 		>
 			<div class="flex flex-col gap-0.5 px-3.5 py-2">
-				<dt class="caps text-mist-400">Status</dt>
+				<dt class="caps text-mist-400">状态</dt>
 				<dd
 					class="inline-flex items-center gap-2 whitespace-nowrap {live === false
 						? 'text-danger'
@@ -143,13 +143,13 @@
 							? 'text-warn'
 							: 'text-mist-100'}"
 					title={slowed
-						? 'The game server asked the panel to slow down (its per-address request limit); the next look waits for the time it gave.'
+						? '游戏服务器触发了单地址请求限速；面板会按服务器要求等待后再次检查。'
 						: undefined}
 				>
 					<Pulse ok={live} />
 					{live === true
 						? slowed
-							? 'rate limited'
+							? '请求受限速'
 							: 'live'
 						: live === false
 							? 'unreachable'
@@ -158,19 +158,19 @@
 			</div>
 			{#if restart}
 				<div class="flex flex-col gap-0.5 px-3.5 py-2">
-					<dt class="caps text-mist-400">Uptime</dt>
+					<dt class="caps text-mist-400">运行时间</dt>
 					<dd class="whitespace-nowrap text-mist-100">{fmtUptime(restart.upMs)}</dd>
 				</div>
 				{#if restart.untilDueMs !== null || restart.due}
 					<div class="flex flex-col gap-0.5 px-3.5 py-2">
-						<dt class="caps text-mist-400">Restart</dt>
+						<dt class="caps text-mist-400">重启</dt>
 						<dd
 							class="whitespace-nowrap {restart.due ||
 							(restart.untilDueMs !== null && restart.untilDueMs <= RESTART_SOON_MS)
 								? 'text-warn'
 								: 'text-mist-100'}"
 						>
-							{restart.due ? 'after this round' : `in ${fmtUptime(restart.untilDueMs ?? 0)}`}
+							{restart.due ? '本局结束后' : `in ${fmtUptime(restart.untilDueMs ?? 0)}`}
 						</dd>
 					</div>
 				{/if}
@@ -179,11 +179,7 @@
 	</div>
 </div>
 
-<nav
-	bind:this={tabs}
-	class="strip mb-5 gap-1 border-b border-white/8 pb-3"
-	aria-label="Server sections"
->
+<nav bind:this={tabs} class="strip mb-5 gap-1 border-b border-white/8 pb-3" aria-label="服务器栏目">
 	{#each visibleTabs as [path, label] (path)}
 		<a href="{base}{path}" class="tab-link {isCurrent(path) ? 'tab-link-active' : ''}">{label}</a>
 	{/each}
@@ -195,11 +191,8 @@
 	{/key}
 {:else}
 	<div class="callout border-danger/30 bg-danger/12">
-		<b>Cannot reach this server.</b>
+		<b>无法连接到这台服务器。</b>
 		{data.problem}
 	</div>
-	<p class="note">
-		Check the host, port and RCON password under Servers, and that the listener is bound to a
-		reachable address.
-	</p>
+	<p class="note">请在“服务器”中检查主机、端口和 RCON 密码，并确认监听器绑定到可访问的地址。</p>
 {/if}

@@ -14,10 +14,10 @@
 	const metres = (m: number | null) => (m === null ? '—' : `${fmtNum(m)} m`);
 	let tiles = $derived<[string, string][]>([
 		['Headshots', fmtNum(combat.headshots)],
-		['Longest shot', metres(combat.longestM)],
-		['Average shot', metres(combat.avgDistanceM)],
+		['最远击杀距离', metres(combat.longestM)],
+		['平均击杀距离', metres(combat.avgDistanceM)],
 		[
-			'Team kills',
+			'队友击杀',
 			combat.teamKilled
 				? `${combat.teamKills} · ${combat.teamKilled} taken`
 				: String(combat.teamKills)
@@ -36,7 +36,7 @@
 </div>
 <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 	<div>
-		<span class="field-label">Weapons</span>
+		<span class="field-label">武器</span>
 		{#each combat.causes as c (c.cause)}
 			<div class="mb-2">
 				<div class="mb-0.5 flex justify-between text-[13px]">
@@ -48,24 +48,24 @@
 					<span class="progress-bar" style="width:{(c.kills / maxCause) * 100}%"></span>
 				</div>
 			</div>
-		{:else}<div class="text-[13px] text-mist-600">No kills yet.</div>{/each}
+		{:else}<div class="text-[13px] text-mist-600">暂无击杀记录。</div>{/each}
 	</div>
 	<div>
-		<span class="field-label">Most killed</span>
+		<span class="field-label">最多击杀对象</span>
 		{#each combat.victims as v (v.steamId)}
 			<div class="flex justify-between text-[13px]">
 				<a href={hrefFor(v.steamId)} class="hover:text-accent hover:underline">{v.name}</a>
 				<span class="font-mono text-mist-400 tabular">{v.kills}</span>
 			</div>
-		{:else}<div class="text-[13px] text-mist-600">Nobody yet.</div>{/each}
+		{:else}<div class="text-[13px] text-mist-600">暂无玩家。</div>{/each}
 	</div>
 	<div>
-		<span class="field-label">Nemeses</span>
+		<span class="field-label">宿敌</span>
 		{#each combat.nemeses as n (n.steamId)}
 			<div class="flex justify-between text-[13px]">
 				<a href={hrefFor(n.steamId)} class="hover:text-accent hover:underline">{n.name}</a>
 				<span class="font-mono text-mist-400 tabular">{n.deaths}</span>
 			</div>
-		{:else}<div class="text-[13px] text-mist-600">Nobody yet.</div>{/each}
+		{:else}<div class="text-[13px] text-mist-600">暂无玩家。</div>{/each}
 	</div>
 </div>

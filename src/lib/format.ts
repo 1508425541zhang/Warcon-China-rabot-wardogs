@@ -4,7 +4,7 @@ export const fmtTime = (value: string | number | Date | null | undefined): strin
 	if (value === null || value === undefined || value === '') return '—';
 	const d = new Date(value);
 	if (Number.isNaN(d.getTime())) return String(value);
-	return d.toLocaleString(undefined, {
+	return d.toLocaleString('zh-CN', {
 		year: 'numeric',
 		month: 'short',
 		day: '2-digit',
@@ -38,13 +38,13 @@ export const fmtDuration = (sec: number | null | undefined): string => {
 /** A span of time in its coarsest readable unit: "40 s", "12 min", "3 h", "2 days". */
 export function fmtSpan(ms: number): string {
 	const s = Math.max(0, Math.round(ms / 1000));
-	if (s < 60) return `${s} s`;
+	if (s < 60) return `${s} 秒`;
 	const m = Math.round(s / 60);
-	if (m < 60) return `${m} min`;
+	if (m < 60) return `${m} 分钟`;
 	const h = Math.round(m / 60);
-	if (h < 36) return `${h} h`;
+	if (h < 36) return `${h} 小时`;
 	const d = Math.round(h / 24);
-	return `${d} day${d === 1 ? '' : 's'}`;
+	return `${d} 天`;
 }
 
 /**
@@ -55,19 +55,19 @@ export function fmtAgo(value: string | number | Date, now = Date.now()): string 
 	const t = new Date(value).getTime();
 	if (Number.isNaN(t)) return String(value);
 	const ms = Math.max(0, now - t);
-	if (ms < 45_000) return 'just now';
+	if (ms < 45_000) return '刚刚';
 	if (ms > 31 * 86400_000)
-		return new Date(t).toLocaleDateString(undefined, {
+		return new Date(t).toLocaleDateString('zh-CN', {
 			year: 'numeric',
 			month: 'short',
 			day: '2-digit'
 		});
-	return `${fmtSpan(ms)} ago`;
+	return `${fmtSpan(ms)}前`;
 }
 
 /** Minutes of playtime in the unit that reads best: "45 min", "2.5 h". */
 export const fmtMinutes = (m: number): string =>
-	m >= 90 ? `${(m / 60).toFixed(1)} h` : `${Math.round(m)} min`;
+	m >= 90 ? `${(m / 60).toFixed(1)} 小时` : `${Math.round(m)} 分钟`;
 
 export const fmtNum = (n: number | null | undefined): string =>
 	n === null || n === undefined ? '—' : Number(n).toLocaleString();
@@ -132,7 +132,7 @@ export const expSetLabel = (catalog: Catalog, ids: string[] | null | undefined) 
 };
 
 export const zoneLabel = (tag: string | null | undefined) => {
-	if (!tag || /^none$/i.test(tag)) return 'Default';
+	if (!tag || /^none$/i.test(tag)) return '默认';
 	return prettify(
 		String(tag)
 			.replace(/^ZoneAlternator\./i, '')

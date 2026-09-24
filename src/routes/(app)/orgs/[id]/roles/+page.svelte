@@ -43,10 +43,9 @@
 	}
 	const usage = (r: RoleView) => {
 		const parts = [];
-		if (r.inUse.grants) parts.push(`${r.inUse.grants} grant${r.inUse.grants === 1 ? '' : 's'}`);
-		if (r.inUse.invites)
-			parts.push(`${r.inUse.invites} invite link${r.inUse.invites === 1 ? '' : 's'}`);
-		return parts.join(', ') || 'not in use';
+		if (r.inUse.grants) parts.push(`${r.inUse.grants} 个授权`);
+		if (r.inUse.invites) parts.push(`${r.inUse.invites} 个邀请链接`);
+		return parts.join('、') || '未使用';
 	};
 
 	let busy = $state(false);
@@ -115,11 +114,10 @@
 
 <div class="mb-4 flex flex-wrap items-center gap-3">
 	<div class="text-[13.5px] text-mist-400">
-		What each server role may do. Changing a role changes it for everyone who holds it, on every
-		server. Owners of the organisation always hold everything.
+		设置各服务器角色的权限。修改角色后，所有服务器上持有该角色的成员都会受到影响。组织所有者始终拥有全部权限。
 	</div>
 	<button class="ml-auto btn" onclick={() => (adding = { name: '', caps: [VIEW] })} disabled={busy}
-		>New role</button
+		>新角色</button
 	>
 </div>
 
@@ -127,7 +125,7 @@
 	<table>
 		<thead>
 			<tr>
-				<th class="sticky-col">Capability</th>
+				<th class="sticky-col">权限项</th>
 				{#each data.roles as r (r.id)}
 					<th class="text-center align-top">
 						{#if draft[r.id]}
@@ -136,14 +134,14 @@
 								type="text"
 								bind:value={draft[r.id].name}
 								maxlength="40"
-								aria-label="Role name"
+								aria-label="角色名称"
 								disabled={busy}
 							/>
 						{/if}
 						<div class="mt-1 text-[11px] font-normal tracking-normal text-mist-600 normal-case">
 							{#if r.builtin}<Badge
 									tone={r.builtin === 'admin' ? 'accent' : r.builtin === 'operator' ? 'info' : ''}
-									>built-in</Badge
+									>内置</Badge
 								>{/if}
 							<div class="mt-0.5">{usage(r)}</div>
 						</div>
@@ -184,7 +182,7 @@
 					<td class="text-center">
 						<span class="inline-flex flex-wrap justify-center gap-1">
 							{#if r.builtin}
-								<button class="btn btn-sm" onclick={() => reset(r)} disabled={busy}>Reset</button>
+								<button class="btn btn-sm" onclick={() => reset(r)} disabled={busy}>重置</button>
 							{:else}
 								<button
 									class="btn btn-sm btn-danger"
@@ -192,7 +190,7 @@
 									disabled={busy || r.inUse.grants > 0 || r.inUse.invites > 0}
 									title={r.inUse.grants || r.inUse.invites
 										? `Still used by ${usage(r)}`
-										: 'Delete this role'}>Delete</button
+										: '删除此角色'}>删除</button
 								>
 							{/if}
 						</span>
@@ -207,19 +205,17 @@
 	<div
 		class="sticky bottom-3 z-10 mt-4 flex flex-wrap items-center gap-3 rounded-card border border-accent/50 bg-ink-900 px-4 py-3 shadow-pop"
 	>
-		<span class="text-[13.5px]"
-			><b>{dirty.length}</b> role{dirty.length === 1 ? '' : 's'} with unsaved changes</span
-		>
+		<span class="text-[13.5px]"><b>{dirty.length}</b> 个角色有未保存的修改</span>
 		<span class="ml-auto inline-flex gap-2">
-			<button class="btn" onclick={discard} disabled={busy}>Discard</button>
-			<button class="btn btn-primary" onclick={save} disabled={busy}>Save roles</button>
+			<button class="btn" onclick={discard} disabled={busy}>放弃</button>
+			<button class="btn btn-primary" onclick={save} disabled={busy}>保存角色</button>
 		</span>
 	</div>
 {/if}
 
 {#if adding}
 	{@const d = adding}
-	<Modal title="New role" onclose={() => (adding = null)}>
+	<Modal title="新角色" onclose={() => (adding = null)}>
 		<form
 			class="space-y-3"
 			onsubmit={(e) => {
@@ -228,20 +224,20 @@
 			}}
 		>
 			<label class="block"
-				><span class="field-label">Name</span><input
+				><span class="field-label">名称</span><input
 					class="input"
 					type="text"
 					bind:value={d.name}
-					placeholder="e.g. Trial staff"
+					placeholder="例如见习管理员"
 					maxlength="40"
 					required
 				/></label
 			>
 			<CapabilityPicker bind:value={d.caps} locked={[VIEW]} disabled={busy} />
 			<div class="flex justify-end gap-2 pt-2">
-				<button type="button" class="btn" data-close onclick={() => (adding = null)}>Cancel</button>
+				<button type="button" class="btn" data-close onclick={() => (adding = null)}>取消</button>
 				<button type="submit" class="btn btn-primary" disabled={busy || d.name.trim().length < 2}
-					>Add role</button
+					>添加角色</button
 				>
 			</div>
 		</form>

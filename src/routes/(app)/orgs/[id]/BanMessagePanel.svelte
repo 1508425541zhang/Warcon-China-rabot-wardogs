@@ -38,8 +38,8 @@
 		});
 	};
 	let samples = $derived([
-		['7 day ban', sample('Team killing', 7)],
-		['Permanent ban', sample('Cheating', null)]
+		['封禁 7 天', sample('队友击杀', 7)],
+		['永久封禁', sample('Cheating', null)]
 	]);
 
 	function insert(name: string) {
@@ -55,7 +55,7 @@
 		busy = true;
 		try {
 			await api('PATCH', `/api/orgs/${encodeURIComponent(org.id)}`, { banMessage: value });
-			toast('Ban message saved. Bans placed from now on carry it.', 'ok');
+			toast('封禁消息已保存，之后的封禁将使用此消息。', 'ok');
 			await invalidateAll();
 			open = false;
 		} catch (err) {
@@ -73,12 +73,12 @@
 		aria-expanded={open}
 		onclick={() => (open = !open)}
 	>
-		<span class="caps whitespace-nowrap text-mist-400">Ban message</span>
+		<span class="caps whitespace-nowrap text-mist-400">封禁消息</span>
 		<span class="min-w-0 flex-1 truncate font-mono text-[12px] text-mist-600"
 			>{open ? '' : banMessage}</span
 		>
 		<span class="inline-flex items-center gap-1.5 caps text-mist-400">
-			{open ? 'Close' : owner ? 'Edit' : 'Show'}
+			{open ? '收起' : owner ? '编辑' : '查看'}
 			<svg
 				width="12"
 				height="12"
@@ -102,7 +102,7 @@
 			<div class="flex flex-col gap-4 md:flex-row md:gap-6">
 				<div class="min-w-0 flex-1">
 					<label class="block"
-						><span class="field-label">Message</span><input
+						><span class="field-label">消息</span><input
 							class="input font-mono text-[12.5px]"
 							type="text"
 							maxlength={MAX_BAN_MESSAGE}
@@ -113,12 +113,12 @@
 					>
 					{#if owner}
 						<div class="mt-2 flex flex-wrap items-center gap-1 text-[12px] text-mist-600">
-							<span class="mr-1">Insert</span>
+							<span class="mr-1">插入</span>
 							{#each BAN_MESSAGE_VARS as n (n)}
 								<button
 									type="button"
 									class="chip cursor-pointer text-mist-100 transition hover:bg-white/12"
-									title="Insert {'{' + n + '}'} at the caret"
+									title="在光标处插入 {'{' + n + '}'}"
 									onclick={() => insert(n)}>{'{' + n + '}'}</button
 								>
 							{/each}
@@ -126,19 +126,18 @@
 					{/if}
 					{#if unknown.length}
 						<p class="note text-danger">
-							Unknown placeholder {unknown.map((k) => `{${k}}`).join(', ')}.
+							未知占位符 {unknown.map((k) => `{${k}}`).join(', ')}.
 						</p>
 					{/if}
 					<p class="note">
-						<span class="font-mono text-mist-100">{'{admin}'}</span> shows the banning admin's name
-						to the player and to anyone who can view a server's ban list. Leave the message as
-						<span class="font-mono text-mist-100">{DEFAULT_BAN_MESSAGE}</span> to send the reason
-						alone.
-						{#if !owner}Only an owner of the organisation can change it.{/if}
+						<span class="font-mono text-mist-100">{'{admin}'}</span>
+						会向被封禁玩家和有权查看服务器封禁列表的人显示执行管理员的姓名。将消息设为
+						<span class="font-mono text-mist-100">{DEFAULT_BAN_MESSAGE}</span> 则只发送原因。
+						{#if !owner}只有组织所有者可以修改。{/if}
 					</p>
 				</div>
 				<div class="min-w-0 flex-1">
-					<span class="field-label">What the player is shown</span>
+					<span class="field-label">玩家可见内容</span>
 					<div class="space-y-2.5 rounded-ctl border border-black bg-ink-950 px-3.5 py-3">
 						{#each samples as [label, text] (label)}
 							<div>
@@ -150,8 +149,8 @@
 						{/each}
 					</div>
 					<p class="note">
-						Sample values, times in UTC. Used for bans placed from now on; a ban already on a server
-						keeps the text it was placed with, also when it is edited later.
+						以下是示例值，时间使用
+						UTC。设置仅适用于之后执行的封禁；服务器上已有的封禁即使之后被编辑，也会保留原有文本。
 					</p>
 				</div>
 			</div>
@@ -161,12 +160,12 @@
 						type="button"
 						class="btn btn-ghost"
 						disabled={busy || banMessage === DEFAULT_BAN_MESSAGE}
-						onclick={() => save(DEFAULT_BAN_MESSAGE)}>Reset to reason only</button
+						onclick={() => save(DEFAULT_BAN_MESSAGE)}>恢复为仅显示原因</button
 					>
 					<button
 						type="submit"
 						class="btn btn-primary"
-						disabled={busy || !!unknown.length || draft.trim() === banMessage}>Save</button
+						disabled={busy || !!unknown.length || draft.trim() === banMessage}>保存</button
 					>
 				</div>
 			{/if}

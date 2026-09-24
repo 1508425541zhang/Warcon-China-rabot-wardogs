@@ -60,7 +60,7 @@
 	<button
 		type="button"
 		class="absolute inset-0 cursor-default bg-black/70"
-		aria-label="Close dialog"
+		aria-label="关闭对话框"
 		data-close
 		tabindex="-1"
 		onclick={onclose}

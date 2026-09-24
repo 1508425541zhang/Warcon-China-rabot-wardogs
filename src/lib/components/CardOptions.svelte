@@ -31,29 +31,28 @@
 </script>
 
 <label class="block sm:w-60"
-	><span class="field-label">Refresh</span><select class="input" bind:value={interval}>
-		{#each INTERVALS as [s, label] (s)}<option value={s}>Every {label}</option>{/each}
+	><span class="field-label">刷新</span><select class="input" bind:value={interval}>
+		{#each INTERVALS as [s, label] (s)}<option value={s}>每 {label}</option>{/each}
 	</select></label
 >
 <div>
-	<span class="field-label">Links on the card</span>
+	<span class="field-label">卡片上的链接</span>
 	<div class="flex flex-wrap gap-x-6 gap-y-2">
 		<label class="flex items-center gap-2 text-[13px]"
-			><input type="checkbox" bind:checked={linkStatus} /> Live status page{#if off(features?.status)}
-				<span class="text-mist-600">(page is off)</span>{/if}</label
+			><input type="checkbox" bind:checked={linkStatus} /> 实时状态页面{#if off(features?.status)}
+				<span class="text-mist-600">（页面已关闭）</span>{/if}</label
 		>
 		<label class="flex items-center gap-2 text-[13px]"
 			><input type="checkbox" bind:checked={linkLeaderboard} />
-			Leaderboard{#if off(features?.leaderboards)}
-				<span class="text-mist-600">(page is off)</span>{/if}</label
+			排行榜{#if off(features?.leaderboards)}
+				<span class="text-mist-600">（页面已关闭）</span>{/if}</label
 		>
 		<label class="flex items-center gap-2 text-[13px]"
-			><input type="checkbox" bind:checked={linkPanel} /> Panel (needs a sign-in)</label
+			><input type="checkbox" bind:checked={linkPanel} /> 管理面板（需登录）</label
 		>
 	</div>
 	<p class="note">
-		The title opens the first link, the rest sit under the card. A public link goes out only while
-		that page is on for the server (under Public pages), so a card never sends people to the sign-in
-		wall. Edits wait at least the refresh interval, longer when many servers share one webhook.
+		标题打开第一个链接，其余链接显示在卡片下方。仅当服务器启用对应公开页面时才发送公开链接（在“公开页面”中设置），避免将玩家带到登录页面。修改至少等待一个刷新周期；多个服务器共用同一
+		Webhook 时可能更久。
 	</p>
 </div>

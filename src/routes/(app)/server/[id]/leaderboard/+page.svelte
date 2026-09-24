@@ -60,11 +60,8 @@
 		showIds
 	/>
 	<p class="note">
-		Kills and deaths are the game's own scoreboard counters, recorded per match; headshots, team
-		kills and streaks come from the kill feed; playtime from player sessions, cash as last seen. A
-		match counts once it has ended, with the result read against the side the player played. Kills
-		per hour leaves seed time out. Names link to the dossier.
-		{#if publicOn}This board is also public at <a
+		击杀与死亡来自游戏计分板，按对局记录；爆头、队友击杀和连续击杀来自击杀事件；游玩时间来自玩家会话，金钱为最近观测值。对局结束后才计入结果，并按玩家所在阵营计算胜负。每小时击杀数不包含种子期。点击昵称可查看玩家档案。
+		{#if publicOn}该排行榜也公开显示于 <a
 				href="/s/{encodeURIComponent(id)}/leaderboard"
 				class="text-accent hover:underline">/s/{id}/leaderboard</a
 			>.{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { uiMessageZh } from '$lib/ui-message-zh';
 	// Account creation for pages where a visitor without an account may make one (first-run setup,
 	// invite links, organisation sign-up). Providers first, then a passkey; a password is the
 	// fallback behind a link, not the default.
@@ -203,7 +204,7 @@
 			class="rounded-ctl border border-danger/30 bg-danger/12 px-3 py-2 text-[13px] text-danger"
 			role="alert"
 		>
-			{error || form?.error}
+			{uiMessageZh(error || form?.error || '')}
 		</div>
 	{/if}
 </form>

@@ -13,5 +13,5 @@
 		></span>{faction}
 	</span>
 {:else}
-	<span class="text-mist-600">unassigned</span>
+	<span class="text-mist-600">未分配</span>
 {/if}

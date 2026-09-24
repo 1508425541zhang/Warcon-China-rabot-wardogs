@@ -98,12 +98,12 @@
 	) {
 		if (
 			opts.confirm &&
-			!(await confirmDialog(opts.confirm, { okLabel: 'Do it', danger: opts.danger }))
+			!(await confirmDialog(opts.confirm, { okLabel: '确认执行', danger: opts.danger }))
 		)
 			return null;
 		try {
 			const result = await rconPost<{ message?: string }>(id, action, params);
-			toast(result?.message || `${action} done.`, 'ok');
+			toast(result?.message || '操作已完成。', 'ok');
 			if (opts.after) await opts.after();
 			return result;
 		} catch (err) {
@@ -165,7 +165,7 @@
 	let feedAgeS = $derived(
 		feedAt ? Math.max(0, Math.round((now - Date.parse(feedAt)) / 1000)) : null
 	);
-	const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour12: false });
+	const clock = (iso: string) => new Date(iso).toLocaleTimeString('zh-CN', { hour12: false });
 	async function refreshRotation() {
 		try {
 			rotation = await rconGet<Rotation>(id, 'rotation');
@@ -229,7 +229,7 @@
 
 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 	<div class="panel">
-		<span class="label-sm">Scores</span>
+		<span class="label-sm">分数</span>
 		{#if status}
 			<MapArt
 				map={status.map}
@@ -256,70 +256,70 @@
 				{/each}
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Server</span><span class="truncate"
+				<span class="text-mist-400">服务器</span><span class="truncate"
 					>{status.serverName || '—'}</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Players</span><span
+				<span class="text-mist-400">玩家</span><span
 					>{fmtNum(status.playerCount)} / {fmtNum(status.maxPlayers)}{#if live?.reservedSlots}<span
-							class="text-mist-400">&nbsp;+ {live.reservedSlots} reserved</span
+							class="text-mist-400">&nbsp;+ {live.reservedSlots} 个预留位</span
 						>{/if}</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Map</span><span>{mapLabel(data.catalog, status.map)}</span>
+				<span class="text-mist-400">地图</span><span>{mapLabel(data.catalog, status.map)}</span>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Game mode &amp; mods</span><span class="text-right"
+				<span class="text-mist-400">游戏模式与模组</span><span class="text-right"
 					>{expSetLabel(data.catalog, status.experiences)}</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Time of day &amp; weather</span><span
+				<span class="text-mist-400">时间与天气</span><span
 					>{lightingLabel(data.catalog, status.lighting)}</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Control zone</span><span>{zoneLabel(status.alternator)}</span>
+				<span class="text-mist-400">控制区</span><span>{zoneLabel(status.alternator)}</span>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Score tick</span><span
+				<span class="text-mist-400">得分周期</span><span
 					>{status.scoreTick !== null
-						? `${status.scoreTick}s (range ${status.scoreTickMin}–${status.scoreTickMax})`
+						? `${status.scoreTick} 秒（范围 ${status.scoreTickMin}–${status.scoreTickMax}）`
 						: '—'}</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Score cap</span><span
+				<span class="text-mist-400">分数上限</span><span
 					>{scoreScale}{#if status.scoreCap === null}
-						<span class="text-mist-600">(game default)</span>{/if}</span
+						<span class="text-mist-600">（游戏默认值）</span>{/if}</span
 				>
 			</div>
 			<div class="kv">
-				<span class="text-mist-400">Rotation</span>
+				<span class="text-mist-400">地图轮换</span>
 				<span
 					>{rotation
 						? rotation.enabled
-							? `${rotation.mode}, entry ${rotation.nowIndex + 1} now${rotation.nextIndex >= 0 ? `, ${rotation.nextIndex + 1} next` : ''} of ${rotation.entries.length}`
-							: 'off'
+							? `${rotation.mode}，当前第 ${rotation.nowIndex + 1} 项${rotation.nextIndex >= 0 ? `，下一项第 ${rotation.nextIndex + 1} 项` : ''}，共 ${rotation.entries.length} 项`
+							: '关闭'
 						: '—'}</span
 				>
 			</div>
 		{:else}
-			<div class="text-mist-600">Loading…</div>
+			<div class="text-mist-600">加载中…</div>
 		{/if}
 	</div>
 
 	<div class="panel">
-		<span class="label-sm">Match control</span>
+		<span class="label-sm">比赛控制</span>
 		<div class="stat-big">
-			<span class="text-mist-400">Next map</span>
+			<span class="text-mist-400">下一张地图</span>
 			<span class="inline-flex items-center gap-3 text-right text-lg font-semibold"
 				>{next
 					? mapLabel(data.catalog, next.map)
 					: rotation && !rotation.enabled && status
-						? `${mapLabel(data.catalog, status.map)} again (rotation off)`
+						? `${mapLabel(data.catalog, status.map)}（轮换已关闭，仍为当前地图）`
 						: '—'}{#if next}<MapArt
 						map={next.map}
 						lighting={next.lighting}
@@ -331,7 +331,7 @@
 		</div>
 		{#if next && rotation}
 			<p class="note mt-0">
-				Rotation entry {rotation.nextIndex + 1} of {rotation.entries.length} · {expSetLabel(
+				轮换第 {rotation.nextIndex + 1} / {rotation.entries.length} 项 · {expSetLabel(
 					data.catalog,
 					next.experiences
 				)} · {lightingLabel(data.catalog, next.lighting)}
@@ -339,7 +339,7 @@
 		{/if}
 		<div class="join join-stack mt-3">
 			<button class="btn" disabled={!match} onclick={() => (showPicker = !showPicker)}
-				>Override map</button
+				>指定地图</button
 			>
 			<button
 				class="btn"
@@ -349,10 +349,10 @@
 						'restartMatch',
 						{},
 						{
-							confirm: 'Restart the current match? Scores reset; the rotation pointer stays put.',
+							confirm: '重开当前比赛？分数会重置，地图轮换位置不变。',
 							after: refreshStatus
 						}
-					)}>Restart match</button
+					)}>重开比赛</button
 			>
 			<button
 				class="btn btn-danger"
@@ -362,18 +362,15 @@
 						'endMatch',
 						{},
 						{
-							confirm:
-								'Force end the match? The next map comes from the rotation (or the current map reloads if rotation is off).',
+							confirm: '强制结束比赛？下一张地图由轮换决定；若轮换关闭，将重新加载当前地图。',
 							danger: true,
 							after: refreshStatus
 						}
-					)}>Force end match</button
+					)}>强制结束比赛</button
 			>
 		</div>
 		<p class="note">
-			{chat || match
-				? 'Both travel when the match-end screen finishes, not when the button is pressed.'
-				: 'You have view-only access to this server.'}
+			{chat || match ? '地图切换和比赛结束命令会在结算画面结束后执行。' : '你只有本服查看权限。'}
 		</p>
 		<form
 			class="mt-4"
@@ -382,26 +379,26 @@
 				void sendBroadcast();
 			}}
 		>
-			<span class="field-label">Announcement to all players</span>
+			<span class="field-label">向所有玩家广播</span>
 			<div class="join w-full">
 				<input
 					class="input"
 					type="text"
 					maxlength="200"
-					placeholder="Message shown to everyone on the server…"
+					placeholder="向全服玩家显示的消息…"
 					bind:value={broadcast}
 					disabled={!chat}
 				/>
-				<button class="btn btn-primary" type="submit" disabled={!chat}>Send</button>
+				<button class="btn btn-primary" type="submit" disabled={!chat}>发送</button>
 			</div>
 		</form>
 		{#if banner}
 			<div class="mt-4">
-				<span class="field-label">Server image</span>
+				<span class="field-label">服务器图片</span>
 				{#key banner}
 					<img
 						src={banner}
-						alt="Server banner"
+						alt="服务器横幅"
 						class="h-16 w-auto max-w-full rounded border border-black object-cover"
 						loading="lazy"
 						referrerpolicy="no-referrer"
@@ -415,18 +412,16 @@
 
 <div class="mt-4 panel">
 	<div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-		<span class="label-sm mb-0">Cash in play</span>
-		<span class="text-[12px] text-mist-600"
-			>held by connected players this match · one point per observation</span
-		>
+		<span class="label-sm mb-0">场内现金</span>
+		<span class="text-[12px] text-mist-600">本场在线玩家持有的现金 · 每次观测记一个点</span>
 		<span class="join ml-auto">
 			<button
 				class="btn btn-sm {cashView === 'chart' ? 'btn-primary' : ''}"
-				onclick={() => (cashView = 'chart')}>Chart</button
+				onclick={() => (cashView = 'chart')}>图表</button
 			>
 			<button
 				class="btn btn-sm {cashView === 'table' ? 'btn-primary' : ''}"
-				onclick={() => (cashView = 'table')}>Table</button
+				onclick={() => (cashView = 'table')}>表格</button
 			>
 		</span>
 	</div>
@@ -434,12 +429,12 @@
 		points={cash}
 		view={cashView}
 		color={(name) => factionColor(name, status?.scores)}
-		emptyText="No cash samples yet. Points appear as the scoreboard refreshes."
+		emptyText="暂无现金样本；计分板刷新后会显示数据。"
 	/>
 </div>
 
 <div class="mt-4 panel" hidden={!showPicker}>
-	<span class="label-sm">Map override</span>
+	<span class="label-sm">指定地图</span>
 	<MapPicker bind:this={picker} serverId={id} catalog={data.catalog} disabled={!match} />
 	<div class="join join-stack mt-4">
 		<button
@@ -447,9 +442,9 @@
 			disabled={!match || !data.features.rotationEdit}
 			title={data.features.rotationEdit
 				? ''
-				: 'This server build serves no rotation edit routes, so a next map cannot be queued.'}
+				: '当前服务器版本没有地图轮换编辑接口，无法预设下一张地图。'}
 			onclick={() => picker && act('setNextMap', picker.selection(), { after: refreshStatus })}
-			>Set as next map</button
+			>设为下一张地图</button
 		>
 		<button
 			class="btn btn-danger"
@@ -457,50 +452,47 @@
 			onclick={() =>
 				picker &&
 				act('changeMap', picker.selection(), {
-					confirm:
-						'End the current round and travel to this selection when the match-end screen finishes?',
+					confirm: '结束当前回合，并在结算画面结束后切换到所选地图？',
 					danger: true,
 					after: refreshStatus
-				})}>Change map now</button
+				})}>立即切换地图</button
 		>
 	</div>
 	<p class="note">
-		Set as next map is a rotation edit: the selection moves into the slot the server plays next (and
-		is added to the rotation if it is not there). Save rotation on the Map rotation tab makes that
-		survive a restart.
+		设为下一张地图会修改轮换顺序：所选地图将成为下一场地图，必要时会加入轮换列表。在“地图轮换”页保存后，重启服务器也会保留该设置。
 	</p>
 </div>
 
 <div class="mt-4 panel">
 	<div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-		<span class="label-sm mb-0">Scoreboard</span>
+		<span class="label-sm mb-0">计分板</span>
 		<div class="join">
 			<button
 				class="btn btn-sm {teamFilter === '' ? 'btn-primary' : ''}"
-				onclick={() => (teamFilter = '')}>All {players.length}</button
+				onclick={() => (teamFilter = '')}>全部 {players.length}</button
 			>
 			{#each teams as [f, n] (f)}
 				<button
 					class="btn btn-sm {teamFilter === (f || 'unassigned') ? 'btn-primary' : ''}"
-					onclick={() => (teamFilter = f || 'unassigned')}>{f || 'unassigned'} {n}</button
+					onclick={() => (teamFilter = f || 'unassigned')}>{f || '未分配'} {n}</button
 				>
 			{/each}
 		</div>
 		<span class="ml-auto text-[12.5px] text-mist-600"
-			>{players.length} on the server{#if live?.playersAt}
-				· seen {Math.max(0, Math.round((now - Date.parse(live.playersAt)) / 1000))}s ago{/if}</span
+			>本服在线 {players.length} 人{#if live?.playersAt}
+				· {Math.max(0, Math.round((now - Date.parse(live.playersAt)) / 1000))} 秒前更新{/if}</span
 		>
 	</div>
 	<div class="table-wrap">
 		<table>
 			<thead>
 				<tr>
-					<SortHeader sort={boardSort} key="player">Player</SortHeader>
-					<SortHeader sort={boardSort} key="faction">Faction</SortHeader>
+					<SortHeader sort={boardSort} key="player">玩家</SortHeader>
+					<SortHeader sort={boardSort} key="faction">阵营</SortHeader>
 					<SortHeader sort={boardSort} key="kills" num>K</SortHeader>
 					<SortHeader sort={boardSort} key="deaths" num>D</SortHeader>
-					<SortHeader sort={boardSort} key="cash" num>Cash</SortHeader>
-					<SortHeader sort={boardSort} key="ping" num>Ping</SortHeader>
+					<SortHeader sort={boardSort} key="cash" num>现金</SortHeader>
+					<SortHeader sort={boardSort} key="ping" num>延迟</SortHeader>
 				</tr>
 			</thead>
 			<tbody>
@@ -512,7 +504,7 @@
 						<td class="num">{fmtNum(p.cash)}</td><td class="num">{p.ping ?? '—'}</td>
 					</tr>
 				{:else}
-					<tr><td colspan="6" class="py-6 text-center text-mist-600">No players connected.</td></tr>
+					<tr><td colspan="6" class="py-6 text-center text-mist-600">当前没有玩家在线。</td></tr>
 				{/each}
 			</tbody>
 		</table>
@@ -522,27 +514,26 @@
 {#if feedConfigured || kills.length}
 	<div class="mt-4 panel">
 		<div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-			<span class="label-sm mb-0">Kill feed</span>
-			<span class="text-[12px] text-mist-600">from the game's own feed · newest first</span>
+			<span class="label-sm mb-0">击杀事件</span>
+			<span class="text-[12px] text-mist-600">来自游戏击杀事件 · 最新优先</span>
 			<a
 				href="/server/{encodeURIComponent(id)}/kills"
-				class="text-[12.5px] text-accent hover:underline">All kills, with filters →</a
+				class="text-[12.5px] text-accent hover:underline">查看全部击杀并筛选 →</a
 			>
 			<span
 				class="ml-auto text-[12.5px] {feedAgeS !== null && feedAgeS > 900 && players.length
 					? 'text-warn'
 					: 'text-mist-600'}"
 			>
-				{#if feedAgeS === null}no batch received yet{:else if feedAgeS > 900 && players.length}no
-					events for {Math.round(feedAgeS / 60)} min with players on{:else}last event {feedAgeS}s
-					ago{/if}
+				{#if feedAgeS === null}尚未收到击杀事件{:else if feedAgeS > 900 && players.length}有玩家在线，但已
+					{Math.round(feedAgeS / 60)} 分钟无击杀事件{:else}最近事件：{feedAgeS} 秒前{/if}
 			</span>
 		</div>
 		<div class="max-h-[420px] table-wrap">
 			<table>
 				<thead>
 					<tr
-						><th>Time</th><th>Killer</th><th>Victim</th><th>Cause</th><th class="num">Distance</th
+						><th>时间</th><th>击杀者</th><th>受害者</th><th>击杀原因</th><th class="num">距离</th
 						><th></th></tr
 					>
 				</thead>
@@ -573,13 +564,13 @@
 									/>{/if}
 							</td>
 							<td class="text-mist-200"
-								>{causeLabel(k.cause) || (k.tags.includes('Falling') ? 'Fall' : '—')}</td
+								>{causeLabel(k.cause) || (k.tags.includes('Falling') ? '坠落' : '—')}</td
 							>
 							<td class="num">{k.distanceM === null ? '—' : `${Math.round(k.distanceM)} m`}</td>
 							<td class="whitespace-nowrap">
-								{#if k.teamKill}<span class="chip">team kill</span>{/if}
-								{#if k.suicide}<span class="chip">suicide</span>{/if}
-								{#if k.headshot}<span class="chip">headshot</span>{/if}
+								{#if k.teamKill}<span class="chip">误杀队友</span>{/if}
+								{#if k.suicide}<span class="chip">自杀</span>{/if}
+								{#if k.headshot}<span class="chip">爆头</span>{/if}
 								{#each k.tags as t (t)}<span class="chip"
 										>{t.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()}</span
 									>{/each}
@@ -588,7 +579,7 @@
 					{:else}
 						<tr
 							><td colspan="6" class="py-6 text-center text-mist-600"
-								>No kills received yet. They appear here as the game posts them.</td
+								>尚未收到击杀事件；游戏上报后会显示在这里。</td
 							></tr
 						>
 					{/each}

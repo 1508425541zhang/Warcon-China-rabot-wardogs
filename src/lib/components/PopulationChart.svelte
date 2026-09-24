@@ -89,7 +89,7 @@
 
 {#if !points.length}
 	<div class="py-10 text-center text-mist-600">
-		No samples yet. The poller records one every few seconds once it can reach the server.
+		暂无采样数据。连接到服务器后，轮询进程会每隔几秒记录一次。
 	</div>
 {:else}
 	<div class="relative" bind:clientWidth={width}>
@@ -99,7 +99,7 @@
 			viewBox="0 0 {W} {H}"
 			class="block h-auto w-full"
 			role="img"
-			aria-label="Players online over time"
+			aria-label="在线人数变化"
 			onmousemove={onmove}
 			onmouseleave={() => (hover = null)}
 		>
@@ -179,9 +179,9 @@
 			>
 				<div class="font-mono text-mist-400">{fmtTs(p.ts)}</div>
 				{#if p.avg === null}
-					<div class="text-danger">unreachable</div>
+					<div class="text-danger">无法连接</div>
 				{:else}
-					<div><b>{Math.round(p.avg)}</b> avg · peak {p.max} / {p.cap ?? '?'}</div>
+					<div><b>{Math.round(p.avg)}</b> 平均 · 峰值 {p.max} / {p.cap ?? '?'}</div>
 				{/if}
 			</div>
 		{/if}

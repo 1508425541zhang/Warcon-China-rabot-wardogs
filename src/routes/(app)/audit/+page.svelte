@@ -72,57 +72,55 @@
 		o === 'ok' ? 'text-ok' : o === 'denied' ? 'text-warn' : 'text-danger';
 </script>
 
-<svelte:head><title>Audit trail · {data.appName}</title></svelte:head>
+<svelte:head><title>审计记录 · {data.appName}</title></svelte:head>
 
-<h1 class="mb-5 text-xl font-semibold tracking-tight">Audit trail</h1>
+<h1 class="mb-5 text-xl font-semibold tracking-tight">审计记录</h1>
 
 <div class="mb-4 panel">
 	<div class="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
-		<select class="input" bind:value={f.server} onchange={apply} aria-label="Server">
-			<option value="">All servers</option>
+		<select class="input" bind:value={f.server} onchange={apply} aria-label="服务器">
+			<option value="">全部服务器</option>
 			{#each data.servers as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
 		</select>
-		<select class="input" bind:value={f.actor} onchange={apply} aria-label="Actor">
-			<option value="">All actors</option>
+		<select class="input" bind:value={f.actor} onchange={apply} aria-label="操作者">
+			<option value="">全部操作者</option>
 			{#each data.actors as a (a.actorId)}<option value={a.actorId}
 					>{a.actorName || a.actorId}</option
 				>{/each}
 		</select>
-		<select class="input" bind:value={f.action} onchange={apply} aria-label="Action">
-			<option value="">All actions</option>
+		<select class="input" bind:value={f.action} onchange={apply} aria-label="操作">
+			<option value="">全部操作</option>
 			{#each data.actions as a (a.action)}<option value={a.action}>{a.category} · {a.action}</option
 				>{/each}
 		</select>
-		<select class="input" bind:value={f.outcome} onchange={apply} aria-label="Outcome">
-			<option value="">All outcomes</option>
+		<select class="input" bind:value={f.outcome} onchange={apply} aria-label="结果">
+			<option value="">全部结果</option>
 			<option value="ok">ok</option>
-			<option value="error">error</option>
-			<option value="denied">denied</option>
+			<option value="error">错误</option>
+			<option value="denied">已拒绝</option>
 		</select>
 		<input
 			class="col-span-2 input"
 			type="search"
-			placeholder="Search target, message, detail…"
+			placeholder="搜索目标、消息或详情…"
 			bind:value={f.q}
 			oninput={applyDebounced}
 		/>
-		<input class="input" type="datetime-local" title="From" bind:value={f.from} onchange={apply} />
-		<input class="input" type="datetime-local" title="To" bind:value={f.to} onchange={apply} />
+		<input class="input" type="datetime-local" title="从" bind:value={f.from} onchange={apply} />
+		<input class="input" type="datetime-local" title="至" bind:value={f.to} onchange={apply} />
 	</div>
 	<div class="mt-3 flex flex-wrap items-center gap-3">
 		<span class="text-[12.5px] text-mist-400">
 			{data.user.role === 'owner'
-				? 'Every login, user change, server change and game-server command, panel-wide.'
-				: 'Your own actions, plus everything on servers where you are an admin.'}
+				? '查看全平台的登录、用户变更、服务器变更及游戏服务器命令。'
+				: '查看自己的操作，以及所管理服务器上的全部操作。'}
 		</span>
 		<span class="ml-auto flex items-center gap-2">
 			<span class="text-[12.5px] text-mist-600"
-				>{rows.length} entr{rows.length === 1 ? 'y' : 'ies'}{nextBefore
-					? ' (more available)'
-					: ''}</span
+				>{rows.length} 条记录{nextBefore ? '（还有更多）' : ''}</span
 			>
-			<a class="btn btn-sm" href={exportUrl('csv')} target="_blank" rel="noopener">Export CSV</a>
-			<a class="btn btn-sm" href={exportUrl('json')} target="_blank" rel="noopener">Export JSON</a>
+			<a class="btn btn-sm" href={exportUrl('csv')} target="_blank" rel="noopener">导出 CSV</a>
+			<a class="btn btn-sm" href={exportUrl('json')} target="_blank" rel="noopener">导出 JSON</a>
 		</span>
 	</div>
 </div>
@@ -131,8 +129,8 @@
 	<table>
 		<thead>
 			<tr
-				><th>Time</th><th>Actor</th><th>Server</th><th>Action</th><th>Target</th><th>Outcome</th><th
-					>Message / detail</th
+				><th>时间</th><th>操作者</th><th>服务器</th><th>操作</th><th>目标</th><th>结果</th><th
+					>消息／详情</th
 				><th class="num">ms</th></tr
 			>
 		</thead>
@@ -157,7 +155,7 @@
 						{#if r.message}<div>{r.message}</div>{/if}
 						{#if r.detail && Object.keys(r.detail as object).length}
 							<details class="text-[12px] text-mist-400">
-								<summary class="cursor-pointer">detail</summary>
+								<summary class="cursor-pointer">详情</summary>
 								<pre
 									class="mt-1 max-h-60 overflow-auto rounded-ctl bg-black/40 p-2 font-mono text-[11.5px] whitespace-pre-wrap text-mist-100">{JSON.stringify(
 										r.detail,
@@ -170,7 +168,8 @@
 					<td class="num font-mono text-[12px] text-mist-600">{r.durationMs ?? ''}</td>
 				</tr>
 			{:else}
-				<tr><td colspan="8" class="py-8 text-center text-mist-600">No audit entries match.</td></tr>
+				<tr><td colspan="8" class="py-8 text-center text-mist-600">没有符合条件的审计记录。</td></tr
+				>
 			{/each}
 		</tbody>
 	</table>
@@ -178,12 +177,12 @@
 {#if nextBefore}
 	<div class="mt-4 text-center">
 		<button class="btn" onclick={more} disabled={loadingMore}
-			>{loadingMore ? 'Loading…' : 'Load more'}</button
+			>{loadingMore ? 'Loading…' : '加载更多'}</button
 		>
 	</div>
 {/if}
 {#if page.url.searchParams.size}
 	<div class="mt-3 text-center">
-		<a href="/audit" class="text-[12.5px] text-mist-400 underline">Clear filters</a>
+		<a href="/audit" class="text-[12.5px] text-mist-400 underline">清除筛选</a>
 	</div>
 {/if}

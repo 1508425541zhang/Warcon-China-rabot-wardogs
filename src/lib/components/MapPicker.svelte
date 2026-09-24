@@ -84,33 +84,33 @@
 		/>
 	</div>
 	<label class="block">
-		<span class="label-sm">Map</span>
+		<span class="label-sm">地图</span>
 		<select class="input" bind:value={map} onchange={() => loadMap()} {disabled}>
 			{#each catalog.maps as m (m.id)}<option value={m.id}>{mapLabel(catalog, m.id)}</option>{/each}
 		</select>
 	</label>
 	<label class="block">
-		<span class="label-sm">Game mode</span>
+		<span class="label-sm">游戏模式</span>
 		<select class="input" bind:value={mode} {disabled}>
 			{#each modes as e (e.id)}<option value={e.id}>{e.display}</option>{/each}
 		</select>
 	</label>
 	<label class="block">
-		<span class="label-sm">Time of day &amp; weather</span>
+		<span class="label-sm">时间与天气</span>
 		<select class="input" bind:value={lighting} {disabled}>
 			{#each catalog.lightings as l (l.id)}<option value={l.id}>{l.display}</option>{/each}
 		</select>
 	</label>
 	<label class="block">
-		<span class="label-sm">Control zone</span>
+		<span class="label-sm">控制区</span>
 		<select class="input" bind:value={zone} {disabled}>
-			<option value="">Default</option>
+			<option value="">默认</option>
 			{#each zones as z (z.tag)}<option value={z.tag}>{z.display || zoneLabel(z.tag)}</option
 				>{/each}
 		</select>
 	</label>
 	<div class="sm:col-span-2 lg:col-span-4">
-		<span class="label-sm">Modifications</span>
+		<span class="label-sm">修改记录</span>
 		<div class="flex flex-wrap gap-x-5 gap-y-2">
 			{#each modOptions as e (e.id)}
 				<label class="inline-flex items-center gap-2 text-[13px]">
@@ -118,7 +118,7 @@
 					{expLabel(catalog, e.id)}
 				</label>
 			{:else}
-				<span class="text-mist-600">None for this map.</span>
+				<span class="text-mist-600">该地图暂无记录。</span>
 			{/each}
 		</div>
 	</div>
