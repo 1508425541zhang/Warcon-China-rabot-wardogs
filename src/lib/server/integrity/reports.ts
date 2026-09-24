@@ -1,7 +1,6 @@
 import { and, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 import type { Env } from '../env';
 import type { DbOrTx } from '../db';
-import type { KillView } from '$lib/types';
 import type { SessionUser } from '../access';
 import { writeAudit } from '../audit';
 import {
@@ -72,7 +71,7 @@ async function copyReportEvents(
 export async function captureReportEvidence(
 	env: Env,
 	serverId: string,
-	batch: readonly KillView[]
+	batch: readonly { eventId: string }[]
 ): Promise<void> {
 	if (!batch.length) return;
 	const now = new Date();

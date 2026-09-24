@@ -200,8 +200,10 @@ describe.skipIf(!hasTestDb)('one org list without the other', () => {
 			(await env.db.select().from(orgRoles).where(eq(orgRoles.id, id)))[0].capabilities as string[];
 		const key = async (id: string) =>
 			(await env.db.select().from(apiKeys).where(eq(apiKeys.id, id)))[0].capabilities as string[];
-		// the built-in admin comes out exactly as a new org's admin
-		expect((await role(m.roles.admin)).sort()).toEqual([...BUILTIN_CAPABILITIES.admin].sort());
+		// This fixture applies only migration 0033. Integrity was added later by 0039.
+		expect((await role(m.roles.admin)).sort()).toEqual(
+			BUILTIN_CAPABILITIES.admin.filter((cap) => cap !== 'integrity.view').sort()
+		);
 		expect((await role(m.roles.orgBans)).sort()).toEqual([
 			'lists.ban',
 			'lists.reserve',
