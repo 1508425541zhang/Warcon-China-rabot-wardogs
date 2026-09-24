@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { validateWebhookUrl } from './webhooks';
 import {
 	buildEmbed,
+	buildIntegrityEmbed,
 	buildTeamKillEmbed,
 	buildWatchedJoinEmbed,
 	classify,
@@ -35,6 +36,30 @@ describe('validateWebhookUrl', () => {
 		expect(() =>
 			validateWebhookUrl('https://discord.com/api/webhooks/123456789012345678/short')
 		).toThrow('Discord webhook URL');
+	});
+});
+
+describe('Integrity alerts', () => {
+	test('only case data, never reporter identity or an invented kick', () => {
+		const embed = buildIntegrityEmbed('Warcon', {
+			caseId: 'CASE-123',
+			serverId: 's1',
+			serverName: 'WARDOGS #1',
+			steamId: '76561198000000001',
+			map: 'Map A',
+			score: 60,
+			level: 'AUTO_KO',
+			breakdown: [{ code: 'infantry_kpm_180', points: 52, detail: '8 infantry KPM' }],
+			infantryKills: 24,
+			kpm180: 8,
+			uniqueVictims: 18,
+			uniqueReporters: 3,
+			createdAt: new Date('2026-09-24T00:00:00Z')
+		});
+		expect(embed.description).toContain('CASE-123');
+		expect(embed.description).toContain('Dry run: no Integrity kick');
+		expect(embed.description).toContain('Unique reporters: 3');
+		expect(embed.description).not.toContain('reporterSteamId');
 	});
 });
 

@@ -29,7 +29,7 @@ import { applyTriggerUpdates, enqueueIntents, wakeDelivery } from './outbox';
 import { LostOwnership, withOwnedTransaction } from './leadership';
 import { memoryOf } from './observe';
 import { publicMessage } from './http';
-import { notifyTeamKills } from './webhook-delivery';
+import { notifyIntegrityCase, notifyTeamKills, type IntegrityCaseAlert } from './webhook-delivery';
 import { isDemoServer } from './env';
 import { drainMockFeed } from './mockgame';
 import { ingestBatch } from './feed';
@@ -106,6 +106,7 @@ async function recordInfantryWindows(env: Env, serverId: string, batch: KillView
 		rules.config.kpmBands[0].min
 	);
 	if (!findings.length) return;
+	const alerts: IntegrityCaseAlert[] = [];
 	await withOwnedTransaction(env, async (tx) => {
 		for (const finding of findings) {
 			const now = new Date();
@@ -181,8 +182,8 @@ async function recordInfantryWindows(env: Env, serverId: string, batch: KillView
 				breakdown: score.breakdown,
 				currentBehaviorAnomaly: score.currentBehaviorAnomaly
 			});
-			if (score.score >= rules.config.koThreshold)
-				await freezeFindingEvidence(tx, {
+			if (score.score >= rules.config.koThreshold) {
+				const caseId = await freezeFindingEvidence(tx, {
 					orgId,
 					serverId,
 					steamId: finding.steamId,
@@ -192,8 +193,25 @@ async function recordInfantryWindows(env: Env, serverId: string, batch: KillView
 					rulesSnapshot: rules.config,
 					createdAt: now
 				});
+				alerts.push({
+					caseId,
+					serverId,
+					serverName: memoryOf(serverId)?.server.name ?? serverId,
+					steamId: finding.steamId,
+					map: finding.map,
+					score: score.score,
+					level: score.level,
+					breakdown: score.breakdown,
+					infantryKills: finding.infantryKills,
+					kpm180: finding.kpm180,
+					uniqueVictims: finding.uniqueVictims,
+					uniqueReporters: Number(reporters?.count ?? 0),
+					createdAt: now
+				});
+			}
 		}
 	});
+	for (const alert of alerts) await notifyIntegrityCase(env, orgId, alert);
 }
 
 /**
