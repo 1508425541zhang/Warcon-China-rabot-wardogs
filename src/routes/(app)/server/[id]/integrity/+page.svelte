@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
 	import type { PageProps } from './$types';
+	import IntegritySettings from './IntegritySettings.svelte';
 
 	let { data }: PageProps = $props();
 	let lang = $state<'zh' | 'en'>('zh');
@@ -45,7 +47,22 @@
 			koPlayers: '达到 KO 阈值的独立玩家',
 			quarantinePlayers: '达到隔离阈值的独立玩家',
 			contributors: '过去 7 天主要加分规则',
-			noContributors: '暂无评分贡献。'
+			noContributors: '暂无评分贡献。',
+			online: '在线玩家风控',
+			noOnline: '当前没有在线玩家快照。',
+			refresh: '刷新数据',
+			dataAt: '玩家快照',
+			kills: '击杀',
+			deaths: '死亡',
+			kd: 'KD',
+			kpm: '180 秒步兵 KPM',
+			peakKpm: '近 10 分钟峰值 KPM',
+			victims: '独立受害者',
+			level: '风险级别',
+			unscored: '未评分',
+			metricMissing: '暂无可靠击杀数据',
+			truncated: '近期击杀数据超过查询上限，KPM 暂不显示。',
+			kdHint: 'KD 仅作参考，不单独加风险分。风险分显示过去 15 分钟内的最高记录。'
 		},
 		en: {
 			title: 'Community Integrity',
@@ -80,7 +97,23 @@
 			koPlayers: 'Unique players at KO threshold',
 			quarantinePlayers: 'Unique players at quarantine threshold',
 			contributors: 'Top score contributions in 7 days',
-			noContributors: 'No score contributions yet.'
+			noContributors: 'No score contributions yet.',
+			online: 'Online player integrity',
+			noOnline: 'No current online roster snapshot.',
+			refresh: 'Refresh',
+			dataAt: 'Roster snapshot',
+			kills: 'Kills',
+			deaths: 'Deaths',
+			kd: 'KD',
+			kpm: '180s infantry KPM',
+			peakKpm: 'Peak KPM in 10 minutes',
+			victims: 'Unique victims',
+			level: 'Risk level',
+			unscored: 'Not scored',
+			metricMissing: 'No reliable recent kill data',
+			truncated: 'Recent kill rows exceeded the query limit; KPM is hidden.',
+			kdHint:
+				'KD is context only and never adds risk by itself. Risk shows the highest recorded score in the past 15 minutes.'
 		}
 	};
 	let t = $derived(words[lang]);
@@ -92,6 +125,37 @@
 						!!item && typeof item.code === 'string' && typeof item.points === 'number'
 				)
 			: [];
+	const kd = (kills: number, deaths: number) =>
+		deaths ? (kills / deaths).toFixed(2) : kills ? '∞' : '—';
+	const levelName = (value: string | null) => {
+		if (!value) return t.unscored;
+		if (lang === 'en') return value.replaceAll('_', ' ');
+		return (
+			(
+				{
+					NORMAL: '正常',
+					PASSIVE_WATCH: '被动观察',
+					ACTIVE_WATCH: '主动观察',
+					AUTO_KO: '达到移出阈值',
+					AUTO_QUARANTINE_ELIGIBLE: '达到隔离资格阈值'
+				} as Record<string, string>
+			)[value] ?? value
+		);
+	};
+	let refreshing = $state(false);
+	async function refresh() {
+		refreshing = true;
+		try {
+			await invalidateAll();
+		} finally {
+			refreshing = false;
+		}
+	}
+	let metricsAvailable = $derived(
+		!!data.feedAt &&
+			Date.now() - new Date(data.feedAt).getTime() < 5 * 60_000 &&
+			!data.feedRowsTruncated
+	);
 </script>
 
 <svelte:head><title>{t.title} · {data.server.name}</title></svelte:head>
@@ -101,7 +165,12 @@
 		<h2 class="text-xl font-semibold text-white">{t.title}</h2>
 		<p class="mt-1 text-sm text-mist-400">{t.intro}</p>
 	</div>
-	<button class="btn-quiet btn" type="button" onclick={switchLanguage}>{t.language}</button>
+	<div class="flex gap-2">
+		{#if data.canConfigure}<a class="btn-quiet btn" href="#integrity-settings"
+				>{lang === 'zh' ? '风控设置' : 'Integrity settings'}</a
+			>{/if}
+		<button class="btn-quiet btn" type="button" onclick={switchLanguage}>{t.language}</button>
+	</div>
 </div>
 
 <div class="mb-5 grid gap-3 sm:grid-cols-3">
@@ -122,6 +191,65 @@
 <p class="mb-5 rounded-ctl border border-warn/20 bg-warn/5 px-4 py-3 text-sm text-warn">
 	{t.noActions}
 </p>
+
+<section class="mb-6 panel p-4">
+	<div class="flex flex-wrap items-center justify-between gap-2">
+		<h3 class="text-base font-semibold text-white">{t.online}</h3>
+		<button class="btn-quiet btn" type="button" disabled={refreshing} onclick={refresh}
+			>{t.refresh}</button
+		>
+	</div>
+	<p class="mt-1 mb-3 text-xs text-mist-400">
+		{t.dataAt}: {data.playersAt ? when(data.playersAt) : t.noFeed} · {t.kdHint}
+	</p>
+	{#if data.feedRowsTruncated}<p class="mb-2 text-sm text-warn">{t.truncated}</p>{/if}
+	{#if data.onlinePlayers.length}
+		<div class="table-wrap">
+			<table>
+				<thead
+					><tr
+						><th>{t.player}</th><th>{t.kills}</th><th>{t.deaths}</th><th>{t.kd}</th><th>{t.kpm}</th
+						><th>{t.peakKpm}</th><th>{t.victims}</th><th>{t.risk}</th><th>{t.level}</th><th
+							>{t.breakdown}</th
+						></tr
+					></thead
+				>
+				<tbody
+					>{#each data.onlinePlayers as player (player.steamId)}
+						<tr>
+							<td
+								><a class="text-accent" href="/server/{data.server.id}/players/{player.steamId}"
+									>{player.name}</a
+								>
+								<div class="font-mono text-xs text-mist-400">{player.steamId}</div></td
+							>
+							<td>{player.kills}</td><td>{player.deaths}</td><td
+								>{kd(player.kills, player.deaths)}</td
+							>
+							<td title={!metricsAvailable ? t.metricMissing : undefined}
+								>{metricsAvailable ? (player.infantry?.kpm180 ?? 0).toFixed(2) : '—'}</td
+							>
+							<td>{metricsAvailable ? (player.infantry?.peakKpm180 ?? 0).toFixed(2) : '—'}</td>
+							<td>{metricsAvailable ? (player.infantry?.uniqueVictims180 ?? 0) : '—'}</td>
+							<td>{player.riskScore ?? '—'}</td><td>{levelName(player.riskLevel)}</td>
+							<td
+								>{#if parts(player.riskBreakdown).length}<details>
+										<summary class="cursor-pointer">{t.breakdown}</summary>
+										<ul class="mt-2 space-y-1 text-xs">
+											{#each parts(player.riskBreakdown) as part (part.code)}<li>
+													+{part.points}
+													{part.detail}
+												</li>{/each}
+										</ul>
+									</details>{:else}—{/if}</td
+							>
+						</tr>
+					{/each}</tbody
+				>
+			</table>
+		</div>
+	{:else}<p class="text-sm text-mist-400">{t.noOnline}</p>{/if}
+</section>
 
 <section class="mb-6 panel p-4">
 	<h3 class="text-base font-semibold text-white">{t.dryRunTitle}</h3>
@@ -153,6 +281,17 @@
 		</ul>
 	{:else}<p class="mt-2 text-sm text-mist-400">{t.noContributors}</p>{/if}
 </section>
+
+{#if data.canConfigure && data.ruleConfig}
+	<IntegritySettings
+		orgId={data.server.orgId}
+		config={data.ruleConfig}
+		overrides={data.weaponOverrides}
+		defaults={data.weaponDefaults}
+		categories={data.weaponCategories}
+		{lang}
+	/>
+{/if}
 
 <section class="mb-6 panel p-4">
 	<h3 class="mb-3 text-base font-semibold text-white">{t.cases}</h3>
@@ -240,7 +379,7 @@
 							<td class="whitespace-nowrap">{when(item.scoredAt)}</td>
 							<td class="font-mono">{item.steamId}</td>
 							<td>{item.score}</td>
-							<td>{item.level}</td>
+							<td>{levelName(item.level)}</td>
 							<td>v{item.ruleVersion}</td>
 						</tr>
 					{/each}

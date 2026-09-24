@@ -143,9 +143,51 @@
 		}, '');
 	}
 
-	const SCOREBOARD_NOTE = "The game's scoreboard counters, added up over the player's sessions.";
+	const SCOREBOARD_NOTE = '游戏计分板数据，按玩家各场次汇总。';
 	const minutes = (m: number) => (m >= 90 ? `${(m / 60).toFixed(1)} h` : `${m} min`);
 	const kd = (k: number, dd: number) => (dd ? (k / dd).toFixed(2) : k ? `${k}.00` : '—');
+	const integrityLevelName = (value: string | null) =>
+		value
+			? ((
+					{
+						NORMAL: '正常',
+						PASSIVE_WATCH: '被动观察',
+						ACTIVE_WATCH: '主动观察',
+						AUTO_KO: '达到移出阈值',
+						AUTO_QUARANTINE_ELIGIBLE: '达到隔离资格阈值'
+					} as Record<string, string>
+				)[value] ?? value)
+			: '未评分';
+	let integrityTiles = $derived.by(() => {
+		const i = data.integrity;
+		if (!i) return [] as [string, string | number][];
+		return [
+			['当前击杀', i.current?.kills ?? '—'],
+			['当前死亡', i.current?.deaths ?? '—'],
+			[
+				'当前 KD',
+				i.current
+					? i.current.deaths
+						? kd(i.current.kills, i.current.deaths)
+						: i.current.kills
+							? '∞'
+							: '—'
+					: '—'
+			],
+			['步兵 KPM180', i.metricsAvailable ? (i.metrics?.kpm180 ?? 0).toFixed(2) : '—'],
+			['近 10 分钟峰值 KPM', i.metricsAvailable ? (i.metrics?.peakKpm180 ?? 0).toFixed(2) : '—'],
+			['独立受害者', i.metricsAvailable ? (i.metrics?.uniqueVictims180 ?? 0) : '—'],
+			['风险分', i.riskScore ?? '—'],
+			['风险级别', integrityLevelName(i.riskLevel)]
+		] as [string, string | number][];
+	});
+	const integrityParts = (value: unknown): { code: string; points: number; detail: string }[] =>
+		Array.isArray(value)
+			? value.filter(
+					(part): part is { code: string; points: number; detail: string } =>
+						!!part && typeof part.code === 'string' && typeof part.points === 'number'
+				)
+			: [];
 	const RISK_TONE = { low: 'ok', medium: 'warn', high: 'err' } as const;
 	const ACTION_LABEL: Record<string, string> = {
 		'rcon.kick': 'kick',
@@ -164,7 +206,7 @@
 	<div class="min-w-0">
 		<a
 			href="/server/{encodeURIComponent(id)}/players"
-			class="caps text-mist-400 hover:text-mist-100">← Players</a
+			class="caps text-mist-400 hover:text-mist-100">← 玩家</a
 		>
 		<h2 class="flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight">
 			{#if d.steam?.avatar}<img
@@ -174,11 +216,10 @@
 					referrerpolicy="no-referrer"
 				/>{/if}
 			<span class="truncate">{d.name}</span>
-			{#if d.online}<Badge tone="ok"
-					>online · {onThisServer ? 'this server' : d.online.serverName}</Badge
+			{#if d.online}<Badge tone="ok">在线 · {onThisServer ? '本服务器' : d.online.serverName}</Badge
 				>{/if}
-			{#if d.watch.watched}<Badge tone="warn">watchlist</Badge>{/if}
-			<Badge tone={RISK_TONE[d.risk.level]}>risk {d.risk.level} · {d.risk.score}</Badge>
+			{#if d.watch.watched}<Badge tone="warn">观察名单</Badge>{/if}
+			<Badge tone={RISK_TONE[d.risk.level]}>旧版风险 {d.risk.level} · {d.risk.score}</Badge>
 		</h2>
 		<div class="mt-1 flex flex-wrap items-center gap-2 text-[12.5px] text-mist-400">
 			<span class="font-mono">{d.steamId}</span>
@@ -186,23 +227,65 @@
 					href={d.steam.profileUrl}
 					target="_blank"
 					rel="noopener noreferrer"
-					class="text-accent hover:underline">Steam profile ↗</a
+					class="text-accent hover:underline">Steam 资料 ↗</a
 				>{/if}
 			{#if d.names.length > 1}<span
-					>· also seen as {d.names.slice(1, 6).join(', ')}{d.names.length > 6 ? '…' : ''}</span
+					>· 曾用名 {d.names.slice(1, 6).join(', ')}{d.names.length > 6 ? '…' : ''}</span
 				>{/if}
 		</div>
 	</div>
 </div>
 
 <div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-	{#each [['Sessions', fmtNum(d.summary.sessions), 'A session is one stay on a server, from joining to leaving.'], ['Playtime', d.summary.sessions ? minutes(d.summary.minutes) : '—', ''], ['Kills', fmtNum(d.summary.kills), SCOREBOARD_NOTE], ['Deaths', fmtNum(d.summary.deaths), SCOREBOARD_NOTE], ['K/D', kd(d.summary.kills, d.summary.deaths), SCOREBOARD_NOTE], ['First seen', d.summary.firstSeen ? fmtTime(d.summary.firstSeen) : '—', '']] as [label, value, note] (label)}
+	{#each [['场次', fmtNum(d.summary.sessions), '每次进入至离开服务器计为一场。'], ['游戏时间', d.summary.sessions ? minutes(d.summary.minutes) : '—', ''], ['击杀', fmtNum(d.summary.kills), SCOREBOARD_NOTE], ['死亡', fmtNum(d.summary.deaths), SCOREBOARD_NOTE], ['KD', kd(d.summary.kills, d.summary.deaths), SCOREBOARD_NOTE], ['首次出现', d.summary.firstSeen ? fmtTime(d.summary.firstSeen) : '—', '']] as [label, value, note] (label)}
 		<div class="panel py-4" title={note || undefined}>
 			<div class="caps text-mist-400">{label}</div>
 			<div class="mt-1 font-display text-2xl font-semibold tabular">{value}</div>
 		</div>
 	{/each}
 </div>
+
+{#if data.integrity}
+	<section class="mb-4 panel p-4">
+		<div class="flex flex-wrap items-center justify-between gap-2">
+			<h3 class="text-base font-semibold text-white">社区完整性 · Integrity</h3>
+			<a class="text-sm text-accent" href="/server/{id}/integrity">查看风控总览 →</a>
+		</div>
+		<p class="mt-1 text-xs text-mist-400">
+			KD 仅供管理员参考，不单独触发风控分。KPM 使用 180 秒纯步兵击杀窗口；数据不足时显示“—”。
+		</p>
+		<div class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+			{#each integrityTiles as item (item[0])}
+				<div class="rounded-ctl border border-white/8 p-3">
+					<div class="text-xs text-mist-400">{item[0]}</div>
+					<div class="mt-1 font-mono text-lg text-white">{item[1]}</div>
+				</div>
+			{/each}
+		</div>
+		<div class="mt-3 flex flex-wrap gap-4 text-xs text-mist-400">
+			<span>过去 24 小时独立举报人：{data.integrity.reports24h}</span>
+			{#if data.integrity.latestWindow}<span
+					>最近异常窗口：{data.integrity.latestWindow.kpm180.toFixed(2)} KPM · {fmtTime(
+						data.integrity.latestWindow.observedAt
+					)}</span
+				>{/if}
+			{#if data.integrity.firstSeen}<span>首次出现：{fmtTime(data.integrity.firstSeen)}</span>{/if}
+			{#if data.integrity.lastSeen}<span>最近出现：{fmtTime(data.integrity.lastSeen)}</span>{/if}
+		</div>
+		{#if data.integrity.aliases.length > 1}<p class="mt-2 text-xs text-mist-400">
+				历史昵称：{data.integrity.aliases.join('、')}
+			</p>{/if}
+		{#if integrityParts(data.integrity.breakdown).length}<details class="mt-3 text-sm">
+				<summary class="cursor-pointer text-accent">展开风险分项</summary>
+				<ul class="mt-2 space-y-1 text-xs text-mist-300">
+					{#each integrityParts(data.integrity.breakdown) as part (part.code)}<li>
+							+{part.points}
+							{part.detail}
+						</li>{/each}
+				</ul>
+			</details>{/if}
+	</section>
+{/if}
 
 <div class="grid grid-cols-1 gap-4 xl:grid-cols-[3fr_2fr]">
 	<div class="space-y-4">
