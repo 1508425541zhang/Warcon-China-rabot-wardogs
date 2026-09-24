@@ -34,6 +34,8 @@ export const WEBHOOK_EVENT_LABELS: Record<WebhookEvent, string> = {
 
 /** Which event class an audit row belongs to. */
 export function classify(row: Pick<AuditRow, 'category' | 'action'>): WebhookEvent | null {
+	// A single community report is private review input, not a player-change notification.
+	if (row.action === 'integrity.report.create') return null;
 	switch (row.category) {
 		case 'rcon':
 			return row.action === 'rcon.ban' || row.action === 'rcon.unban' ? 'bans' : 'commands';
