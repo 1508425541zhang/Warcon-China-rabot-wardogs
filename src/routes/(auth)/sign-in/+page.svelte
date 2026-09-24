@@ -17,20 +17,20 @@
 	});
 	let STEAM_ERRORS: Record<string, string> = $derived({
 		steam_unknown: data.orgSignup
-			? 'That Steam account is not linked to a panel account here.'
-			: 'That Steam account is not linked to a panel account here: open an invite link from your organisation and sign in with Steam there, or link Steam from your account page.',
-		steam_disabled: 'This account is disabled.',
-		steam_state: 'The Steam sign-in took too long or was opened in another browser. Try again.',
-		steam_taken: 'That Steam account is already linked to another user.'
+			? '该 Steam 账号尚未关联本站账号。'
+			: '该 Steam 账号尚未关联本站账号。请使用组织邀请链接登录，或在账号页面绑定 Steam。',
+		steam_disabled: '该账号已停用。',
+		steam_state: 'Steam 登录超时或已在其他浏览器中打开，请重试。',
+		steam_taken: '该 Steam 账号已关联其他用户。'
 	});
 	let oauthError = $derived.by(() => {
 		const e = page.url.searchParams.get('error') ?? '';
 		if (!e) return '';
 		if (e === 'discord')
 			return data.orgSignup
-				? 'Discord sign-in failed. Try again, or use another method.'
-				: 'Discord sign-in failed. That Discord account is not linked to a panel account here: open an invite link from your organisation, or link Discord from your account page.';
-		if (e.startsWith('steam')) return STEAM_ERRORS[e] ?? 'Steam sign-in failed. Try again.';
+				? 'Discord 登录失败，请重试或改用其他方式。'
+				: 'Discord 登录失败。该账号尚未关联本站账号，请使用组织邀请链接或在账号页面绑定 Discord。';
+		if (e.startsWith('steam')) return STEAM_ERRORS[e] ?? 'Steam 登录失败，请重试。';
 		return '';
 	});
 	let deleted = $derived(page.url.searchParams.get('deleted') === '1');
@@ -56,21 +56,21 @@
 	}
 </script>
 
-<svelte:head><title>Sign in · {data.appName}</title></svelte:head>
+<svelte:head><title>登录 · {data.appName}</title></svelte:head>
 
 {#if deleted}
 	<div
 		class="mb-4 rounded-ctl border border-ok/30 bg-ok/10 px-3 py-2 text-[13px] text-ok"
 		role="status"
 	>
-		Your account has been deleted.
+		账号已删除。
 	</div>
 {/if}
 
 <div class="space-y-2">
 	{#if canPasskey}
 		<button class="btn w-full btn-primary" type="button" onclick={passkey} disabled={busy}
-			>{busy ? 'Waiting for your device…' : 'Sign in with a passkey'}</button
+			>{busy ? '等待设备确认…' : '使用通行密钥登录'}</button
 		>
 	{/if}
 	<div class="grid gap-2 {data.discord ? 'grid-cols-2' : ''}">
@@ -108,7 +108,7 @@
 		}}
 	>
 		<label class="block">
-			<span class="field-label">Username</span>
+			<span class="field-label">用户名</span>
 			<input
 				class="input"
 				name="username"
@@ -120,7 +120,7 @@
 			/>
 		</label>
 		<label class="block">
-			<span class="field-label">Password</span>
+			<span class="field-label">密码</span>
 			<input
 				class="input"
 				name="password"
@@ -138,28 +138,27 @@
 			</div>
 		{/if}
 		<button class="btn w-full {canPasskey ? '' : 'btn-primary'}" type="submit" disabled={busy}
-			>{busy ? 'Signing in…' : 'Sign in with password'}</button
+			>{busy ? '登录中…' : '使用密码登录'}</button
 		>
 	</form>
 {:else}
 	<button
 		type="button"
 		class="mt-4 block w-full text-center text-[12.5px] text-mist-400 underline hover:text-mist-100"
-		onclick={() => (wantPassword = true)}>Sign in with a username and password</button
+		onclick={() => (wantPassword = true)}>使用用户名和密码登录</button
 	>
 {/if}
 
 <p class="note text-center">
 	{#if data.orgSignup}
-		New here? Discord or Steam creates your account on the spot, or
-		<a href="/sign-up" class="text-accent underline">create your own organisation</a>.
+		首次使用？可通过 Discord 或 Steam 直接创建账号，或
+		<a href="/sign-up" class="text-accent underline">创建自己的组织</a>。
 	{:else if data.discord}
-		New here? Open the invite link from your organisation and sign in there: it creates your
-		account.
+		首次使用？请打开组织提供的邀请链接，并从该页面登录以创建账号。
 	{:else}
-		New here? Open the invite link from your organisation.
+		首次使用？请打开组织提供的邀请链接。
 	{/if}
 </p>
 <p class="note text-center">
-	Lost every way in? <a href="/recover" class="text-accent underline">Use your recovery key</a>.
+	无法登录？<a href="/recover" class="text-accent underline">使用恢复密钥</a>。
 </p>
