@@ -24,6 +24,10 @@ The worker now observes accepted Kill Feed events in an in-memory, rolling 180-s
 
 `integrity_scores` stores each abnormal finding's 0–100 score, individual contributions and the organisation's rule version. `GET`/`PUT /api/orgs/:id/integrity/rules` lets an organisation owner inspect and update bounded weights and thresholds; changes are audited. Rule sets start in `dry_run`, and the API rejects `enforce` until the action, evidence and review phases are implemented. Current live scores include KPM, distinct victims and earlier independent windows. Report, Steam, burst and other inputs are defined by the pure scoring model but remain zero or UNKNOWN until their trusted data sources are connected. These scores are **advisory only** and are separate from Warcon's existing connect-time risk score.
 
+## Evidence cases (Phase 5)
+
+When an advisory score reaches the configured AUTO_KO threshold, the worker saves a `CASE-…` record in the same fenced transaction as the abnormal window and score. It freezes the underlying accepted kill events in the 180-second game-clock window, the exact trigger event IDs, rule configuration/version, risk breakdown and player/server identifiers. A complete stored trigger set receives confidence B; missing events or truncation lower it to C/D. Confidence A is reserved for a future verified continuous-feed check. A case is evidence for staff review, **not a finding of cheating or a game action**. Reviews, appeals, retention policy and action history remain later phases.
+
 ## Protocol limit
 
 Warcon has a verified outgoing player whisper and a server-to-panel kill feed, but no verified incoming game-chat event. In-game `!report` and `!BAN` commands cannot be enabled until an authorised chat source is available. `!BAN` will only create a report, never a ban, when such a source exists.

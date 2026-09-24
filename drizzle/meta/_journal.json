@@ -267,6 +267,13 @@
       "when": 1790233277615,
       "tag": "0037_sad_dragon_lord",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790233469189,
+      "tag": "0038_silent_mongu",
+      "breakpoints": true
     }
   ]
 }

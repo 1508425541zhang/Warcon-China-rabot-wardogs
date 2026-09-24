@@ -33,6 +33,7 @@ import { InfantryWindows } from './integrity/windows';
 import { weaponOverrides } from './integrity/weapon-map';
 import { getIntegrityRules } from './integrity/rules';
 import { scoreIntegrity } from './integrity/score';
+import { freezeFindingEvidence } from './integrity/evidence';
 
 const infantry = new InfantryWindows();
 const infantryTasks = new Map<string, Promise<void>>();
@@ -158,6 +159,17 @@ async function recordInfantryWindows(env: Env, serverId: string, batch: KillView
 				breakdown: score.breakdown,
 				currentBehaviorAnomaly: score.currentBehaviorAnomaly
 			});
+			if (score.score >= rules.config.koThreshold)
+				await freezeFindingEvidence(tx, {
+					orgId,
+					serverId,
+					steamId: finding.steamId,
+					finding,
+					score,
+					ruleVersion: rules.version,
+					rulesSnapshot: rules.config,
+					createdAt: now
+				});
 		}
 	});
 }
