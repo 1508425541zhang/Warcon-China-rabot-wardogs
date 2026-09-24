@@ -457,6 +457,25 @@ export const playerSessions = pgTable(
 	]
 );
 
+/** Materialized identity for an organisation. Session and kill rows remain the source of stats. */
+export const integrityProfiles = pgTable(
+	'integrity_profiles',
+	{
+		orgId: text('org_id')
+			.notNull()
+			.references(() => organizations.id, { onDelete: 'cascade' }),
+		steamId: text('steam_id').notNull(),
+		currentName: text('current_name').notNull(),
+		aliases: jsonb('aliases').notNull(),
+		firstSeen: ts('first_seen').notNull(),
+		lastSeen: ts('last_seen').notNull()
+	},
+	(t) => [
+		primaryKey({ columns: [t.orgId, t.steamId] }),
+		index('integrity_profiles_last_seen_idx').on(t.orgId, t.lastSeen.desc())
+	]
+);
+
 export const matches = pgTable(
 	'matches',
 	{
