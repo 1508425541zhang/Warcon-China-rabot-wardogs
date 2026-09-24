@@ -14,7 +14,7 @@ This profile does not collect device IDs, local files, browsing data or IP-deriv
 
 `src/lib/server/integrity/weapons.ts` classifies only explicitly observed small-arm cause tags as `INFANTRY`. Unmapped causes remain `UNKNOWN` and do not count toward infantry KPM. Road kills, vehicle explosions, falls and suicides take precedence over any cause mapping. A kill is eligible for infantry rate calculations only when both SteamID64s and distinct factions are known.
 
-Organisation owners can list, set and remove exact cause overrides through `GET`/`PUT`/`DELETE /api/orgs/:id/integrity/weapons`. Changes are audited; removing an override returns the cause to its built-in classification. The configuration UI will follow with the Integrity dashboard. The classifier is not yet connected to automated actions.
+Organisation owners can list, set and remove exact cause overrides through `GET`/`PUT`/`DELETE /api/orgs/:id/integrity/weapons` and the Integrity dashboard's **风控设置** section. Changes are audited; removing an override returns the cause to its built-in classification. The classifier is not yet connected to automated actions.
 
 ## Infantry KPM (Phase 3)
 
@@ -22,7 +22,7 @@ The worker now observes accepted Kill Feed events in an in-memory, rolling 180-s
 
 ## Explainable risk scoring (Phase 4)
 
-`integrity_scores` stores each abnormal finding's 0–100 score, individual contributions and the organisation's rule version. `GET`/`PUT /api/orgs/:id/integrity/rules` lets an organisation owner inspect and update bounded weights and thresholds; changes are audited. Rule sets start in `dry_run`, and the API rejects `enforce` until the action, evidence and review phases are implemented. Current live scores include KPM, distinct victims and earlier independent windows. Report, Steam, burst and other inputs are defined by the pure scoring model but remain zero or UNKNOWN until their trusted data sources are connected. These scores are **advisory only** and are separate from Warcon's existing connect-time risk score.
+`integrity_scores` stores each abnormal finding's 0–100 score, individual contributions and the organisation's rule version. `GET`/`PUT /api/orgs/:id/integrity/rules` lets an organisation owner inspect and update bounded weights and thresholds; changes are audited. The dashboard now exposes those settings to organisation owners, including the default 180-second infantry KPM bands (4.0/4.5/5/6/8), risk thresholds (20/40/54/64), repeat-window weights and auxiliary-signal parameters. Rule sets start in `dry_run`, and the API rejects `enforce` until the action and review phases are implemented. Current live scores include KPM, distinct victims, independent windows and unique reporters. Headshot, penetration, burst, Steam-ban and public-playtime inputs remain zero or UNKNOWN until trusted data sources are connected. These scores are **advisory only** and are separate from Warcon's existing connect-time risk score. KD is displayed for context and has no scoring weight.
 
 ## Evidence cases (Phase 5)
 
@@ -30,7 +30,7 @@ When an advisory score reaches the configured AUTO_KO threshold, the worker save
 
 ## Administrator dashboard (Phase 6)
 
-The server's new Integrity tab lists recent cases, risk scores, rule version and latest kill-feed receipt. Its content requires the new `integrity.view` capability; existing built-in admin roles receive that read capability, while custom roles must be granted it by an organisation owner. The page has 简体中文 and English labels, and [README.zh-CN.md](../README.zh-CN.md) introduces the fork in Chinese. Automated actions remain off. Full case review and the rest of the panel's translations are still to be built.
+The server's Integrity tab lists recent cases, risk scores, rule version and latest kill-feed receipt. It now shows the current roster's kills, deaths, KD, valid 180-second infantry KPM, ten-minute peak, distinct victims and recorded Integrity score/level/breakdown. The player dossier shows the same Integrity fields plus aliases and recent anomaly details. Stale or truncated feed data hides KPM instead of presenting it as reliable. Its content requires `integrity.view`; only organisation owners see editable rules and weapon classification. The page has 简体中文 and English labels, and [README.zh-CN.md](../README.zh-CN.md) introduces the fork in Chinese. Setup, sign-in, registration and main navigation now have Chinese text. Other legacy panel pages are still largely English. Automated actions remain off.
 
 ## Community reports (Phase 7)
 
