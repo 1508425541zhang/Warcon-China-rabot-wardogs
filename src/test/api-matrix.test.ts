@@ -187,7 +187,7 @@ function routeFiles(dir: string): string[] {
 }
 
 const onDisk = routeFiles(ROUTES).flatMap((file) => {
-	const path = relative(ROUTES, join(file, '..'));
+	const path = relative(ROUTES, join(file, '..')).replaceAll('\\', '/');
 	const methods = readFileSync(file, 'utf8').matchAll(
 		/^export const (GET|POST|PUT|PATCH|DELETE)\b/gm
 	);
