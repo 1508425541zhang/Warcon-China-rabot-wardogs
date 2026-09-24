@@ -46,6 +46,10 @@ An organisation can opt an existing Discord webhook into the new **Community Int
 
 Phase 8 broadcast is held because advertising in-game report commands before an authenticated inbound chat source exists would mislead players. Warcon's existing scheduled broadcast facility remains available for other server notices.
 
+## Dry Run impact preview (Phase 10)
+
+The Integrity dashboard shows the past 24 hours, 72 hours and 7 days of recorded abnormal-window scores: number of windows and distinct players whose stored scores meet the current KO or quarantine thresholds with a current behavior anomaly. It also aggregates the top rule contributions over seven days. This is a threshold preview over scores produced under their recorded rule versions, not a full historical rule replay. It performs no kicks, quarantine or bans. Switching to enforcement remains unavailable while the action and false-positive controls are incomplete.
+
 ## Protocol limit
 
 Warcon has a verified outgoing player whisper and a server-to-panel kill feed, but no verified incoming game-chat event. In-game `!report` and `!BAN` commands cannot be enabled until an authorised chat source is available. `!BAN` will only create a report, never a ban, when such a source exists.
