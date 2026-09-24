@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 370" role="img" aria-labelledby="title desc">
+  <title id="title">Warcon China 社区服务器完整性面板</title>
+  <desc id="desc">深色控制台、雷达环和连接的证据节点，展示服务器侧观测与人工审核。</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101a27"/><stop offset="1" stop-color="#101016"/></linearGradient>
+    <linearGradient id="gold" x2="1" y2="0"><stop stop-color="#f4d38b"/><stop offset="1" stop-color="#c68e37"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#d6a550" stop-opacity=".28"/><stop offset="1" stop-color="#d6a550" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#e7efff" stroke-opacity=".045"/></pattern>
+  </defs>
+  <rect width="1200" height="370" rx="28" fill="url(#bg)"/>
+  <rect width="1200" height="370" rx="28" fill="url(#grid)"/>
+  <circle cx="916" cy="184" r="195" fill="url(#glow)"/>
+  <g fill="none" stroke="#d4a843" stroke-opacity=".25">
+    <circle cx="918" cy="184" r="132"/><circle cx="918" cy="184" r="96"/><circle cx="918" cy="184" r="55"/>
+    <path d="M770 184h296M918 36v296" stroke-dasharray="4 7"/>
+    <path d="M918 184l115-73" stroke-width="3" stroke-opacity=".65"/>
+  </g>
+  <g fill="#f3d38c"><circle cx="918" cy="184" r="6"/><circle cx="1033" cy="111" r="8"/><circle cx="817" cy="235" r="5"/><circle cx="955" cy="272" r="5"/></g>
+  <g fill="none" stroke="#f3d38c" stroke-width="2" opacity=".65"><path d="M1033 111l68-31h54M817 235l-35 29h-42M955 272l57 37h91"/></g>
+  <g font-family="'Microsoft YaHei','Noto Sans CJK SC',sans-serif">
+    <text x="66" y="72" fill="#d4a843" font-size="18" font-weight="700" letter-spacing="4">WARDOGS COMMUNITY INTEGRITY</text>
+    <text x="63" y="160" fill="#f5f5f2" font-size="56" font-weight="800">Warcon China</text>
+    <text x="66" y="207" fill="#f5f5f2" font-size="23" font-weight="600">让服务器事件成为可复核的证据</text>
+    <text x="66" y="251" fill="#aeb8c5" font-size="18">中文管理 · 纯步兵 KPM · 可解释风险 · 人工审核</text>
+    <rect x="66" y="288" width="148" height="37" rx="18" fill="url(#gold)"/>
+    <text x="93" y="313" fill="#18191c" font-size="16" font-weight="700">服务器侧风控</text>
+    <rect x="229" y="288" width="133" height="37" rx="18" fill="#ffffff" fill-opacity=".08" stroke="#ffffff" stroke-opacity=".14"/>
+    <text x="255" y="313" fill="#e7eaf0" font-size="16">仅记录模式</text>
+    <text x="1074" y="75" fill="#c9d1dc" font-size="14">01 / FEED</text>
+    <text x="657" y="282" fill="#c9d1dc" font-size="14">02 / SCORE</text>
+    <text x="1016" y="330" fill="#c9d1dc" font-size="14">03 / REVIEW</text>
+  </g>
+</svg>

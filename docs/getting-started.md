@@ -1,7 +1,7 @@
 # Getting started with Warcon
 
 This is the short, plain-language version. If you are comfortable with Docker and `.env` files, the
-[README](../README.md) has everything in more detail.
+[upstream README](../README.upstream.md) has everything in more detail. The [Chinese project homepage](../README.md) explains this fork's Integrity features.
 
 Warcon is a web page you host yourself. You open it in a browser, log in, and control your WARDOGS
 servers from there. Nobody on your team needs the RCON password; they get their own login instead.

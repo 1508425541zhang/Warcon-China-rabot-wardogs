@@ -346,30 +346,50 @@
 		<h4 class="mt-5 text-sm font-semibold text-white">
 			{lang === 'zh' ? '180 秒纯步兵 KPM 分段' : '180-second infantry KPM bands'}
 		</h4>
+		<p class="mt-1 text-xs text-mist-400">
+			{lang === 'zh'
+				? '每档从本档起点（含）到下一档起点（不含）；只按命中的最高一档加分，不叠加。'
+				: 'Each band runs from its threshold (inclusive) to the next (exclusive). Only the highest matching band adds points.'}
+		</p>
 		<div class="mt-2 grid gap-2 sm:grid-cols-5">
 			{#each draft.kpmBands as band, i (i)}
-				<label class="text-xs text-mist-300"
-					>{lang === 'zh' ? `第 ${i + 1} 档` : `Band ${i + 1}`}
-					<span class="mt-1 flex items-center gap-1"
-						><input
-							class="input w-20"
+				{@const nextMin = draft.kpmBands[i + 1]?.min}
+				<div class="rounded-ctl border border-white/10 p-3 text-xs text-mist-300">
+					<div class="font-semibold text-white">
+						{lang === 'zh' ? `第 ${i + 1} 档` : `Band ${i + 1}`}
+					</div>
+					<div class="mt-1 min-h-8 font-mono text-accent">
+						{#if nextMin === undefined}
+							KPM ≥ {Number(band.min).toFixed(2)}
+						{:else if nextMin > band.min}
+							{Number(band.min).toFixed(2)} ≤ KPM &lt; {Number(nextMin).toFixed(2)}
+						{:else}
+							{lang === 'zh' ? '门槛必须递增' : 'Thresholds must increase'}
+						{/if}
+					</div>
+					<label class="mt-2 block">
+						<span>{lang === 'zh' ? '起点 KPM' : 'Minimum KPM'}</span>
+						<input
+							class="mt-1 input w-full"
 							type="number"
 							min="1"
 							max="20"
 							step="0.1"
 							bind:value={band.min}
-							aria-label="最低 KPM"
-						/><span>→</span><input
-							class="input w-20"
+						/>
+					</label>
+					<label class="mt-2 block">
+						<span>{lang === 'zh' ? '本档加分' : 'Points for this band'}</span>
+						<input
+							class="mt-1 input w-full"
 							type="number"
 							min="0"
 							max="100"
 							step="1"
 							bind:value={band.points}
-							aria-label="风险分"
-						/></span
-					>
-				</label>
+						/>
+					</label>
+				</div>
 			{/each}
 		</div>
 		<p class="mt-2 text-xs text-mist-400">
