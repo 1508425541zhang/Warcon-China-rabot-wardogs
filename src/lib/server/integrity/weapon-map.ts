@@ -10,13 +10,19 @@ export async function weaponMappings(env: Env, orgId: string) {
 	return env.db.select().from(integrityWeaponMap).where(eq(integrityWeaponMap.orgId, orgId));
 }
 
+const overrideCache = new Map<string, { until: number; values: Map<string, WeaponCategory> }>();
+
 export async function weaponOverrides(
 	env: Env,
 	orgId: string
 ): Promise<Map<string, WeaponCategory>> {
-	return new Map(
+	const hit = overrideCache.get(orgId);
+	if (hit && hit.until > Date.now()) return hit.values;
+	const values = new Map(
 		(await weaponMappings(env, orgId)).map((row) => [row.cause, row.category as WeaponCategory])
 	);
+	overrideCache.set(orgId, { until: Date.now() + 30_000, values });
+	return values;
 }
 
 function requireCause(input: unknown): string {
@@ -44,6 +50,7 @@ export async function putWeaponMapping(
 			set: { category, updatedBy: actor.id, updatedAt: new Date() }
 		})
 		.returning();
+	overrideCache.delete(orgId);
 	await writeAudit(env, req, {
 		actor,
 		orgId,
@@ -70,6 +77,7 @@ export async function deleteWeaponMapping(
 		.where(and(eq(integrityWeaponMap.orgId, orgId), eq(integrityWeaponMap.cause, cause)))
 		.returning();
 	if (!deleted) throw new ApiError(404, 'Weapon mapping not found.');
+	overrideCache.delete(orgId);
 	await writeAudit(env, req, {
 		actor,
 		orgId,

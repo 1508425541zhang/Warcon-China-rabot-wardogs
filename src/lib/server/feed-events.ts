@@ -6,7 +6,7 @@
 import { and, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { emit } from './events';
-import { kills, playerSessions } from './db/schema';
+import { integrityWindows, kills, playerSessions } from './db/schema';
 import { enabledTriggers, renderTemplate, teamKillStage, type Evaluation } from './triggers';
 import type { TeamKillConfig } from './trigger-rules';
 import {
@@ -29,6 +29,11 @@ import { drainMockFeed } from './mockgame';
 import { ingestBatch } from './feed';
 import { servers, type ServerRow } from './db/schema';
 import type { KillView } from '$lib/types';
+import { InfantryWindows } from './integrity/windows';
+import { weaponOverrides } from './integrity/weapon-map';
+
+const infantry = new InfantryWindows();
+const infantryTasks = new Map<string, Promise<void>>();
 
 export async function onKillsIngested(
 	env: Env,
@@ -37,11 +42,19 @@ export async function onKillsIngested(
 ): Promise<void> {
 	if (!kills.length) return;
 	emit({ type: 'kills', serverId, kills });
+	const infantryTask = queueInfantryWindows(env, serverId, kills);
 	try {
 		await actOnKillRate(env, serverId, kills);
 	} catch (err) {
 		if (!(err instanceof LostOwnership))
 			console.warn(`[warcon] kill-rate rules on ${serverId}:`, publicMessage(err));
+	}
+	try {
+		await infantryTask;
+	} catch (err) {
+		infantry.reset(serverId);
+		if (!(err instanceof LostOwnership))
+			console.warn(`[warcon] infantry windows on ${serverId}:`, publicMessage(err));
 	}
 	const teamKills = kills.filter((k) => k.teamKill && k.killer);
 	if (!teamKills.length) return;
@@ -53,6 +66,43 @@ export async function onKillsIngested(
 		if (err instanceof LostOwnership) return;
 		console.warn(`[warcon] team-kill rules on ${serverId}:`, publicMessage(err));
 	}
+}
+
+function queueInfantryWindows(env: Env, serverId: string, batch: KillView[]): Promise<void> {
+	const previous = infantryTasks.get(serverId) ?? Promise.resolve();
+	const task = previous.catch(() => {}).then(() => recordInfantryWindows(env, serverId, batch));
+	infantryTasks.set(serverId, task);
+	void task
+		.finally(() => {
+			if (infantryTasks.get(serverId) === task) infantryTasks.delete(serverId);
+		})
+		.catch(() => {});
+	return task;
+}
+
+async function recordInfantryWindows(env: Env, serverId: string, batch: KillView[]): Promise<void> {
+	const orgId = memoryOf(serverId)?.server.orgId;
+	if (!orgId) return;
+	const findings = infantry.observe(serverId, batch, await weaponOverrides(env, orgId));
+	if (!findings.length) return;
+	await withOwnedTransaction(env, async (tx) => {
+		await tx.insert(integrityWindows).values(
+			findings.map((finding) => ({
+				orgId,
+				serverId,
+				steamId: finding.steamId,
+				instanceId: finding.instanceId,
+				map: finding.map,
+				clockFrom: finding.clockFrom,
+				clockTo: finding.clockTo,
+				observedAt: new Date(),
+				infantryKills: finding.infantryKills,
+				kpm180: finding.kpm180,
+				uniqueVictims: finding.uniqueVictims,
+				eventIds: finding.eventIds
+			}))
+		);
+	});
 }
 
 /**
