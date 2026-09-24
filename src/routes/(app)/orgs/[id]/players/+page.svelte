@@ -244,7 +244,7 @@
 										{#if p.online}<span class="size-1.5 rounded-full bg-ok" title="当前在线"
 											></span>{/if}
 										{#if p.banned}<Badge tone="err"
-												>{p.banned === 'org' ? 'banned' : '本服已封禁'}</Badge
+												>{p.banned === 'org' ? '组织封禁' : '本服已封禁'}</Badge
 											>{/if}
 										{#if p.watched}<Badge tone="warn">观察</Badge>{/if}
 									</div>
@@ -269,7 +269,7 @@
 						<td class="num">{fmtNum(p.deaths)}</td>
 						<td class="num">{kd(p)}</td>
 						<td class="whitespace-nowrap text-mist-400"
-							>{p.servers > 1 ? `${p.servers} · last ` : ''}{p.lastServerName || '—'}</td
+							>{p.servers > 1 ? `${p.servers} 台 · 最近：` : ''}{p.lastServerName || '—'}</td
 						>
 						<td class="py-1.5 text-right whitespace-nowrap">
 							<div class="inline-flex gap-1.5">
@@ -279,7 +279,7 @@
 											<button
 												class="btn btn-sm"
 												disabled={busy === p.steamId}
-												onclick={() => watch(p)}>{p.watched ? 'Unwatch' : 'Watch'}</button
+												onclick={() => watch(p)}>{p.watched ? '取消观察' : '观察'}</button
 											>
 										{/if}
 										{#if canReserve}
