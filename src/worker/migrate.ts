@@ -1,7 +1,7 @@
 // bun run db:migrate — applies pending migrations and exits. The split roles refuse to start
 // while any are pending, so run this (Compose's `migrate` service does) before web and worker.
 import { resolve } from 'node:path';
-import { connect, runMigrations } from '$lib/server/db';
+import { connect, migrationStatus, runMigrations } from '$lib/server/db';
 
 const url = process.env.DATABASE_URL;
 const target =
@@ -20,6 +20,17 @@ if (!target) {
 	process.exit(2);
 }
 const { client, db } = connect(target);
-await runMigrations(db, resolve(process.cwd(), 'drizzle'));
-console.log('[warcon] migrations applied');
+const migrationsFolder = resolve(process.cwd(), 'drizzle');
+const before = await migrationStatus(db, migrationsFolder);
+if (before.historyMismatch) {
+	console.error('Database migration history does not match this Warcon build.', before);
+	process.exit(1);
+}
+await runMigrations(db, migrationsFolder);
+const status = await migrationStatus(db, migrationsFolder);
+if (status.pending || status.historyMismatch) {
+	console.error('Database migration history does not match this Warcon build.', status);
+	process.exit(1);
+}
+console.log('[warcon] migrations applied and schema history verified');
 await client.end();

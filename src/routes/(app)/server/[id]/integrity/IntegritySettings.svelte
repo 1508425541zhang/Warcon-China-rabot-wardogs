@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage } from '$lib/api';
-	import type { PageData } from './$types';
+	import type { IntegrityRuleConfig } from '$lib/server/integrity/score';
+	import type { WeaponCategory } from '$lib/server/integrity/weapons';
 
-	type Rules = NonNullable<PageData['ruleConfig']>;
+	type Rules = IntegrityRuleConfig;
 	type NumericKey = {
 		[K in keyof Rules]: Rules[K] extends number ? K : never;
 	}[keyof Rules];
@@ -20,9 +21,9 @@
 		orgId: string;
 		config: Rules;
 		ruleDefaults: Rules;
-		overrides: PageData['weaponOverrides'];
-		weaponDefaults: PageData['weaponDefaults'];
-		categories: PageData['weaponCategories'];
+		overrides: { cause: string; category: string }[];
+		weaponDefaults: Readonly<Record<string, WeaponCategory>>;
+		categories: readonly WeaponCategory[];
 		lang: 'zh' | 'en';
 	} = $props();
 	// svelte-ignore state_referenced_locally -- initialise the editable snapshot for SSR; the effect follows later prop updates.

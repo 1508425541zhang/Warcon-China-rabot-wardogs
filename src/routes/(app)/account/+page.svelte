@@ -551,7 +551,7 @@
 								>
 								<td class="text-right">
 									{#if s.current}
-										<Badge tone="ok">当前会话</Badge>
+										<span data-testid="current-session"><Badge tone="ok">当前会话</Badge></span>
 									{:else}
 										<form method="post" action="?/revoke" use:enhance>
 											<input type="hidden" name="id" value={s.id} />

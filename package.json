@@ -17,8 +17,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "bun test",
-		"lint": "prettier --check .",
-		"format": "prettier --write .",
+		"lint": "prettier --check . --end-of-line auto",
+		"format": "prettier --write . --end-of-line auto",
 		"db:generate": "drizzle-kit generate",
 		"db:studio": "drizzle-kit studio"
 	},

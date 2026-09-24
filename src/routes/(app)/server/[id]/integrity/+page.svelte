@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import type { PageProps } from './$types';
-	import IntegritySettings from './IntegritySettings.svelte';
 	import { integrityCaseStatus, integrityPartText } from '$lib/integrity-display';
 
 	let { data }: PageProps = $props();
@@ -150,7 +149,9 @@
 					PASSIVE_WATCH: '被动观察',
 					ACTIVE_WATCH: '主动观察',
 					AUTO_KO: '达到移出阈值',
-					AUTO_QUARANTINE_ELIGIBLE: '达到隔离资格阈值'
+					AUTO_QUARANTINE_ELIGIBLE: '达到隔离资格阈值',
+					AUTO_QUARANTINE_24H: '已执行 24 小时临时隔离',
+					AUTO_QUARANTINE_7D: '已执行 7 天临时隔离'
 				} as Record<string, string>
 			)[value] ?? value
 		);
@@ -224,8 +225,8 @@
 		<p class="mt-1 text-sm text-mist-400">{t.intro}</p>
 	</div>
 	<div class="flex gap-2">
-		{#if data.canConfigure}<a class="btn-quiet btn" href="#integrity-settings"
-				>{lang === 'zh' ? '风控设置' : 'Integrity settings'}</a
+		{#if data.orgIntegrityUrl}<a class="btn-quiet btn" href={data.orgIntegrityUrl}
+				>{lang === 'zh' ? '组织风控设置' : 'Organization Integrity settings'}</a
 			>{/if}
 		<button class="btn-quiet btn" type="button" onclick={switchLanguage}>{t.language}</button>
 	</div>
@@ -234,7 +235,17 @@
 <div class="mb-5 grid gap-3 sm:grid-cols-3">
 	<div class="panel p-4">
 		<div class="label-sm">{t.mode}</div>
-		<div class="mt-2 font-medium text-warn">{t.dryRun}</div>
+		<div class="mt-2 font-medium text-warn">
+			{data.mode === 'dry_run'
+				? t.dryRun
+				: data.mode === 'suspended'
+					? lang === 'zh'
+						? '自动处置已熔断'
+						: 'Automatic actions suspended'
+					: lang === 'zh'
+						? '实验性自动处置'
+						: 'Experimental automatic actions'}
+		</div>
 	</div>
 	<div class="panel p-4">
 		<div class="label-sm">{t.version}</div>
@@ -247,7 +258,12 @@
 </div>
 
 <p class="mb-5 rounded-ctl border border-warn/20 bg-warn/5 px-4 py-3 text-sm text-warn">
-	{t.noActions}
+	{lang === 'zh' ? '规则继承自组织。' : 'Rules are inherited from the organization.'}
+	{data.mode === 'dry_run'
+		? t.noActions
+		: lang === 'zh'
+			? '自动处置仅在组织管理员显式开启后运行；不会自动永久封禁。'
+			: 'Automatic actions run only when enabled by an organization owner; permanent bans are never automatic.'}
 </p>
 
 <section class="mb-6 panel p-4">
@@ -361,17 +377,33 @@
 	{:else}<p class="mt-2 text-sm text-mist-400">{t.noContributors}</p>{/if}
 </section>
 
-{#if data.canConfigure && data.ruleConfig}
-	<IntegritySettings
-		orgId={data.server.orgId}
-		config={data.ruleConfig}
-		ruleDefaults={data.ruleDefaults!}
-		overrides={data.weaponOverrides}
-		weaponDefaults={data.weaponDefaults}
-		categories={data.weaponCategories}
-		{lang}
-	/>
-{/if}
+<section class="mb-6 panel p-4">
+	<h3 class="mb-3 text-base font-semibold text-white">
+		{lang === 'zh' ? '自动处置记录' : 'Automatic actions'}
+	</h3>
+	{#if data.actions.length}
+		<div class="table-wrap">
+			<table>
+				<thead
+					><tr
+						><th>{t.time}</th><th>{t.player}</th><th>{t.caseId}</th><th
+							>{lang === 'zh' ? '处置' : 'Action'}</th
+						><th>{lang === 'zh' ? '到期' : 'Expires'}</th></tr
+					></thead
+				>
+				<tbody
+					>{#each data.actions as item (item.id)}<tr
+							><td>{when(item.createdAt)}</td><td class="font-mono">{item.steamId}</td><td
+								class="font-mono">{item.caseId}</td
+							><td>{item.action}</td><td>{item.expiresAt ? when(item.expiresAt) : '—'}</td></tr
+						>{/each}</tbody
+				>
+			</table>
+		</div>
+	{:else}<p class="text-sm text-mist-400">
+			{lang === 'zh' ? '暂无自动处置。' : 'No automatic actions.'}
+		</p>{/if}
+</section>
 
 <section class="mb-6 panel p-4">
 	<h3 class="mb-3 text-base font-semibold text-white">{t.cases}</h3>

@@ -5,6 +5,7 @@ import {
 	bigint,
 	bigserial,
 	boolean,
+	check,
 	customType,
 	index,
 	integer,
@@ -507,6 +508,10 @@ export const integrityWindows = pgTable(
 		infantryKills: integer('infantry_kills').notNull(),
 		kpm180: real('kpm_180').notNull(),
 		uniqueVictims: integer('unique_victims').notNull(),
+		headshots: integer('headshots').notNull().default(0),
+		penetrations: integer('penetrations').notNull().default(0),
+		burstPoints: integer('burst_points').notNull().default(0),
+		behaviorReasons: jsonb('behavior_reasons').notNull().default([]),
 		eventIds: jsonb('event_ids').notNull()
 	},
 	(t) => [index('integrity_windows_player_idx').on(t.orgId, t.steamId, t.observedAt.desc())]
@@ -519,6 +524,12 @@ export const integrityRules = pgTable('integrity_rules', {
 		.references(() => organizations.id, { onDelete: 'cascade' }),
 	version: integer('version').notNull().default(1),
 	config: jsonb('config').notNull(),
+	autoKickEnabled: boolean('auto_kick_enabled').notNull().default(false),
+	autoQuarantine24hEnabled: boolean('auto_quarantine_24h_enabled').notNull().default(false),
+	autoQuarantine7dEnabled: boolean('auto_quarantine_7d_enabled').notNull().default(false),
+	autoActionMaxPerHour: integer('auto_action_max_per_hour').notNull().default(10),
+	autoActionMaxPercentOnline: integer('auto_action_max_percent_online').notNull().default(10),
+	autoSuspendedAt: ts('auto_suspended_at'),
 	updatedBy: text('updated_by'),
 	updatedAt: ts('updated_at').notNull().defaultNow()
 });
@@ -541,7 +552,13 @@ export const integrityScores = pgTable(
 		breakdown: jsonb('breakdown').notNull(),
 		currentBehaviorAnomaly: boolean('current_behavior_anomaly').notNull()
 	},
-	(t) => [index('integrity_scores_player_idx').on(t.orgId, t.steamId, t.scoredAt.desc())]
+	(t) => [
+		index('integrity_scores_player_idx').on(t.orgId, t.steamId, t.scoredAt.desc()),
+		check(
+			'integrity_scores_source_check',
+			sql`(${t.source} = 'window' AND ${t.windowId} IS NOT NULL AND ${t.reportId} IS NULL) OR (${t.source} = 'report' AND ${t.reportId} IS NOT NULL AND ${t.windowId} IS NULL)`
+		)
+	]
 );
 
 /** Immutable evidence snapshots; review state lives alongside, raw feed rows stay in kills. */
@@ -567,6 +584,42 @@ export const integrityCases = pgTable(
 		index('integrity_cases_queue_idx').on(t.orgId, t.status, t.createdAt.desc()),
 		index('integrity_cases_player_idx').on(t.orgId, t.steamId, t.createdAt.desc())
 	]
+);
+
+/** Source event rows for new cases; old JSON snapshots remain readable. */
+export const integrityCaseEvents = pgTable(
+	'integrity_case_events',
+	{
+		caseId: text('case_id')
+			.notNull()
+			.references(() => integrityCases.id, { onDelete: 'cascade' }),
+		instanceId: text('instance_id').notNull(),
+		eventId: text('event_id').notNull(),
+		event: jsonb('event').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.caseId, t.instanceId, t.eventId] })]
+);
+
+/** Explicit origin and expiry for experimental rule actions. */
+export const integrityActions = pgTable(
+	'integrity_actions',
+	{
+		id: text('id').primaryKey(),
+		caseId: text('case_id')
+			.notNull()
+			.references(() => integrityCases.id, { onDelete: 'cascade' }),
+		orgId: text('org_id').notNull(),
+		serverId: text('server_id').notNull(),
+		steamId: text('steam_id').notNull(),
+		action: text('action').notNull(),
+		source: text('source').notNull(),
+		listEntryId: text('list_entry_id'),
+		createdAt: ts('created_at').notNull().defaultNow(),
+		expiresAt: ts('expires_at'),
+		revertedAt: ts('reverted_at'),
+		revertedBy: text('reverted_by')
+	},
+	(t) => [index('integrity_actions_player_idx').on(t.orgId, t.steamId, t.createdAt.desc())]
 );
 
 /** A unique Steam reporter may file again after cooldown, but cannot inflate risk by repetition. */
