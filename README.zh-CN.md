@@ -9,6 +9,7 @@ Warcon China 是基于 Warcon 的 WARDOGS 社区服务器自托管 RCON 面板�
 - SteamID64 组织档案、历史昵称和首次/最近出现时间。
 - 可由组织所有者调整的武器分类；未知武器不计入纯步兵 KPM。
 - 滚动 180 秒纯步兵 KPM、爆头率、穿透率、短时爆发、独立异常窗口、可解释风险分及证据案件；默认仅记录。
+- 最近 30 天真实历史分布、人口与地图分组、Percentile、Median/MAD 和可视化曲线；默认统计影子模式，实际自动处置仍沿用旧评分，样本不足时不编造结论。
 - 组织所有者在“组织 → 社区风控”调整 KPM 分段、风险阈值、辅助信号参数和武器分类；服务器页面只展示该服数据和继承的组织规则。
 - 在线风控表和玩家档案显示击杀、死亡、KD、180 秒纯步兵 KPM、近 10 分钟峰值、独立受害者、风险等级和评分分项。KD 只供查看，不单独加分。
 - 首次设置、登录、注册、管理后台、组织与服务器管理、自动化规则、统计页面和公开页面的主要界面文字已改为简体中文；RCON、SteamID64、配置键等需原样输入的标识保留。
@@ -20,12 +21,17 @@ Warcon China 是基于 Warcon 的 WARDOGS 社区服务器自托管 RCON 面板�
 
 ## 使用 Docker Compose 运行
 
-1. 安装 Docker 和 Docker Compose。
-2. 复制 `.env.example` 为 `.env`，为 `BETTER_AUTH_SECRET`、`ENCRYPTION_KEY`、`RELAY_SECRET` 设置不同的长随机值，填写 `POSTGRES_PASSWORD` 和实际访问地址 `ORIGIN`。
-3. 在仓库目录运行 `docker compose up -d --build`。
-4. 打开 `ORIGIN`，完成所有者初始化。可以先创建组织，然后添加主机 `demo`、端口 `1`、密码 `demo` 的内置模拟服务器查看面板，不必连接真实服务器。
+**第一次安装请直接打开[中文从零安装指南](docs/install.zh-CN.md)**。里面从 Docker 和 Git 的安装、打开终端、复制配置、生成四个不同密钥、检查容器、创建账号，到模拟服务器、接入真实游戏服和排查错误，按顺序逐步写明。
 
-详细部署、代理、备份和服务器接入说明见[上游英文 README](README.upstream.md)及[入门文档](docs/getting-started.md)。不要提交 `.env`。
+快速核对：
+
+1. 安装并启动 Docker，克隆本仓库，进入含 `docker-compose.yml` 的目录。
+2. 复制 `.env.example` 为 `.env`；设置不同的 `BETTER_AUTH_SECRET`、`ENCRYPTION_KEY`、`RELAY_SECRET`、`POSTGRES_PASSWORD`。本机试用设置 `ORIGIN=http://localhost:3000`。
+3. 依次运行 `docker compose config -q`、`docker compose up -d --build` 和 `docker compose ps -a`。
+4. 打开 `http://localhost:3000/setup`，**自己创建**所有者账号和网页登录密码。项目没有默认网页密码；`POSTGRES_PASSWORD` 只是数据库密码。
+5. 登录后可先添加主机 `demo`、端口 `1`、密码 `demo` 的模拟服务器，无需真实游戏服。
+
+Compose 已包含 PostgreSQL/TimescaleDB，不必单独安装。不要提交 `.env`；公网使用需先配置 HTTPS。更多代理、备份和服务器接入细节见[安装指南](docs/install.zh-CN.md)与[上游英文 README](README.upstream.md)。
 
 ## 重要限制
 
