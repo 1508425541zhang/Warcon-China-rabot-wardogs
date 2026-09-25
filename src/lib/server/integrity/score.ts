@@ -92,7 +92,7 @@ export interface IntegritySignals {
 	/** Independent abnormal findings in the last repeatWindowMinutes, newest first. */
 	previousKpm: number[];
 	uniqueReporters: number;
-	repeatAutoKo: boolean;
+	repeatHighRiskWindow: boolean;
 	infantryKills: number;
 	headshots: number;
 	penetrations: number;
@@ -165,9 +165,9 @@ export function scoreIntegrity(
 		`${signals.uniqueReporters} unique reporters`
 	);
 	add(
-		'repeat_auto_ko',
-		signals.repeatAutoKo ? config.repeatKo : 0,
-		'Another AUTO_KO in the review period'
+		'repeat_high_risk_window',
+		signals.repeatHighRiskWindow ? config.repeatKo : 0,
+		'Another high-risk window in the review period'
 	);
 	if (signals.infantryKills >= config.headshotMinKills)
 		add(

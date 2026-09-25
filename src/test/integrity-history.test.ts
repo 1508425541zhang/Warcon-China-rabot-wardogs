@@ -1,11 +1,11 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
 import type { Env } from '$lib/server/env';
 import { integrityScores, integrityWindows } from '$lib/server/db/schema';
-import { hadRecentAutoKo } from '$lib/server/integrity/history';
+import { hadRecentHighRiskWindow } from '$lib/server/integrity/history';
 import { hasTestDb, testEnv } from './db';
 import { seedWorld, type World } from './world';
 
-describe.skipIf(!hasTestDb)('recorded repeat KO history', () => {
+describe.skipIf(!hasTestDb)('recorded high-risk window history', () => {
 	let env: Env;
 	let world: World;
 	const steamId = '76561198000000666';
@@ -14,7 +14,7 @@ describe.skipIf(!hasTestDb)('recorded repeat KO history', () => {
 		world = await seedWorld(env);
 	});
 
-	test('uses a prior saved execution level within the review period and excludes the current window', async () => {
+	test('uses a prior saved high-risk level within the review period and excludes the current window', async () => {
 		const now = new Date();
 		const [old, current] = await env.db
 			.insert(integrityWindows)
@@ -31,7 +31,7 @@ describe.skipIf(!hasTestDb)('recorded repeat KO history', () => {
 					infantryKills: 12,
 					kpm180: 4,
 					uniqueVictims: 12,
-					eventIds: []
+					eventIds: [`window-${n}`]
 				}))
 			)
 			.returning({ id: integrityWindows.id });
@@ -47,8 +47,22 @@ describe.skipIf(!hasTestDb)('recorded repeat KO history', () => {
 			breakdown: [],
 			currentBehaviorAnomaly: true
 		});
-		expect(await hadRecentAutoKo(env.db, world.org.id, steamId, now, 24, current.id)).toBe(true);
-		expect(await hadRecentAutoKo(env.db, world.org.id, steamId, now, 1, current.id)).toBe(false);
-		expect(await hadRecentAutoKo(env.db, world.org.id, steamId, now, 24, old.id)).toBe(false);
+		expect(
+			await hadRecentHighRiskWindow(env.db, world.org.id, steamId, now, 24, current.id, [
+				'window-2'
+			])
+		).toBe(true);
+		expect(
+			await hadRecentHighRiskWindow(env.db, world.org.id, steamId, now, 1, current.id, ['window-2'])
+		).toBe(false);
+		expect(
+			await hadRecentHighRiskWindow(env.db, world.org.id, steamId, now, 24, old.id, ['window-1'])
+		).toBe(false);
+		expect(
+			await hadRecentHighRiskWindow(env.db, world.org.id, steamId, now, 24, current.id, [
+				'window-1',
+				'fresh'
+			])
+		).toBe(false);
 	});
 });

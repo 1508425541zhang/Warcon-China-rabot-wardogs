@@ -1,5 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import type { Env } from '../env';
+import type { Tx } from '../db';
 import type { SessionUser } from '../access';
 import { writeAudit } from '../audit';
 import { integrityRules } from '../db/schema';
@@ -108,6 +109,19 @@ const enforcementOf = (row: typeof integrityRules.$inferSelect | undefined): Enf
 			}
 		: DEFAULT_ENFORCEMENT;
 
+/** Serializes saves even before an org has its first integrity_rules row. */
+async function lockRules(tx: Tx, orgId: string) {
+	await tx.execute(
+		sql`SELECT pg_advisory_xact_lock(hashtextextended(${`integrity-rules:${orgId}`}, 0))`
+	);
+	const [row] = await tx
+		.select()
+		.from(integrityRules)
+		.where(eq(integrityRules.orgId, orgId))
+		.for('update');
+	return row;
+}
+
 /** Reads never insert defaults; an org with no row uses an in-memory version 1. */
 export async function getIntegrityRules(env: Env, orgId: string): Promise<RuleSet> {
 	const hit = cache.get(orgId);
@@ -132,23 +146,34 @@ export async function saveIntegrityRules(
 	patch: Record<string, unknown>
 ): Promise<RuleSet> {
 	if (!Object.keys(patch).length) throw new ApiError(400, 'No integrity rule changes supplied.');
-	cache.delete(orgId);
-	const before = await getIntegrityRules(env, orgId);
-	const config = validateIntegrityRules(patch, before.config);
-	const [row] = await env.db
-		.insert(integrityRules)
-		.values({ orgId, config, updatedBy: actor.id })
-		.onConflictDoUpdate({
-			target: integrityRules.orgId,
-			set: {
-				config,
-				version: sql`${integrityRules.version} + 1`,
-				updatedBy: actor.id,
-				updatedAt: new Date()
-			}
-		})
-		.returning();
-	if (!row) throw new Error('Integrity rules were not saved.');
+	if ('mode' in patch || 'quarantineDays' in patch)
+		throw new ApiError(
+			400,
+			'Legacy mode and quarantineDays cannot be changed. Use enforcement switches for actions and duration.'
+		);
+	const saved = await env.db.transaction(async (tx) => {
+		const before = await lockRules(tx, orgId);
+		const config = validateIntegrityRules(
+			patch,
+			before
+				? validateIntegrityRules(before.config as Record<string, unknown>)
+				: DEFAULT_INTEGRITY_RULES
+		);
+		const [row] = before
+			? await tx
+					.update(integrityRules)
+					.set({
+						config,
+						version: sql`${integrityRules.version} + 1`,
+						updatedBy: actor.id,
+						updatedAt: new Date()
+					})
+					.where(eq(integrityRules.orgId, orgId))
+					.returning()
+			: await tx.insert(integrityRules).values({ orgId, config, updatedBy: actor.id }).returning();
+		if (!row) throw new Error('Integrity rules were not saved.');
+		return { row, beforeVersion: before?.version ?? 1 };
+	});
 	cache.delete(orgId);
 	await writeAudit(env, req, {
 		actor,
@@ -156,10 +181,14 @@ export async function saveIntegrityRules(
 		category: 'org',
 		action: 'integrity.rules.update',
 		outcome: 'ok',
-		message: `Integrity rules version ${row.version}`,
-		detail: { beforeVersion: before.version, version: row.version, patch }
+		message: `Integrity rules version ${saved.row.version}`,
+		detail: { beforeVersion: saved.beforeVersion, version: saved.row.version, patch }
 	});
-	return { version: row.version, config, enforcement: before.enforcement };
+	return {
+		version: saved.row.version,
+		config: validateIntegrityRules(saved.row.config as Record<string, unknown>),
+		enforcement: enforcementOf(saved.row)
+	};
 }
 
 /** Enabling any automatic action requires an explicit owner acknowledgement. */
@@ -183,53 +212,50 @@ export async function saveIntegrityEnforcement(
 		if (!allowed.has(key)) throw new ApiError(400, `Unknown enforcement setting '${key}'.`);
 	if (!Object.keys(values).some((key) => key !== 'confirmation'))
 		throw new ApiError(400, 'No enforcement setting changes supplied.');
-	const [current] = await env.db
-		.select()
-		.from(integrityRules)
-		.where(eq(integrityRules.orgId, orgId))
-		.limit(1);
-	const before = enforcementOf(current);
-	const next = { ...before };
-	for (const key of [
-		'autoKickEnabled',
-		'autoQuarantine24hEnabled',
-		'autoQuarantine7dEnabled'
-	] as const) {
-		if (values[key] !== undefined) {
-			if (typeof values[key] !== 'boolean') throw new ApiError(400, `${key} must be boolean.`);
-			next[key] = values[key] as boolean;
+	const saved = await env.db.transaction(async (tx) => {
+		const current = await lockRules(tx, orgId);
+		const before = enforcementOf(current);
+		const changes: Partial<EnforcementSettings> = {};
+		for (const key of [
+			'autoKickEnabled',
+			'autoQuarantine24hEnabled',
+			'autoQuarantine7dEnabled'
+		] as const) {
+			if (values[key] !== undefined) {
+				if (typeof values[key] !== 'boolean') throw new ApiError(400, `${key} must be boolean.`);
+				changes[key] = values[key] as boolean;
+			}
 		}
-	}
-	for (const key of ['autoActionMaxPerHour', 'autoActionMaxPercentOnline'] as const) {
-		if (values[key] !== undefined) {
-			const value = values[key];
-			if (!Number.isInteger(value) || Number(value) < 1 || Number(value) > 100)
-				throw new ApiError(400, `${key} must be between 1 and 100.`);
-			next[key] = Number(value);
+		for (const key of ['autoActionMaxPerHour', 'autoActionMaxPercentOnline'] as const) {
+			if (values[key] !== undefined) {
+				const value = values[key];
+				if (!Number.isInteger(value) || Number(value) < 1 || Number(value) > 100)
+					throw new ApiError(400, `${key} must be between 1 and 100.`);
+				changes[key] = Number(value);
+			}
 		}
-	}
-	const enabling = (
-		['autoKickEnabled', 'autoQuarantine24hEnabled', 'autoQuarantine7dEnabled'] as const
-	).some((key) => next[key] && !before[key]);
-	if (
-		(enabling || values.resume === true) &&
-		values.confirmation !== 'ENABLE_EXPERIMENTAL_INTEGRITY'
-	)
-		throw new ApiError(400, 'Explicit experimental enforcement confirmation is required.');
-	if (values.resume === true) next.autoSuspendedAt = null;
-	const [row] = await env.db
-		.insert(integrityRules)
-		.values({
-			orgId,
-			config: DEFAULT_INTEGRITY_RULES,
-			updatedBy: actor.id,
-			...next
-		})
-		.onConflictDoUpdate({
-			target: integrityRules.orgId,
-			set: { ...next, updatedBy: actor.id, updatedAt: new Date() }
-		})
-		.returning();
+		const enabling = (
+			['autoKickEnabled', 'autoQuarantine24hEnabled', 'autoQuarantine7dEnabled'] as const
+		).some((key) => changes[key] === true && !before[key]);
+		if (
+			(enabling || values.resume === true) &&
+			values.confirmation !== 'ENABLE_EXPERIMENTAL_INTEGRITY'
+		)
+			throw new ApiError(400, 'Explicit experimental enforcement confirmation is required.');
+		if (values.resume === true) changes.autoSuspendedAt = null;
+		const [row] = current
+			? await tx
+					.update(integrityRules)
+					.set({ ...changes, updatedBy: actor.id, updatedAt: new Date() })
+					.where(eq(integrityRules.orgId, orgId))
+					.returning()
+			: await tx
+					.insert(integrityRules)
+					.values({ orgId, config: DEFAULT_INTEGRITY_RULES, updatedBy: actor.id, ...changes })
+					.returning();
+		if (!row) throw new Error('Integrity enforcement settings were not saved.');
+		return { before, row };
+	});
 	cache.delete(orgId);
 	await writeAudit(env, req, {
 		actor,
@@ -239,14 +265,7 @@ export async function saveIntegrityEnforcement(
 			values.resume === true ? 'integrity.enforcement.resume' : 'integrity.enforcement.update',
 		outcome: 'ok',
 		message: 'Experimental Integrity enforcement settings updated',
-		detail: { before, after: next }
+		detail: { before: saved.before, after: enforcementOf(saved.row) }
 	});
-	return {
-		autoKickEnabled: row.autoKickEnabled,
-		autoQuarantine24hEnabled: row.autoQuarantine24hEnabled,
-		autoQuarantine7dEnabled: row.autoQuarantine7dEnabled,
-		autoActionMaxPerHour: row.autoActionMaxPerHour,
-		autoActionMaxPercentOnline: row.autoActionMaxPercentOnline,
-		autoSuspendedAt: row.autoSuspendedAt
-	};
+	return enforcementOf(saved.row);
 }

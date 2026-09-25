@@ -166,7 +166,10 @@ export function connectRemoteGateway(env: Env): Gateway {
 			void call(env, '/status-changed', {}).catch(() => {});
 		},
 		killsIngested(env, serverId, kills: KillView[]) {
-			void call(env, '/kills', { serverId, kills }).catch(() => {});
+			// The database job is the handoff; this relay call only reduces wake latency.
+			void call(env, '/kills', { serverId }).catch((err) =>
+				console.warn('[warcon] feed wake signal:', err)
+			);
 		},
 		subscribe,
 		health(env) {

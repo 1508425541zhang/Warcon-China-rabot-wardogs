@@ -27,9 +27,26 @@ import { validateIntegrityRules } from './rules';
 import type { BehaviorFinding } from './windows';
 import type { IntegrityScore } from './score';
 import type { Player } from '$lib/types';
+import { independentEvidence } from './independence';
+import { effectiveActionKinds } from './actions';
 
 const COOLDOWN_MS = 15 * 60_000;
 const HOUR_MS = 60 * 60_000;
+export type IntegrityCap = 'org_hourly' | 'server_percent';
+/** Organization volume and this server's online proportion are independent limits. */
+export function integrityCapHit(
+	orgActions: number,
+	serverActions: number,
+	onlinePlayers: number,
+	settings: Pick<EnforcementSettings, 'autoActionMaxPerHour' | 'autoActionMaxPercentOnline'>
+): IntegrityCap | null {
+	if (orgActions >= settings.autoActionMaxPerHour) return 'org_hourly';
+	const serverCap = Math.max(
+		1,
+		Math.floor((onlinePlayers * settings.autoActionMaxPercentOnline) / 100)
+	);
+	return serverActions >= serverCap ? 'server_percent' : null;
+}
 const REASON = (hours: number, caseId: string) =>
 	`社区风控：临时隔离 ${hours} 小时。案件号：${caseId}。如有异议请联系服务器管理员复核。 / Community Integrity: temporary ${hours}h restriction. Case ${caseId}. Contact an administrator to appeal.`;
 const KICK_REASON = (caseId: string) =>
@@ -102,7 +119,7 @@ export async function enforceIntegrityCase(
 				.limit(1),
 			tx.select().from(serverLive).where(eq(serverLive.serverId, input.serverId)).limit(1),
 			tx
-				.select({ id: integrityWindows.id })
+				.select({ id: integrityWindows.id, eventIds: integrityWindows.eventIds })
 				.from(integrityWindows)
 				.where(
 					and(
@@ -113,8 +130,7 @@ export async function enforceIntegrityCase(
 							: ne(integrityWindows.id, input.finding.windowId),
 						gte(integrityWindows.observedAt, new Date(now.getTime() - 24 * HOUR_MS))
 					)
-				)
-				.limit(1),
+				),
 			tx
 				.select()
 				.from(integrityActions)
@@ -134,10 +150,14 @@ export async function enforceIntegrityCase(
 			caseRow.serverId !== input.serverId ||
 			caseRow.steamId !== input.steamId ||
 			!savedScore ||
+			savedScore.ruleVersion !== row.version ||
+			caseRow.ruleVersion !== row.version ||
 			savedScore.steamId !== input.steamId ||
 			savedScore.windowId !== input.finding.windowId ||
 			!savedScore.currentBehaviorAnomaly ||
-			savedScore.score !== caseRow.riskScore
+			savedScore.score !== caseRow.riskScore ||
+			savedScore.score !== input.score.score ||
+			savedScore.level !== input.score.level
 		)
 			return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };
 		const roster = Array.isArray(live?.players) ? (live.players as Player[]) : [];
@@ -159,13 +179,10 @@ export async function enforceIntegrityCase(
 				memory.players.some((player) => player.steamId === input.steamId),
 			identityReliable:
 				input.finding.eventIds.length > 0 && input.finding.steamId === input.steamId,
-			priorIndependentWindow: prior.length > 0,
-			previousActions: previous
-				.map((action) => action.action)
-				.filter(
-					(action): action is 'KICK' | 'QUARANTINE_24H' | 'QUARANTINE_7D' =>
-						action === 'KICK' || action === 'QUARANTINE_24H' || action === 'QUARANTINE_7D'
-				),
+			priorIndependentWindow: prior.some((row) =>
+				independentEvidence(row.eventIds, input.finding.eventIds)
+			),
+			previousActions: effectiveActionKinds(previous),
 			rules: validateIntegrityRules(row.config as Record<string, unknown>),
 			settings
 		});
@@ -173,7 +190,10 @@ export async function enforceIntegrityCase(
 		if (previous.some((action) => now.getTime() - action.createdAt.getTime() < COOLDOWN_MS))
 			return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };
 		const [hourly] = await tx
-			.select({ n: sql<number>`COUNT(*)::int` })
+			.select({
+				org: sql<number>`COUNT(*)::int`,
+				server: sql<number>`COUNT(*) FILTER (WHERE ${integrityActions.serverId} = ${input.serverId})::int`
+			})
 			.from(integrityActions)
 			.where(
 				and(
@@ -182,16 +202,18 @@ export async function enforceIntegrityCase(
 					gte(integrityActions.createdAt, new Date(now.getTime() - HOUR_MS))
 				)
 			);
-		const cap = Math.min(
-			settings.autoActionMaxPerHour,
-			Math.max(1, Math.floor((roster.length * settings.autoActionMaxPercentOnline) / 100))
+		const cap = integrityCapHit(
+			Number(hourly?.org ?? 0),
+			Number(hourly?.server ?? 0),
+			roster.length,
+			settings
 		);
-		if (Number(hourly?.n ?? 0) >= cap) {
+		if (cap) {
 			await tx
 				.update(integrityRules)
 				.set({ autoSuspendedAt: now })
 				.where(eq(integrityRules.orgId, input.orgId));
-			return { decision: 'OBSERVE' as IntegrityDecision, circuit: true };
+			return { decision: 'OBSERVE' as IntegrityDecision, circuit: cap };
 		}
 		const activeBans = await tx
 			.select({ entry: listEntries })
@@ -208,7 +230,12 @@ export async function enforceIntegrityCase(
 				)
 			);
 		// An administrator's ban always wins; rule-created entries are never silently shortened.
-		const autoIds = new Set(previous.map((action) => action.listEntryId).filter(Boolean));
+		const autoIds = new Set(
+			previous
+				.filter((action) => action.source === 'RULE' && !action.revertedAt && action.effectiveAt)
+				.map((action) => action.listEntryId)
+				.filter(Boolean)
+		);
 		if (activeBans.some(({ entry }) => !autoIds.has(entry.id)))
 			return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };
 		let listEntryId: string | null = null;
@@ -248,19 +275,10 @@ export async function enforceIntegrityCase(
 			source: 'RULE',
 			listEntryId,
 			createdAt: now,
+			effectiveAt: decision === 'KICK' ? null : now,
+			deliveryState: 'pending',
 			expiresAt
 		});
-		await tx
-			.update(integrityScores)
-			.set({
-				level:
-					decision === 'KICK'
-						? 'AUTO_KO'
-						: decision === 'QUARANTINE_24H'
-							? 'AUTO_QUARANTINE_24H'
-							: 'AUTO_QUARANTINE_7D'
-			})
-			.where(eq(integrityScores.id, savedScore.id));
 		await tx.insert(outbox).values({
 			serverId: input.serverId,
 			triggerName: 'Community Integrity',
@@ -288,8 +306,8 @@ export async function enforceIntegrityCase(
 			category: 'system',
 			action: 'integrity.enforcement.circuit_breaker',
 			outcome: 'ok',
-			message: 'Experimental automatic enforcement suspended by rate cap',
-			detail: { serverId: input.serverId, caseId: input.caseId }
+			message: `Experimental automatic enforcement suspended by ${result.circuit} cap`,
+			detail: { serverId: input.serverId, caseId: input.caseId, cap: result.circuit }
 		});
 	if (result.decision !== 'OBSERVE') {
 		wakeDelivery();

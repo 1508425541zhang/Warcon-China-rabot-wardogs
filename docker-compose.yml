@@ -16,7 +16,7 @@ x-warcon: &warcon
     PGHOST: db
     PGPORT: 5432
     PGUSER: warcon
-    PGPASSWORD: ${POSTGRES_PASSWORD:-warcon}
+    PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     PGDATABASE: warcon
     # The URL people open. Behind a reverse proxy set ORIGIN=https://... and ADDRESS_HEADER in .env (see README).
     ORIGIN: ${ORIGIN:-http://localhost:3000}
@@ -67,7 +67,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: warcon
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-warcon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB: warcon
     volumes:
       - warcon-db:/var/lib/postgresql # PostgreSQL 18+ images keep data in a versioned subdirectory here

@@ -615,6 +615,10 @@ export const integrityActions = pgTable(
 		source: text('source').notNull(),
 		listEntryId: text('list_entry_id'),
 		createdAt: ts('created_at').notNull().defaultNow(),
+		/** NULL until a kick is confirmed; quarantine becomes effective with the panel list entry. */
+		effectiveAt: ts('effective_at'),
+		/** State of the immediate RCON kick, separate from quarantine list effectiveness. */
+		deliveryState: text('delivery_state'),
 		expiresAt: ts('expires_at'),
 		revertedAt: ts('reverted_at'),
 		revertedBy: text('reverted_by')
@@ -738,6 +742,27 @@ export const kills = pgTable(
 	]
 );
 export type KillRow = typeof kills.$inferSelect;
+
+/** Durable handoff from feed ingestion to the worker; unrelated to RCON outbox. */
+export const feedProcessingJobs = pgTable(
+	'feed_processing_jobs',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		killTs: ts('kill_ts').notNull(),
+		eventIds: jsonb('event_ids').notNull(),
+		createdAt: ts('created_at').notNull().defaultNow(),
+		state: text('state').notNull().default('pending'),
+		attempts: integer('attempts').notNull().default(0),
+		leaseUntil: ts('lease_until'),
+		doneAt: ts('done_at'),
+		lastError: text('last_error')
+	},
+	(t) => [index('feed_processing_pending_idx').on(t.state, t.createdAt)]
+);
+export type FeedProcessingJob = typeof feedProcessingJobs.$inferSelect;
 
 /**
  * One row per player per match: the game's own scoreboard counters over the match (kills, deaths,
