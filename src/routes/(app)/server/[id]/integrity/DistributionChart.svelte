@@ -115,6 +115,18 @@
 			· {quality(metric.sampleCount)}
 		</div>
 		<div>
+			{lang === 'zh' ? '来源' : 'Source'}
+			<strong class="text-white"
+				>{metric.source === 'external'
+					? lang === 'zh'
+						? '审核通过的外服历史'
+						: 'Approved external history'
+					: lang === 'zh'
+						? '本服历史'
+						: 'Local history'}</strong
+			>
+		</div>
+		<div>
 			{lang === 'zh' ? '周期' : 'Period'}
 			<strong class="text-white">{metric.windowDays} {lang === 'zh' ? '天' : 'days'}</strong>
 		</div>
