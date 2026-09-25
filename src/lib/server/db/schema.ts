@@ -532,6 +532,8 @@ export const integrityBaselines = pgTable(
 		map: text('map'),
 		populationBucket: text('population_bucket'),
 		weaponCategory: text('weapon_category').notNull(),
+		/** Local feed or approved, user-supplied external history. Never mix their distributions. */
+		source: text('source').notNull().default('local'),
 		sampleCount: integer('sample_count').notNull(),
 		median: real('median').notNull(),
 		mad: real('mad'),
@@ -547,6 +549,62 @@ export const integrityBaselines = pgTable(
 		calculatedAt: ts('calculated_at').notNull()
 	},
 	(t) => [index('integrity_baselines_lookup_idx').on(t.orgId, t.metric, t.level)]
+);
+
+/** External history is reviewed before it can influence a baseline; it never enters the live kill feed. */
+export const integrityImportBatches = pgTable(
+	'integrity_import_batches',
+	{
+		id: text('id').primaryKey(),
+		orgId: text('org_id')
+			.notNull()
+			.references(() => organizations.id, { onDelete: 'cascade' }),
+		sourceServer: text('source_server').notNull(),
+		fileSha256: text('file_sha256').notNull(),
+		status: text('status').notNull().default('STAGED'),
+		rowCount: integer('row_count').notNull(),
+		firstEventAt: ts('first_event_at').notNull(),
+		lastEventAt: ts('last_event_at').notNull(),
+		stagedAt: ts('staged_at').notNull().defaultNow(),
+		stagedBy: text('staged_by').notNull(),
+		reviewedAt: ts('reviewed_at'),
+		reviewedBy: text('reviewed_by')
+	},
+	(t) => [
+		index('integrity_import_batches_org_idx').on(t.orgId, t.stagedAt.desc()),
+		uniqueIndex('integrity_import_batches_hash_idx').on(t.orgId, t.fileSha256)
+	]
+);
+
+export const integrityImportKills = pgTable(
+	'integrity_import_kills',
+	{
+		batchId: text('batch_id')
+			.notNull()
+			.references(() => integrityImportBatches.id, { onDelete: 'cascade' }),
+		orgId: text('org_id').notNull(),
+		sourceServer: text('source_server').notNull(),
+		eventId: text('event_id').notNull(),
+		eventAt: ts('event_at').notNull(),
+		instanceId: text('instance_id').notNull(),
+		matchId: text('match_id').notNull(),
+		eventTime: real('event_time').notNull(),
+		map: text('map').notNull(),
+		killerSteamId: text('killer_steam_id').notNull(),
+		victimSteamId: text('victim_steam_id').notNull(),
+		killerFaction: text('killer_faction').notNull(),
+		victimFaction: text('victim_faction').notNull(),
+		cause: text('cause').notNull(),
+		distanceM: real('distance_m'),
+		headshot: boolean('headshot').notNull(),
+		penetration: boolean('penetration').notNull(),
+		playerCount: integer('player_count')
+	},
+	(t) => [
+		uniqueIndex('integrity_import_kills_source_event_idx').on(t.orgId, t.sourceServer, t.eventId),
+		index('integrity_import_kills_batch_idx').on(t.batchId),
+		index('integrity_import_kills_event_at_idx').on(t.orgId, t.eventAt)
+	]
 );
 
 /** A versioned, owner-editable rule set. Cases snapshot both version and effective inputs. */

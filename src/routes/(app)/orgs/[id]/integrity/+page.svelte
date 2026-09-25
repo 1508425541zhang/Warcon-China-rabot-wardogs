@@ -10,6 +10,75 @@
 	let { data }: PageProps = $props();
 	let lang = $state<'zh' | 'en'>('zh');
 	let busy = $state(false);
+	let sourceServer = $state('');
+	let importFile = $state<File | null>(null);
+	let importPreview = $state<{
+		rowCount: number;
+		sourceServer: string;
+		firstEventAt: string;
+		lastEventAt: string;
+		weapons: string[];
+		maps: string[];
+		populationKnown: number;
+	} | null>(null);
+	async function uploadHistory() {
+		if (!importFile || !sourceServer.trim()) {
+			toast('请填写来源服务器并选择文件。', 'err');
+			return;
+		}
+		busy = true;
+		try {
+			const form = new FormData();
+			form.set('sourceServer', sourceServer.trim());
+			form.set('file', importFile);
+			const response = await fetch(
+				`/api/orgs/${encodeURIComponent(data.orgId)}/integrity/imports`,
+				{
+					method: 'POST',
+					headers: { 'x-requested-with': 'warcon' },
+					body: form,
+					credentials: 'same-origin',
+					cache: 'no-store'
+				}
+			);
+			const result = await response.json();
+			if (!response.ok || !result.ok) throw new Error(result.error?.message ?? '上传失败。');
+			importPreview = result.batch;
+			toast('文件已暂存，尚未用于统计。', 'ok');
+			await invalidateAll();
+		} catch (err) {
+			toast(errorMessage(err), 'err');
+		} finally {
+			busy = false;
+		}
+	}
+	async function reviewHistory(id: string, decision: 'APPROVED' | 'REJECTED') {
+		const label = decision === 'APPROVED' ? '批准' : '撤销／拒绝';
+		if (
+			!(await confirmDialog(`确认${label}这批外部历史数据？批准后会重新计算统计基线。`, {
+				okLabel: `确认${label}`,
+				danger: true
+			}))
+		)
+			return;
+		busy = true;
+		try {
+			await api(
+				'POST',
+				`/api/orgs/${encodeURIComponent(data.orgId)}/integrity/imports/${encodeURIComponent(id)}`,
+				{
+					decision,
+					confirmation: decision === 'APPROVED' ? 'APPROVE_EXTERNAL_INTEGRITY_DATA' : undefined
+				}
+			);
+			toast('审核结果已保存，基线已更新。', 'ok');
+			await invalidateAll();
+		} catch (err) {
+			toast(errorMessage(err), 'err');
+		} finally {
+			busy = false;
+		}
+	}
 	// svelte-ignore state_referenced_locally -- editable mode starts with the current owner setting.
 	let assessmentMode = $state<AssessmentMode>(data.assessmentMode);
 	async function saveMode() {
@@ -135,6 +204,7 @@
 			{lang === 'zh' ? '可用指标' : 'Available metrics'}：<strong
 				>{data.baselineSummary.metrics}/8</strong
 			>
+			<span class="text-xs text-mist-400">（外服 {data.baselineSummary.externalMetrics}）</span>
 		</div>
 		<div>
 			{lang === 'zh' ? 'Shadow 对照记录' : 'Shadow comparisons'}：<strong
@@ -180,9 +250,85 @@
 		</p>{/if}
 	<p class="mt-2 text-xs text-mist-400">
 		{lang === 'zh'
-			? '同枪械爆头率与距离按具体武器 cause 分组；距离是历史异常，不代表武器物理射程。少于 200 个可比样本时不参与统计判断。'
-			: 'Weapon headshot rate and distance use exact weapon cohorts. Distance indicates historical rarity, not a physical range limit. Fewer than 200 comparable samples do not count.'}
+			? '同枪械爆头率与距离按具体武器 cause 分组；距离是历史异常，不代表武器物理射程。本服至少 200 个可比样本，审核后的外服样本至少 30 个可参与实验性统计；自动处置仍要求至少 5000 个可比样本。'
+			: 'Weapon cohorts use exact causes. Local baselines need 200 samples; approved external baselines need 30 for experimental review. Automatic action still requires 5000 comparable samples.'}
 	</p>
+</section>
+<section class="mb-6 panel p-4">
+	<h3 class="text-base font-semibold text-white">外服历史数据导入与审核</h3>
+	<p class="mt-2 text-sm text-mist-300">
+		上传 JSON／JSONL 后先暂存，组织 Owner
+		审核批准才会参与统计。外服数据有独立来源标识，不计入实时战绩。
+	</p>
+	<p class="mt-2 text-sm">
+		<a
+			class="text-accent underline"
+			href="/docs/integrity-import.zh-CN.md"
+			target="_blank"
+			rel="noopener">查看字段模板和逐步导入说明</a
+		>
+	</p>
+	<div class="mt-4 grid gap-3 sm:grid-cols-2">
+		<label class="block"
+			><span class="field-label">来源服务器标识</span><input
+				class="input"
+				placeholder="例如 community-eu-01"
+				bind:value={sourceServer}
+			/></label
+		>
+		<label class="block"
+			><span class="field-label">JSON／JSONL 文件（最多 8 MiB、10,000 条）</span><input
+				class="input"
+				type="file"
+				accept=".json,.jsonl,application/json"
+				onchange={(event) => (importFile = event.currentTarget.files?.[0] ?? null)}
+			/></label
+		>
+	</div>
+	<button
+		class="mt-3 btn btn-primary"
+		disabled={busy || !importFile || !sourceServer.trim()}
+		onclick={uploadHistory}>上传并暂存</button
+	>
+	{#if importPreview}<p class="mt-3 text-sm text-mist-200">
+			刚上传：{importPreview.sourceServer} · {importPreview.rowCount} 条 · {importPreview.firstEventAt}
+			至 {importPreview.lastEventAt} · 已知人数 {importPreview.populationKnown} 条 · 武器 {importPreview.weapons.join(
+				'、'
+			)} · 地图 {importPreview.maps.join('、')}
+		</p>{/if}
+	<h4 class="mt-5 font-medium text-white">最近导入批次</h4>
+	{#if data.imports.length === 0}<p class="mt-2 text-sm text-mist-400">尚无导入记录。</p>{/if}
+	<div class="mt-2 space-y-2">
+		{#each data.imports as batch}
+			<div class="rounded border border-white/10 p-3 text-sm">
+				<div class="flex flex-wrap justify-between gap-2">
+					<strong class="text-white">{batch.sourceServer}</strong><span
+						>{batch.status === 'STAGED'
+							? '待审核'
+							: batch.status === 'APPROVED'
+								? '已批准'
+								: '已拒绝／撤销'}</span
+					>
+				</div>
+				<p class="mt-1 text-mist-400">
+					{batch.rowCount} 条 · {new Date(batch.firstEventAt).toLocaleDateString()} 至 {new Date(
+						batch.lastEventAt
+					).toLocaleDateString()} · SHA-256 {batch.fileSha256.slice(0, 12)}…
+				</p>
+				{#if batch.status === 'STAGED'}<button
+						class="mt-2 btn btn-primary"
+						disabled={busy}
+						onclick={() => reviewHistory(batch.id, 'APPROVED')}>审核批准</button
+					>{/if}
+				{#if batch.status !== 'REJECTED'}<button
+						class="btn-quiet mt-2 ml-2 btn"
+						disabled={busy}
+						onclick={() => reviewHistory(batch.id, 'REJECTED')}
+						>{batch.status === 'APPROVED' ? '撤销批准' : '拒绝'}</button
+					>{/if}
+			</div>
+		{/each}
+	</div>
 </section>
 <section class="mb-6 panel p-4">
 	<h3 class="text-base font-semibold text-white">
