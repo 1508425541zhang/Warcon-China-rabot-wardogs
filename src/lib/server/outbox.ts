@@ -114,7 +114,10 @@ async function pass(): Promise<void> {
 			const expired = (await tx.execute(sql`
 			UPDATE outbox SET state = 'unknown', outcome = 'The worker stopped while sending; the game may have acted.', done_at = now(), lease_until = NULL
 			 WHERE state = 'sending' AND lease_until < now()
-			 RETURNING trigger_kind AS "triggerKind", action, detail, server_id AS "serverId", steam_id AS "steamId"`)) as Pick<OutboxRow, 'triggerKind' | 'action' | 'detail' | 'serverId' | 'steamId'>[];
+			 RETURNING trigger_kind AS "triggerKind", action, detail, server_id AS "serverId", steam_id AS "steamId"`)) as Pick<
+				OutboxRow,
+				'triggerKind' | 'action' | 'detail' | 'serverId' | 'steamId'
+			>[];
 			for (const row of expired) await recordIntegrityDelivery(tx, row, 'unknown');
 			// Claiming moves the row to "sending" durably before anything is sent.
 			return (await tx.execute(sql`

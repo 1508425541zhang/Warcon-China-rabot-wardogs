@@ -10,11 +10,15 @@ import { setGateway } from '$lib/server/gateway';
 import { localGateway } from '$lib/server/gateway-local';
 import { loadSettings } from '$lib/server/settings';
 import { pollerStats, startPoller, stopPoller } from '$lib/server/poller';
+import {
+	startFeedProcessing,
+	stopFeedProcessing,
+	wakeFeedProcessing
+} from '$lib/server/feed-processing';
 import { subscribe } from '$lib/server/events';
 import { organizations } from '$lib/server/db/schema';
 import { RELAY_PREFIX, serializeError } from '$lib/server/relay';
 import { metricsResponse } from '$lib/server/metrics';
-import type { KillView } from '$lib/types';
 import type { Priority } from '$lib/server/dispatcher';
 
 const json = (data: unknown, status = 200) =>
@@ -28,6 +32,7 @@ const fail = (err: unknown) => {
 export function startWorker(env: Env, label = 'worker'): ReturnType<typeof Bun.serve> {
 	setGateway(localGateway);
 	startPoller(env, label);
+	startFeedProcessing(env);
 	const port = Number(env.WORKER_PORT) || 7700;
 	const server = Bun.serve({
 		port,
@@ -122,11 +127,7 @@ async function relay(env: Env, path: string, url: URL, req: Request): Promise<Re
 			localGateway.statusChanged();
 			return ok(null);
 		case '/kills':
-			localGateway.killsIngested(
-				env,
-				String(body.serverId),
-				Array.isArray(body.kills) ? (body.kills as KillView[]) : []
-			);
+			wakeFeedProcessing();
 			return ok(null);
 		case '/events': {
 			const encoder = new TextEncoder();
@@ -170,5 +171,6 @@ async function relay(env: Env, path: string, url: URL, req: Request): Promise<Re
 }
 
 export async function stopWorker(): Promise<void> {
+	await stopFeedProcessing();
 	await stopPoller();
 }

@@ -20,45 +20,33 @@ import {
 	type RateTracks
 } from './kill-rate';
 import { applyTriggerUpdates, enqueueIntents, wakeDelivery } from './outbox';
-import { LostOwnership, withOwnedTransaction } from './leadership';
+import { withOwnedTransaction } from './leadership';
 import { memoryOf } from './observe';
-import { publicMessage } from './http';
+import { gateway } from './gateway';
 import { notifyTeamKills } from './webhook-delivery';
 import { isDemoServer } from './env';
 import { drainMockFeed } from './mockgame';
 import { ingestBatch } from './feed';
 import { servers, type ServerRow } from './db/schema';
 import type { KillView } from '$lib/types';
-import { queueIntegrityBatch } from './integrity/pipeline';
+import { processIntegrityBatch } from './integrity/pipeline';
 
 /** The legacy kill-rate and team-kill consumers continue even if Integrity fails. */
 export async function onKillsIngested(
 	env: Env,
 	serverId: string,
-	kills: KillView[]
+	kills: KillView[],
+	allowActions = true
 ): Promise<void> {
 	if (!kills.length) return;
 	emit({ type: 'kills', serverId, kills });
-	void queueIntegrityBatch(env, serverId, kills).catch((err) => {
-		if (!(err instanceof LostOwnership))
-			console.warn(`[warcon] integrity pipeline on ${serverId}:`, publicMessage(err));
-	});
-	try {
-		await actOnKillRate(env, serverId, kills);
-	} catch (err) {
-		if (!(err instanceof LostOwnership))
-			console.warn(`[warcon] kill-rate rules on ${serverId}:`, publicMessage(err));
-	}
+	await processIntegrityBatch(env, serverId, kills, allowActions);
+	if (allowActions) await actOnKillRate(env, serverId, kills);
 	const teamKills = kills.filter((k) => k.teamKill && k.killer);
-	if (!teamKills.length) return;
+	if (!teamKills.length || !allowActions) return;
 	const m = memoryOf(serverId);
 	void notifyTeamKills(env, serverId, m?.status?.serverName || m?.server.name || '', teamKills);
-	try {
-		await actOnTeamKills(env, serverId, teamKills);
-	} catch (err) {
-		if (!(err instanceof LostOwnership))
-			console.warn(`[warcon] team-kill rules on ${serverId}:`, publicMessage(err));
-	}
+	await actOnTeamKills(env, serverId, teamKills);
 }
 
 /**
@@ -231,5 +219,5 @@ export async function feedDemoKills(env: Env, server: ServerRow): Promise<void> 
 		.where(eq(servers.id, server.id));
 	if (!row?.on) return;
 	const r = await ingestBatch(env, server.id, batch);
-	if (r.kills.length) await onKillsIngested(env, server.id, r.kills);
+	if (r.kills.length) gateway().killsIngested(env, server.id, r.kills);
 }

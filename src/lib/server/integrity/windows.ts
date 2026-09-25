@@ -83,6 +83,9 @@ export class InfantryWindows {
 		if (serverId) this.servers.delete(serverId);
 		else this.servers.clear();
 	}
+	hasServer(serverId: string): boolean {
+		return this.servers.has(serverId);
+	}
 
 	markPersisted(serverId: string, finding: BehaviorFinding, windowId: number): void {
 		const player = this.servers.get(serverId)?.players.get(finding.steamId);

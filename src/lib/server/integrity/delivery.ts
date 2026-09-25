@@ -1,6 +1,12 @@
 import { and, eq } from 'drizzle-orm';
 import type { Env } from '../env';
-import { integrityActions, integrityCases, integrityRules, servers, type OutboxRow } from '../db/schema';
+import {
+	integrityActions,
+	integrityCases,
+	integrityRules,
+	servers,
+	type OutboxRow
+} from '../db/schema';
 
 const DISABLED = 'Integrity enforcement disabled before delivery';
 
@@ -13,7 +19,12 @@ export async function integrityDeliverySkipReason(
 	const detail = row.detail as Record<string, unknown> | null;
 	const actionId = detail?.actionId;
 	const caseId = detail?.caseId;
-	if (row.action !== 'kick' || typeof actionId !== 'string' || typeof caseId !== 'string' || !row.steamId)
+	if (
+		row.action !== 'kick' ||
+		typeof actionId !== 'string' ||
+		typeof caseId !== 'string' ||
+		!row.steamId
+	)
 		return 'Integrity action identity is invalid before delivery';
 	const [match] = await env.db
 		.select({ action: integrityActions, caseRow: integrityCases, server: servers })
@@ -23,12 +34,18 @@ export async function integrityDeliverySkipReason(
 		.where(and(eq(integrityActions.id, actionId), eq(integrityActions.caseId, caseId)))
 		.limit(1);
 	if (
-		!match || match.action.source !== 'RULE' || match.action.revertedAt ||
-		match.action.serverId !== row.serverId || match.action.steamId !== row.steamId ||
+		!match ||
+		match.action.source !== 'RULE' ||
+		match.action.revertedAt ||
+		match.action.serverId !== row.serverId ||
+		match.action.steamId !== row.steamId ||
 		match.caseRow.orgId !== match.action.orgId ||
-		match.caseRow.serverId !== row.serverId || match.caseRow.steamId !== row.steamId ||
-		match.server.orgId !== match.action.orgId || match.caseRow.status !== 'OPEN'
-	) return 'Integrity action or case changed before delivery';
+		match.caseRow.serverId !== row.serverId ||
+		match.caseRow.steamId !== row.steamId ||
+		match.server.orgId !== match.action.orgId ||
+		match.caseRow.status !== 'OPEN'
+	)
+		return 'Integrity action or case changed before delivery';
 	const [rules] = await env.db
 		.select({
 			kick: integrityRules.autoKickEnabled,
@@ -41,9 +58,13 @@ export async function integrityDeliverySkipReason(
 		.limit(1);
 	if (!rules || rules.suspended) return DISABLED;
 	switch (match.action.action) {
-		case 'KICK': return rules.kick ? null : DISABLED;
-		case 'QUARANTINE_24H': return rules.day ? null : DISABLED;
-		case 'QUARANTINE_7D': return rules.week ? null : DISABLED;
-		default: return 'Integrity action type is invalid before delivery';
+		case 'KICK':
+			return rules.kick ? null : DISABLED;
+		case 'QUARANTINE_24H':
+			return rules.day ? null : DISABLED;
+		case 'QUARANTINE_7D':
+			return rules.week ? null : DISABLED;
+		default:
+			return 'Integrity action type is invalid before delivery';
 	}
 }

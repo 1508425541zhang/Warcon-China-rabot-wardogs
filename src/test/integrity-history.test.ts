@@ -48,7 +48,9 @@ describe.skipIf(!hasTestDb)('recorded high-risk window history', () => {
 			currentBehaviorAnomaly: true
 		});
 		expect(
-			await hadRecentHighRiskWindow(env.db, world.org.id, steamId, now, 24, current.id, ['window-2'])
+			await hadRecentHighRiskWindow(env.db, world.org.id, steamId, now, 24, current.id, [
+				'window-2'
+			])
 		).toBe(true);
 		expect(
 			await hadRecentHighRiskWindow(env.db, world.org.id, steamId, now, 1, current.id, ['window-2'])

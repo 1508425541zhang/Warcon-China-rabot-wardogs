@@ -1,6 +1,7 @@
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import type { Env } from '../env';
-import { integrityReports, integrityScores, integrityWindows } from '../db/schema';
+import { integrityReports, integrityScores, integrityWindows, kills, servers } from '../db/schema';
+import { killView } from '../feed';
 import { withOwnedTransaction } from '../leadership';
 import { memoryOf } from '../observe';
 import { notifyIntegrityCase, type IntegrityCaseAlert } from '../webhook-delivery';
@@ -20,6 +21,11 @@ import type { KillView } from '$lib/types';
 
 const infantry = new InfantryWindows();
 const infantryTasks = new Map<string, Promise<void>>();
+
+/** Test/recovery seam for simulating a worker process restart. */
+export function resetIntegrityServer(serverId: string): void {
+	infantry.reset(serverId);
+}
 
 export function queueIntegrityBatch(env: Env, serverId: string, batch: KillView[]): Promise<void> {
 	const previous = infantryTasks.get(serverId) ?? Promise.resolve();
@@ -47,22 +53,55 @@ export async function waitIntegrityBatch(serverId: string): Promise<void> {
 export async function processIntegrityBatch(
 	env: Env,
 	serverId: string,
-	batch: KillView[]
+	batch: KillView[],
+	allowActions = true
 ): Promise<void> {
 	try {
 		await captureReportEvidence(env, serverId, batch);
 	} catch (err) {
 		console.warn(`[warcon] report evidence on ${serverId}:`, publicMessage(err));
+		throw err;
 	}
-	const orgId = memoryOf(serverId)?.server.orgId;
+	// The durable feed queue may wake before the first server poll after a worker restart.
+	const orgId =
+		memoryOf(serverId)?.server.orgId ??
+		(
+			await env.db
+				.select({ orgId: servers.orgId })
+				.from(servers)
+				.where(eq(servers.id, serverId))
+				.limit(1)
+		)[0]?.orgId;
 	if (!orgId) return;
 	const rules = await getIntegrityRules(env, orgId);
-	const findings = infantry.observe(
-		serverId,
-		batch,
-		await weaponOverrides(env, orgId),
-		rules.config
-	);
+	const overrides = await weaponOverrides(env, orgId);
+	if (!infantry.hasServer(serverId) && batch.length) {
+		const before = new Date(batch[0].ts);
+		const prior = await env.db
+			.select()
+			.from(kills)
+			.where(
+				and(
+					eq(kills.serverId, serverId),
+					eq(kills.instanceId, batch[0].instanceId ?? ''),
+					eq(kills.matchId, batch[0].matchId ?? ''),
+					eq(kills.map, batch[0].map),
+					gte(kills.ts, new Date(before.getTime() - 180_000)),
+					lt(kills.ts, before)
+				)
+			)
+			.orderBy(desc(kills.ts), desc(kills.eventTime))
+			.limit(1001);
+		if (prior.length > 1000) allowActions = false;
+		// Rebuild rolling context from committed events before processing the new job.
+		infantry.observe(
+			serverId,
+			prior.slice(0, 1000).reverse().map(killView),
+			overrides,
+			rules.config
+		);
+	}
+	const findings = infantry.observe(serverId, batch, overrides, rules.config);
 	if (!findings.length) return;
 	// Only the strongest state of each active window in this batch needs a database write.
 	const byWindow = new Map<string, (typeof findings)[number]>();
@@ -129,6 +168,19 @@ export async function processIntegrityBatch(
 					.orderBy(desc(integrityWindows.observedAt));
 				windowId =
 					saved.find((row) => overlapsEvidence(row.eventIds, finding.eventIds))?.id ?? null;
+			}
+			if (windowId !== null) {
+				const saved = await tx
+					.select({ eventIds: integrityWindows.eventIds })
+					.from(integrityWindows)
+					.where(eq(integrityWindows.id, windowId))
+					.limit(1);
+				const known = evidenceIds(saved[0]?.eventIds);
+				// A replay of already committed evidence cannot create another score or case.
+				if (known && finding.eventIds.every((id) => known.includes(id))) {
+					infantry.markPersisted(serverId, finding, windowId);
+					continue;
+				}
 			}
 			const recent = recentRows
 				.filter((row) => row.id !== windowId && independentEvidence(row.eventIds, finding.eventIds))
@@ -256,7 +308,7 @@ export async function processIntegrityBatch(
 			infantry.markPersisted(serverId, finding, windowId);
 		}
 	});
-	for (const candidate of candidates) {
+	for (const candidate of allowActions ? candidates : []) {
 		try {
 			await enforceIntegrityCase(env, candidate);
 		} catch (err) {

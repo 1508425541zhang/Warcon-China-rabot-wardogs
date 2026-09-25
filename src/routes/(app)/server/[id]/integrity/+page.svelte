@@ -141,9 +141,20 @@
 		deaths ? (kills / deaths).toFixed(2) : kills ? '∞' : '—';
 	const deliveryLabel = (state: string | null) =>
 		(lang === 'zh'
-			? { pending: '待发送', delivered: '已送达', failed: '发送失败', skipped: '已跳过', unknown: '结果未知' }
-			: { pending: 'Pending', delivered: 'Delivered', failed: 'Failed', skipped: 'Skipped', unknown: 'Unknown' }
-		)[(state ?? 'unknown') as 'pending' | 'delivered' | 'failed' | 'skipped' | 'unknown'];
+			? {
+					pending: '待发送',
+					delivered: '已送达',
+					failed: '发送失败',
+					skipped: '已跳过',
+					unknown: '结果未知'
+				}
+			: {
+					pending: 'Pending',
+					delivered: 'Delivered',
+					failed: 'Failed',
+					skipped: 'Skipped',
+					unknown: 'Unknown'
+				})[(state ?? 'unknown') as 'pending' | 'delivered' | 'failed' | 'skipped' | 'unknown'];
 	const actionState = (item: (typeof data.actions)[number]) => {
 		if (item.revertedAt) return lang === 'zh' ? '已撤销' : 'Reverted';
 		if (item.action === 'KICK') return deliveryLabel(item.deliveryState);
@@ -398,14 +409,18 @@
 					><tr
 						><th>{t.time}</th><th>{t.player}</th><th>{t.caseId}</th><th
 							>{lang === 'zh' ? '处置' : 'Action'}</th
-						><th>{lang === 'zh' ? '执行状态' : 'Delivery'}</th><th>{lang === 'zh' ? '生效时间' : 'Effective at'}</th><th>{lang === 'zh' ? '到期' : 'Expires'}</th></tr
+						><th>{lang === 'zh' ? '执行状态' : 'Delivery'}</th><th
+							>{lang === 'zh' ? '生效时间' : 'Effective at'}</th
+						><th>{lang === 'zh' ? '到期' : 'Expires'}</th></tr
 					></thead
 				>
 				<tbody
 					>{#each data.actions as item (item.id)}<tr
 							><td>{when(item.createdAt)}</td><td class="font-mono">{item.steamId}</td><td
 								class="font-mono">{item.caseId}</td
-							><td>{item.action}</td><td>{actionState(item)}</td><td>{item.effectiveAt ? when(item.effectiveAt) : '—'}</td><td>{item.expiresAt ? when(item.expiresAt) : '—'}</td></tr
+							><td>{item.action}</td><td>{actionState(item)}</td><td
+								>{item.effectiveAt ? when(item.effectiveAt) : '—'}</td
+							><td>{item.expiresAt ? when(item.expiresAt) : '—'}</td></tr
 						>{/each}</tbody
 				>
 			</table>

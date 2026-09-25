@@ -743,6 +743,27 @@ export const kills = pgTable(
 );
 export type KillRow = typeof kills.$inferSelect;
 
+/** Durable handoff from feed ingestion to the worker; unrelated to RCON outbox. */
+export const feedProcessingJobs = pgTable(
+	'feed_processing_jobs',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		killTs: ts('kill_ts').notNull(),
+		eventIds: jsonb('event_ids').notNull(),
+		createdAt: ts('created_at').notNull().defaultNow(),
+		state: text('state').notNull().default('pending'),
+		attempts: integer('attempts').notNull().default(0),
+		leaseUntil: ts('lease_until'),
+		doneAt: ts('done_at'),
+		lastError: text('last_error')
+	},
+	(t) => [index('feed_processing_pending_idx').on(t.state, t.createdAt)]
+);
+export type FeedProcessingJob = typeof feedProcessingJobs.$inferSelect;
+
 /**
  * One row per player per match: the game's own scoreboard counters over the match (kills, deaths,
  * the change in cash) with the player's time on and side, and, on servers with a kill feed, what
