@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNotNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import type { Env } from '../env';
 import {
 	integrityActionEligibility,
@@ -33,7 +33,7 @@ import { evidenceIds, independentEpisode, overlapsEvidence } from './independenc
 import { loadBaselines, loadWeaponBaselines, populationAt } from './baselines';
 import { assessDistribution, type StatisticalAssessment } from './statistics';
 import { STATISTICAL_AUTO_ACTION_ENABLED, STATISTICAL_MODEL_CONFIG } from './statistical-config';
-import { assessCommittee } from './committee';
+import { assessCommittee, hasStatisticalAnomaly } from './committee';
 import { loadCleanCareerContext } from './career-context';
 import { shouldRetryActionEligibility } from './action-retry';
 import type { KillView } from '$lib/types';
@@ -252,12 +252,40 @@ export async function processIntegrityBatch(
 						row.observedAt.getTime() >= now.getTime() - rules.config.repeatWindowMinutes * 60_000
 				)
 				.slice(0, 2);
-			const recentStatistical = independent
-				.filter(
-					(row) =>
-						row.observedAt.getTime() >=
-						now.getTime() - STATISTICAL_MODEL_CONFIG.persistenceEpisodeHorizonHours * 3_600_000
-				)
+			const statisticalCandidates = independent.filter(
+				(row) =>
+					row.observedAt.getTime() >=
+					now.getTime() - STATISTICAL_MODEL_CONFIG.persistenceEpisodeHorizonHours * 3_600_000
+			);
+			const priorScores =
+				rules.assessmentMode !== 'legacy' && statisticalCandidates.length
+					? await tx
+							.select({
+								windowId: integrityScores.windowId,
+								statistical: integrityScores.statistical
+							})
+							.from(integrityScores)
+							.where(
+								and(
+									eq(integrityScores.source, 'window'),
+									inArray(
+										integrityScores.windowId,
+										statisticalCandidates.map((row) => row.id)
+									)
+								)
+							)
+							.orderBy(desc(integrityScores.id))
+							.limit(1500)
+					: [];
+			const latestPriorScore = new Map<number, StatisticalAssessment | null>();
+			for (const candidate of priorScores)
+				if (candidate.windowId !== null && !latestPriorScore.has(candidate.windowId))
+					latestPriorScore.set(
+						candidate.windowId,
+						candidate.statistical as StatisticalAssessment | null
+					);
+			const recentStatistical = statisticalCandidates
+				.filter((row) => hasStatisticalAnomaly(latestPriorScore.get(row.id) ?? null))
 				.slice(0, 2);
 			const statistical: StatisticalAssessment | null = selected
 				? assessDistribution(
