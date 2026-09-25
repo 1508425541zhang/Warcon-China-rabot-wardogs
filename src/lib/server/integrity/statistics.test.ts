@@ -17,6 +17,7 @@ const distribution = (
 	cdf: [number, number][]
 ): DistributionStats => ({
 	id: metric,
+	source: 'local',
 	metric,
 	map: null,
 	populationBucket: null,

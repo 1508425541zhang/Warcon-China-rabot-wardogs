@@ -32,6 +32,7 @@ export interface HistogramBin {
 }
 export interface DistributionStats {
 	id: string;
+	source: 'local' | 'external';
 	metric: MetricCode;
 	map: string | null;
 	populationBucket: PopulationBucket | null;
@@ -54,6 +55,7 @@ export interface DistributionStats {
 
 export interface MetricAssessment {
 	code: MetricCode;
+	source: 'local' | 'external';
 	value: number;
 	tail: MetricTail;
 	percentile: number;
@@ -170,7 +172,13 @@ export function assessDistribution(
 			});
 	}
 	for (const { code, value, baseline, kills } of observations) {
-		if (value === undefined || value === null || !baseline || baseline.sampleCount < 200) continue;
+		if (
+			value === undefined ||
+			value === null ||
+			!baseline ||
+			baseline.sampleCount < (baseline.source === 'external' ? 30 : 200)
+		)
+			continue;
 		if (
 			(code === 'headshotRate' || code === 'penetrationRate' || code === 'headshotRateWeapon') &&
 			kills < 10
@@ -179,6 +187,7 @@ export function assessDistribution(
 		const percentile = percentilePosition(baseline.cdf, value);
 		metrics.push({
 			code,
+			source: baseline.source,
 			value,
 			tail: METRICS[code].tail,
 			percentile,

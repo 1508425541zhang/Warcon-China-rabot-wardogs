@@ -10,15 +10,17 @@ import { DEFAULT_WEAPON_MAP, WEAPON_CATEGORIES } from '$lib/server/integrity/wea
 import { integrityBaselines } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { shadowComparison } from '$lib/server/integrity/baselines';
+import { integrityImports } from '$lib/server/integrity/imports';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
 	try {
 		const { org } = await requireOrgRole(env, locals, params.id, 'owner');
-		const [rules, mappings, baselines] = await Promise.all([
+		const [rules, mappings, baselines, imports] = await Promise.all([
 			getIntegrityRules(env, org.id),
 			weaponMappings(env, org.id),
-			env.db.select().from(integrityBaselines).where(eq(integrityBaselines.orgId, org.id))
+			env.db.select().from(integrityBaselines).where(eq(integrityBaselines.orgId, org.id)),
+			integrityImports(env, org.id)
 		]);
 		const comparison = await shadowComparison(env, org.id, rules.config.koThreshold);
 		return {
@@ -26,9 +28,24 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			ruleVersion: rules.version,
 			assessmentMode: rules.assessmentMode,
 			comparison,
+			imports: imports.map((row) => ({
+				...row,
+				firstEventAt: row.firstEventAt.toISOString(),
+				lastEventAt: row.lastEventAt.toISOString(),
+				stagedAt: row.stagedAt.toISOString(),
+				reviewedAt: row.reviewedAt?.toISOString() ?? null
+			})),
 			baselineSummary: {
-				metrics: new Set(baselines.filter((row) => row.sampleCount >= 200).map((row) => row.metric))
-					.size,
+				metrics: new Set(
+					baselines
+						.filter((row) => row.sampleCount >= (row.source === 'external' ? 30 : 200))
+						.map((row) => row.metric)
+				).size,
+				externalMetrics: new Set(
+					baselines
+						.filter((row) => row.source === 'external' && row.sampleCount >= 30)
+						.map((row) => row.metric)
+				).size,
 				maxSamples: Math.max(0, ...baselines.map((row) => row.sampleCount)),
 				calculatedAt: baselines[0]?.calculatedAt.toISOString() ?? null
 			},
