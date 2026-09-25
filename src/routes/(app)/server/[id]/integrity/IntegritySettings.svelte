@@ -119,8 +119,7 @@
 					en: 'Quarantine threshold',
 					min: 1,
 					max: 100
-				},
-				{ key: 'quarantineDays', zh: '隔离期限（天）', en: 'Quarantine days', min: 1, max: 3650 }
+				}
 			]
 		},
 		{
@@ -171,8 +170,8 @@
 				},
 				{
 					key: 'repeatKoWindowHours',
-					zh: '重复 KO 回顾期（小时）',
-					en: 'Repeat KO review period (hours)',
+					zh: '重复高风险窗口回顾期（小时）',
+					en: 'Repeat high-risk window review period (hours)',
 					min: 1,
 					max: 720
 				},
@@ -284,7 +283,8 @@
 		busy = true;
 		problem = notice = '';
 		try {
-			await api('PUT', `/api/orgs/${encodeURIComponent(orgId)}/integrity/rules`, { values: draft });
+			const { mode: _legacyMode, quarantineDays: _legacyDays, ...values } = draft;
+			await api('PUT', `/api/orgs/${encodeURIComponent(orgId)}/integrity/rules`, { values });
 			notice = lang === 'zh' ? '规则已保存并生成新版本。' : 'Rules saved as a new version.';
 			await invalidateAll();
 		} catch (err) {
@@ -334,13 +334,13 @@
 		</h3>
 		<p class="mt-1 text-sm text-mist-400">
 			{lang === 'zh'
-				? '组织所有者可以调整阈值与权重。所有改动记入审计日志并生成规则版本。当前仅记录，不会自动踢人或隔离。'
-				: 'Organisation owners can adjust thresholds and weights. Changes are audited and versioned. Enforcement remains off.'}
+				? '组织所有者可以调整阈值与权重。改动记入审计日志并生成规则版本。自动处置由独立的实验性开关控制，默认关闭。'
+				: 'Organisation owners can adjust thresholds and weights. Changes are audited and versioned. Separate experimental switches control automatic actions and are off by default.'}
 		</p>
 		<p class="mt-2 text-xs text-warn">
 			{lang === 'zh'
-				? '数据接入状态：180 秒步兵 KPM、独立受害者、爆头率、穿透率、游戏时钟短时爆发、独立举报人数与重复 KO 已接入；Steam VAC / 游戏封禁仅在缓存有效且查询成功时计分。WARDOGS 官方总游戏时间与游戏聊天接收未接入。'
-				: 'Data status: infantry KPM, unique victims, headshot rate, penetration rate, game-clock bursts, unique reporters and repeat KO are connected. Steam VAC/game bans count only with valid lookup data. Official WARDOGS playtime and inbound game chat are unavailable.'}
+				? '数据接入状态：180 秒步兵 KPM、独立受害者、爆头率、穿透率、游戏时钟短时爆发、独立举报人数与重复高风险窗口已接入；Steam VAC / 游戏封禁仅在缓存有效且查询成功时计分。WARDOGS 官方总游戏时间与游戏聊天接收未接入。'
+				: 'Data status: infantry KPM, unique victims, headshot rate, penetration rate, game-clock bursts, unique reporters and repeat high-risk windows are connected. Steam VAC/game bans count only with valid lookup data. Official WARDOGS playtime and inbound game chat are unavailable.'}
 		</p>
 		<div
 			class="mt-4 grid gap-2 sm:grid-cols-5"
@@ -355,8 +355,8 @@
 		</div>
 		<p class="mt-2 text-xs text-mist-400">
 			{lang === 'zh'
-				? '区间会随输入实时更新。当前仅用于记录和人工审核，达到阈值也不会自动踢出或隔离玩家。'
-				: 'Ranges update as you edit. In record-only mode, reaching a threshold never kicks or quarantines a player.'}
+				? '区间会随输入实时更新。分数只决定处置资格；实际自动处置还要求对应开关开启且通过实时安全检查。'
+				: 'Ranges update as you edit. Scores determine eligibility; automatic actions also require the matching switch and live safety checks.'}
 		</p>
 		<h4 class="mt-5 text-sm font-semibold text-white">
 			{lang === 'zh' ? '180 秒纯步兵 KPM 分段' : '180-second infantry KPM bands'}

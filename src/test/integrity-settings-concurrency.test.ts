@@ -109,4 +109,14 @@ describe.skipIf(!hasTestDb)('concurrent Integrity setting saves', () => {
 		expect(row.version).toBe(3);
 		expect(row.config).toMatchObject({ headshotMinPct: 71, penetrationMinPct: 51 });
 	});
+
+	test('legacy mode and quarantine days cannot be saved as misleading action controls', async () => {
+		const env = await testEnv();
+		const world = await seedWorld(env);
+		for (const values of [{ mode: 'dry_run' }, { quarantineDays: 30 }]) {
+			await expect(
+				saveIntegrityRules(env, request, world.users.owner!, world.org.id, values)
+			).rejects.toMatchObject({ status: 400 });
+		}
+	});
 });

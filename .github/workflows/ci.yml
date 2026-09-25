@@ -34,12 +34,21 @@ jobs:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.2
       - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bun run check
       - run: bun test
       - run: bun run build
+      - name: Compose requires an explicit database password
+        run: |
+          cp .env.example .env
+          grep -v '^POSTGRES_PASSWORD=' .env.example > /tmp/warcon-no-password.env
+          if env -u POSTGRES_PASSWORD docker compose --env-file /tmp/warcon-no-password.env config >/dev/null 2>&1; then
+            echo '::error::Compose accepted a missing POSTGRES_PASSWORD'
+            exit 1
+          fi
+          POSTGRES_PASSWORD=ci-only-password docker compose --env-file /tmp/warcon-no-password.env config >/dev/null
       - name: Smoke test the production build
         env:
           ORIGIN: http://127.0.0.1:5199

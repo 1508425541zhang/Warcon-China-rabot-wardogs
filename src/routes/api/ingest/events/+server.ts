@@ -7,6 +7,7 @@ import { ApiError, apiJson, clientIp, route } from '$lib/server/http';
 import { assertRate } from '$lib/server/ratelimit';
 import { gateway } from '$lib/server/gateway';
 import { ingestBatch, resolveFeedToken } from '$lib/server/feed';
+import { resolveLimitedFeedToken } from '$lib/server/feed-auth-limit';
 import { MAX_BODY_BYTES, parseFeedBearer } from '$lib/server/feed-core';
 import { feedKills, feedPosts } from '$lib/server/metrics';
 
@@ -16,11 +17,13 @@ const POSTS_PER_MINUTE = 1200;
 export const POST = route(async (event) => {
 	const env = getEnv();
 	const token = parseFeedBearer(event.request.headers.get('authorization'));
-	const serverId = token ? await resolveFeedToken(env, token) : null;
+	const ip = clientIp(event.request);
+	const serverId = await resolveLimitedFeedToken(ip, token, (value) =>
+		resolveFeedToken(env, value)
+	);
 	if (!serverId) {
 		// Counted per address so a host with a stale token cannot hammer the token lookup.
 		feedPosts.inc({ outcome: 'unauthorized' });
-		assertRate(`feed-bad:${clientIp(event.request)}`, 20, 60_000);
 		throw new ApiError(401, 'Unknown kill feed token.', 'unauthorized');
 	}
 	assertRate(`feed:${serverId}`, POSTS_PER_MINUTE, 60_000);

@@ -146,6 +146,11 @@ export async function saveIntegrityRules(
 	patch: Record<string, unknown>
 ): Promise<RuleSet> {
 	if (!Object.keys(patch).length) throw new ApiError(400, 'No integrity rule changes supplied.');
+	if ('mode' in patch || 'quarantineDays' in patch)
+		throw new ApiError(
+			400,
+			'Legacy mode and quarantineDays cannot be changed. Use enforcement switches for actions and duration.'
+		);
 	const saved = await env.db.transaction(async (tx) => {
 		const before = await lockRules(tx, orgId);
 		const config = validateIntegrityRules(

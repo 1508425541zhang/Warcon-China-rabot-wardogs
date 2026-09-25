@@ -16,7 +16,12 @@ import {
 	triggers
 } from '$lib/server/db/schema';
 import { ingestBatch } from '$lib/server/feed';
-import { claimFeedJob, processNextFeedJob } from '$lib/server/feed-processing';
+import {
+	claimFeedJob,
+	feedBacklogUnsafe,
+	feedJobDepth,
+	processNextFeedJob
+} from '$lib/server/feed-processing';
 import { resetIntegrityServer } from '$lib/server/integrity/pipeline';
 import { DEFAULT_INTEGRITY_RULES } from '$lib/server/integrity/score';
 import { invalidateTriggers } from '$lib/server/triggers';
@@ -32,6 +37,7 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 	const liveKiller = '76561198000000951';
 	const staleKiller = '76561198000000952';
 	const recoverKiller = '76561198000000953';
+	const backlogKiller = '76561198000000954';
 	const victim = (i: number) => `7656119800000${String(960 + i).padStart(4, '0')}`;
 	const body = (tag: string, shooter = killer, headshot = false) => ({
 		serverId: `boot-${tag}`,
@@ -398,5 +404,77 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 		expect(
 			await env.db.select().from(integrityActions).where(eq(integrityActions.steamId, staleKiller))
 		).toHaveLength(0);
+	});
+
+	test('old pending feed backlog preserves a fresh finding but closes automatic action', async () => {
+		resetIntegrityServer(world.server.id);
+		const now = new Date();
+		await env.db.insert(playerSessions).values({
+			serverId: world.server.id,
+			steamId: backlogKiller,
+			name: 'Backlog',
+			faction: 'Blue',
+			joinedAt: now,
+			lastSeen: now
+		});
+		const [live] = await env.db
+			.select()
+			.from(serverLive)
+			.where(eq(serverLive.serverId, world.server.id));
+		const memory = memoryFor(
+			(await env.db.select().from(servers).where(eq(servers.id, world.server.id)))[0],
+			(await env.db.select().from(organizations).where(eq(organizations.id, world.org.id)))[0]
+		);
+		const roster = [
+			...(live.players as typeof memory.players),
+			{
+				steamId: backlogKiller,
+				name: 'Backlog',
+				faction: 'Blue',
+				kills: 0,
+				deaths: 0,
+				cash: 0,
+				ping: 20
+			}
+		];
+		await env.db
+			.update(serverLive)
+			.set({ players: roster, playersAt: now, feedAt: now })
+			.where(eq(serverLive.serverId, world.server.id));
+		memory.players = roster;
+		memory.playersAt = now.getTime();
+		const [old] = await env.db
+			.insert(feedProcessingJobs)
+			.values({
+				serverId: world.server.id,
+				killTs: now,
+				eventIds: ['unprocessed-backlog'],
+				createdAt: new Date(now.getTime() - 10 * 60_000)
+			})
+			.returning();
+		const result = await ingestBatch(
+			env,
+			world.server.id,
+			body('backlog-control', backlogKiller, true)
+		);
+		const [job] = await env.db
+			.select()
+			.from(feedProcessingJobs)
+			.where(eq(feedProcessingJobs.killTs, new Date(result.kills[0].ts)));
+		const depth = await feedJobDepth(env);
+		expect(depth.pending).toBeGreaterThanOrEqual(2);
+		expect(feedBacklogUnsafe(depth)).toBe(true);
+		expect(await processNextFeedJob(env, job.id)).toBe(true);
+		expect(
+			(await env.db.select().from(integrityCases).where(eq(integrityCases.steamId, backlogKiller)))
+				.length
+		).toBeGreaterThan(0);
+		expect(
+			await env.db
+				.select()
+				.from(integrityActions)
+				.where(eq(integrityActions.steamId, backlogKiller))
+		).toHaveLength(0);
+		await env.db.delete(feedProcessingJobs).where(eq(feedProcessingJobs.id, old.id));
 	});
 });
