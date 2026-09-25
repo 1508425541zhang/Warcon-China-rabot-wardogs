@@ -1,6 +1,7 @@
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import type { Env } from '../env';
-import { integrityReports, integrityScores, integrityWindows } from '../db/schema';
+import { integrityReports, integrityScores, integrityWindows, kills, servers } from '../db/schema';
+import { killView } from '../feed';
 import { withOwnedTransaction } from '../leadership';
 import { memoryOf } from '../observe';
 import { notifyIntegrityCase, type IntegrityCaseAlert } from '../webhook-delivery';
@@ -10,58 +11,73 @@ import { getIntegrityRules } from './rules';
 import { scoreIntegrity } from './score';
 import { freezeFindingEvidence } from './evidence';
 import { captureReportEvidence } from './reports';
-import { hadRecentAutoKo } from './history';
+import { hadRecentHighRiskWindow } from './history';
 import { getProfiles, steamEnabled } from '../steam';
 import { steamBanSignals } from './steam-signals';
 import { enforceIntegrityCase } from './enforcement';
 import { publicMessage } from '../http';
+import { evidenceIds, independentEvidence, overlapsEvidence } from './independence';
 import type { KillView } from '$lib/types';
 
 const infantry = new InfantryWindows();
-const infantryTasks = new Map<string, Promise<void>>();
 
-export function queueIntegrityBatch(env: Env, serverId: string, batch: KillView[]): Promise<void> {
-	const previous = infantryTasks.get(serverId) ?? Promise.resolve();
-	const task = previous
-		.catch(() => {})
-		.then(() => processIntegrityBatch(env, serverId, batch))
-		.catch((err) => {
-			infantry.reset(serverId);
-			throw err;
-		});
-	infantryTasks.set(serverId, task);
-	void task
-		.finally(() => {
-			if (infantryTasks.get(serverId) === task) infantryTasks.delete(serverId);
-		})
-		.catch(() => {});
-	return task;
-}
-
-/** Test/diagnostic synchronization without holding up legacy automation in production. */
-export async function waitIntegrityBatch(serverId: string): Promise<void> {
-	await infantryTasks.get(serverId);
+/** Test/recovery seam for simulating a worker process restart. */
+export function resetIntegrityServer(serverId: string): void {
+	infantry.reset(serverId);
 }
 
 export async function processIntegrityBatch(
 	env: Env,
 	serverId: string,
-	batch: KillView[]
+	batch: KillView[],
+	allowActions = true
 ): Promise<void> {
 	try {
 		await captureReportEvidence(env, serverId, batch);
 	} catch (err) {
 		console.warn(`[warcon] report evidence on ${serverId}:`, publicMessage(err));
+		throw err;
 	}
-	const orgId = memoryOf(serverId)?.server.orgId;
+	// The durable feed queue may wake before the first server poll after a worker restart.
+	const orgId =
+		memoryOf(serverId)?.server.orgId ??
+		(
+			await env.db
+				.select({ orgId: servers.orgId })
+				.from(servers)
+				.where(eq(servers.id, serverId))
+				.limit(1)
+		)[0]?.orgId;
 	if (!orgId) return;
 	const rules = await getIntegrityRules(env, orgId);
-	const findings = infantry.observe(
-		serverId,
-		batch,
-		await weaponOverrides(env, orgId),
-		rules.config
-	);
+	const overrides = await weaponOverrides(env, orgId);
+	if (!infantry.hasServer(serverId) && batch.length) {
+		const before = new Date(batch[0].ts);
+		const prior = await env.db
+			.select()
+			.from(kills)
+			.where(
+				and(
+					eq(kills.serverId, serverId),
+					eq(kills.instanceId, batch[0].instanceId ?? ''),
+					eq(kills.matchId, batch[0].matchId ?? ''),
+					eq(kills.map, batch[0].map),
+					gte(kills.ts, new Date(before.getTime() - 180_000)),
+					lt(kills.ts, before)
+				)
+			)
+			.orderBy(desc(kills.ts), desc(kills.eventTime))
+			.limit(1001);
+		if (prior.length > 1000) allowActions = false;
+		// Rebuild rolling context from committed events before processing the new job.
+		infantry.observe(
+			serverId,
+			prior.slice(0, 1000).reverse().map(killView),
+			overrides,
+			rules.config
+		);
+	}
+	const findings = infantry.observe(serverId, batch, overrides, rules.config);
 	if (!findings.length) return;
 	// Only the strongest state of each active window in this batch needs a database write.
 	const byWindow = new Map<string, (typeof findings)[number]>();
@@ -91,25 +107,60 @@ export async function processIntegrityBatch(
 						gte(integrityReports.createdAt, new Date(now.getTime() - 24 * 60 * 60_000))
 					)
 				);
-			const recent = await tx
-				.select({ kpm180: integrityWindows.kpm180 })
+			const recentRows = await tx
+				.select({
+					id: integrityWindows.id,
+					kpm180: integrityWindows.kpm180,
+					eventIds: integrityWindows.eventIds
+				})
 				.from(integrityWindows)
 				.where(
 					and(
 						eq(integrityWindows.orgId, orgId),
 						eq(integrityWindows.steamId, finding.steamId),
-						finding.windowId === null
-							? sql`TRUE`
-							: sql`${integrityWindows.id} <> ${finding.windowId}`,
 						gte(
 							integrityWindows.observedAt,
 							new Date(now.getTime() - rules.config.repeatWindowMinutes * 60_000)
 						)
 					)
 				)
-				.orderBy(desc(integrityWindows.observedAt))
-				.limit(2);
+				.orderBy(desc(integrityWindows.observedAt));
 			let windowId = finding.windowId;
+			// A restarted worker has no in-memory window ID. Recover the saved episode by
+			// evidence overlap before allowing any prior window to count as independent.
+			if (windowId === null) {
+				const saved = await tx
+					.select({ id: integrityWindows.id, eventIds: integrityWindows.eventIds })
+					.from(integrityWindows)
+					.where(
+						and(
+							eq(integrityWindows.orgId, orgId),
+							eq(integrityWindows.serverId, serverId),
+							eq(integrityWindows.steamId, finding.steamId),
+							eq(integrityWindows.instanceId, finding.instanceId),
+							eq(integrityWindows.map, finding.map)
+						)
+					)
+					.orderBy(desc(integrityWindows.observedAt));
+				windowId =
+					saved.find((row) => overlapsEvidence(row.eventIds, finding.eventIds))?.id ?? null;
+			}
+			if (windowId !== null) {
+				const saved = await tx
+					.select({ eventIds: integrityWindows.eventIds })
+					.from(integrityWindows)
+					.where(eq(integrityWindows.id, windowId))
+					.limit(1);
+				const known = evidenceIds(saved[0]?.eventIds);
+				// A replay of already committed evidence cannot create another score or case.
+				if (known && finding.eventIds.every((id) => known.includes(id))) {
+					infantry.markPersisted(serverId, finding, windowId);
+					continue;
+				}
+			}
+			const recent = recentRows
+				.filter((row) => row.id !== windowId && independentEvidence(row.eventIds, finding.eventIds))
+				.slice(0, 2);
 			if (windowId === null) {
 				const [window] = await tx
 					.insert(integrityWindows)
@@ -134,6 +185,11 @@ export async function processIntegrityBatch(
 					.returning({ id: integrityWindows.id });
 				windowId = window.id;
 			} else {
+				const [saved] = await tx
+					.select({ eventIds: integrityWindows.eventIds })
+					.from(integrityWindows)
+					.where(eq(integrityWindows.id, windowId));
+				if (!saved) throw new Error('Integrity episode disappeared before update.');
 				await tx
 					.update(integrityWindows)
 					.set({
@@ -146,17 +202,18 @@ export async function processIntegrityBatch(
 						penetrations: finding.penetrations,
 						burstPoints: finding.burstPoints,
 						behaviorReasons: finding.reasons,
-						eventIds: finding.eventIds
+						eventIds: [...new Set([...(evidenceIds(saved.eventIds) ?? []), ...finding.eventIds])]
 					})
 					.where(eq(integrityWindows.id, windowId));
 			}
-			const repeatAutoKo = await hadRecentAutoKo(
+			const repeatHighRiskWindow = await hadRecentHighRiskWindow(
 				tx,
 				orgId,
 				finding.steamId,
 				now,
 				rules.config.repeatKoWindowHours,
-				windowId
+				windowId,
+				finding.eventIds
 			);
 			const signals = {
 				behaviorReasons: finding.reasons,
@@ -164,7 +221,7 @@ export async function processIntegrityBatch(
 				uniqueVictims: finding.uniqueVictims,
 				previousKpm: recent.map((row) => row.kpm180),
 				uniqueReporters: Number(reporters?.count ?? 0),
-				repeatAutoKo,
+				repeatHighRiskWindow,
 				infantryKills: finding.infantryKills,
 				headshots: finding.headshots,
 				penetrations: finding.penetrations,
@@ -227,7 +284,9 @@ export async function processIntegrityBatch(
 			infantry.markPersisted(serverId, finding, windowId);
 		}
 	});
-	for (const candidate of candidates) {
+	// Steam lookups and scoring can outlive the live decision window.
+	const stillLive = batch.length > 0 && Date.now() - Date.parse(batch[0].ts) <= 5 * 60_000;
+	for (const candidate of allowActions && stillLive ? candidates : []) {
 		try {
 			await enforceIntegrityCase(env, candidate);
 		} catch (err) {

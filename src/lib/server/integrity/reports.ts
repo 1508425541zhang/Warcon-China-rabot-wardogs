@@ -1,7 +1,9 @@
-import { and, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type { Env } from '../env';
 import type { DbOrTx } from '../db';
 import type { SessionUser } from '../access';
+import { serverAccessFor } from '../access';
+import { effectiveFeatures } from '$lib/features';
 import { writeAudit } from '../audit';
 import {
 	account,
@@ -11,6 +13,7 @@ import {
 	integrityScores,
 	kills,
 	playerSessions,
+	organizations,
 	servers
 } from '../db/schema';
 import { ApiError, str } from '../http';
@@ -136,11 +139,12 @@ export async function submitReport(
 	const targetText = str(input.target, 200);
 	if (!serverId || !targetText || reason.length < 3)
 		throw new ApiError(400, 'Server, target and a reason of at least 3 characters are required.');
-	const [[server], [verified]] = await Promise.all([
+	const [[visible], [verified]] = await Promise.all([
 		env.db
-			.select({ id: servers.id, orgId: servers.orgId })
+			.select({ server: servers, org: organizations })
 			.from(servers)
-			.where(eq(servers.id, serverId))
+			.innerJoin(organizations, eq(organizations.id, servers.orgId))
+			.where(and(eq(servers.id, serverId), isNull(organizations.suspendedAt)))
 			.limit(1),
 		env.db
 			.select({ steamId: account.accountId })
@@ -148,7 +152,15 @@ export async function submitReport(
 			.where(and(eq(account.userId, actor.id), eq(account.providerId, 'steam')))
 			.limit(1)
 	]);
-	if (!server) throw new ApiError(404, 'Server not found.');
+	if (!visible) throw new ApiError(404, 'Server not found.');
+	const { server, org } = visible;
+	// The public status switch is the same one used by public routes. Private servers need
+	// an actual server grant; knowing an ID does not grant the right to create reports.
+	if (!effectiveFeatures(org, server).status) {
+		const access = await serverAccessFor(env, actor, serverId);
+		if (!access?.caps.has('integrity.view'))
+			throw new ApiError(404, 'Server not found.', 'not_found');
+	}
 	if (!verified || !/^\d{17}$/.test(verified.steamId))
 		throw new ApiError(
 			403,
@@ -243,7 +255,7 @@ export async function submitReport(
 				uniqueVictims: 0,
 				previousKpm: [],
 				uniqueReporters: Number(reporters?.count ?? 0),
-				repeatAutoKo: false,
+				repeatHighRiskWindow: false,
 				infantryKills: 0,
 				headshots: 0,
 				penetrations: 0,

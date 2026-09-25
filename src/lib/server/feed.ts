@@ -25,6 +25,7 @@ import { ApiError } from './http';
 import { writeAudit } from './audit';
 import {
 	kills,
+	feedProcessingJobs,
 	matches,
 	playerSessions,
 	serverLive,
@@ -280,6 +281,13 @@ export async function ingestBatch(
 				)
 				.returning();
 			written = rows.map(killView);
+			if (rows.length)
+				await db.insert(feedProcessingJobs).values({
+					serverId,
+					killTs: now,
+					eventIds: rows.map((row) => row.eventId),
+					createdAt: now
+				});
 		});
 	// The liveness stamp, at most every ten seconds per server: the worker's upsert of the row
 	// leaves this column alone, so the two never fight.

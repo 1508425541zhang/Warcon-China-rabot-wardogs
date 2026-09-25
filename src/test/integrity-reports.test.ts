@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
+import { randomInt } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
 import {
@@ -7,10 +8,14 @@ import {
 	integrityReports,
 	integrityScores,
 	kills,
-	playerSessions
+	playerSessions,
+	organizations,
+	servers
 } from '$lib/server/db/schema';
 import { captureReportEvidence, submitReport } from '$lib/server/integrity/reports';
+import { POST as reportPost } from '../routes/api/reports/+server';
 import { hasTestDb, testEnv } from './db';
+import { callApi } from './call';
 import { seedWorld, type World } from './world';
 
 describe.skipIf(!hasTestDb)('community report persistence', () => {
@@ -21,6 +26,8 @@ describe.skipIf(!hasTestDb)('community report persistence', () => {
 	beforeAll(async () => {
 		env = await testEnv();
 		world = await seedWorld(env);
+		// This case exercises a community report; the server must actually be public.
+		await env.db.update(servers).set({ publicStatus: true }).where(eq(servers.id, world.server.id));
 		await env.db.insert(account).values({
 			id: `steam_${world.users.member!.id}`,
 			accountId: reporter,
@@ -96,5 +103,117 @@ describe.skipIf(!hasTestDb)('community report persistence', () => {
 		await expect(submitReport(env, request, world.users.member!, input)).rejects.toMatchObject({
 			status: 429
 		});
+	});
+});
+
+const steamId = () => String(76561198000000000n + BigInt(randomInt(100000000, 999999999)));
+
+describe.skipIf(!hasTestDb)('community report authorization', () => {
+	async function fixture(options: { publicStatus?: boolean; steam?: boolean } = {}) {
+		const env = await testEnv();
+		const world = await seedWorld(env);
+		const reporter = steamId();
+		const target = steamId();
+		if (options.publicStatus)
+			await env.db
+				.update(servers)
+				.set({ publicStatus: true })
+				.where(eq(servers.id, world.server.id));
+		if (options.steam !== false)
+			await env.db.insert(account).values({
+				id: `steam_${world.users.member!.id}`,
+				accountId: reporter,
+				providerId: 'steam',
+				userId: world.users.member!.id
+			});
+		for (const serverId of [world.server.id, world.otherOrgServer.id])
+			await env.db.insert(playerSessions).values({
+				serverId,
+				steamId: target,
+				name: 'Report Target',
+				joinedAt: new Date(Date.now() - 60_000),
+				lastSeen: new Date()
+			});
+		return { env, world, reporter, target };
+	}
+
+	const request = (serverId: string) => ({
+		method: 'POST',
+		body: { serverId, target: 'Report Target', reason: 'Suspicious behavior' }
+	});
+
+	test('verified member may report on a public status server', async () => {
+		const { env, world, target } = await fixture({ publicStatus: true });
+		const result = await callApi(reportPost, world.users.member, request(world.server.id));
+		expect(result.status).toBe(201);
+		const rows = await env.db
+			.select()
+			.from(integrityReports)
+			.where(eq(integrityReports.serverId, world.server.id));
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			orgId: world.org.id,
+			serverId: world.server.id,
+			targetSteamId: target
+		});
+	});
+
+	test('known private server ID in another org grants no report access', async () => {
+		const { env, world } = await fixture();
+		const result = await callApi(reportPost, world.users.member, request(world.otherOrgServer.id));
+		expect(result.status).toBe(404);
+		expect(
+			await env.db
+				.select()
+				.from(integrityReports)
+				.where(eq(integrityReports.serverId, world.otherOrgServer.id))
+		).toHaveLength(0);
+	});
+
+	test('member with integrity.view may report on a private server', async () => {
+		const { env, world } = await fixture();
+		await env.db.insert(account).values({
+			id: `steam_${world.users.admin!.id}`,
+			accountId: steamId(),
+			providerId: 'steam',
+			userId: world.users.admin!.id
+		});
+		const result = await callApi(reportPost, world.users.admin, request(world.server.id));
+		expect(result.status).toBe(201);
+		expect(
+			await env.db
+				.select()
+				.from(integrityReports)
+				.where(eq(integrityReports.serverId, world.server.id))
+		).toHaveLength(1);
+	});
+
+	test('suspended org cannot accept reports even while public status switch is on', async () => {
+		const { env, world } = await fixture({ publicStatus: true });
+		await env.db
+			.update(organizations)
+			.set({ suspendedAt: new Date() })
+			.where(eq(organizations.id, world.org.id));
+		const result = await callApi(reportPost, world.users.member, request(world.server.id));
+		expect(result.status).toBe(404);
+		expect(
+			await env.db
+				.select()
+				.from(integrityReports)
+				.where(eq(integrityReports.serverId, world.server.id))
+		).toHaveLength(0);
+	});
+
+	test('public server still requires a verified Steam account', async () => {
+		const { env, world } = await fixture({ publicStatus: true, steam: false });
+		const result = await callApi(reportPost, world.users.member, request(world.server.id));
+		expect(result.status).toBe(403);
+		expect(result.code).toBe('steam_link_required');
+		expect(
+			await env.db
+				.select()
+				.from(integrityReports)
+				.where(eq(integrityReports.serverId, world.server.id))
+		).toHaveLength(0);
 	});
 });

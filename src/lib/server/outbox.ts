@@ -23,6 +23,8 @@ import { gateway } from './gateway';
 import { deliveries } from './metrics';
 import { NAME_FLAG } from './name-filter';
 import { KILL_RATE_FLAG } from './kill-rate';
+import { recordIntegrityDelivery } from './integrity/actions';
+import { integrityDeliverySkipReason } from './integrity/delivery';
 import type { OutboxView } from '$lib/types';
 
 const CLAIM_LIMIT = 50;
@@ -109,9 +111,14 @@ async function pass(): Promise<void> {
 		const lease = settings().outboxLeaseMs;
 		const claimed = await withOwnedTransaction(env, async (tx) => {
 			// A send whose lease lapsed may have reached the game: it is unknown, never sent again.
-			await tx.execute(sql`
+			const expired = (await tx.execute(sql`
 			UPDATE outbox SET state = 'unknown', outcome = 'The worker stopped while sending; the game may have acted.', done_at = now(), lease_until = NULL
-			 WHERE state = 'sending' AND lease_until < now()`);
+			 WHERE state = 'sending' AND lease_until < now()
+			 RETURNING trigger_kind AS "triggerKind", action, detail, server_id AS "serverId", steam_id AS "steamId"`)) as Pick<
+				OutboxRow,
+				'triggerKind' | 'action' | 'detail' | 'serverId' | 'steamId'
+			>[];
+			for (const row of expired) await recordIntegrityDelivery(tx, row, 'unknown');
 			// Claiming moves the row to "sending" durably before anything is sent.
 			return (await tx.execute(sql`
 			UPDATE outbox SET state = 'sending', lease_until = now() + (${lease} || ' milliseconds')::interval, attempts = attempts + 1
@@ -200,7 +207,7 @@ async function release(env: Env, row: OutboxRow): Promise<void> {
 	}
 }
 
-async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
+export async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 	if (row.action === 'seed_reward') return deliverSeedReward(env, row);
 	// An alert-only Name filter match or a Kill rate flag: the audit row (and its Discord card) is
 	// the whole delivery.
@@ -208,6 +215,14 @@ async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 		return finish(env, row, 'delivered', row.okMessage);
 	const early = skipReason(row, memoryOf(row.serverId));
 	if (early) return finish(env, row, 'skipped', early);
+	let integrityEarly: string | null;
+	try {
+		integrityEarly = await integrityDeliverySkipReason(env, row);
+	} catch (err) {
+		console.error('[warcon] Integrity delivery preflight', err);
+		return finish(env, row, 'failed', 'Integrity delivery validation failed');
+	}
+	if (integrityEarly) return finish(env, row, 'skipped', integrityEarly);
 	if (mustWait(row, memoryOf(row.serverId))) return release(env, row);
 	stats.inFlight++;
 	try {
@@ -221,6 +236,8 @@ async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 				if (late) throw new Skipped(late);
 				if (mustWait(row, m)) throw new Waiting();
 				if (!isOwner()) throw new LostOwnership();
+				const integrityLate = await integrityDeliverySkipReason(env, row);
+				if (integrityLate) throw new Skipped(integrityLate);
 				const client = await WardogsClient.forServer(env, m!.server);
 				return execute(client, row);
 			},
@@ -344,15 +361,18 @@ async function finish(env: Env, row: OutboxRow, state: Outcome, outcome: string)
 	stats[state]++;
 	deliveries.inc({ outcome: state });
 	try {
-		await withOwnedTransaction(env, (tx) =>
-			tx
+		await withOwnedTransaction(env, async (tx) => {
+			const [updated] = await tx
 				.update(outbox)
 				.set({ state, outcome: outcome.slice(0, 300), doneAt: new Date(), leaseUntil: null })
 				.where(and(eq(outbox.id, row.id), eq(outbox.state, 'sending')))
-		);
+				.returning({ id: outbox.id });
+			if (updated) await recordIntegrityDelivery(tx, row, state);
+		});
 	} catch (err) {
 		if (err instanceof LostOwnership) throw err;
 		console.error('[warcon] outbox update', err);
+		if (row.triggerKind === 'integrity') throw err;
 	}
 	// A grant can be delivered before the roster is in memory: audit it from the server row then.
 	const server =

@@ -13,7 +13,6 @@ import {
 	steamProfiles
 } from '$lib/server/db/schema';
 import { onKillsIngested } from '$lib/server/feed-events';
-import { waitIntegrityBatch } from '$lib/server/integrity/pipeline';
 import { acquireOrRenew, releaseOwnership } from '$lib/server/leadership';
 import { forgetMemory, memoryFor } from '$lib/server/observe';
 import { hasTestDb, testEnv } from './db';
@@ -24,6 +23,7 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 	let world: World;
 	const player = '76561198000000777';
 	const steamPlayer = '76561198000000778';
+	const overlapPlayer = '76561198000000779';
 	const instanceId = 'integrity-behavior-boot';
 
 	const event = (steamId: string, clock: number, id: string, headshot = false): KillView => ({
@@ -70,7 +70,6 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 			}))
 		);
 		await onKillsIngested(env, world.server.id, batch);
-		await waitIntegrityBatch(world.server.id);
 	};
 
 	beforeAll(async () => {
@@ -132,7 +131,7 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 		expect(snapshot.vacBans).toBe(0);
 		expect(snapshot.gameBans).toBe(0);
 		expect(snapshot.daysSinceLastBan).toBeNull();
-		expect(snapshot.repeatAutoKo).toBe(false);
+		expect(snapshot.repeatHighRiskWindow).toBe(false);
 		expect(snapshot.eventIds).toHaveLength(21);
 		expect(snapshot.ruleVersion).toBe(1);
 		expect(await env.db.select().from(outbox).where(eq(outbox.steamId, player))).toHaveLength(0);
@@ -173,5 +172,62 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 				(part) => part.code === 'steam_ban_prior'
 			)?.points
 		).toBe(8);
+	});
+
+	test('after Worker memory loss overlapping saved evidence cannot earn repeat-window points', async () => {
+		const now = new Date();
+		const ids = Array.from({ length: 12 }, (_, i) => `restart-${i}`);
+		const [old] = await env.db
+			.insert(integrityWindows)
+			.values({
+				orgId: world.org.id,
+				serverId: world.server.id,
+				steamId: overlapPlayer,
+				instanceId,
+				map: 'Kavkazi',
+				clockFrom: 0,
+				clockTo: 132,
+				observedAt: new Date(now.getTime() - 60_000),
+				infantryKills: 12,
+				kpm180: 4,
+				uniqueVictims: 12,
+				eventIds: ids
+			})
+			.returning();
+		await env.db.insert(integrityScores).values({
+			windowId: old.id,
+			orgId: world.org.id,
+			serverId: world.server.id,
+			steamId: overlapPlayer,
+			scoredAt: new Date(now.getTime() - 60_000),
+			ruleVersion: 1,
+			score: 54,
+			level: 'AUTO_KO',
+			breakdown: [],
+			currentBehaviorAnomaly: true
+		});
+		await send(
+			Array.from({ length: 12 }, (_, i) =>
+				event(overlapPlayer, i * 12, i === 11 ? 'restart-new' : ids[i])
+			)
+		);
+		const windows = await env.db
+			.select()
+			.from(integrityWindows)
+			.where(eq(integrityWindows.steamId, overlapPlayer));
+		expect(windows).toHaveLength(1);
+		expect(windows[0].id).toBe(old.id);
+		const scores = await env.db
+			.select()
+			.from(integrityScores)
+			.where(eq(integrityScores.steamId, overlapPlayer));
+		expect(scores).toHaveLength(2);
+		expect(scores[1].windowId).toBe(old.id);
+		expect(scores[1].breakdown).not.toContainEqual(
+			expect.objectContaining({ code: 'repeat_window' })
+		);
+		expect(scores[1].breakdown).not.toContainEqual(
+			expect.objectContaining({ code: 'repeat_high_risk_window' })
+		);
 	});
 });

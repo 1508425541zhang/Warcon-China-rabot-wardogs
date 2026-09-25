@@ -97,6 +97,26 @@ export const outboxOldestSeconds = new Gauge({
 	help: 'Age of the oldest pending outbox row.',
 	registers: [registry]
 });
+export const feedJobsPending = new Gauge({
+	name: 'warcon_feed_jobs_pending',
+	help: 'Durable kill-feed jobs waiting for the worker.',
+	registers: [registry]
+});
+export const feedJobsProcessing = new Gauge({
+	name: 'warcon_feed_jobs_processing',
+	help: 'Durable kill-feed jobs being processed.',
+	registers: [registry]
+});
+export const feedJobsRetrying = new Gauge({
+	name: 'warcon_feed_jobs_retrying',
+	help: 'Unfinished kill-feed jobs with a prior failed attempt.',
+	registers: [registry]
+});
+export const feedJobsOldestSeconds = new Gauge({
+	name: 'warcon_feed_jobs_oldest_seconds',
+	help: 'Age of the oldest unfinished kill-feed job.',
+	registers: [registry]
+});
 
 // ---- web: requests, kill feed, rate limits, fleet counts ---------------------------------------
 
