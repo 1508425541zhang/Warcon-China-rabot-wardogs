@@ -103,11 +103,13 @@ describe.skipIf(!hasTestDb)('Kill rate rule, live', () => {
 	});
 	test('a flag that could not be queued does not start the cooldown', async () => {
 		await releaseOwnership(env);
-		await onKillsIngested(
-			env,
-			w.server.id,
-			[0, 1, 2].map((i) => kill(UNLUCKY, 'Id.Item.AK74M', i))
-		);
+		await expect(
+			onKillsIngested(
+				env,
+				w.server.id,
+				[0, 1, 2].map((i) => kill(UNLUCKY, 'Id.Item.AK74M', i))
+			)
+		).rejects.toThrow('This process no longer owns the worker lease.');
 		expect((await rowsOf(here)).map((r) => r.target)).not.toContain(UNLUCKY);
 		expect(await acquireOrRenew(env, 'kill-rate test')).toBe(true);
 		await onKillsIngested(env, w.server.id, [kill(UNLUCKY, 'Id.Item.AK74M', 3)]);
