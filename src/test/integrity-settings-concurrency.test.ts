@@ -9,6 +9,7 @@ import {
 import { DEFAULT_INTEGRITY_RULES } from '$lib/server/integrity/score';
 import { hasTestDb, testEnv } from './db';
 import { seedWorld } from './world';
+import { callApi } from './call';
 
 const request = new Request('http://localhost:5173/api/orgs/test/integrity', { method: 'PUT' });
 
@@ -118,5 +119,40 @@ describe.skipIf(!hasTestDb)('concurrent Integrity setting saves', () => {
 				saveIntegrityRules(env, request, world.users.owner!, world.org.id, values)
 			).rejects.toMatchObject({ status: 400 });
 		}
+	});
+
+	test('only an owner can explicitly switch from Shadow to statistical assessment', async () => {
+		const env = await testEnv();
+		const world = await seedWorld(env);
+		const { PUT } = await import('../routes/api/orgs/[id]/integrity/mode/+server');
+		const params = { id: world.org.id };
+		expect(
+			(
+				await callApi(PUT, world.users.operator, {
+					method: 'PUT',
+					params,
+					body: { mode: 'statistical', confirmation: 'ENABLE_STATISTICAL_INTEGRITY' }
+				})
+			).status
+		).toBe(403);
+		expect(
+			(
+				await callApi(PUT, world.users.owner, {
+					method: 'PUT',
+					params,
+					body: { mode: 'statistical' }
+				})
+			).status
+		).toBe(400);
+		expect(
+			(
+				await callApi(PUT, world.users.owner, {
+					method: 'PUT',
+					params,
+					body: { mode: 'statistical', confirmation: 'ENABLE_STATISTICAL_INTEGRITY' }
+				})
+			).status
+		).toBe(200);
+		expect((await getIntegrityRules(env, world.org.id)).assessmentMode).toBe('statistical');
 	});
 });

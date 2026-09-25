@@ -3,6 +3,7 @@ import type { DbOrTx } from '../db';
 import { integrityCaseEvents, integrityCases, kills } from '../db/schema';
 import type { BehaviorFinding } from './windows';
 import type { IntegrityScore, IntegritySignals } from './score';
+import type { StatisticalAssessment } from './statistics';
 
 export type EvidenceConfidence = 'A' | 'B' | 'C' | 'D';
 
@@ -30,6 +31,8 @@ export interface FreezeInput {
 	ruleVersion: number;
 	rulesSnapshot: unknown;
 	createdAt: Date;
+	statistical?: StatisticalAssessment | null;
+	trigger?: string;
 }
 
 /** Freeze the accepted source events inside the same transaction as the score and finding. */
@@ -78,10 +81,11 @@ export async function freezeFindingEvidence(db: DbOrTx, input: FreezeInput): Pro
 		steamId: input.steamId,
 		createdAt: input.createdAt,
 		confidence,
-		trigger: 'ABNORMAL_INFANTRY_WINDOW',
+		trigger: input.trigger ?? 'ABNORMAL_INFANTRY_WINDOW',
 		ruleVersion: input.ruleVersion,
 		riskScore: input.score.score,
 		riskBreakdown: input.score.breakdown,
+		statistical: input.statistical ?? null,
 		snapshot: {
 			instanceId: input.finding.instanceId,
 			map: input.finding.map,
@@ -95,6 +99,8 @@ export async function freezeFindingEvidence(db: DbOrTx, input: FreezeInput): Pro
 			penetrations: input.finding.penetrations,
 			penetrationPct: input.finding.penetrationPct,
 			burstPoints: input.finding.burstPoints,
+			maxKills15s: input.finding.maxKills15s,
+			medianKillInterval: input.finding.medianKillInterval,
 			behaviorReasons: input.finding.reasons,
 			steamBansKnown: input.steamKnown,
 			vacBans: input.signals.vacBans,

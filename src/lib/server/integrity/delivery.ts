@@ -48,6 +48,7 @@ export async function integrityDeliverySkipReason(
 		return 'Integrity action or case changed before delivery';
 	const [rules] = await env.db
 		.select({
+			version: integrityRules.version,
 			kick: integrityRules.autoKickEnabled,
 			day: integrityRules.autoQuarantine24hEnabled,
 			week: integrityRules.autoQuarantine7dEnabled,
@@ -56,7 +57,7 @@ export async function integrityDeliverySkipReason(
 		.from(integrityRules)
 		.where(eq(integrityRules.orgId, match.action.orgId))
 		.limit(1);
-	if (!rules || rules.suspended) return DISABLED;
+	if (!rules || rules.suspended || rules.version !== match.caseRow.ruleVersion) return DISABLED;
 	switch (match.action.action) {
 		case 'KICK':
 			return rules.kick ? null : DISABLED;

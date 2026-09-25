@@ -63,7 +63,8 @@ describe.skipIf(!hasTestDb)('existing database upgrade', () => {
 				'integrity_reports',
 				'integrity_report_events',
 				'integrity_case_events',
-				'integrity_actions'
+				'integrity_actions',
+				'integrity_baselines'
 			];
 			for (const table of tables) {
 				const [row] = await connection.db.execute(sql`SELECT to_regclass(${table}) AS name`);
@@ -88,6 +89,14 @@ describe.skipIf(!hasTestDb)('existing database upgrade', () => {
 				WHERE table_name = 'integrity_scores'`);
 			const names = new Set(rows.map((row) => row.column_name));
 			for (const column of expectedColumns) expect(names.has(column)).toBe(true);
+			const [mode] = await connection.db.execute(sql`
+				SELECT column_default FROM information_schema.columns
+				WHERE table_name = 'integrity_rules' AND column_name = 'assessment_mode'`);
+			expect(String(mode.column_default)).toContain('statistical_shadow');
+			const [snapshot] = await connection.db.execute(sql`
+				SELECT COUNT(*)::int AS n FROM information_schema.columns
+				WHERE table_name IN ('integrity_scores','integrity_cases') AND column_name = 'statistical'`);
+			expect(snapshot.n).toBe(2);
 			const [archived] = await connection.db.execute(sql`
 				SELECT COUNT(*)::int AS n FROM integrity_scores_orphaned_0042`);
 			expect(archived.n).toBe(1);
