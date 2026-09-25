@@ -8,6 +8,8 @@ interface Entry {
 	clock: number;
 	eventId: string;
 	victimSteamId: string;
+	cause: string | null;
+	distanceM: number | null;
 	headshot: boolean;
 	penetration: boolean;
 }
@@ -73,6 +75,32 @@ export function medianKillInterval(entries: readonly Pick<Entry, 'clock'>[]): nu
 	return gaps.length % 2 ? gaps[middle] : (gaps[middle - 1] + gaps[middle]) / 2;
 }
 
+export interface WeaponWindowMetric {
+	cause: string;
+	kills: number;
+	headshots: number;
+	maxKillDistanceM: number | null;
+}
+
+export function weaponWindowMetrics(entries: readonly Entry[]): WeaponWindowMetric[] {
+	const byCause = new Map<string, WeaponWindowMetric>();
+	for (const entry of entries) {
+		if (!entry.cause) continue;
+		const item = byCause.get(entry.cause) ?? {
+			cause: entry.cause,
+			kills: 0,
+			headshots: 0,
+			maxKillDistanceM: null
+		};
+		item.kills++;
+		if (entry.headshot) item.headshots++;
+		if (entry.distanceM !== null && Number.isFinite(entry.distanceM) && entry.distanceM > 0)
+			item.maxKillDistanceM = Math.max(item.maxKillDistanceM ?? 0, entry.distanceM);
+		byCause.set(entry.cause, item);
+	}
+	return [...byCause.values()];
+}
+
 export interface BehaviorFinding {
 	steamId: string;
 	instanceId: string;
@@ -92,6 +120,7 @@ export interface BehaviorFinding {
 	burstPoints: number;
 	maxKills15s: number;
 	medianKillInterval: number | null;
+	weaponMetrics?: WeaponWindowMetric[];
 	reasons: BehaviorReason[];
 	eventIds: string[];
 }
@@ -150,6 +179,7 @@ export class InfantryWindows {
 				burstPoints: burstPoints(entries),
 				maxKills15s: maxKillsWithin(entries, 15),
 				medianKillInterval: medianKillInterval(entries),
+				weaponMetrics: weaponWindowMetrics(entries),
 				reasons: [],
 				eventIds
 			});
@@ -221,6 +251,8 @@ export class InfantryWindows {
 				clock,
 				eventId: kill.eventId,
 				victimSteamId: kill.victim.steamId,
+				cause: kill.cause,
+				distanceM: kill.distanceM,
 				headshot: kill.headshot,
 				penetration: kill.tags.includes('Penetration')
 			};
@@ -303,6 +335,7 @@ export class InfantryWindows {
 				burstPoints: burst,
 				maxKills15s: maxKillsWithin(player.entries, 15),
 				medianKillInterval: medianKillInterval(player.entries),
+				weaponMetrics: weaponWindowMetrics(player.entries),
 				reasons,
 				eventIds
 			});

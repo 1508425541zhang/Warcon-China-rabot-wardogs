@@ -44,7 +44,8 @@ const bounds: Record<string, [number, number]> = {
 	activeWatchThreshold: [1, 99],
 	koThreshold: [1, 100],
 	quarantineThreshold: [1, 100],
-	quarantineDays: [1, 3650]
+	quarantineDays: [1, 3650],
+	minimumOnlineForAutoAction: [1, 100]
 };
 
 /** Validate every effective value, including values inherited from the previous version. */
@@ -62,7 +63,11 @@ export function validateIntegrityRules(
 		if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max)
 			throw new ApiError(400, `${key} must be between ${min} and ${max}.`);
 	}
-	if (!Number.isInteger(next.burstFindingMin) || !Number.isInteger(next.repeatKoWindowHours))
+	if (
+		!Number.isInteger(next.burstFindingMin) ||
+		!Number.isInteger(next.repeatKoWindowHours) ||
+		!Number.isInteger(next.minimumOnlineForAutoAction)
+	)
 		throw new ApiError(400, 'Burst and repeat KO periods must be whole numbers.');
 	for (const key of ['kpmBands', 'uniqueVictimBands', 'reportBands'] as const) {
 		const bands = next[key];

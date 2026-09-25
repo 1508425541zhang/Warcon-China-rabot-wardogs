@@ -26,6 +26,7 @@ export interface DecisionInput {
 	confidence: 'A' | 'B' | 'C' | 'D';
 	feedHealthy: boolean;
 	playerOnline: boolean;
+	onlinePlayers?: number;
 	identityReliable: boolean;
 	priorIndependentWindow: boolean;
 	previousActions: readonly ('KICK' | 'QUARANTINE_24H' | 'QUARANTINE_7D')[];
@@ -50,6 +51,7 @@ export function decideIntegrityAction(input: DecisionInput): IntegrityDecision {
 		!score.currentBehaviorAnomaly ||
 		!feedHealthy ||
 		!playerOnline ||
+		(input.onlinePlayers ?? 0) < rules.minimumOnlineForAutoAction ||
 		!identityReliable ||
 		(confidence !== 'A' && confidence !== 'B')
 	)
@@ -71,9 +73,9 @@ export function decideIntegrityAction(input: DecisionInput): IntegrityDecision {
 	return settings.autoKickEnabled ? 'KICK' : 'OBSERVE';
 }
 
-/** First statistical enforcement release permits only a protective kick with independent evidence. */
+/** Statistical actions escalate only after a previously effective, independently evidenced action. */
 export function decideStatisticalAction(
-	input: Omit<DecisionInput, 'score' | 'rules'> & { assessment: StatisticalAssessment }
+	input: Omit<DecisionInput, 'score'> & { assessment: StatisticalAssessment }
 ): IntegrityDecision {
 	const { assessment, finding, settings } = input;
 	if (
@@ -81,6 +83,7 @@ export function decideStatisticalAction(
 		!settings.autoKickEnabled ||
 		!input.feedHealthy ||
 		!input.playerOnline ||
+		(input.onlinePlayers ?? 0) < input.rules.minimumOnlineForAutoAction ||
 		!input.identityReliable ||
 		(input.confidence !== 'A' && input.confidence !== 'B') ||
 		assessment.status !== 'READY' ||
@@ -96,5 +99,17 @@ export function decideStatisticalAction(
 		return 'OBSERVE';
 	// Existing extreme behavior is a hard safety floor: rarity alone cannot lower the action bar.
 	if (finding.kpm180 < 8) return 'OBSERVE';
+	if (
+		settings.autoQuarantine7dEnabled &&
+		assessment.independentEpisodes >= 3 &&
+		input.previousActions.includes('QUARANTINE_24H')
+	)
+		return 'QUARANTINE_7D';
+	if (
+		settings.autoQuarantine24hEnabled &&
+		assessment.independentEpisodes >= 2 &&
+		input.previousActions.includes('KICK')
+	)
+		return 'QUARANTINE_24H';
 	return 'KICK';
 }

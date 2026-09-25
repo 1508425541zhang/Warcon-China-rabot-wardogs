@@ -6,7 +6,9 @@ export type MetricCode =
 	| 'maxKills15s'
 	| 'medianKillInterval'
 	| 'headshotRate'
-	| 'penetrationRate';
+	| 'penetrationRate'
+	| 'headshotRateWeapon'
+	| 'maxKillDistanceWeapon';
 export type AssessmentMode = 'legacy' | 'statistical_shadow' | 'statistical';
 export type SampleQuality = 'INSUFFICIENT_DATA' | 'LOW_SAMPLE' | 'NORMAL_SAMPLE' | 'HIGH_SAMPLE';
 export type StatisticalLevel = 'NORMAL' | 'WATCH' | 'CASE' | 'KICK_CANDIDATE';
@@ -18,7 +20,9 @@ export const METRICS: Record<MetricCode, { tail: MetricTail; family: 'Tempo' | '
 	maxKills15s: { tail: 'upper', family: 'Tempo' },
 	medianKillInterval: { tail: 'lower', family: 'Tempo' },
 	headshotRate: { tail: 'upper', family: 'Precision' },
-	penetrationRate: { tail: 'upper', family: 'Precision' }
+	penetrationRate: { tail: 'upper', family: 'Precision' },
+	headshotRateWeapon: { tail: 'upper', family: 'Precision' },
+	maxKillDistanceWeapon: { tail: 'upper', family: 'Precision' }
 };
 
 export interface HistogramBin {
@@ -81,6 +85,13 @@ export interface StatisticalAssessment {
 	metrics: MetricAssessment[];
 }
 
+export interface WeaponObservation {
+	cause: string;
+	kills: number;
+	headshots: number;
+	maxKillDistanceM: number | null;
+}
+
 export function populationBucket(count: number | null): PopulationBucket | null {
 	if (count === null || !Number.isInteger(count) || count < 1) return null;
 	if (count <= 20) return '1–20';
@@ -124,14 +135,47 @@ export function assessDistribution(
 	values: Partial<Record<MetricCode, number | null>>,
 	baselines: ReadonlyMap<MetricCode, DistributionStats>,
 	infantryKills: number,
-	independentEpisodes: number
+	independentEpisodes: number,
+	weaponObservations: readonly WeaponObservation[] = [],
+	weaponBaselines: ReadonlyMap<string, DistributionStats> = new Map()
 ): StatisticalAssessment {
 	const metrics: MetricAssessment[] = [];
-	for (const code of Object.keys(METRICS) as MetricCode[]) {
-		const value = values[code];
-		const baseline = baselines.get(code);
+	const observations: {
+		code: MetricCode;
+		value: number | null | undefined;
+		baseline: DistributionStats | undefined;
+		kills: number;
+	}[] = (Object.keys(METRICS) as MetricCode[])
+		.filter((code) => code !== 'headshotRateWeapon' && code !== 'maxKillDistanceWeapon')
+		.map((code) => ({
+			code,
+			value: values[code],
+			baseline: baselines.get(code),
+			kills: infantryKills
+		}));
+	for (const weapon of weaponObservations) {
+		if (weapon.kills >= 10)
+			observations.push({
+				code: 'headshotRateWeapon',
+				value: weapon.headshots / weapon.kills,
+				baseline: weaponBaselines.get(`headshotRateWeapon:${weapon.cause}`),
+				kills: weapon.kills
+			});
+		if (weapon.kills >= 3)
+			observations.push({
+				code: 'maxKillDistanceWeapon',
+				value: weapon.maxKillDistanceM,
+				baseline: weaponBaselines.get(`maxKillDistanceWeapon:${weapon.cause}`),
+				kills: weapon.kills
+			});
+	}
+	for (const { code, value, baseline, kills } of observations) {
 		if (value === undefined || value === null || !baseline || baseline.sampleCount < 200) continue;
-		if (METRICS[code].family === 'Precision' && infantryKills < 10) continue;
+		if (
+			(code === 'headshotRate' || code === 'penetrationRate' || code === 'headshotRateWeapon') &&
+			kills < 10
+		)
+			continue;
 		const percentile = percentilePosition(baseline.cdf, value);
 		metrics.push({
 			code,
@@ -155,8 +199,8 @@ export function assessDistribution(
 			histogram: baseline.histogram
 		});
 	}
-	const maxFor = (family: 'Tempo' | 'Precision') => {
-		const group = metrics.filter((metric) => METRICS[metric.code].family === family);
+	const maxFor = (family: 'Tempo' | 'Precision', source = metrics) => {
+		const group = source.filter((metric) => METRICS[metric.code].family === family);
 		return group.length ? Math.max(...group.map((metric) => metric.extremenessPercentile)) : null;
 	};
 	const tempo = maxFor('Tempo');
@@ -173,12 +217,13 @@ export function assessDistribution(
 		(tempo !== null && tempo >= 0.99 && precision !== null && precision >= 0.99);
 	// A second Tempo measurement from the same episode is not independent evidence.
 	// P99.95 needs enough observations to resolve the tail; low-sample baselines remain review-only.
+	const actionMetrics = metrics.filter((metric) => metric.sampleCount >= 5000);
+	const actionTempo = maxFor('Tempo', actionMetrics);
+	const actionPrecision = maxFor('Precision', actionMetrics);
 	const kickCandidate =
-		metrics.length > 0 &&
-		Math.min(...metrics.map((metric) => metric.sampleCount)) >= 5000 &&
-		tempo !== null &&
-		tempo >= 0.9995 &&
-		((precision !== null && precision >= 0.995) || independentEpisodes >= 2);
+		actionTempo !== null &&
+		actionTempo >= 0.9995 &&
+		((actionPrecision !== null && actionPrecision >= 0.995) || independentEpisodes >= 2);
 	const level: StatisticalLevel | null = !ready
 		? null
 		: kickCandidate
@@ -201,7 +246,11 @@ export function assessDistribution(
 				}
 			: null,
 		independentEpisodes,
-		sampleCount: metrics.length ? Math.min(...metrics.map((metric) => metric.sampleCount)) : 0,
+		sampleCount: kickCandidate
+			? Math.min(...actionMetrics.map((metric) => metric.sampleCount))
+			: metrics.length
+				? Math.min(...metrics.map((metric) => metric.sampleCount))
+				: 0,
 		metrics
 	};
 }
