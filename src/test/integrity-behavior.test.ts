@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import type { KillView } from '$lib/types';
 import type { Env } from '$lib/server/env';
 import {
@@ -109,7 +109,8 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 		const scores = await env.db
 			.select()
 			.from(integrityScores)
-			.where(eq(integrityScores.steamId, player));
+			.where(eq(integrityScores.steamId, player))
+			.orderBy(asc(integrityScores.id));
 		expect(scores).toHaveLength(2);
 		expect(scores[1].windowId).toBe(scores[0].windowId);
 		expect(scores[1].score).toBeGreaterThan(scores[0].score);
@@ -220,7 +221,8 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 		const scores = await env.db
 			.select()
 			.from(integrityScores)
-			.where(eq(integrityScores.steamId, overlapPlayer));
+			.where(eq(integrityScores.steamId, overlapPlayer))
+			.orderBy(asc(integrityScores.id));
 		expect(scores).toHaveLength(2);
 		expect(scores[1].windowId).toBe(old.id);
 		expect(scores[1].breakdown).not.toContainEqual(
