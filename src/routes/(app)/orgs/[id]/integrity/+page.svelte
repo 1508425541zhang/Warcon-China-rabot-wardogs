@@ -261,11 +261,8 @@
 		审核批准才会参与统计。外服数据有独立来源标识，不计入实时战绩。
 	</p>
 	<p class="mt-2 text-sm">
-		<a
-			class="text-accent underline"
-			href="/docs/integrity-import.zh-CN.md"
-			target="_blank"
-			rel="noopener">查看字段模板和逐步导入说明</a
+		<a class="text-accent underline" href="/docs/integrity-import" target="_blank" rel="noopener"
+			>查看字段模板和逐步导入说明</a
 		>
 	</p>
 	<div class="mt-4 grid gap-3 sm:grid-cols-2">
