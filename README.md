@@ -8,7 +8,7 @@
 
 > **默认仅记录与人工审核。** 组织所有者可以在“组织 → 社区风控”逐项确认开启实验性自动踢出、24 小时或 7 天临时隔离。自动执行受实时行为证据、在线状态、冷却和熔断限制；不会自动永久封禁。Warcon 原有的入服账号风险自动化是独立功能。
 
-[中文使用说明](README.zh-CN.md) · [技术架构与规则](docs/architecture.zh-CN.md) · [功能完成情况](docs/integrity-system.md) · [实施计划](docs/wardogs-community-integrity-plan.zh-CN.md) · [上游完整说明](README.upstream.md)
+[从零安装：逐步图文说明](docs/install.zh-CN.md) · [中文使用说明](README.zh-CN.md) · [技术架构与规则](docs/architecture.zh-CN.md) · [功能完成情况](docs/integrity-system.md) · [实施计划](docs/wardogs-community-integrity-plan.zh-CN.md) · [上游完整说明](README.upstream.md)
 
 ## 从事件到证据
 
@@ -27,6 +27,7 @@
 | 180 秒纯步兵 KPM、近 10 分钟峰值、独立异常窗口           | 可用；无可靠 Feed 时隐藏或降级                        |
 | 爆头率、穿透率、短时爆发、Steam 封禁历史、重复高风险窗口 | 可用；只在行为发现后读取 Steam，缺失或过期按未知处理  |
 | 可调 KPM 分段、风险权重、风险阈值、武器分类              | 组织所有者可在“组织 → 社区风控”调整；保存有版本与审计 |
+| 30 天真实历史分布、Percentile、Median/MAD 和分布曲线     | 可用；默认统计影子模式，样本不足时明确说明            |
 | 风险分、分项解释、证据案件、24 小时/72 小时/7 天影响预览 | 可用，属于模拟运行和人工审核                          |
 | 网页举报、可选 Discord 案件提醒                          | 可用；举报需登录并绑定 Steam，提醒不公开举报人        |
 | 实验性自动踢出、24 小时或 7 天临时隔离                   | 可由组织所有者逐项开启；默认全关，不执行永久自动封禁  |
@@ -51,15 +52,19 @@ KD 会在玩家档案中显示供参考，**不单独加风险分**。分段和�
 
 完成首次设置并登录后，先创建组织，再到“服务器 → 添加服务器”填写：名称任意、主机地址 `demo`、端口 `1`、协议 `http`、RCON 密码 `demo`。这会连接内置模拟游戏服务器，不需要真实的 WARDOGS 实例。主机和密码必须输入英文 `demo`。
 
-## 部署
+## 从零安装：先在自己的电脑上试
 
-本项目使用 Bun、SvelteKit、PostgreSQL/TimescaleDB 和 Docker Compose。运行 `migrate`、网页、Worker 与数据库四个服务；浏览器不会直接连接游戏 RCON。
+**新安装没有默认网页账号或密码。**你会在首次打开 `/setup` 时亲自创建所有者账号。Docker Compose 会连同 PostgreSQL/TimescaleDB 一起启动；无需另外安装数据库或 Bun。完整的 Windows、macOS、Ubuntu 操作步骤和故障排查见[中文从零安装指南](docs/install.zh-CN.md)。最短路径如下：
 
-1. 复制 `.env.example` 为 `.env`，设置不同的随机 `BETTER_AUTH_SECRET`、`ENCRYPTION_KEY`、`RELAY_SECRET`，以及 `POSTGRES_PASSWORD` 和实际访问地址 `ORIGIN`。
-2. 执行 `docker compose up -d --build`。
-3. 打开 `ORIGIN` 完成所有者初始化；可先添加上述演示服务器。
+1. 安装并启动 [Docker Desktop](https://docs.docker.com/desktop/)（Ubuntu 安装 Docker Engine 和 Compose 插件），安装 [Git](https://git-scm.com/downloads)。在终端确认 `docker compose version` 和 `git --version` 能显示版本。
+2. 执行 `git clone https://github.com/1508425541zhang/Warcon-China-rabot-wardogs.git`，然后 `cd Warcon-China-rabot-wardogs`。
+3. Windows PowerShell 执行 `Copy-Item .env.example .env`；macOS/Linux 执行 `cp .env.example .env`。打开 `.env`，分别设置四个**不同**的随机值：`BETTER_AUTH_SECRET`、`ENCRYPTION_KEY`、`RELAY_SECRET`、`POSTGRES_PASSWORD`。本机试用把 `ORIGIN` 设为 `http://localhost:3000`。生成随机值的完整命令见[第 2 步](docs/install.zh-CN.md#第-2-步复制配置模板)。
+4. 执行 `docker compose config -q` 检查配置，再执行 `docker compose up -d --build`，等待首次下载和构建结束。
+5. 执行 `docker compose ps -a`：`db` 应为 healthy，`warcon` 和 `worker` 应为 running，`migrate` 成功退出是正常情况。
+6. 在同一台电脑打开 `http://localhost:3000/setup`，创建**自己的**用户名与网页登录密码；以后从 `/sign-in` 登录。`POSTGRES_PASSWORD` 是数据库密码，不能拿来登录网页。
+7. 想先看效果，可按上文“没有游戏服务器，也能预览”添加 `demo` 模拟服务器。真实游戏服的 RCON 接入见[安装指南第 6 步](docs/install.zh-CN.md#第-6-步有游戏服后再接入)。
 
-请勿提交 `.env`。详细的反向代理、备份、游戏服接入和本地开发步骤，见[上游完整说明](README.upstream.md)与[入门文档](docs/getting-started.md)。
+请勿提交 `.env`。公网访问还需要域名、HTTPS 和正确的 `ORIGIN`；安装指南也列出更新、日志、停止与忘记密码的方法。
 
 ## 技术与来源
 
