@@ -615,6 +615,10 @@ export const integrityActions = pgTable(
 		source: text('source').notNull(),
 		listEntryId: text('list_entry_id'),
 		createdAt: ts('created_at').notNull().defaultNow(),
+		/** NULL until a kick is confirmed; quarantine becomes effective with the panel list entry. */
+		effectiveAt: ts('effective_at'),
+		/** State of the immediate RCON kick, separate from quarantine list effectiveness. */
+		deliveryState: text('delivery_state'),
 		expiresAt: ts('expires_at'),
 		revertedAt: ts('reverted_at'),
 		revertedBy: text('reverted_by')

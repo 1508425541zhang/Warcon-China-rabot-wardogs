@@ -28,6 +28,7 @@ import type { BehaviorFinding } from './windows';
 import type { IntegrityScore } from './score';
 import type { Player } from '$lib/types';
 import { independentEvidence } from './independence';
+import { effectiveActionKinds } from './actions';
 
 const COOLDOWN_MS = 15 * 60_000;
 const HOUR_MS = 60 * 60_000;
@@ -162,12 +163,7 @@ export async function enforceIntegrityCase(
 			priorIndependentWindow: prior.some((row) =>
 				independentEvidence(row.eventIds, input.finding.eventIds)
 			),
-			previousActions: previous
-				.map((action) => action.action)
-				.filter(
-					(action): action is 'KICK' | 'QUARANTINE_24H' | 'QUARANTINE_7D' =>
-						action === 'KICK' || action === 'QUARANTINE_24H' || action === 'QUARANTINE_7D'
-				),
+			previousActions: effectiveActionKinds(previous),
 			rules: validateIntegrityRules(row.config as Record<string, unknown>),
 			settings
 		});
@@ -210,7 +206,12 @@ export async function enforceIntegrityCase(
 				)
 			);
 		// An administrator's ban always wins; rule-created entries are never silently shortened.
-		const autoIds = new Set(previous.map((action) => action.listEntryId).filter(Boolean));
+		const autoIds = new Set(
+			previous
+				.filter((action) => action.source === 'RULE' && !action.revertedAt && action.effectiveAt)
+				.map((action) => action.listEntryId)
+				.filter(Boolean)
+		);
 		if (activeBans.some(({ entry }) => !autoIds.has(entry.id)))
 			return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };
 		let listEntryId: string | null = null;
@@ -250,19 +251,10 @@ export async function enforceIntegrityCase(
 			source: 'RULE',
 			listEntryId,
 			createdAt: now,
+			effectiveAt: decision === 'KICK' ? null : now,
+			deliveryState: 'pending',
 			expiresAt
 		});
-		await tx
-			.update(integrityScores)
-			.set({
-				level:
-					decision === 'KICK'
-						? 'AUTO_KO'
-						: decision === 'QUARANTINE_24H'
-							? 'AUTO_QUARANTINE_24H'
-							: 'AUTO_QUARANTINE_7D'
-			})
-			.where(eq(integrityScores.id, savedScore.id));
 		await tx.insert(outbox).values({
 			serverId: input.serverId,
 			triggerName: 'Community Integrity',

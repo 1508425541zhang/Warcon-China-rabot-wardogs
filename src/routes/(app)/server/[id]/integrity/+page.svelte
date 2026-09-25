@@ -139,6 +139,16 @@
 	};
 	const kd = (kills: number, deaths: number) =>
 		deaths ? (kills / deaths).toFixed(2) : kills ? '∞' : '—';
+	const deliveryLabel = (state: string | null) =>
+		(lang === 'zh'
+			? { pending: '待发送', delivered: '已送达', failed: '发送失败', skipped: '已跳过', unknown: '结果未知' }
+			: { pending: 'Pending', delivered: 'Delivered', failed: 'Failed', skipped: 'Skipped', unknown: 'Unknown' }
+		)[(state ?? 'unknown') as 'pending' | 'delivered' | 'failed' | 'skipped' | 'unknown'];
+	const actionState = (item: (typeof data.actions)[number]) => {
+		if (item.revertedAt) return lang === 'zh' ? '已撤销' : 'Reverted';
+		if (item.action === 'KICK') return deliveryLabel(item.deliveryState);
+		return `${lang === 'zh' ? '隔离已生效；即时踢出' : 'Quarantine active; immediate kick'}：${deliveryLabel(item.deliveryState)}`;
+	};
 	const levelName = (value: string | null) => {
 		if (!value) return t.unscored;
 		if (lang === 'en') return value.replaceAll('_', ' ');
@@ -150,8 +160,8 @@
 					ACTIVE_WATCH: '主动观察',
 					AUTO_KO: '达到移出阈值',
 					AUTO_QUARANTINE_ELIGIBLE: '达到隔离资格阈值',
-					AUTO_QUARANTINE_24H: '已执行 24 小时临时隔离',
-					AUTO_QUARANTINE_7D: '已执行 7 天临时隔离'
+					AUTO_QUARANTINE_24H: '达到 24 小时隔离风险级别',
+					AUTO_QUARANTINE_7D: '达到 7 天隔离风险级别'
 				} as Record<string, string>
 			)[value] ?? value
 		);
@@ -203,10 +213,10 @@
 			sourceEn: 'Valid Steam cache; unknown without key or on failure'
 		},
 		{
-			zh: '重复 KO',
-			en: 'Repeat KO',
-			sourceZh: '回顾期内已保存的风险级别',
-			sourceEn: 'Recorded risk level in review period'
+			zh: '重复高风险窗口',
+			en: 'Repeated high-risk window',
+			sourceZh: '回顾期内独立的高风险证据窗口',
+			sourceEn: 'Independent high-risk evidence window in review period'
 		},
 		{
 			zh: '独立举报人数',
@@ -388,14 +398,14 @@
 					><tr
 						><th>{t.time}</th><th>{t.player}</th><th>{t.caseId}</th><th
 							>{lang === 'zh' ? '处置' : 'Action'}</th
-						><th>{lang === 'zh' ? '到期' : 'Expires'}</th></tr
+						><th>{lang === 'zh' ? '执行状态' : 'Delivery'}</th><th>{lang === 'zh' ? '生效时间' : 'Effective at'}</th><th>{lang === 'zh' ? '到期' : 'Expires'}</th></tr
 					></thead
 				>
 				<tbody
 					>{#each data.actions as item (item.id)}<tr
 							><td>{when(item.createdAt)}</td><td class="font-mono">{item.steamId}</td><td
 								class="font-mono">{item.caseId}</td
-							><td>{item.action}</td><td>{item.expiresAt ? when(item.expiresAt) : '—'}</td></tr
+							><td>{item.action}</td><td>{actionState(item)}</td><td>{item.effectiveAt ? when(item.effectiveAt) : '—'}</td><td>{item.expiresAt ? when(item.expiresAt) : '—'}</td></tr
 						>{/each}</tbody
 				>
 			</table>

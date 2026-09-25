@@ -255,7 +255,7 @@ export async function submitReport(
 				uniqueVictims: 0,
 				previousKpm: [],
 				uniqueReporters: Number(reporters?.count ?? 0),
-				repeatAutoKo: false,
+				repeatHighRiskWindow: false,
 				infantryKills: 0,
 				headshots: 0,
 				penetrations: 0,

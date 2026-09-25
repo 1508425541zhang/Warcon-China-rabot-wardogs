@@ -9,7 +9,7 @@ const base: IntegritySignals = {
 	uniqueVictims: 8,
 	previousKpm: [],
 	uniqueReporters: 0,
-	repeatAutoKo: false,
+	repeatHighRiskWindow: false,
 	infantryKills: 8,
 	headshots: 0,
 	penetrations: 0,

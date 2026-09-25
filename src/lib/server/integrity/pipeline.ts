@@ -10,7 +10,7 @@ import { getIntegrityRules } from './rules';
 import { scoreIntegrity } from './score';
 import { freezeFindingEvidence } from './evidence';
 import { captureReportEvidence } from './reports';
-import { hadRecentAutoKo } from './history';
+import { hadRecentHighRiskWindow } from './history';
 import { getProfiles, steamEnabled } from '../steam';
 import { steamBanSignals } from './steam-signals';
 import { enforceIntegrityCase } from './enforcement';
@@ -178,7 +178,7 @@ export async function processIntegrityBatch(
 					})
 					.where(eq(integrityWindows.id, windowId));
 			}
-			const repeatAutoKo = await hadRecentAutoKo(
+			const repeatHighRiskWindow = await hadRecentHighRiskWindow(
 				tx,
 				orgId,
 				finding.steamId,
@@ -193,7 +193,7 @@ export async function processIntegrityBatch(
 				uniqueVictims: finding.uniqueVictims,
 				previousKpm: recent.map((row) => row.kpm180),
 				uniqueReporters: Number(reporters?.count ?? 0),
-				repeatAutoKo,
+				repeatHighRiskWindow,
 				infantryKills: finding.infantryKills,
 				headshots: finding.headshots,
 				penetrations: finding.penetrations,
