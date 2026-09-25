@@ -20,34 +20,10 @@ import { evidenceIds, independentEvidence, overlapsEvidence } from './independen
 import type { KillView } from '$lib/types';
 
 const infantry = new InfantryWindows();
-const infantryTasks = new Map<string, Promise<void>>();
 
 /** Test/recovery seam for simulating a worker process restart. */
 export function resetIntegrityServer(serverId: string): void {
 	infantry.reset(serverId);
-}
-
-export function queueIntegrityBatch(env: Env, serverId: string, batch: KillView[]): Promise<void> {
-	const previous = infantryTasks.get(serverId) ?? Promise.resolve();
-	const task = previous
-		.catch(() => {})
-		.then(() => processIntegrityBatch(env, serverId, batch))
-		.catch((err) => {
-			infantry.reset(serverId);
-			throw err;
-		});
-	infantryTasks.set(serverId, task);
-	void task
-		.finally(() => {
-			if (infantryTasks.get(serverId) === task) infantryTasks.delete(serverId);
-		})
-		.catch(() => {});
-	return task;
-}
-
-/** Test/diagnostic synchronization without holding up legacy automation in production. */
-export async function waitIntegrityBatch(serverId: string): Promise<void> {
-	await infantryTasks.get(serverId);
 }
 
 export async function processIntegrityBatch(
@@ -308,7 +284,9 @@ export async function processIntegrityBatch(
 			infantry.markPersisted(serverId, finding, windowId);
 		}
 	});
-	for (const candidate of allowActions ? candidates : []) {
+	// Steam lookups and scoring can outlive the live decision window.
+	const stillLive = batch.length > 0 && Date.now() - Date.parse(batch[0].ts) <= 5 * 60_000;
+	for (const candidate of allowActions && stillLive ? candidates : []) {
 		try {
 			await enforceIntegrityCase(env, candidate);
 		} catch (err) {

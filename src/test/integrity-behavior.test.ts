@@ -13,7 +13,6 @@ import {
 	steamProfiles
 } from '$lib/server/db/schema';
 import { onKillsIngested } from '$lib/server/feed-events';
-import { waitIntegrityBatch } from '$lib/server/integrity/pipeline';
 import { acquireOrRenew, releaseOwnership } from '$lib/server/leadership';
 import { forgetMemory, memoryFor } from '$lib/server/observe';
 import { hasTestDb, testEnv } from './db';
@@ -71,7 +70,6 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 			}))
 		);
 		await onKillsIngested(env, world.server.id, batch);
-		await waitIntegrityBatch(world.server.id);
 	};
 
 	beforeAll(async () => {
