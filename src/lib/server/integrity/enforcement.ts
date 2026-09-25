@@ -20,6 +20,7 @@ import { gateway } from '../gateway';
 import { writeAudit } from '../audit';
 import {
 	decideIntegrityAction,
+	decideStatisticalAction,
 	type EnforcementSettings,
 	type IntegrityDecision
 } from './decisions';
@@ -29,6 +30,7 @@ import type { IntegrityScore } from './score';
 import type { Player } from '$lib/types';
 import { independentEvidence } from './independence';
 import { effectiveActionKinds } from './actions';
+import type { StatisticalAssessment } from './statistics';
 
 const COOLDOWN_MS = 15 * 60_000;
 const HOUR_MS = 60 * 60_000;
@@ -143,6 +145,7 @@ export async function enforceIntegrityCase(
 				)
 				.orderBy(sql`${integrityActions.createdAt} DESC`)
 		]);
+		const statistical = savedScore?.statistical as StatisticalAssessment | null;
 		if (
 			!caseRow ||
 			caseRow.status !== 'OPEN' ||
@@ -154,7 +157,12 @@ export async function enforceIntegrityCase(
 			caseRow.ruleVersion !== row.version ||
 			savedScore.steamId !== input.steamId ||
 			savedScore.windowId !== input.finding.windowId ||
-			!savedScore.currentBehaviorAnomaly ||
+			(row.assessmentMode === 'statistical'
+				? !statistical ||
+					statistical.status !== 'READY' ||
+					statistical.level !== 'KICK_CANDIDATE' ||
+					JSON.stringify(statistical) !== JSON.stringify(caseRow.statistical)
+				: !savedScore.currentBehaviorAnomaly) ||
 			savedScore.score !== caseRow.riskScore ||
 			savedScore.score !== input.score.score ||
 			savedScore.level !== input.score.level
@@ -167,7 +175,7 @@ export async function enforceIntegrityCase(
 			now.getTime() - live.feedAt.getTime() < 5 * 60_000 &&
 			!!live.playersAt &&
 			now.getTime() - live.playersAt.getTime() < 5 * 60_000;
-		const decision = decideIntegrityAction({
+		const decisionInput = {
 			score: input.score,
 			finding: input.finding,
 			confidence: caseRow.confidence as 'A' | 'B' | 'C' | 'D',
@@ -185,7 +193,11 @@ export async function enforceIntegrityCase(
 			previousActions: effectiveActionKinds(previous),
 			rules: validateIntegrityRules(row.config as Record<string, unknown>),
 			settings
-		});
+		};
+		const decision =
+			row.assessmentMode === 'statistical'
+				? decideStatisticalAction({ ...decisionInput, assessment: statistical! })
+				: decideIntegrityAction(decisionInput);
 		if (decision === 'OBSERVE') return { decision, circuit: false };
 		if (previous.some((action) => now.getTime() - action.createdAt.getTime() < COOLDOWN_MS))
 			return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };

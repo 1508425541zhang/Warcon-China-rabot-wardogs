@@ -74,6 +74,7 @@ const MATRIX: Record<string, Policy | typeof PER_LIST> = {
 	'GET api/orgs/[id]/integrity/rules': 'orgOwner',
 	'GET api/orgs/[id]/integrity/enforcement': 'orgOwner',
 	'PUT api/orgs/[id]/integrity/rules': 'orgOwner',
+	'PUT api/orgs/[id]/integrity/mode': 'orgOwner',
 	'PUT api/orgs/[id]/integrity/enforcement': 'orgOwner',
 	'PUT api/orgs/[id]/integrity/weapons': 'orgOwner',
 	'DELETE api/orgs/[id]/integrity/weapons': 'orgOwner',

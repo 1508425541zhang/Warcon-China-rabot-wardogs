@@ -511,10 +511,42 @@ export const integrityWindows = pgTable(
 		headshots: integer('headshots').notNull().default(0),
 		penetrations: integer('penetrations').notNull().default(0),
 		burstPoints: integer('burst_points').notNull().default(0),
+		maxKills15s: integer('max_kills_15s'),
+		medianKillInterval: real('median_kill_interval'),
 		behaviorReasons: jsonb('behavior_reasons').notNull().default([]),
 		eventIds: jsonb('event_ids').notNull()
 	},
 	(t) => [index('integrity_windows_player_idx').on(t.orgId, t.steamId, t.observedAt.desc())]
+);
+
+/** Empirical 30-day summaries; exact value frequencies remain server-side for ranking. */
+export const integrityBaselines = pgTable(
+	'integrity_baselines',
+	{
+		id: text('id').primaryKey(),
+		orgId: text('org_id')
+			.notNull()
+			.references(() => organizations.id, { onDelete: 'cascade' }),
+		metric: text('metric').notNull(),
+		level: integer('level').notNull(),
+		map: text('map'),
+		populationBucket: text('population_bucket'),
+		weaponCategory: text('weapon_category').notNull(),
+		sampleCount: integer('sample_count').notNull(),
+		median: real('median').notNull(),
+		mad: real('mad'),
+		p90: real('p90').notNull(),
+		p95: real('p95').notNull(),
+		p99: real('p99').notNull(),
+		p995: real('p995').notNull(),
+		p999: real('p999').notNull(),
+		p9995: real('p9995').notNull(),
+		histogram: jsonb('histogram').notNull(),
+		cdf: jsonb('cdf').notNull(),
+		windowDays: integer('window_days').notNull().default(30),
+		calculatedAt: ts('calculated_at').notNull()
+	},
+	(t) => [index('integrity_baselines_lookup_idx').on(t.orgId, t.metric, t.level)]
 );
 
 /** A versioned, owner-editable rule set. Cases snapshot both version and effective inputs. */
@@ -524,6 +556,7 @@ export const integrityRules = pgTable('integrity_rules', {
 		.references(() => organizations.id, { onDelete: 'cascade' }),
 	version: integer('version').notNull().default(1),
 	config: jsonb('config').notNull(),
+	assessmentMode: text('assessment_mode').notNull().default('statistical_shadow'),
 	autoKickEnabled: boolean('auto_kick_enabled').notNull().default(false),
 	autoQuarantine24hEnabled: boolean('auto_quarantine_24h_enabled').notNull().default(false),
 	autoQuarantine7dEnabled: boolean('auto_quarantine_7d_enabled').notNull().default(false),
@@ -550,6 +583,7 @@ export const integrityScores = pgTable(
 		score: integer('score').notNull(),
 		level: text('level').notNull(),
 		breakdown: jsonb('breakdown').notNull(),
+		statistical: jsonb('statistical'),
 		currentBehaviorAnomaly: boolean('current_behavior_anomaly').notNull()
 	},
 	(t) => [
@@ -576,6 +610,7 @@ export const integrityCases = pgTable(
 		ruleVersion: integer('rule_version').notNull(),
 		riskScore: integer('risk_score').notNull(),
 		riskBreakdown: jsonb('risk_breakdown').notNull(),
+		statistical: jsonb('statistical'),
 		snapshot: jsonb('snapshot').notNull(),
 		reviewedBy: text('reviewed_by'),
 		reviewedAt: ts('reviewed_at')
