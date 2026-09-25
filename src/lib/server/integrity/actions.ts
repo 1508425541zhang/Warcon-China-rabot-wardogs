@@ -59,9 +59,7 @@ export async function recordIntegrityDelivery(
 			deliveryState: state,
 			...(action.action === 'KICK' && state === 'delivered' ? { effectiveAt: at } : {})
 		})
-		.where(
-			and(eq(integrityActions.id, actionId), isNull(integrityActions.revertedAt))
-		)
+		.where(and(eq(integrityActions.id, actionId), isNull(integrityActions.revertedAt)))
 		.returning({ id: integrityActions.id });
 	if (!updated) throw new Error('Integrity action changed during delivery finalization.');
 }

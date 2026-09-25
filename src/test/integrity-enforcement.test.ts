@@ -269,19 +269,29 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 			.where(and(eq(outbox.steamId, input.steamId), eq(outbox.action, 'kick')));
 		expect(queued).toHaveLength(1);
 		expect(queued[0].triggerKind).toBe('integrity');
-		const [action] = await env.db.select().from(integrityActions).where(eq(integrityActions.caseId, input.caseId));
+		const [action] = await env.db
+			.select()
+			.from(integrityActions)
+			.where(eq(integrityActions.caseId, input.caseId));
 		expect(action.deliveryState).toBe('pending');
 		expect(action.effectiveAt).toBeNull();
 		expect(effectiveActionKinds([action])).toEqual([]);
 	});
 	test('failed and unknown kicks remain ineffective; only delivery counts', async () => {
 		await setFlags({ autoKickEnabled: true });
-		for (const [n, state] of [[810, 'failed'], [811, 'unknown'], [812, 'delivered']] as const) {
+		for (const [n, state] of [
+			[810, 'failed'],
+			[811, 'unknown'],
+			[812, 'delivered']
+		] as const) {
 			const input = await candidate(sid(n));
 			expect(await enforceIntegrityCase(env, input)).toBe('KICK');
 			const [queued] = await env.db.select().from(outbox).where(eq(outbox.steamId, input.steamId));
 			await env.db.transaction((tx) => recordIntegrityDelivery(tx, queued, state));
-			const [action] = await env.db.select().from(integrityActions).where(eq(integrityActions.caseId, input.caseId));
+			const [action] = await env.db
+				.select()
+				.from(integrityActions)
+				.where(eq(integrityActions.caseId, input.caseId));
 			expect(action.deliveryState).toBe(state);
 			expect(action.effectiveAt instanceof Date).toBe(state === 'delivered');
 			expect(effectiveActionKinds([action])).toEqual(state === 'delivered' ? ['KICK'] : []);
@@ -301,11 +311,17 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 		expect(effectiveActionKinds([action])).toEqual(['QUARANTINE_24H']);
 		const [queued] = await env.db.select().from(outbox).where(eq(outbox.steamId, input.steamId));
 		await env.db.transaction((tx) => recordIntegrityDelivery(tx, queued, 'failed'));
-		const [afterFailedKick] = await env.db.select().from(integrityActions).where(eq(integrityActions.id, action.id));
+		const [afterFailedKick] = await env.db
+			.select()
+			.from(integrityActions)
+			.where(eq(integrityActions.id, action.id));
 		expect(afterFailedKick.deliveryState).toBe('failed');
 		expect(afterFailedKick.effectiveAt).toBeInstanceOf(Date);
 		expect(effectiveActionKinds([afterFailedKick])).toEqual(['QUARANTINE_24H']);
-		const [savedScore] = await env.db.select().from(integrityScores).where(eq(integrityScores.windowId, input.finding.windowId!));
+		const [savedScore] = await env.db
+			.select()
+			.from(integrityScores)
+			.where(eq(integrityScores.windowId, input.finding.windowId!));
 		expect(savedScore.level).toBe('AUTO_QUARANTINE_ELIGIBLE');
 		expect(action.expiresAt!.getTime() - Date.now()).toBeGreaterThan(23 * 3600_000);
 		const list = await serverListOf(env, { id: world.server.id, orgId: world.org.id }, 'ban');
@@ -341,21 +357,42 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 		expect(await enforceIntegrityCase(env, input)).toBe('KICK');
 		const [queued] = await env.db.select().from(outbox).where(eq(outbox.steamId, input.steamId));
 		await env.db.transaction((tx) => recordIntegrityDelivery(tx, queued, 'delivered'));
-		const [action] = await env.db.select().from(integrityActions).where(eq(integrityActions.caseId, input.caseId));
-		await env.db.update(integrityActions).set({ revertedAt: new Date() }).where(eq(integrityActions.id, action.id));
-		const [reverted] = await env.db.select().from(integrityActions).where(eq(integrityActions.id, action.id));
+		const [action] = await env.db
+			.select()
+			.from(integrityActions)
+			.where(eq(integrityActions.caseId, input.caseId));
+		await env.db
+			.update(integrityActions)
+			.set({ revertedAt: new Date() })
+			.where(eq(integrityActions.id, action.id));
+		const [reverted] = await env.db
+			.select()
+			.from(integrityActions)
+			.where(eq(integrityActions.id, action.id));
 		expect(effectiveActionKinds([reverted])).toEqual([]);
-		expect(decideIntegrityAction({
-			...{
-				score, finding: finding(sid(814)), confidence: 'B' as const, feedHealthy: true,
-				playerOnline: true, identityReliable: true, priorIndependentWindow: false,
-				rules: DEFAULT_INTEGRITY_RULES
-			},
-			previousActions: effectiveActionKinds([reverted]),
-			settings: { autoKickEnabled: false, autoQuarantine24hEnabled: true,
-				autoQuarantine7dEnabled: true,
-				autoActionMaxPerHour: 10, autoActionMaxPercentOnline: 10, autoSuspendedAt: null }
-		})).toBe('QUARANTINE_24H');
+		expect(
+			decideIntegrityAction({
+				...{
+					score,
+					finding: finding(sid(814)),
+					confidence: 'B' as const,
+					feedHealthy: true,
+					playerOnline: true,
+					identityReliable: true,
+					priorIndependentWindow: false,
+					rules: DEFAULT_INTEGRITY_RULES
+				},
+				previousActions: effectiveActionKinds([reverted]),
+				settings: {
+					autoKickEnabled: false,
+					autoQuarantine24hEnabled: true,
+					autoQuarantine7dEnabled: true,
+					autoActionMaxPerHour: 10,
+					autoActionMaxPercentOnline: 10,
+					autoSuspendedAt: null
+				}
+			})
+		).toBe('QUARANTINE_24H');
 	});
 	test('exceptional combined behavior permits 7d only when its own switch is on', async () => {
 		await setFlags({ autoQuarantine7dEnabled: true });

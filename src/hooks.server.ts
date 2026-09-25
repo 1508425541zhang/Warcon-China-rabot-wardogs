@@ -23,6 +23,7 @@ import {
 import { startPoller, stopPoller } from '$lib/server/poller';
 import { setGateway } from '$lib/server/gateway';
 import { localGateway } from '$lib/server/gateway-local';
+import { startFeedProcessing } from '$lib/server/feed-processing';
 import { connectRemoteGateway } from '$lib/server/gateway-remote';
 import { loadSettings } from '$lib/server/settings';
 import { beginShutdown } from '$lib/server/shutdown';
@@ -69,6 +70,7 @@ export const init: ServerInit = async () => {
 			);
 		setGateway(localGateway);
 		startPoller(env, 'all');
+		startFeedProcessing(env);
 	}
 	registerFleetCollector(env);
 	installShutdown(env);

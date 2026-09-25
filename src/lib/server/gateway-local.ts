@@ -16,7 +16,7 @@ import { invalidateTriggers } from './triggers';
 import { nudgeStatusMirror } from './webhook-status';
 import type { Gateway } from './gateway';
 import type { KillView, LiveView } from '$lib/types';
-import { onKillsIngested } from './feed-events';
+import { wakeFeedProcessing } from './feed-processing';
 
 /** Runs one registry action against a server through its lane. */
 export async function runGameAction(
@@ -91,7 +91,7 @@ export const localGateway: Gateway = {
 		nudgeStatusMirror();
 	},
 	killsIngested(env: Env, serverId: string, kills: KillView[]) {
-		void onKillsIngested(env, serverId, kills);
+		wakeFeedProcessing();
 	},
 	subscribe,
 	health() {
