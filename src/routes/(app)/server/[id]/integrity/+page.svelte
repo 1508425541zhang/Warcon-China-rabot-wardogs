@@ -15,6 +15,31 @@
 		(selectedScore?.statistical ?? null) as StatisticalAssessment | null
 	);
 	let lang = $state<'zh' | 'en'>('zh');
+	let pendingLabel = $state<Record<string, string>>({});
+	let pendingReason = $state<Record<string, string>>({});
+	let labelError = $state('');
+	let savingLabel = $state<string | null>(null);
+	async function saveLabel(caseId: string) {
+		labelError = '';
+		savingLabel = caseId;
+		try {
+			const response = await fetch(
+				`/api/orgs/${encodeURIComponent(data.server.orgId)}/integrity/cases/${encodeURIComponent(caseId)}/labels`,
+				{
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ label: pendingLabel[caseId], reason: pendingReason[caseId] })
+				}
+			);
+			if (!response.ok) throw new Error((await response.json()).error ?? '保存失败');
+			pendingReason[caseId] = '';
+			await invalidateAll();
+		} catch (error) {
+			labelError = error instanceof Error ? error.message : '保存失败';
+		} finally {
+			savingLabel = null;
+		}
+	}
 	function switchLanguage() {
 		lang = lang === 'zh' ? 'en' : 'zh';
 	}
@@ -55,7 +80,7 @@
 			noContributors: '暂无评分贡献。',
 			online: '在线玩家风控',
 			noOnline: '当前没有在线玩家快照。',
-			refresh: '刷新数据',
+			refresh: '重新加载已保存数据',
 			dataAt: '玩家快照',
 			kills: '击杀',
 			deaths: '死亡',
@@ -106,7 +131,7 @@
 			noContributors: 'No score contributions yet.',
 			online: 'Online player integrity',
 			noOnline: 'No current online roster snapshot.',
-			refresh: 'Refresh',
+			refresh: 'Reload saved data',
 			dataAt: 'Roster snapshot',
 			kills: 'Kills',
 			deaths: 'Deaths',
@@ -403,6 +428,57 @@
 			>
 		</table>
 	</div>
+	<h4 class="mt-6 text-sm font-semibold text-white">
+		{lang === 'zh'
+			? '委员会 Shadow 汇总（按案件窗口去重）'
+			: 'Committee shadow summary (distinct episodes)'}
+	</h4>
+	<p class="mt-1 text-xs text-mist-400">
+		{lang === 'zh'
+			? '仅统计已保存的评估；数据不足时不会推断正常。自动处罚仍关闭。'
+			: 'Only saved assessments are counted; missing data is not inferred as normal. Automatic action remains disabled.'}
+	</p>
+	<div class="mt-3 flex flex-wrap gap-4 text-sm text-white">
+		<span>NORMAL：{data.committeeShadow.counts.NORMAL}</span>
+		<span>WATCH：{data.committeeShadow.counts.WATCH}</span>
+		<span>KICK_CANDIDATE：{data.committeeShadow.counts.KICK_CANDIDATE}</span>
+		<span
+			>{lang === 'zh' ? '意见分歧率' : 'Disagreement'}：{data.committeeShadow.disagreementRate ===
+			null
+				? '—'
+				: `${(data.committeeShadow.disagreementRate * 100).toFixed(1)}%`}</span
+		>
+		<span
+			>{lang === 'zh' ? '候选案件已确认误判' : 'Confirmed false positives'}：{data.committeeShadow
+				.falsePositive}</span
+		>
+		<span
+			>{lang === 'zh' ? '候选案件已确认违规' : 'Confirmed abuse'}：{data.committeeShadow
+				.confirmedAbuse}</span
+		>
+	</div>
+	{#if data.committeeShadow.truncated}<p class="mt-2 text-xs text-warn">
+			{lang === 'zh'
+				? '超过 5000 条查询上限，汇总不完整。'
+				: 'Over 5000 records; summary is incomplete.'}
+		</p>{/if}
+	{#if Object.keys(data.committeeShadow.models).length}<div class="mt-3 table-wrap">
+			<table>
+				<thead
+					><tr
+						><th>{lang === 'zh' ? '模型' : 'Model'}</th><th>NORMAL</th><th>SUSPICIOUS</th><th
+							>CHEAT_LIKELY</th
+						><th>UNKNOWN</th></tr
+					></thead
+				><tbody>
+					{#each Object.entries(data.committeeShadow.models) as [model, votes] (model)}<tr
+							><td>{model}</td><td>{votes.NORMAL}</td><td>{votes.SUSPICIOUS}</td><td
+								>{votes.CHEAT_LIKELY}</td
+							><td>{votes.UNKNOWN}</td></tr
+						>{/each}
+				</tbody>
+			</table>
+		</div>{/if}
 </section>
 
 <section class="mb-6 panel p-4">
@@ -550,6 +626,7 @@
 
 <section class="mb-6 panel p-4">
 	<h3 class="mb-3 text-base font-semibold text-white">{t.cases}</h3>
+	{#if labelError}<p class="mb-2 text-sm text-warn">{labelError}</p>{/if}
 	{#if data.cases.length}
 		<div class="table-wrap">
 			<table>
@@ -562,6 +639,7 @@
 				>
 				<tbody>
 					{#each data.cases as item (item.id)}
+						{@const latest = data.labels.find((row) => row.caseId === item.id)}
 						<tr>
 							<td class="whitespace-nowrap">{when(item.createdAt)}</td>
 							<td
@@ -585,6 +663,30 @@
 											<li>+{part.points} {integrityPartText(part.code, part.detail, lang)}</li>
 										{/each}
 									</ul>
+									{#if item.statistical}<p class="mt-2 text-xs text-mist-300">
+											委员会：{(item.statistical as StatisticalAssessment).committee?.decision ??
+												'UNKNOWN'}
+										</p>{/if}
+									{#if latest}<p class="mt-2 text-xs text-mist-300">
+											人工标签：{latest.label} · {latest.reason}
+										</p>{/if}
+									{#if data.canConfigure}<div class="mt-3 flex flex-wrap items-center gap-2">
+											<select class="input text-xs" bind:value={pendingLabel[item.id]}
+												><option value="">选择审核结论</option><option value="FALSE_POSITIVE"
+													>误判</option
+												><option value="CONFIRMED_ABUSE">确认违规</option><option
+													value="INSUFFICIENT_EVIDENCE">证据不足</option
+												><option value="DATA_ERROR">数据错误</option></select
+											><input
+												class="input text-xs"
+												placeholder="填写审核理由（至少 5 字）"
+												bind:value={pendingReason[item.id]}
+											/><button
+												class="btn-secondary btn text-xs"
+												disabled={savingLabel === item.id}
+												onclick={() => saveLabel(item.id)}>保存标签</button
+											>
+										</div>{/if}
 								</details>
 							</td>
 						</tr>

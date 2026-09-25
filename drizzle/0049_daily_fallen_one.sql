@@ -1,0 +1,2 @@
+ALTER TABLE "integrity_cases" ADD COLUMN "score_id" bigint;--> statement-breakpoint
+ALTER TABLE "integrity_cases" ADD CONSTRAINT "integrity_cases_score_id_integrity_scores_id_fk" FOREIGN KEY ("score_id") REFERENCES "public"."integrity_scores"("id") ON DELETE no action ON UPDATE no action;

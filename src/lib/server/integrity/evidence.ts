@@ -31,6 +31,7 @@ export interface FreezeInput {
 	ruleVersion: number;
 	rulesSnapshot: unknown;
 	createdAt: Date;
+	scoreId?: number;
 	statistical?: StatisticalAssessment | null;
 	trigger?: string;
 }
@@ -85,9 +86,11 @@ export async function freezeFindingEvidence(db: DbOrTx, input: FreezeInput): Pro
 		ruleVersion: input.ruleVersion,
 		riskScore: input.score.score,
 		riskBreakdown: input.score.breakdown,
+		scoreId: input.scoreId ?? null,
 		statistical: input.statistical ?? null,
 		snapshot: {
 			instanceId: input.finding.instanceId,
+			roundId: input.finding.roundId,
 			map: input.finding.map,
 			clockFrom: input.finding.clockFrom,
 			clockTo: input.finding.clockTo,
@@ -134,6 +137,8 @@ export async function freezeFindingEvidence(db: DbOrTx, input: FreezeInput): Pro
 						victimFaction: row.victimFaction,
 						cause: row.cause,
 						distanceM: row.distanceM,
+						distanceInvalid: row.distanceInvalid,
+						rawDistanceCm: row.rawDistanceCm,
 						headshot: row.headshot,
 						teamKill: row.teamKill,
 						suicide: row.suicide,

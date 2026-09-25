@@ -4,6 +4,7 @@ import type { KillView } from '$lib/types';
 import type { Env } from '$lib/server/env';
 import {
 	integrityCases,
+	integrityModelState,
 	integrityScores,
 	integrityWindows,
 	kills,
@@ -12,7 +13,7 @@ import {
 	servers,
 	steamProfiles
 } from '$lib/server/db/schema';
-import { onKillsIngested } from '$lib/server/feed-events';
+import { processIntegrityBatch } from '$lib/server/integrity/pipeline';
 import { acquireOrRenew, releaseOwnership } from '$lib/server/leadership';
 import { forgetMemory, memoryFor } from '$lib/server/observe';
 import { hasTestDb, testEnv } from './db';
@@ -69,7 +70,7 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 				tags: item.tags
 			}))
 		);
-		await onKillsIngested(env, world.server.id, batch);
+		await processIntegrityBatch(env, world.server.id, batch);
 	};
 
 	beforeAll(async () => {
@@ -88,6 +89,11 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 	});
 
 	test('upgrades one active window, freezes the full case signal set and takes no action', async () => {
+		await env.db.insert(integrityModelState).values({
+			orgId: world.org.id,
+			activeBaselineGeneration: 'before-case',
+			baselineStatus: 'READY'
+		});
 		await send(Array.from({ length: 12 }, (_, i) => event(player, i * 12, `slow-${i}`)));
 		let windows = await env.db
 			.select()
@@ -106,6 +112,7 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 			.where(eq(integrityWindows.steamId, player));
 		expect(windows).toHaveLength(1);
 		expect(windows[0].eventIds).toHaveLength(21);
+		expect(windows[0].roundId).toBeTruthy();
 		const scores = await env.db
 			.select()
 			.from(integrityScores)
@@ -119,6 +126,12 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 			.from(integrityCases)
 			.where(eq(integrityCases.steamId, player));
 		expect(evidence).toBeDefined();
+		expect(evidence.scoreId).toBe(scores[1].id);
+		const [state] = await env.db
+			.select()
+			.from(integrityModelState)
+			.where(eq(integrityModelState.orgId, world.org.id));
+		expect(state.baselineStatus).toBe('STALE');
 		const snapshot = evidence.snapshot as Record<string, unknown>;
 		expect(snapshot.behaviorReasons).toContain('burst');
 		expect(snapshot.burstPoints).toBe(12);

@@ -16,6 +16,7 @@
 		overrides,
 		weaponDefaults,
 		categories,
+		assessmentMode,
 		lang
 	}: {
 		orgId: string;
@@ -24,6 +25,7 @@
 		overrides: { cause: string; category: string }[];
 		weaponDefaults: Readonly<Record<string, WeaponCategory>>;
 		categories: readonly WeaponCategory[];
+		assessmentMode: 'legacy' | 'statistical_shadow' | 'statistical';
 		lang: 'zh' | 'en';
 	} = $props();
 	// svelte-ignore state_referenced_locally -- initialise the editable snapshot for SSR; the effect follows later prop updates.
@@ -335,165 +337,193 @@
 </script>
 
 <section id="integrity-settings" class="mt-6 space-y-5">
-	<div class="panel p-5">
-		<h3 class="text-lg font-semibold text-white">
-			{lang === 'zh' ? '风控设置' : 'Integrity settings'}
-		</h3>
-		<p class="mt-1 text-sm text-mist-400">
-			{lang === 'zh'
-				? '组织所有者可以调整阈值与权重。改动记入审计日志并生成规则版本。自动处置由独立的实验性开关控制，默认关闭。'
-				: 'Organisation owners can adjust thresholds and weights. Changes are audited and versioned. Separate experimental switches control automatic actions and are off by default.'}
-		</p>
-		<p class="mt-2 text-xs text-warn">
-			{lang === 'zh'
-				? '数据接入状态：180 秒步兵 KPM、独立受害者、爆头率、穿透率、游戏时钟短时爆发、独立举报人数与重复高风险窗口已接入；Steam VAC / 游戏封禁仅在缓存有效且查询成功时计分。WARDOGS 官方总游戏时间与游戏聊天接收未接入。'
-				: 'Data status: infantry KPM, unique victims, headshot rate, penetration rate, game-clock bursts, unique reporters and repeat high-risk windows are connected. Steam VAC/game bans count only with valid lookup data. Official WARDOGS playtime and inbound game chat are unavailable.'}
-		</p>
-		<div
-			class="mt-4 grid gap-2 sm:grid-cols-5"
-			aria-label={lang === 'zh' ? '当前风险等级区间预览' : 'Current risk level ranges'}
-		>
-			{#each ranges as range (range.zh)}
-				<div class="rounded-ctl border border-white/10 p-3">
-					<div class="font-mono text-lg text-white">{range.start}–{range.end}</div>
-					<div class="text-xs text-mist-300">{lang === 'zh' ? range.zh : range.en}</div>
-				</div>
-			{/each}
-		</div>
-		<p class="mt-2 text-xs text-mist-400">
-			{lang === 'zh'
-				? '区间会随输入实时更新。分数只决定处置资格；实际自动处置还要求对应开关开启且通过实时安全检查。'
-				: 'Ranges update as you edit. Scores determine eligibility; automatic actions also require the matching switch and live safety checks.'}
-		</p>
-		<h4 class="mt-5 text-sm font-semibold text-white">
-			{lang === 'zh' ? '180 秒纯步兵 KPM 分段' : '180-second infantry KPM bands'}
-		</h4>
-		<p class="mt-1 text-xs text-mist-400">
-			{lang === 'zh'
-				? '每档从本档起点（含）到下一档起点（不含）；只按命中的最高一档加分，不叠加。'
-				: 'Each band runs from its threshold (inclusive) to the next (exclusive). Only the highest matching band adds points.'}
-		</p>
-		<div class="mt-2 grid gap-2 sm:grid-cols-5">
-			{#each draft.kpmBands as band, i (i)}
-				{@const nextMin = draft.kpmBands[i + 1]?.min}
-				<div class="rounded-ctl border border-white/10 p-3 text-xs text-mist-300">
-					<div class="font-semibold text-white">
-						{lang === 'zh' ? `第 ${i + 1} 档` : `Band ${i + 1}`}
+	{#if assessmentMode === 'legacy'}
+		<div class="panel p-5">
+			<h3 class="text-lg font-semibold text-white">
+				{lang === 'zh' ? '风控设置' : 'Integrity settings'}
+			</h3>
+			<p class="mt-1 text-sm text-mist-400">
+				{lang === 'zh'
+					? '组织所有者可以调整阈值与权重。改动记入审计日志并生成规则版本。自动处置由独立的实验性开关控制，默认关闭。'
+					: 'Organisation owners can adjust thresholds and weights. Changes are audited and versioned. Separate experimental switches control automatic actions and are off by default.'}
+			</p>
+			<p class="mt-2 text-xs text-warn">
+				{lang === 'zh'
+					? '数据接入状态：180 秒步兵 KPM、独立受害者、爆头率、穿透率、游戏时钟短时爆发、独立举报人数与重复高风险窗口已接入；Steam VAC / 游戏封禁仅在缓存有效且查询成功时计分。WARDOGS 官方总游戏时间与游戏聊天接收未接入。'
+					: 'Data status: infantry KPM, unique victims, headshot rate, penetration rate, game-clock bursts, unique reporters and repeat high-risk windows are connected. Steam VAC/game bans count only with valid lookup data. Official WARDOGS playtime and inbound game chat are unavailable.'}
+			</p>
+			<div
+				class="mt-4 grid gap-2 sm:grid-cols-5"
+				aria-label={lang === 'zh' ? '当前风险等级区间预览' : 'Current risk level ranges'}
+			>
+				{#each ranges as range (range.zh)}
+					<div class="rounded-ctl border border-white/10 p-3">
+						<div class="font-mono text-lg text-white">{range.start}–{range.end}</div>
+						<div class="text-xs text-mist-300">{lang === 'zh' ? range.zh : range.en}</div>
 					</div>
-					<div class="mt-1 min-h-8 font-mono text-accent">
-						{#if nextMin === undefined}
-							KPM ≥ {Number(band.min).toFixed(2)}
-						{:else if nextMin > band.min}
-							{Number(band.min).toFixed(2)} ≤ KPM &lt; {Number(nextMin).toFixed(2)}
-						{:else}
-							{lang === 'zh' ? '门槛必须递增' : 'Thresholds must increase'}
-						{/if}
+				{/each}
+			</div>
+			<p class="mt-2 text-xs text-mist-400">
+				{lang === 'zh'
+					? '区间会随输入实时更新。分数只决定处置资格；实际自动处置还要求对应开关开启且通过实时安全检查。'
+					: 'Ranges update as you edit. Scores determine eligibility; automatic actions also require the matching switch and live safety checks.'}
+			</p>
+			<h4 class="mt-5 text-sm font-semibold text-white">
+				{lang === 'zh' ? '180 秒纯步兵 KPM 分段' : '180-second infantry KPM bands'}
+			</h4>
+			<p class="mt-1 text-xs text-mist-400">
+				{lang === 'zh'
+					? '每档从本档起点（含）到下一档起点（不含）；只按命中的最高一档加分，不叠加。'
+					: 'Each band runs from its threshold (inclusive) to the next (exclusive). Only the highest matching band adds points.'}
+			</p>
+			<div class="mt-2 grid gap-2 sm:grid-cols-5">
+				{#each draft.kpmBands as band, i (i)}
+					{@const nextMin = draft.kpmBands[i + 1]?.min}
+					<div class="rounded-ctl border border-white/10 p-3 text-xs text-mist-300">
+						<div class="font-semibold text-white">
+							{lang === 'zh' ? `第 ${i + 1} 档` : `Band ${i + 1}`}
+						</div>
+						<div class="mt-1 min-h-8 font-mono text-accent">
+							{#if nextMin === undefined}
+								KPM ≥ {Number(band.min).toFixed(2)}
+							{:else if nextMin > band.min}
+								{Number(band.min).toFixed(2)} ≤ KPM &lt; {Number(nextMin).toFixed(2)}
+							{:else}
+								{lang === 'zh' ? '门槛必须递增' : 'Thresholds must increase'}
+							{/if}
+						</div>
+						<label class="mt-2 block">
+							<span>{lang === 'zh' ? '起点 KPM' : 'Minimum KPM'}</span>
+							<input
+								class="mt-1 input w-full"
+								type="number"
+								min="1"
+								max="20"
+								step="0.1"
+								bind:value={band.min}
+							/>
+						</label>
+						<label class="mt-2 block">
+							<span>{lang === 'zh' ? '本档加分' : 'Points for this band'}</span>
+							<input
+								class="mt-1 input w-full"
+								type="number"
+								min="0"
+								max="100"
+								step="1"
+								bind:value={band.points}
+							/>
+						</label>
 					</div>
-					<label class="mt-2 block">
-						<span>{lang === 'zh' ? '起点 KPM' : 'Minimum KPM'}</span>
-						<input
-							class="mt-1 input w-full"
-							type="number"
-							min="1"
-							max="20"
-							step="0.1"
-							bind:value={band.min}
-						/>
-					</label>
-					<label class="mt-2 block">
-						<span>{lang === 'zh' ? '本档加分' : 'Points for this band'}</span>
-						<input
-							class="mt-1 input w-full"
-							type="number"
-							min="0"
-							max="100"
-							step="1"
-							bind:value={band.points}
-						/>
-					</label>
-				</div>
-			{/each}
-		</div>
-		<p class="mt-2 text-xs text-mist-400">
-			{lang === 'zh'
-				? '低于第一档视为正常 KPM；KPM 与 KD 不会单独构成作弊定论。'
-				: 'Below the first band is normal KPM. KPM and KD alone do not establish cheating.'}
-		</p>
-		<div class="mt-5 grid gap-5 lg:grid-cols-3">
-			{#each fields as group (group.headingEn)}
-				<div>
-					<h4 class="mb-2 text-sm font-semibold text-white">
-						{lang === 'zh' ? group.headingZh : group.headingEn}
-					</h4>
-					<div class="space-y-2">
-						{#each group.entries as field (field.key)}
-							<label class="flex items-center justify-between gap-2 text-xs text-mist-300"
-								><span>{lang === 'zh' ? field.zh : field.en}</span><input
-									class="input w-24"
-									type="number"
-									min={field.min}
-									max={field.max}
-									step={field.step ?? 1}
-									value={draft[field.key]}
-									oninput={(event) => {
-										(draft as Record<NumericKey, number>)[field.key] = Number(
-											event.currentTarget.value
-										);
-									}}
-								/></label
-							>
-						{/each}
+				{/each}
+			</div>
+			<p class="mt-2 text-xs text-mist-400">
+				{lang === 'zh'
+					? '低于第一档视为正常 KPM；KPM 与 KD 不会单独构成作弊定论。'
+					: 'Below the first band is normal KPM. KPM and KD alone do not establish cheating.'}
+			</p>
+			<div class="mt-5 grid gap-5 lg:grid-cols-3">
+				{#each fields as group (group.headingEn)}
+					<div>
+						<h4 class="mb-2 text-sm font-semibold text-white">
+							{lang === 'zh' ? group.headingZh : group.headingEn}
+						</h4>
+						<div class="space-y-2">
+							{#each group.entries as field (field.key)}
+								<label class="flex items-center justify-between gap-2 text-xs text-mist-300"
+									><span>{lang === 'zh' ? field.zh : field.en}</span><input
+										class="input w-24"
+										type="number"
+										min={field.min}
+										max={field.max}
+										step={field.step ?? 1}
+										value={draft[field.key]}
+										oninput={(event) => {
+											(draft as Record<NumericKey, number>)[field.key] = Number(
+												event.currentTarget.value
+											);
+										}}
+									/></label
+								>
+							{/each}
+						</div>
 					</div>
-				</div>
-			{/each}
-		</div>
-		<div class="mt-5 grid gap-5 lg:grid-cols-2">
-			{#each [{ key: 'uniqueVictimBands', zh: '独立受害者加分', en: 'Unique victim points' }, { key: 'reportBands', zh: '独立举报人加分', en: 'Unique reporter points' }] as group (group.key)}
-				<div>
-					<h4 class="mb-2 text-sm font-semibold text-white">
-						{lang === 'zh' ? group.zh : group.en}
-					</h4>
-					<div class="flex flex-wrap gap-2">
-						{#each draft[group.key as 'uniqueVictimBands' | 'reportBands'] as band, i (i)}
-							<label class="text-xs text-mist-300"
-								>≥ <input class="input w-16" type="number" min="1" step="1" bind:value={band.min} />
-								→ +
-								<input
-									class="input w-16"
-									type="number"
-									min="0"
-									max="100"
-									step="1"
-									bind:value={band.points}
-								/></label
-							>
-						{/each}
+				{/each}
+			</div>
+			<div class="mt-5 grid gap-5 lg:grid-cols-2">
+				{#each [{ key: 'uniqueVictimBands', zh: '独立受害者加分', en: 'Unique victim points' }, { key: 'reportBands', zh: '独立举报人加分', en: 'Unique reporter points' }] as group (group.key)}
+					<div>
+						<h4 class="mb-2 text-sm font-semibold text-white">
+							{lang === 'zh' ? group.zh : group.en}
+						</h4>
+						<div class="flex flex-wrap gap-2">
+							{#each draft[group.key as 'uniqueVictimBands' | 'reportBands'] as band, i (i)}
+								<label class="text-xs text-mist-300"
+									>≥ <input
+										class="input w-16"
+										type="number"
+										min="1"
+										step="1"
+										bind:value={band.min}
+									/>
+									→ +
+									<input
+										class="input w-16"
+										type="number"
+										min="0"
+										max="100"
+										step="1"
+										bind:value={band.points}
+									/></label
+								>
+							{/each}
+						</div>
 					</div>
-				</div>
-			{/each}
+				{/each}
+			</div>
+			{#if validationError}<p class="mt-4 text-sm text-danger" role="alert">
+					{validationError}
+				</p>{/if}
+			<button
+				class="mt-5 btn btn-primary"
+				type="button"
+				disabled={busy || !!validationError}
+				onclick={saveRules}>{lang === 'zh' ? '保存风控规则' : 'Save integrity rules'}</button
+			>
+			<button
+				class="btn-quiet mt-5 ml-2 btn"
+				type="button"
+				disabled={busy}
+				onclick={() => (draft = structuredClone(config))}
+				>{lang === 'zh' ? '撤销未保存修改' : 'Discard unsaved changes'}</button
+			>
+			<button
+				class="btn-quiet mt-5 ml-2 btn"
+				type="button"
+				disabled={busy}
+				onclick={() => (draft = structuredClone(ruleDefaults))}
+				>{lang === 'zh' ? '载入附件默认值' : 'Load default values'}</button
+			>
 		</div>
-		{#if validationError}<p class="mt-4 text-sm text-danger" role="alert">{validationError}</p>{/if}
-		<button
-			class="mt-5 btn btn-primary"
-			type="button"
-			disabled={busy || !!validationError}
-			onclick={saveRules}>{lang === 'zh' ? '保存风控规则' : 'Save integrity rules'}</button
-		>
-		<button
-			class="btn-quiet mt-5 ml-2 btn"
-			type="button"
-			disabled={busy}
-			onclick={() => (draft = structuredClone(config))}
-			>{lang === 'zh' ? '撤销未保存修改' : 'Discard unsaved changes'}</button
-		>
-		<button
-			class="btn-quiet mt-5 ml-2 btn"
-			type="button"
-			disabled={busy}
-			onclick={() => (draft = structuredClone(ruleDefaults))}
-			>{lang === 'zh' ? '载入附件默认值' : 'Load default values'}</button
-		>
-	</div>
+	{:else}
+		<div class="panel p-5">
+			<h3 class="text-lg font-semibold text-white">
+				{lang === 'zh' ? '统计委员会模型（只读）' : 'Statistical committee models (read only)'}
+			</h3>
+			<p class="mt-2 text-sm text-warn">
+				{lang === 'zh'
+					? '统计自动处罚尚未完成实服校准，程序级开关保持关闭。管理员只能调整处置策略，不能修改模型门槛和票权。'
+					: 'Statistical automatic actions remain disabled pending real-server calibration. Model thresholds and votes are code controlled.'}
+			</p>
+			<ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-mist-300">
+				<li>Tempo：180 秒 KPM、15 秒爆发、击杀间隔、独立受害者</li>
+				<li>Precision：爆头、穿透、同枪械精度；单次最大距离仅供人工复核</li>
+				<li>Career Deviation：玩家长期正常表现偏离</li>
+				<li>Change Point：持续变化点</li>
+				<li>Persistence：真正独立片段的重复异常</li>
+			</ul>
+		</div>
+	{/if}
 
 	<div class="panel p-5">
 		<h3 class="text-lg font-semibold text-white">

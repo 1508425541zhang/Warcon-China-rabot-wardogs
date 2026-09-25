@@ -87,12 +87,15 @@ export function decideStatisticalAction(
 		!input.identityReliable ||
 		(input.confidence !== 'A' && input.confidence !== 'B') ||
 		assessment.status !== 'READY' ||
+		assessment.committee?.decision !== 'KICK_CANDIDATE' ||
+		assessment.committee.autoActionBlocked ||
 		assessment.level !== 'KICK_CANDIDATE' ||
 		assessment.sampleCount < 5000 ||
-		assessment.tempoPercentile === null ||
-		assessment.tempoPercentile < 0.9995 ||
+		assessment.actionTempoPercentile === null ||
+		assessment.actionTempoPercentile < 0.9995 ||
 		!(
-			(assessment.precisionPercentile !== null && assessment.precisionPercentile >= 0.995) ||
+			(assessment.actionPrecisionPercentile !== null &&
+				assessment.actionPrecisionPercentile >= 0.995) ||
 			(input.priorIndependentWindow && assessment.independentEpisodes >= 2)
 		)
 	)

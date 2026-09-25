@@ -144,10 +144,31 @@ describe('empirical Integrity statistics', () => {
 		expect(result.metrics.every((metric) => metric.weaponCategory === rifle)).toBe(true);
 		expect(result.level).toBe('CASE');
 	});
+	test('single maximum kill distance remains review-only even with 5000 baseline windows', () => {
+		const rifle = 'Id.Item.AK74M';
+		const large = Array.from({ length: 5000 }, (_, i) => [i + 1, 1] as [number, number]);
+		const result = assessDistribution(
+			{ kpm180: 6000 },
+			new Map([['kpm180', distribution('kpm180', large)]]),
+			24,
+			1,
+			[{ cause: rifle, kills: 3, headshots: 0, maxKillDistanceM: 6000 }],
+			new Map([
+				[
+					`maxKillDistanceWeapon:${rifle}`,
+					{ ...distribution('maxKillDistanceWeapon', large), weaponCategory: rifle }
+				]
+			])
+		);
+		expect(result.precisionPercentile).toBe(1);
+		expect(result.actionPrecisionPercentile).toBeNull();
+		expect(result.level).toBe('CASE');
+	});
 });
 
 const finding: BehaviorFinding = {
 	steamId: '76561198000000001',
+	roundId: 'i-1:derived:1',
 	instanceId: 'i',
 	map: 'Kavkazi',
 	anchorClock: 1,
@@ -184,6 +205,9 @@ test('statistical decision has independent evidence, live gates and a hard safet
 		24,
 		1
 	);
+	assessment.committee = { decision: 'KICK_CANDIDATE', autoActionBlocked: false } as NonNullable<
+		typeof assessment.committee
+	>;
 	const input = {
 		assessment,
 		finding,

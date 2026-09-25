@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
 import {
 	feedProcessingJobs,
@@ -59,6 +59,20 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 	});
 	const jobOf = async (id: number) =>
 		(await env.db.select().from(feedProcessingJobs).where(eq(feedProcessingJobs.id, id)))[0];
+	const jobAt = async (ts: string, consumer: 'legacy' | 'integrity') =>
+		(
+			await env.db
+				.select()
+				.from(feedProcessingJobs)
+				.where(
+					and(
+						eq(feedProcessingJobs.killTs, new Date(ts)),
+						eq(feedProcessingJobs.consumer, consumer)
+					)
+				)
+		)[0];
+	const run = (job: Awaited<ReturnType<typeof jobOf>>) =>
+		processNextFeedJob(env, job.id, job.consumer as 'legacy' | 'integrity');
 	beforeAll(async () => {
 		env = await testEnv();
 		world = await seedWorld(env);
@@ -126,9 +140,11 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 			.select()
 			.from(feedProcessingJobs)
 			.where(eq(feedProcessingJobs.serverId, world.server.id));
-		expect(jobs).toHaveLength(1);
-		expect(jobs[0].state).toBe('pending');
-		expect((jobs[0].eventIds as string[]).length).toBe(24);
+		expect(jobs).toHaveLength(2);
+		expect(jobs.map((job) => job.consumer).sort()).toEqual(['integrity', 'legacy']);
+		expect(
+			jobs.every((job) => job.state === 'pending' && (job.eventIds as string[]).length === 24)
+		).toBe(true);
 		const duplicate = await ingestBatch(env, world.server.id, body('durable'));
 		expect(duplicate.accepted).toBe(0);
 		expect(
@@ -136,15 +152,30 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 				.select()
 				.from(feedProcessingJobs)
 				.where(eq(feedProcessingJobs.serverId, world.server.id))
-		).toHaveLength(1);
+		).toHaveLength(2);
 	});
 
 	test('worker resume consumes persisted events into an Integrity finding', async () => {
 		const [job] = await env.db
 			.select()
 			.from(feedProcessingJobs)
-			.where(eq(feedProcessingJobs.serverId, world.server.id));
-		expect(await processNextFeedJob(env, job.id)).toBe(true);
+			.where(
+				and(
+					eq(feedProcessingJobs.serverId, world.server.id),
+					eq(feedProcessingJobs.consumer, 'integrity')
+				)
+			);
+		expect(await run(job)).toBe(true);
+		expect(
+			await run(
+				await jobAt(
+					(
+						await env.db.select().from(feedProcessingJobs).where(eq(feedProcessingJobs.id, job.id))
+					)[0].killTs.toISOString(),
+					'legacy'
+				)
+			)
+		).toBe(true);
 		expect((await jobOf(job.id)).state).toBe('done');
 		expect(
 			await env.db.select().from(integrityWindows).where(eq(integrityWindows.steamId, killer))
@@ -158,30 +189,26 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 	test('expired processing lease is reclaimed after a simulated crash', async () => {
 		const result = await ingestBatch(env, world.server.id, body('crash'));
 		expect(result.accepted).toBe(24);
-		const [job] = await env.db
-			.select()
-			.from(feedProcessingJobs)
-			.where(eq(feedProcessingJobs.killTs, new Date(result.kills[0].ts)));
+		const job = await jobAt(result.kills[0].ts, 'legacy');
 		const claimed = await claimFeedJob(env, job.id);
 		expect(claimed?.state).toBe('processing');
 		await env.db
 			.update(feedProcessingJobs)
 			.set({ leaseUntil: new Date(Date.now() - 1000) })
 			.where(eq(feedProcessingJobs.id, job.id));
-		expect(await processNextFeedJob(env, job.id)).toBe(true);
+		expect(await run(job)).toBe(true);
 		expect((await jobOf(job.id)).state).toBe('done');
 		expect((await jobOf(job.id)).attempts).toBe(2);
+		expect(await run(await jobAt(result.kills[0].ts, 'integrity'))).toBe(true);
 	});
 
 	test('worker cold start without a server memory snapshot still processes evidence', async () => {
 		forgetMemory(world.server.id);
 		resetIntegrityServer(world.server.id);
 		const result = await ingestBatch(env, world.server.id, body('cold-start'));
-		const [job] = await env.db
-			.select()
-			.from(feedProcessingJobs)
-			.where(eq(feedProcessingJobs.killTs, new Date(result.kills[0].ts)));
-		expect(await processNextFeedJob(env, job.id)).toBe(true);
+		const job = await jobAt(result.kills[0].ts, 'integrity');
+		expect(await run(job)).toBe(true);
+		expect(await run(await jobAt(result.kills[0].ts, 'legacy'))).toBe(true);
 		expect((await jobOf(job.id)).state).toBe('done');
 		expect(
 			(
@@ -206,11 +233,9 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 			...all,
 			events: all.events.slice(0, 11)
 		});
-		const [firstJob] = await env.db
-			.select()
-			.from(feedProcessingJobs)
-			.where(eq(feedProcessingJobs.killTs, new Date(first.kills[0].ts)));
-		expect(await processNextFeedJob(env, firstJob.id)).toBe(true);
+		const firstJob = await jobAt(first.kills[0].ts, 'integrity');
+		expect(await run(firstJob)).toBe(true);
+		expect(await run(await jobAt(first.kills[0].ts, 'legacy'))).toBe(true);
 		expect(
 			await env.db
 				.select()
@@ -224,11 +249,9 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 			{ ...all, events: all.events.slice(11, 12) },
 			new Date(Date.now() + 1000)
 		);
-		const [secondJob] = await env.db
-			.select()
-			.from(feedProcessingJobs)
-			.where(eq(feedProcessingJobs.killTs, new Date(second.kills[0].ts)));
-		expect(await processNextFeedJob(env, secondJob.id)).toBe(true);
+		const secondJob = await jobAt(second.kills[0].ts, 'integrity');
+		expect(await run(secondJob)).toBe(true);
+		expect(await run(await jobAt(second.kills[0].ts, 'legacy'))).toBe(true);
 		expect(
 			await env.db
 				.select()
@@ -241,7 +264,12 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 		const [job] = await env.db
 			.select()
 			.from(feedProcessingJobs)
-			.where(eq(feedProcessingJobs.serverId, world.server.id));
+			.where(
+				and(
+					eq(feedProcessingJobs.serverId, world.server.id),
+					eq(feedProcessingJobs.consumer, 'integrity')
+				)
+			);
 		const before = await Promise.all([
 			env.db.select().from(integrityScores).where(eq(integrityScores.steamId, killer)),
 			env.db.select().from(integrityCases).where(eq(integrityCases.steamId, killer)),
@@ -253,7 +281,7 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 			.update(feedProcessingJobs)
 			.set({ state: 'pending', doneAt: null })
 			.where(eq(feedProcessingJobs.id, job.id));
-		expect(await processNextFeedJob(env, job.id)).toBe(true);
+		expect(await run(job)).toBe(true);
 		const after = await Promise.all([
 			env.db.select().from(integrityScores).where(eq(integrityScores.steamId, killer)),
 			env.db.select().from(integrityCases).where(eq(integrityCases.steamId, killer)),
@@ -298,11 +326,8 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 		};
 		const result = await ingestBatch(env, world.server.id, posted);
 		expect(result.kills[0].teamKill).toBe(true);
-		const [job] = await env.db
-			.select()
-			.from(feedProcessingJobs)
-			.where(eq(feedProcessingJobs.killTs, new Date(result.kills[0].ts)));
-		expect(await processNextFeedJob(env, job.id)).toBe(true);
+		const job = await jobAt(result.kills[0].ts, 'legacy');
+		expect(await run(job)).toBe(true);
 		const before = await env.db.select().from(outbox).where(eq(outbox.steamId, killer));
 		expect(before).toHaveLength(1);
 		resetIntegrityServer(world.server.id);
@@ -310,9 +335,10 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 			.update(feedProcessingJobs)
 			.set({ state: 'pending', doneAt: null })
 			.where(eq(feedProcessingJobs.id, job.id));
-		expect(await processNextFeedJob(env, job.id)).toBe(true);
+		expect(await run(job)).toBe(true);
 		const after = await env.db.select().from(outbox).where(eq(outbox.steamId, killer));
 		expect(after).toHaveLength(1);
+		expect(await run(await jobAt(result.kills[0].ts, 'integrity'))).toBe(true);
 	});
 
 	test('stale replay preserves evidence but cannot queue automatic punishment', async () => {
@@ -377,25 +403,21 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 				}
 			});
 		const live = await ingestBatch(env, world.server.id, body('live-control', liveKiller, true));
-		const [liveJob] = await env.db
-			.select()
-			.from(feedProcessingJobs)
-			.where(eq(feedProcessingJobs.killTs, new Date(live.kills[0].ts)));
-		expect(await processNextFeedJob(env, liveJob.id)).toBe(true);
+		const liveJob = await jobAt(live.kills[0].ts, 'integrity');
+		expect(await run(liveJob)).toBe(true);
+		expect(await run(await jobAt(live.kills[0].ts, 'legacy'))).toBe(true);
 		expect(
 			await env.db.select().from(integrityActions).where(eq(integrityActions.steamId, liveKiller))
 		).toHaveLength(1);
 		resetIntegrityServer(world.server.id);
 		const result = await ingestBatch(env, world.server.id, body('stale', staleKiller, true));
-		const [job] = await env.db
-			.select()
-			.from(feedProcessingJobs)
-			.where(eq(feedProcessingJobs.killTs, new Date(result.kills[0].ts)));
+		const job = await jobAt(result.kills[0].ts, 'integrity');
 		await env.db
 			.update(feedProcessingJobs)
 			.set({ createdAt: new Date(Date.now() - 15 * 60_000) })
 			.where(eq(feedProcessingJobs.id, job.id));
-		expect(await processNextFeedJob(env, job.id)).toBe(true);
+		expect(await run(job)).toBe(true);
+		expect(await run(await jobAt(result.kills[0].ts, 'legacy'))).toBe(true);
 		expect((await jobOf(job.id)).state).toBe('done');
 		expect(
 			(await env.db.select().from(integrityCases).where(eq(integrityCases.steamId, staleKiller)))
@@ -443,10 +465,12 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 			.where(eq(serverLive.serverId, world.server.id));
 		memory.players = roster;
 		memory.playersAt = now.getTime();
+		const backlogWorld = await seedWorld(env);
 		const [old] = await env.db
 			.insert(feedProcessingJobs)
 			.values({
-				serverId: world.server.id,
+				serverId: backlogWorld.server.id,
+				consumer: 'integrity',
 				killTs: now,
 				eventIds: ['unprocessed-backlog'],
 				createdAt: new Date(now.getTime() - 10 * 60_000)
@@ -457,14 +481,11 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 			world.server.id,
 			body('backlog-control', backlogKiller, true)
 		);
-		const [job] = await env.db
-			.select()
-			.from(feedProcessingJobs)
-			.where(eq(feedProcessingJobs.killTs, new Date(result.kills[0].ts)));
+		const job = await jobAt(result.kills[0].ts, 'integrity');
 		const depth = await feedJobDepth(env);
 		expect(depth.pending).toBeGreaterThanOrEqual(2);
 		expect(feedBacklogUnsafe(depth)).toBe(true);
-		expect(await processNextFeedJob(env, job.id)).toBe(true);
+		expect(await run(job)).toBe(true);
 		expect(
 			(await env.db.select().from(integrityCases).where(eq(integrityCases.steamId, backlogKiller)))
 				.length
@@ -476,5 +497,25 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 				.where(eq(integrityActions.steamId, backlogKiller))
 		).toHaveLength(0);
 		await env.db.delete(feedProcessingJobs).where(eq(feedProcessingJobs.id, old.id));
+		expect(await run(await jobAt(result.kills[0].ts, 'legacy'))).toBe(true);
+	});
+
+	test('an Integrity retry cannot block the legacy consumer for the same server', async () => {
+		const isolated = await seedWorld(env);
+		await ingestBatch(env, isolated.server.id, body('consumer-isolation'));
+		const jobs = await env.db
+			.select()
+			.from(feedProcessingJobs)
+			.where(eq(feedProcessingJobs.serverId, isolated.server.id));
+		const integrity = jobs.find((job) => job.consumer === 'integrity')!;
+		const legacy = jobs.find((job) => job.consumer === 'legacy')!;
+		await env.db
+			.update(feedProcessingJobs)
+			.set({ eventIds: ['missing-source-event'] })
+			.where(eq(feedProcessingJobs.id, integrity.id));
+		expect(await run(integrity)).toBe(true);
+		expect((await jobOf(integrity.id)).state).toBe('pending');
+		expect(await run(legacy)).toBe(true);
+		expect((await jobOf(legacy.id)).state).toBe('done');
 	});
 });

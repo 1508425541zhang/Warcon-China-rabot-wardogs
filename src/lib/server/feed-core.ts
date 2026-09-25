@@ -16,6 +16,10 @@ export function parseFeedBearer(header: string | null | undefined): string | nul
 /** The game never sent more than ten; a batch this size is not the game. */
 export const MAX_BATCH = 200;
 export const MAX_BODY_BYTES = 65536;
+/** Broad protocol sanity bound, not a weapon range or anti-cheat threshold. */
+export const MAX_KILL_DISTANCE_M = 5000;
+export const validKillDistanceM = (distance: number): boolean =>
+	Number.isFinite(distance) && distance > 0 && distance < MAX_KILL_DISTANCE_M;
 
 export interface ParsedKill {
 	eventId: string;
@@ -28,6 +32,9 @@ export interface ParsedKill {
 	victimName: string;
 	cause: string | null;
 	distanceM: number | null;
+	/** Raw feed value failed the broad protocol sanity range; the original payload remains auditable. */
+	distanceInvalid: boolean;
+	rawDistanceCm: number | null;
 	headshot: boolean;
 	suicide: boolean;
 	/** the other context tags, short form */
@@ -80,6 +87,7 @@ export function parseKill(e: unknown): ParsedKill | null {
 	const headshot = tags.includes('Headshot');
 	const suicide = tags.includes('Suicide') || (!!killerSteamId && killerSteamId === victimSteamId);
 	const distance = num(o.distance);
+	const distanceInvalid = distance !== null && !validKillDistanceM(distance / 100);
 	return {
 		eventId,
 		matchId: str(o.matchId, 64),
@@ -91,7 +99,9 @@ export function parseKill(e: unknown): ParsedKill | null {
 		victimName: str(o.victimName),
 		cause: str(o.cause, 200) || null,
 		// Unreal units are centimetres.
-		distanceM: distance === null ? null : Math.round(distance) / 100,
+		distanceM: distance === null || distanceInvalid ? null : Math.round(distance) / 100,
+		distanceInvalid,
+		rawDistanceCm: distance,
 		headshot,
 		suicide,
 		tags: tags.filter((t) => t !== 'Headshot' && t !== 'Suicide')

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { sql } from 'drizzle-orm';
-import { integrityBaselines } from '$lib/server/db/schema';
+import { feedProcessingJobs, integrityBaselines, kills, samples } from '$lib/server/db/schema';
 import { refreshIntegrityBaselines, selectBaselines } from '$lib/server/integrity/baselines';
 import { percentilePosition } from '$lib/server/integrity/statistics';
 import { hasTestDb, testEnv } from './db';
@@ -23,30 +23,63 @@ describe.skipIf(!hasTestDb)('PostgreSQL empirical baselines', () => {
 		const env = await testEnv();
 		const world = await seedWorld(env);
 		const base = new Date(Date.now() - 3 * 86_400_000);
-		await env.db.execute(sql`
-			INSERT INTO samples (ts,server_id,ok,player_count,map)
-			SELECT ${base}::timestamptz + slot * interval '3 minutes', ${world.server.id}, true,
-			       CASE WHEN slot < 200 THEN 15 ELSE 70 END, 'Kavkazi'
-			FROM generate_series(0,399) slot`);
-		await env.db.execute(sql`
-			INSERT INTO kills (ts,server_id,event_id,instance_id,match_id,event_time,map,
-				killer_steam_id,killer_name,killer_faction,victim_steam_id,victim_name,victim_faction,cause,headshot,team_kill,suicide,tags)
-			SELECT ${base}::timestamptz + slot * interval '3 minutes' + n * interval '1 second',
-			       ${world.server.id}, 'base-' || slot || '-' || n, 'stat-test', 'round',
-			       slot * 180 + n, 'Kavkazi', '76561198000000888', 'Test', 'Blue',
-			       '7656119800000' || lpad(n::text,4,'0'), 'Victim', 'Red', 'Id.Item.AK74M',
-			       (n % 2 = 0), false, false, '[]'::jsonb
-			FROM generate_series(0,399) slot
-			CROSS JOIN LATERAL generate_series(1, CASE WHEN slot < 200 THEN 3 + slot % 7 ELSE 9 + slot % 7 END) n`);
+		for (const [group, playerCount, killsPerPlayer] of [
+			[0, 15, 1],
+			[1, 70, 2]
+		] as const) {
+			const at = new Date(base.getTime() + group * 3_600_000);
+			await env.db.insert(samples).values({
+				ts: new Date(at.getTime() - 60_000),
+				serverId: world.server.id,
+				ok: true,
+				playerCount,
+				map: 'Kavkazi'
+			});
+			const events = Array.from({ length: 200 }, (_, player) =>
+				Array.from({ length: killsPerPlayer }, (_, n) => ({
+					ts: at,
+					serverId: world.server.id,
+					eventId: `base-${group}-${player}-${n}`,
+					instanceId: 'stat-test',
+					matchId: 'round',
+					matchRow: group + 1,
+					eventTime: n + 1,
+					map: 'Kavkazi',
+					killerSteamId: String(76561198000000000n + BigInt(group * 200 + player)),
+					killerName: 'Test',
+					killerFaction: 'Blue',
+					victimSteamId: String(76561198100000000n + BigInt(group * 400 + player * 2 + n)),
+					victimName: 'Victim',
+					victimFaction: 'Red',
+					cause: 'Id.Item.AK74M',
+					headshot: false,
+					teamKill: false,
+					suicide: false,
+					tags: []
+				}))
+			).flat();
+			for (let i = 0; i < events.length; i += 200)
+				await env.db.insert(kills).values(events.slice(i, i + 200));
+			await env.db.insert(feedProcessingJobs).values({
+				serverId: world.server.id,
+				killTs: at,
+				eventIds: events.map((event) => event.eventId),
+				createdAt: at,
+				doneAt: new Date(at.getTime() + 60_000),
+				state: 'done',
+				attempts: 1,
+				consumer: 'integrity'
+			});
+		}
 		expect(await refreshIntegrityBaselines(env, world.org.id)).toBeGreaterThan(0);
 		const rows = await env.db.select().from(integrityBaselines);
 		const own = rows.filter((row) => row.orgId === world.org.id);
 		const low = selectBaselines(own, 'Kavkazi', '1–20').get('kpm180')!;
 		const high = selectBaselines(own, 'Kavkazi', '61–80').get('kpm180')!;
 		expect(low.sampleCount).toBe(200);
-		expect(high.sampleCount).toBe(200);
+		expect(high.sampleCount).toBe(400);
 		expect(low.p99).toBeLessThan(high.p99);
-		expect(percentilePosition(low.cdf, 3.5)).toBeGreaterThan(percentilePosition(high.cdf, 3.5));
+		expect(percentilePosition(low.cdf, 0.5)).toBeGreaterThan(percentilePosition(high.cdf, 0.5));
 		const limited = own.map((row) =>
 			row.metric === 'kpm180' && row.level === 1 ? { ...row, sampleCount: 50 } : row
 		);

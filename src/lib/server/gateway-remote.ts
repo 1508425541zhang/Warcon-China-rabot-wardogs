@@ -156,6 +156,9 @@ export function connectRemoteGateway(env: Env): Gateway {
 		async settingsChanged(env) {
 			await call(env, '/settings-changed', {});
 		},
+		async integrityChanged(orgId) {
+			await call(env, '/integrity-changed', { orgId });
+		},
 		triggersChanged(serverId) {
 			void call(env, '/triggers-changed', { serverId }).catch(() => {});
 		},

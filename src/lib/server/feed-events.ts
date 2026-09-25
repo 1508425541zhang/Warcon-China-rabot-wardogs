@@ -29,7 +29,6 @@ import { drainMockFeed } from './mockgame';
 import { ingestBatch } from './feed';
 import { servers, type ServerRow } from './db/schema';
 import type { KillView } from '$lib/types';
-import { processIntegrityBatch } from './integrity/pipeline';
 
 /** The legacy kill-rate and team-kill consumers continue even if Integrity fails. */
 export async function onKillsIngested(
@@ -40,7 +39,6 @@ export async function onKillsIngested(
 ): Promise<void> {
 	if (!kills.length) return;
 	emit({ type: 'kills', serverId, kills });
-	await processIntegrityBatch(env, serverId, kills, allowActions);
 	if (allowActions) await actOnKillRate(env, serverId, kills);
 	const teamKills = kills.filter((k) => k.teamKill && k.killer);
 	if (!teamKills.length || !allowActions) return;

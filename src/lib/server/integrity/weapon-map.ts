@@ -1,8 +1,9 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Env } from '../env';
 import type { SessionUser } from '../access';
 import { writeAudit } from '../audit';
-import { integrityWeaponMap } from '../db/schema';
+import { integrityModelState, integrityWeaponMap } from '../db/schema';
+import { gateway } from '../gateway';
 import { ApiError, str } from '../http';
 import { DEFAULT_WEAPON_MAP, isWeaponCategory, type WeaponCategory } from './weapons';
 
@@ -11,6 +12,9 @@ export async function weaponMappings(env: Env, orgId: string) {
 }
 
 const overrideCache = new Map<string, { until: number; values: Map<string, WeaponCategory> }>();
+export function invalidateWeaponMap(orgId: string): void {
+	overrideCache.delete(orgId);
+}
 
 export async function weaponOverrides(
 	env: Env,
@@ -42,15 +46,30 @@ export async function putWeaponMapping(
 	const cause = requireCause(body.cause);
 	const category = body.category;
 	if (!isWeaponCategory(category)) throw new ApiError(400, 'Unknown weapon category.');
-	const [row] = await env.db
-		.insert(integrityWeaponMap)
-		.values({ orgId, cause, category, updatedBy: actor.id })
-		.onConflictDoUpdate({
-			target: [integrityWeaponMap.orgId, integrityWeaponMap.cause],
-			set: { category, updatedBy: actor.id, updatedAt: new Date() }
-		})
-		.returning();
+	const row = await env.db.transaction(async (tx) => {
+		const [saved] = await tx
+			.insert(integrityWeaponMap)
+			.values({ orgId, cause, category, updatedBy: actor.id })
+			.onConflictDoUpdate({
+				target: [integrityWeaponMap.orgId, integrityWeaponMap.cause],
+				set: { category, updatedBy: actor.id, updatedAt: new Date() }
+			})
+			.returning();
+		await tx
+			.insert(integrityModelState)
+			.values({ orgId, weaponMapVersion: 2, baselineStatus: 'STALE' })
+			.onConflictDoUpdate({
+				target: integrityModelState.orgId,
+				set: {
+					weaponMapVersion: sql`${integrityModelState.weaponMapVersion} + 1`,
+					baselineStatus: 'STALE',
+					updatedAt: new Date()
+				}
+			});
+		return saved;
+	});
 	overrideCache.delete(orgId);
+	await gateway().integrityChanged(orgId);
 	await writeAudit(env, req, {
 		actor,
 		orgId,
@@ -72,12 +91,28 @@ export async function deleteWeaponMapping(
 	input: unknown
 ) {
 	const cause = requireCause(input);
-	const [deleted] = await env.db
-		.delete(integrityWeaponMap)
-		.where(and(eq(integrityWeaponMap.orgId, orgId), eq(integrityWeaponMap.cause, cause)))
-		.returning();
+	const deleted = await env.db.transaction(async (tx) => {
+		const [removed] = await tx
+			.delete(integrityWeaponMap)
+			.where(and(eq(integrityWeaponMap.orgId, orgId), eq(integrityWeaponMap.cause, cause)))
+			.returning();
+		if (!removed) return null;
+		await tx
+			.insert(integrityModelState)
+			.values({ orgId, weaponMapVersion: 2, baselineStatus: 'STALE' })
+			.onConflictDoUpdate({
+				target: integrityModelState.orgId,
+				set: {
+					weaponMapVersion: sql`${integrityModelState.weaponMapVersion} + 1`,
+					baselineStatus: 'STALE',
+					updatedAt: new Date()
+				}
+			});
+		return removed;
+	});
 	if (!deleted) throw new ApiError(404, 'Weapon mapping not found.');
 	overrideCache.delete(orgId);
+	await gateway().integrityChanged(orgId);
 	await writeAudit(env, req, {
 		actor,
 		orgId,

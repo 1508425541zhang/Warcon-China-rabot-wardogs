@@ -2,12 +2,18 @@ import { createHash } from 'node:crypto';
 import { and, desc, eq } from 'drizzle-orm';
 import type { Env } from '../env';
 import type { SessionUser } from '../access';
-import { integrityImportBatches, integrityImportKills } from '../db/schema';
+import {
+	integrityBaselines,
+	integrityImportBatches,
+	integrityImportKills,
+	integrityModelState
+} from '../db/schema';
 import { ApiError } from '../http';
 import { writeAudit } from '../audit';
 import { weaponOverrides } from './weapon-map';
 import { classifyWeapon } from './weapons';
 import { refreshIntegrityBaselines } from './baselines';
+import { validKillDistanceM } from '../feed-core';
 
 export const MAX_IMPORT_BYTES = 8 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 10_000;
@@ -107,11 +113,8 @@ export function parseExternalHistory(raw: string, now = new Date()): ExternalKil
 		if (killerFaction === victimFaction) throw new ApiError(400, `第 ${line} 条是同阵营记录。`);
 		const cause = id('cause', /^Id\.Item\.[A-Za-z0-9_-]{1,80}$/);
 		const distanceM = row.distanceM === null || row.distanceM === undefined ? null : row.distanceM;
-		if (
-			distanceM !== null &&
-			(typeof distanceM !== 'number' || !Number.isFinite(distanceM) || distanceM <= 0)
-		)
-			throw new ApiError(400, `第 ${line} 条 distanceM 必须为米数或 null。`);
+		if (distanceM !== null && (typeof distanceM !== 'number' || !validKillDistanceM(distanceM)))
+			throw new ApiError(400, `第 ${line} 条 distanceM 必须为 0～5000 米或 null。`);
 		if (typeof row.headshot !== 'boolean' || typeof row.penetration !== 'boolean')
 			throw new ApiError(400, `第 ${line} 条 headshot、penetration 必须为布尔值。`);
 		const playerCount =
@@ -253,6 +256,19 @@ export async function reviewIntegrityImport(
 		message: `${decision} external history ${id}`,
 		detail: { batchId: id, sourceServer: batch.sourceServer, rows: batch.rowCount }
 	});
+	if (decision === 'REJECTED') {
+		// Revoked external history must stop being selectable before any optional rebuild.
+		await env.db.transaction(async (tx) => {
+			await tx
+				.delete(integrityBaselines)
+				.where(and(eq(integrityBaselines.orgId, orgId), eq(integrityBaselines.source, 'external')));
+			await tx
+				.update(integrityModelState)
+				.set({ baselineStatus: 'STALE', activeBaselineGeneration: null, updatedAt: new Date() })
+				.where(eq(integrityModelState.orgId, orgId));
+		});
+		return batch;
+	}
 	await refreshIntegrityBaselines(env, orgId);
 	return batch;
 }

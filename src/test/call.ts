@@ -110,6 +110,7 @@ export function stubGateway(answer: unknown = {}): {
 		syncOrg: async () => ({ servers: [] }),
 		syncServer: async () => ({ ok: true }) as never,
 		settingsChanged: async () => {},
+		integrityChanged: async () => {},
 		triggersChanged: () => {},
 		identityChanged: () => {},
 		statusChanged: () => {},

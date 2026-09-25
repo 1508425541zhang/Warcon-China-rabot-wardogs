@@ -457,8 +457,10 @@ async function bucketedCash(
 	const rows = await env.db.execute<{ b: Date; name: string; avg: string }>(sql`
 			SELECT to_timestamp(floor(extract(epoch FROM s.ts) / ${bucket}) * ${bucket}) AS b,
 			       e->>'name' AS name, AVG((e->>'cash')::numeric) AS avg
-			  FROM samples s CROSS JOIN LATERAL jsonb_array_elements(s.cash) e
-			 WHERE s.server_id = ${serverId} AND s.ts >= ${from} AND s.ok AND s.cash IS NOT NULL
+			  FROM samples s CROSS JOIN LATERAL jsonb_array_elements(
+			    CASE WHEN jsonb_typeof(s.cash) = 'array' THEN s.cash ELSE '[]'::jsonb END) e
+			 WHERE s.server_id = ${serverId} AND s.ts >= ${from} AND s.ok
+			   AND jsonb_typeof(e) = 'object' AND e->>'cash' ~ '^-?[0-9]+(\.[0-9]+)?$'
 			 GROUP BY b, name ORDER BY b`);
 	return pivotCash(rows.map((r) => ({ ts: isoOf(r.b), name: r.name ?? '', cash: num(r.avg) })));
 }

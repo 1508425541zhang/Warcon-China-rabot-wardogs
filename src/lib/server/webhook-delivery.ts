@@ -9,6 +9,7 @@ import { playerMarks, servers, webhooks, type AuditRow, type WebhookRow } from '
 import { OWNERS_ROWS } from './audit-rows';
 import { causeLabel } from '$lib/causes';
 import type { KillView } from '$lib/types';
+import { normalizeWebhookEvents, webhookScopeAllows } from './runtime-normalizers';
 
 export const WEBHOOK_EVENTS = [
 	'bans',
@@ -31,13 +32,15 @@ export const WEBHOOK_EVENT_LABELS: Record<WebhookEvent, string> = {
 	auth: 'Sign-ins and sign-in failures',
 	teamkills: 'Team kills (from the kill feed)',
 	watched: 'Watched players joining',
-	integrity: 'Community Integrity evidence cases'
+	integrity: 'Community Integrity cases and action delivery'
 };
 
 /** Which event class an audit row belongs to. */
 export function classify(row: Pick<AuditRow, 'category' | 'action'>): WebhookEvent | null {
 	// A single community report is private review input, not a player-change notification.
 	if (row.action === 'integrity.report.create') return null;
+	if (row.action === 'trigger.integrity' || row.action.startsWith('integrity.enforcement.'))
+		return 'integrity';
 	switch (row.category) {
 		case 'rcon':
 			return row.action === 'rcon.ban' || row.action === 'rcon.unban' ? 'bans' : 'commands';
@@ -127,6 +130,7 @@ export interface IntegrityCaseAlert {
 	map: string;
 	score: number;
 	level: string;
+	statisticalLevel?: string | null;
 	breakdown: readonly { code: string; points: number; detail: string }[];
 	infantryKills: number;
 	kpm180: number;
@@ -138,7 +142,7 @@ export interface IntegrityCaseAlert {
 /** An advisory case alert contains no reporter identity or enforcement claim. */
 export function buildIntegrityEmbed(appName: string, alert: IntegrityCaseAlert): Embed {
 	return {
-		title: `Integrity review · ${alert.level}`,
+		title: `Integrity review · ${alert.statisticalLevel ?? alert.level}`,
 		description: clip(
 			[
 				`Case: ${alert.caseId}`,
@@ -499,10 +503,10 @@ export async function notifyWebhooks(env: Env, row: AuditRow): Promise<void> {
 		if (!hooks.length) return;
 		let embed: Embed | null = null;
 		for (const hook of hooks) {
-			const events = (hook.events as string[]) || [];
+			const events = normalizeWebhookEvents(hook.events);
 			if (!events.includes(event)) continue;
-			const only = hook.serverIds as string[] | null;
-			if (only && only.length && (!row.serverId || !only.includes(row.serverId))) continue;
+			if (hook.serverIds !== null && !row.serverId) continue;
+			if (row.serverId && !webhookScopeAllows(hook.serverIds, row.serverId)) continue;
 			embed ??= withDossierLink(env, row, buildEmbed(env.APP_NAME || 'Warcon', row));
 			enqueue(env, hook, embed);
 		}
@@ -514,9 +518,10 @@ export async function notifyWebhooks(env: Env, row: AuditRow): Promise<void> {
 /** The hooks that carry an event class for a server: ticked, and the server in their filter. */
 export function hooksFor(hooks: WebhookRow[], event: WebhookEvent, serverId: string): WebhookRow[] {
 	return hooks.filter((hook) => {
-		if (!((hook.events as string[]) || []).includes(event)) return false;
-		const only = hook.serverIds as string[] | null;
-		return !only || !only.length || only.includes(serverId);
+		return (
+			normalizeWebhookEvents(hook.events).includes(event) &&
+			webhookScopeAllows(hook.serverIds, serverId)
+		);
 	});
 }
 

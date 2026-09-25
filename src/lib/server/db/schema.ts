@@ -492,6 +492,20 @@ export const integrityWeaponMap = pgTable(
 	(t) => [primaryKey({ columns: [t.orgId, t.cause] })]
 );
 
+/** Statistical generations are independent of owner-editable legacy score rules. */
+export const integrityModelState = pgTable('integrity_model_state', {
+	orgId: text('org_id')
+		.primaryKey()
+		.references(() => organizations.id, { onDelete: 'cascade' }),
+	weaponMapVersion: integer('weapon_map_version').notNull().default(1),
+	activeBaselineGeneration: text('active_baseline_generation'),
+	baselineStatus: text('baseline_status').notNull().default('STALE'),
+	lastRefreshAt: ts('last_refresh_at'),
+	lastFailureAt: ts('last_failure_at'),
+	lastDurationMs: integer('last_duration_ms'),
+	updatedAt: ts('updated_at').notNull().defaultNow()
+});
+
 /** Non-overlapping abnormal infantry windows; no action is implied by a row. */
 export const integrityWindows = pgTable(
 	'integrity_windows',
@@ -501,6 +515,7 @@ export const integrityWindows = pgTable(
 		serverId: text('server_id').notNull(),
 		steamId: text('steam_id').notNull(),
 		instanceId: text('instance_id').notNull(),
+		roundId: text('round_id'),
 		map: text('map').notNull(),
 		clockFrom: real('clock_from').notNull(),
 		clockTo: real('clock_to').notNull(),
@@ -535,6 +550,13 @@ export const integrityBaselines = pgTable(
 		/** Local feed or approved, user-supplied external history. Never mix their distributions. */
 		source: text('source').notNull().default('local'),
 		sampleCount: integer('sample_count').notNull(),
+		uniquePlayers: integer('unique_players').notNull().default(0),
+		uniquePlayerDays: integer('unique_player_days').notNull().default(0),
+		effectiveSampleSize: real('effective_sample_size').notNull().default(0),
+		modelVersion: text('model_version').notNull().default('legacy-fixed-v0'),
+		featureVersion: text('feature_version').notNull().default('fixed-slot-v0'),
+		weaponMapVersion: integer('weapon_map_version').notNull().default(0),
+		generation: text('generation').notNull().default('legacy'),
 		median: real('median').notNull(),
 		mad: real('mad'),
 		p90: real('p90').notNull(),
@@ -549,6 +571,94 @@ export const integrityBaselines = pgTable(
 		calculatedAt: ts('calculated_at').notNull()
 	},
 	(t) => [index('integrity_baselines_lookup_idx').on(t.orgId, t.metric, t.level)]
+);
+
+/** Only safe/normal windows enter this append-only career reference history. */
+export const integrityPlayerMetricHistory = pgTable(
+	'integrity_player_metric_history',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		orgId: text('org_id')
+			.notNull()
+			.references(() => organizations.id, { onDelete: 'cascade' }),
+		steamId: text('steam_id').notNull(),
+		serverId: text('server_id').notNull(),
+		roundId: text('round_id').notNull(),
+		eventId: text('event_id').notNull(),
+		observedAt: ts('observed_at').notNull(),
+		kpm180: real('kpm_180').notNull(),
+		headshotRate: real('headshot_rate'),
+		maxKills15s: integer('max_kills_15s').notNull(),
+		featureVersion: text('feature_version').notNull(),
+		modelVersion: text('model_version').notNull()
+	},
+	(t) => [
+		uniqueIndex('integrity_player_history_event_idx').on(t.orgId, t.serverId, t.eventId),
+		index('integrity_player_history_player_idx').on(t.orgId, t.steamId, t.observedAt.desc())
+	]
+);
+
+/** Bounded materialized personal reference; raw career totals are descriptive, never votes. */
+export const integrityPlayerCareers = pgTable(
+	'integrity_player_careers',
+	{
+		orgId: text('org_id')
+			.notNull()
+			.references(() => organizations.id, { onDelete: 'cascade' }),
+		steamId: text('steam_id').notNull(),
+		firstSeenAt: ts('first_seen_at').notNull(),
+		lastSeenAt: ts('last_seen_at').notNull(),
+		lifetimeValidKills: integer('lifetime_valid_kills'),
+		lifetimePlaytimeSeconds: integer('lifetime_playtime_seconds'),
+		lifetimeWindows: integer('lifetime_windows').notNull(),
+		lifetimeMatches: integer('lifetime_matches').notNull(),
+		activeDays: integer('active_days').notNull(),
+		kpmDistribution: jsonb('kpm_distribution').notNull(),
+		headshotDistribution: jsonb('headshot_distribution'),
+		burstDistribution: jsonb('burst_distribution').notNull(),
+		recent24h: jsonb('recent_24h'),
+		recent7d: jsonb('recent_7d'),
+		recent30d: jsonb('recent_30d'),
+		orderedKpm: jsonb('ordered_kpm').notNull(),
+		modelVersion: text('model_version').notNull(),
+		featureVersion: text('feature_version').notNull(),
+		status: text('status').notNull().default('READY'),
+		updatedAt: ts('updated_at').notNull().defaultNow()
+	},
+	(t) => [primaryKey({ columns: [t.orgId, t.steamId] })]
+);
+
+/** Human corrections are labels for offline calibration, never live score adjustments. */
+export const integrityLabels = pgTable(
+	'integrity_labels',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		caseId: text('case_id').notNull(),
+		orgId: text('org_id')
+			.notNull()
+			.references(() => organizations.id, { onDelete: 'cascade' }),
+		label: text('label').notNull(),
+		reason: text('reason').notNull(),
+		reviewerId: text('reviewer_id').notNull(),
+		modelVersion: text('model_version').notNull(),
+		createdAt: ts('created_at').notNull().defaultNow()
+	},
+	(t) => [index('integrity_labels_case_idx').on(t.caseId, t.createdAt.desc())]
+);
+
+/** Independent, bounded Steam enrichment; never awaited by the ordered feed consumer. */
+export const integrityProfileRefreshJobs = pgTable(
+	'integrity_profile_refresh_jobs',
+	{
+		steamId: text('steam_id').primaryKey(),
+		state: text('state').notNull().default('pending'),
+		attempts: integer('attempts').notNull().default(0),
+		nextAt: ts('next_at').notNull().defaultNow(),
+		leaseUntil: ts('lease_until'),
+		lastError: text('last_error'),
+		updatedAt: ts('updated_at').notNull().defaultNow()
+	},
+	(t) => [index('integrity_profile_refresh_pending_idx').on(t.state, t.nextAt)]
 );
 
 /** External history is reviewed before it can influence a baseline; it never enters the live kill feed. */
@@ -668,6 +778,7 @@ export const integrityCases = pgTable(
 		ruleVersion: integer('rule_version').notNull(),
 		riskScore: integer('risk_score').notNull(),
 		riskBreakdown: jsonb('risk_breakdown').notNull(),
+		scoreId: bigint('score_id', { mode: 'number' }).references(() => integrityScores.id),
 		statistical: jsonb('statistical'),
 		snapshot: jsonb('snapshot').notNull(),
 		reviewedBy: text('reviewed_by'),
@@ -678,6 +789,15 @@ export const integrityCases = pgTable(
 		index('integrity_cases_player_idx').on(t.orgId, t.steamId, t.createdAt.desc())
 	]
 );
+
+/** Assessment transition and retryable action eligibility have distinct durable state. */
+export const integrityActionEligibility = pgTable('integrity_action_eligibility', {
+	caseId: text('case_id')
+		.primaryKey()
+		.references(() => integrityCases.id, { onDelete: 'cascade' }),
+	lastAttemptAt: ts('last_attempt_at').notNull(),
+	attempts: integer('attempts').notNull().default(1)
+});
 
 /** Source event rows for new cases; old JSON snapshots remain readable. */
 export const integrityCaseEvents = pgTable(
@@ -818,6 +938,8 @@ export const kills = pgTable(
 		/** the raw weapon or vehicle tag, e.g. Id.Item.AK74M */
 		cause: text('cause'),
 		distanceM: real('distance_m'),
+		distanceInvalid: boolean('distance_invalid').notNull().default(false),
+		rawDistanceCm: real('raw_distance_cm'),
 		headshot: boolean('headshot').notNull().default(false),
 		/** the Suicide tag, or killer = victim */
 		suicide: boolean('suicide').notNull().default(false),
@@ -847,13 +969,14 @@ export const feedProcessingJobs = pgTable(
 		killTs: ts('kill_ts').notNull(),
 		eventIds: jsonb('event_ids').notNull(),
 		createdAt: ts('created_at').notNull().defaultNow(),
+		consumer: text('consumer').notNull().default('legacy'),
 		state: text('state').notNull().default('pending'),
 		attempts: integer('attempts').notNull().default(0),
 		leaseUntil: ts('lease_until'),
 		doneAt: ts('done_at'),
 		lastError: text('last_error')
 	},
-	(t) => [index('feed_processing_pending_idx').on(t.state, t.createdAt)]
+	(t) => [index('feed_processing_pending_idx').on(t.consumer, t.state, t.createdAt)]
 );
 export type FeedProcessingJob = typeof feedProcessingJobs.$inferSelect;
 

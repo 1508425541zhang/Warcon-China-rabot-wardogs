@@ -6,6 +6,7 @@ import { orgRoleFor, requireServerCap } from '$lib/server/access';
 import { normalizeError } from '$lib/server/http';
 import {
 	integrityCases,
+	integrityLabels,
 	integrityActions,
 	integrityReports,
 	integrityScores,
@@ -16,6 +17,7 @@ import { getIntegrityRules } from '$lib/server/integrity/rules';
 import { weaponOverrides } from '$lib/server/integrity/weapon-map';
 import { liveInfantryMetrics } from '$lib/server/integrity/live';
 import { shadowComparison } from '$lib/server/integrity/baselines';
+import { summarizeCommitteeShadow } from '$lib/server/integrity/shadow-dashboard';
 import type { Player, Status } from '$lib/types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -174,6 +176,43 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		`)) as { code: string; points: number }[];
 		const canConfigure = (await orgRoleFor(env, user, server.orgId)) === 'owner';
 		const comparison = await shadowComparison(env, server.orgId, rules.config.koThreshold);
+		const [shadowRows, labelRows] = await Promise.all([
+			env.db
+				.select({ windowId: integrityScores.windowId, statistical: integrityScores.statistical })
+				.from(integrityScores)
+				.where(
+					and(
+						eq(integrityScores.serverId, server.id),
+						eq(integrityScores.source, 'window'),
+						gte(integrityScores.scoredAt, new Date(now.getTime() - 30 * 86_400_000))
+					)
+				)
+				.orderBy(desc(integrityScores.scoredAt), desc(integrityScores.id))
+				.limit(5001),
+			env.db
+				.select({
+					caseId: integrityLabels.caseId,
+					label: integrityLabels.label,
+					reason: integrityLabels.reason,
+					statistical: integrityCases.statistical,
+					createdAt: integrityLabels.createdAt
+				})
+				.from(integrityLabels)
+				.innerJoin(integrityCases, eq(integrityCases.id, integrityLabels.caseId))
+				.where(
+					and(
+						eq(integrityCases.serverId, server.id),
+						gte(integrityLabels.createdAt, new Date(now.getTime() - 30 * 86_400_000))
+					)
+				)
+				.orderBy(desc(integrityLabels.createdAt))
+				.limit(5001)
+		]);
+		const committeeShadow = summarizeCommitteeShadow(
+			shadowRows.slice(0, 5000),
+			labelRows.slice(0, 5000),
+			shadowRows.length > 5000 || labelRows.length > 5000
+		);
 		return {
 			cases: cases.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
 			scores: scores.map((item) => ({ ...item, scoredAt: item.scoredAt.toISOString() })),
@@ -192,6 +231,13 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			ruleVersion: rules.version,
 			assessmentMode: rules.assessmentMode,
 			comparison,
+			committeeShadow,
+			labels: labelRows.slice(0, 5000).map((row) => ({
+				caseId: row.caseId,
+				label: row.label,
+				reason: row.reason,
+				createdAt: row.createdAt.toISOString()
+			})),
 			kpmBands: rules.config.kpmBands,
 			mode: rules.enforcement.autoSuspendedAt
 				? 'suspended'

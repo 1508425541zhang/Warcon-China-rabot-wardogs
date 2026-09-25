@@ -29,6 +29,12 @@ const batch = (events: unknown[]) => ({
 });
 
 describe('parseKill', () => {
+	test('out-of-range or negative feed distance is invalid evidence, while the kill remains', () => {
+		expect(parseKill({ ...killed, distance: 500_001 })?.distanceM).toBeNull();
+		expect(parseKill({ ...killed, distance: -1 })?.distanceM).toBeNull();
+		expect(parseKill({ ...killed, distance: 500_000 })?.distanceM).toBeNull();
+		expect(parseKill({ ...killed, distance: 499_999 })?.distanceM).toBe(4999.99);
+	});
 	test('a player kill: metres, headshot, no noise tags', () => {
 		expect(parseKill(killed)).toEqual({
 			eventId: 'C7020B4D-8E3D-478A-8063-28AA54EED3B2',
@@ -41,6 +47,8 @@ describe('parseKill', () => {
 			victimName: 'Bravo',
 			cause: 'Id.Item.AK74M',
 			distanceM: 7.05,
+			distanceInvalid: false,
+			rawDistanceCm: 704.8741455078125,
 			headshot: true,
 			suicide: false,
 			tags: []

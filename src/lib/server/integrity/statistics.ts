@@ -38,6 +38,13 @@ export interface DistributionStats {
 	populationBucket: PopulationBucket | null;
 	weaponCategory: string;
 	sampleCount: number;
+	uniquePlayers?: number;
+	uniquePlayerDays?: number;
+	effectiveSampleSize?: number;
+	modelVersion?: string;
+	featureVersion?: string;
+	weaponMapVersion?: number;
+	baselineGeneration?: string;
 	median: number;
 	mad: number | null;
 	p90: number;
@@ -64,6 +71,13 @@ export interface MetricAssessment {
 	mad: number | null;
 	robustZ: number | null;
 	sampleCount: number;
+	uniquePlayers?: number;
+	uniquePlayerDays?: number;
+	effectiveSampleSize?: number;
+	modelVersion?: string;
+	featureVersion?: string;
+	weaponMapVersion?: number;
+	baselineGeneration?: string;
 	baselineId: string;
 	map: string | null;
 	populationBucket: PopulationBucket | null;
@@ -77,10 +91,19 @@ export interface MetricAssessment {
 }
 
 export interface StatisticalAssessment {
+	modelVersion?: string;
+	featureVersion?: string;
+	weaponMapVersion?: number | null;
+	baselineGeneration?: string | null;
+	baselineCalculatedAt?: string | null;
+	committee?: import('./committee').CommitteeResult;
 	status: 'READY' | 'INSUFFICIENT_DATA';
 	level: StatisticalLevel | null;
 	tempoPercentile: number | null;
 	precisionPercentile: number | null;
+	/** Eligible automatic-action signals; single maximum distance is review-only. */
+	actionTempoPercentile: number | null;
+	actionPrecisionPercentile: number | null;
 	strongestMetric: { code: MetricCode; value: number; percentile: number } | null;
 	independentEpisodes: number;
 	sampleCount: number;
@@ -196,6 +219,13 @@ export function assessDistribution(
 			mad: baseline.mad,
 			robustZ: robustZ(value, baseline.median, baseline.mad),
 			sampleCount: baseline.sampleCount,
+			uniquePlayers: baseline.uniquePlayers,
+			uniquePlayerDays: baseline.uniquePlayerDays,
+			effectiveSampleSize: baseline.effectiveSampleSize,
+			modelVersion: baseline.modelVersion,
+			featureVersion: baseline.featureVersion,
+			weaponMapVersion: baseline.weaponMapVersion,
+			baselineGeneration: baseline.baselineGeneration,
 			baselineId: baseline.id,
 			map: baseline.map,
 			populationBucket: baseline.populationBucket,
@@ -226,7 +256,9 @@ export function assessDistribution(
 		(tempo !== null && tempo >= 0.99 && precision !== null && precision >= 0.99);
 	// A second Tempo measurement from the same episode is not independent evidence.
 	// P99.95 needs enough observations to resolve the tail; low-sample baselines remain review-only.
-	const actionMetrics = metrics.filter((metric) => metric.sampleCount >= 5000);
+	const actionMetrics = metrics.filter(
+		(metric) => metric.sampleCount >= 5000 && metric.code !== 'maxKillDistanceWeapon'
+	);
 	const actionTempo = maxFor('Tempo', actionMetrics);
 	const actionPrecision = maxFor('Precision', actionMetrics);
 	const kickCandidate =
@@ -247,6 +279,8 @@ export function assessDistribution(
 		level,
 		tempoPercentile: tempo,
 		precisionPercentile: precision,
+		actionTempoPercentile: actionTempo,
+		actionPrecisionPercentile: actionPrecision,
 		strongestMetric: strongest
 			? {
 					code: strongest.code,
