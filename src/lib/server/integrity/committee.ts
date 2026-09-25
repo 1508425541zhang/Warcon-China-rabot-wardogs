@@ -53,6 +53,20 @@ export interface CommitteeResult {
 	vetoReasons: string[];
 }
 
+/** Persistence may count only a prior episode with an independent abnormal signal. */
+export function hasStatisticalAnomaly(assessment: StatisticalAssessment | null): boolean {
+	if (
+		!assessment ||
+		assessment.status !== 'READY' ||
+		assessment.modelVersion !== STATISTICAL_MODEL_CONFIG.modelVersion ||
+		assessment.featureVersion !== STATISTICAL_MODEL_CONFIG.featureVersion
+	)
+		return false;
+	return assessment.metrics.some(
+		(metric) => metric.code !== 'maxKillDistanceWeapon' && metric.extremenessPercentile >= 0.99
+	);
+}
+
 const verdict = (
 	model: IntegrityExpertModel,
 	decision: ExpertDecision,

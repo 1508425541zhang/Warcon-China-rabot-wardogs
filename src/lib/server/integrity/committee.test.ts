@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	dataQualityVeto,
+	hasStatisticalAnomaly,
 	voteCommittee,
 	type EvidenceFamily,
 	type ExpertDecision,
 	type ExpertVerdict
 } from './committee';
+import type { StatisticalAssessment } from './statistics';
 
 const v = (
 	family: EvidenceFamily,
@@ -85,5 +87,18 @@ describe('independent expert committee', () => {
 				baselinePopulationAdequate: true
 			})
 		).toEqual(['IDENTITYRELIABLE', 'BASELINEFRESH']);
+	});
+	test('persistence ignores ordinary and distance-only prior windows', () => {
+		const assessment = (code: string, percentile: number) =>
+			({
+				status: 'READY',
+				modelVersion: 'ensemble-shadow-v1',
+				featureVersion: 'rolling-infantry-v1',
+				metrics: [{ code, extremenessPercentile: percentile }]
+			}) as StatisticalAssessment;
+		expect(hasStatisticalAnomaly(null)).toBe(false);
+		expect(hasStatisticalAnomaly(assessment('kpm180', 0.5))).toBe(false);
+		expect(hasStatisticalAnomaly(assessment('maxKillDistanceWeapon', 1))).toBe(false);
+		expect(hasStatisticalAnomaly(assessment('kpm180', 0.995))).toBe(true);
 	});
 });
