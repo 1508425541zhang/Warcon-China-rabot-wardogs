@@ -1,7 +1,8 @@
 # Getting started with Warcon
 
-This is the short, plain-language version. If you are comfortable with Docker and `.env` files, the
-[upstream README](../README.upstream.md) has everything in more detail. The [Chinese project homepage](../README.md) explains this fork's Integrity features.
+This is the short English version for this fork. For a step-by-step Chinese installation guide,
+see [从零安装](install.zh-CN.md). The [upstream README](../README.upstream.md) has additional
+deployment details, and the [Chinese homepage](../README.md) explains this fork's Integrity features.
 
 Warcon is a web page you host yourself. You open it in a browser, log in, and control your WARDOGS
 servers from there. Nobody on your team needs the RCON password; they get their own login instead.
@@ -22,11 +23,11 @@ any shell on Linux). Copy and paste them exactly.
 ## Step 1: get the files
 
 ```bash
-git clone https://github.com/warcon-app/warcon.git warcon
-cd warcon
+git clone https://github.com/1508425541zhang/Warcon-China-rabot-wardogs.git
+cd Warcon-China-rabot-wardogs
 ```
 
-No git? Download the ZIP from <https://github.com/warcon-app/warcon>, unzip it, and open a terminal
+No git? Download the ZIP from <https://github.com/1508425541zhang/Warcon-China-rabot-wardogs>, unzip it, and open a terminal
 in that folder.
 
 ## Step 2: create the settings file
@@ -37,16 +38,17 @@ Warcon reads its settings from a file called `.env`. Start from the example:
 cp .env.example .env
 ```
 
-Open `.env` in any text editor and change these four lines. Leave everything else alone.
+Open `.env` in any text editor and change these five lines. Leave everything else alone.
 
 | Line                 | What to put there                                                                                |
 | -------------------- | ------------------------------------------------------------------------------------------------ |
 | `BETTER_AUTH_SECRET` | A long random string. Generate one with the command below.                                       |
 | `ENCRYPTION_KEY`     | A different long random string. Generate another one.                                            |
-| `POSTGRES_PASSWORD`  | Any password you like. You will never have to type it again.                                     |
+| `RELAY_SECRET`       | A third, different long random string for the web and worker.                                   |
+| `POSTGRES_PASSWORD`  | A fourth, different long random string for the bundled database; it is not the web login.       |
 | `ORIGIN`             | The address people will type into their browser. See below.                                      |
 
-To generate a random string, run this once per secret and paste the result:
+To generate a random string, run this four times, once per secret, and paste each different result:
 
 ```bash
 openssl rand -base64 32
