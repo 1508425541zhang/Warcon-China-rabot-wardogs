@@ -20,6 +20,7 @@ import type { WebhookView } from '$lib/types';
 import { isStatusStyle, type StatusStyle } from '$lib/status-styles';
 import { gateway } from './gateway';
 import { parseServerScope } from './server-scope';
+import { normalizeWebhookEvents, webhookScopeAllows } from './runtime-normalizers';
 import { servers } from './db/schema';
 import { cardLinks, clampInterval, statusMessage } from './webhook-status-core';
 import { effectiveFeatures } from '$lib/features';
@@ -86,8 +87,13 @@ const shape = (w: WebhookRow): WebhookView => ({
 	id: w.id,
 	label: w.label,
 	urlHint: w.urlHint,
-	events: (w.events as string[]) || [],
-	serverIds: (w.serverIds as string[] | null) ?? null,
+	events: normalizeWebhookEvents(w.events),
+	serverIds:
+		w.serverIds === null
+			? null
+			: Array.isArray(w.serverIds)
+				? w.serverIds.filter((v): v is string => typeof v === 'string')
+				: [],
 	enabled: w.enabled,
 	statusEnabled: w.statusEnabled,
 	statusStyle: w.statusStyle,
@@ -217,7 +223,7 @@ export async function updateWebhook(
 	const statusEnabled = set.statusEnabled ?? row.statusEnabled;
 	if (body.events !== undefined)
 		changes.events = set.events = parseEvents(body.events, statusEnabled);
-	else if (!statusEnabled && !((row.events as string[]) || []).length)
+	else if (!statusEnabled && !normalizeWebhookEvents(row.events).length)
 		throw new ApiError(
 			400,
 			'Pick at least one kind of event to mirror, or keep the live status message on.'
@@ -289,7 +295,7 @@ export async function testWebhook(
 		embeds: [
 			{
 				title: 'Webhook test',
-				description: `**${user.username}** connected ${org.name} to this channel. Events: ${(row.events as string[]).join(', ')}.`,
+				description: `**${user.username}** connected ${org.name} to this channel. Events: ${normalizeWebhookEvents(row.events).join(', ')}.`,
 				color: 0xd4a843,
 				timestamp: new Date().toISOString(),
 				footer: { text: env.APP_NAME || 'Warcon' }
@@ -335,8 +341,7 @@ export async function sendTestCard(
 ): Promise<PostResult> {
 	const row = await webhookOf(env, org.id, id);
 	if (!row.statusEnabled) throw new ApiError(400, 'This webhook does not keep status cards.');
-	const only = row.serverIds as string[] | null;
-	if (only && only.length && !only.includes(serverId))
+	if (!webhookScopeAllows(row.serverIds, serverId))
 		throw new ApiError(400, 'This webhook does not cover that server.');
 	const [server] = await env.db
 		.select()

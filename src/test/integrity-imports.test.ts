@@ -12,12 +12,12 @@ import { seedWorld } from './world';
 
 const event = (i: number, date: Date) => ({
 	eventId: `external-${i}`,
-	eventAt: date.toISOString(),
+	eventAt: new Date(date.getTime() + i * 180_000).toISOString(),
 	instanceId: 'startup-1',
 	matchId: 'round-1',
 	eventTime: i * 180 + 5,
 	map: 'Kavkazi',
-	killerSteamId: '76561198000000888',
+	killerSteamId: i % 2 ? '76561198000000888' : '76561198000000889',
 	victimSteamId: '76561198000000999',
 	killerFaction: 'Blue',
 	victimFaction: 'Red',
@@ -40,6 +40,9 @@ describe('external Integrity JSON/JSONL validation', () => {
 		expect(() => parseExternalHistory(JSON.stringify([{ ...one, distanceM: '5000' }]))).toThrow(
 			/distanceM/
 		);
+		expect(() => parseExternalHistory(JSON.stringify([{ ...one, distanceM: 5001 }]))).toThrow(
+			/distanceM/
+		);
 		expect(() =>
 			parseExternalHistory(
 				JSON.stringify([{ ...one, eventAt: new Date(Date.now() - 40 * 86_400_000).toISOString() }])
@@ -56,7 +59,7 @@ describe.skipIf(!hasTestDb)('approved external Integrity baselines', () => {
 		const env = await testEnv();
 		const world = await seedWorld(env);
 		const now = new Date(Date.now() - 86_400_000);
-		const raw = Array.from({ length: 35 }, (_, i) => JSON.stringify(event(i, now))).join('\n');
+		const raw = Array.from({ length: 40 }, (_, i) => JSON.stringify(event(i, now))).join('\n');
 		const request = new Request('http://localhost/test', { method: 'POST' });
 		const batch = await stageIntegrityImport(
 			env,
@@ -66,8 +69,10 @@ describe.skipIf(!hasTestDb)('approved external Integrity baselines', () => {
 			'outside-01',
 			raw
 		);
-		expect(batch.rowCount).toBe(35);
-		expect(await refreshIntegrityBaselines(env, world.org.id)).toBe(0);
+		expect(batch.rowCount).toBe(40);
+		await expect(refreshIntegrityBaselines(env, world.org.id)).rejects.toThrow(
+			/No eligible clean baseline/
+		);
 		expect(
 			await env.db.select().from(kills).where(eq(kills.serverId, world.server.id))
 		).toHaveLength(0);
@@ -85,7 +90,7 @@ describe.skipIf(!hasTestDb)('approved external Integrity baselines', () => {
 			.where(eq(integrityBaselines.orgId, world.org.id));
 		const baseline = selectBaselines(rows, 'Kavkazi', '41–60').get('kpm180');
 		expect(baseline?.source).toBe('external');
-		expect(baseline?.sampleCount).toBe(35);
+		expect(baseline?.sampleCount).toBe(40);
 		await reviewIntegrityImport(
 			env,
 			request,

@@ -7,6 +7,7 @@ import type { Env } from './env';
 import { matches, matchPlayers, samples, serverLive, servers } from './db/schema';
 import type { KillsOfMatch } from './feed';
 import { matchResult } from '$lib/leaderboard';
+import { normalizeScores } from './runtime-normalizers';
 import {
 	awardsFor,
 	durationOf,
@@ -21,10 +22,7 @@ import {
 
 const num = (v: unknown): number => (v === null || v === undefined ? 0 : Number(v));
 type Scores = { name: string; score: number }[];
-const scoresOf = (v: unknown): Scores | null =>
-	Array.isArray(v) && v.length
-		? (v as Scores).map((f) => ({ name: f.name, score: Number(f.score) }))
-		: null;
+const scoresOf = (v: unknown): Scores | null => normalizeScores(v);
 
 const summary = (m: typeof matches.$inferSelect, players: number): MatchSummary => ({
 	id: m.id,

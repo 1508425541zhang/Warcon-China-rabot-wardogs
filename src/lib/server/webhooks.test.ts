@@ -68,6 +68,10 @@ describe('classify', () => {
 		expect(classify({ category: 'rcon', action: 'rcon.ban' })).toBe('bans');
 		expect(classify({ category: 'rcon', action: 'rcon.kick' })).toBe('commands');
 		expect(classify({ category: 'trigger', action: 'trigger.welcome' })).toBe('triggers');
+		expect(classify({ category: 'trigger', action: 'trigger.integrity' })).toBe('integrity');
+		expect(classify({ category: 'system', action: 'integrity.enforcement.action' })).toBe(
+			'integrity'
+		);
 		expect(classify({ category: 'player', action: 'player.note' })).toBe('players');
 		expect(classify({ category: 'player', action: 'integrity.report.create' })).toBeNull();
 		expect(classify({ category: 'org', action: 'org.invite.create' })).toBe('management');

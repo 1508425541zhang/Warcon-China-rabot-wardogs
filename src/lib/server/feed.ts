@@ -154,6 +154,7 @@ export function killView(r: KillRow): KillView {
 		eventId: r.eventId,
 		instanceId: r.instanceId,
 		matchId: r.matchId,
+		matchRow: r.matchRow,
 		ts: r.ts.toISOString(),
 		map: r.map,
 		eventTime: r.eventTime,
@@ -163,6 +164,8 @@ export function killView(r: KillRow): KillView {
 		victim: { steamId: r.victimSteamId, name: r.victimName, faction: r.victimFaction },
 		cause: r.cause,
 		distanceM: r.distanceM,
+		distanceInvalid: r.distanceInvalid,
+		rawDistanceCm: r.rawDistanceCm,
 		headshot: r.headshot,
 		suicide: r.suicide,
 		teamKill: r.teamKill,
@@ -272,6 +275,8 @@ export async function ingestBatch(
 							victimFaction: vf,
 							cause: k.cause,
 							distanceM: k.distanceM,
+							distanceInvalid: k.distanceInvalid,
+							rawDistanceCm: k.rawDistanceCm,
 							headshot: k.headshot,
 							suicide: k.suicide,
 							teamKill: isTeamKill(k, kf, vf),
@@ -282,12 +287,15 @@ export async function ingestBatch(
 				.returning();
 			written = rows.map(killView);
 			if (rows.length)
-				await db.insert(feedProcessingJobs).values({
-					serverId,
-					killTs: now,
-					eventIds: rows.map((row) => row.eventId),
-					createdAt: now
-				});
+				await db.insert(feedProcessingJobs).values(
+					(['legacy', 'integrity'] as const).map((consumer) => ({
+						serverId,
+						consumer,
+						killTs: now,
+						eventIds: rows.map((row) => row.eventId),
+						createdAt: now
+					}))
+				);
 		});
 	// The liveness stamp, at most every ten seconds per server: the worker's upsert of the row
 	// leaves this column alone, so the two never fight.

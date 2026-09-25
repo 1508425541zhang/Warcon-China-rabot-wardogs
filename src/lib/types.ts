@@ -158,6 +158,8 @@ export interface KillView {
 	/** Game instance and match identifiers are per boot in observed builds. */
 	instanceId?: string;
 	matchId?: string;
+	/** Local matches.id, when the feed event can be tied to a persisted round. */
+	matchRow?: number | null;
 	/** when Warcon received it */
 	ts: string;
 	map: string;
@@ -169,6 +171,8 @@ export interface KillView {
 	/** the raw weapon or vehicle tag; $lib/causes labels it */
 	cause: string | null;
 	distanceM: number | null;
+	distanceInvalid?: boolean;
+	rawDistanceCm?: number | null;
 	headshot: boolean;
 	suicide: boolean;
 	teamKill: boolean;

@@ -243,6 +243,11 @@ export async function updateServer(
 	if (!Object.keys(set).length) throw new ApiError(400, 'Nothing to update.');
 	set.updatedAt = new Date();
 	await env.db.update(servers).set(set).where(eq(servers.id, server.id));
+	if (moved || set.passwordEnc !== undefined) {
+		forgetCatalog(server.id);
+		gateway().identityChanged(server.id);
+		gateway().observeSoon(server.id);
+	}
 	await writeAudit(env, req, {
 		actor,
 		server: { id: server.id, name: t.name || server.name },

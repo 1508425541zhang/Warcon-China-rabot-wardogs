@@ -91,6 +91,9 @@ describe.skipIf(!hasTestDb)('concurrent Integrity setting saves', () => {
 	test('two admins changing separate rule fields do not lose either change', async () => {
 		const env = await testEnv();
 		const world = await seedWorld(env);
+		await env.db
+			.insert(integrityRules)
+			.values({ orgId: world.org.id, assessmentMode: 'legacy', config: DEFAULT_INTEGRITY_RULES });
 		await saveIntegrityRules(env, request, world.users.owner!, world.org.id, {
 			headshotMinPct: DEFAULT_INTEGRITY_RULES.headshotMinPct
 		});
@@ -107,7 +110,7 @@ describe.skipIf(!hasTestDb)('concurrent Integrity setting saves', () => {
 			.select()
 			.from(integrityRules)
 			.where(eq(integrityRules.orgId, world.org.id));
-		expect(row.version).toBe(3);
+		expect(row.version).toBe(4);
 		expect(row.config).toMatchObject({ headshotMinPct: 71, penetrationMinPct: 51 });
 	});
 

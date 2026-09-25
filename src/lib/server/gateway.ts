@@ -37,6 +37,8 @@ export interface Gateway {
 	syncServer(env: Env, server: ServerRow, org: OrgRow, waitMs: number): Promise<SyncResult>;
 	/** Settings were saved: the worker should re-read them. */
 	settingsChanged(env: Env): Promise<void>;
+	/** Rule, model, and exact-weapon caches changed in the web process. */
+	integrityChanged(orgId: string): Promise<void>;
 	/** A trigger on this server was created, changed or deleted: drop the worker's cached rule set. */
 	triggersChanged(serverId: string): void;
 	/** The build or config may have changed (a connection test or config apply ran): re-read capabilities, the server id and the held reserved slots at the next look. */

@@ -3,6 +3,7 @@ import type { Env } from './env';
 import { feedProcessingJobs, kills, type FeedProcessingJob } from './db/schema';
 import { killView } from './feed';
 import { onKillsIngested } from './feed-events';
+import { processIntegrityBatch } from './integrity/pipeline';
 import { isOwner, LostOwnership, withOwnedTransaction } from './leadership';
 import {
 	feedJobsOldestSeconds,
@@ -18,7 +19,8 @@ const RETRY_MS = 5_000;
 const MAX_SAFE_BACKLOG = 500;
 let envRef: Env | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
-let running: Promise<void> | null = null;
+type FeedConsumer = 'legacy' | 'integrity';
+const running = new Map<FeedConsumer, Promise<void>>();
 let unregisterMetrics: (() => void) | null = null;
 
 export interface FeedJobDepth {
@@ -27,13 +29,14 @@ export interface FeedJobDepth {
 	retrying: number;
 	oldestMs: number | null;
 }
-export async function feedJobDepth(env: Env): Promise<FeedJobDepth> {
+export async function feedJobDepth(env: Env, consumer?: FeedConsumer): Promise<FeedJobDepth> {
 	const [row] = (await env.db.execute(sql`
 		SELECT COUNT(*) FILTER (WHERE state = 'pending')::int AS pending,
 		       COUNT(*) FILTER (WHERE state = 'processing')::int AS processing,
 		       COUNT(*) FILTER (WHERE attempts > 1 OR last_error IS NOT NULL)::int AS retrying,
 		       MIN(created_at) AS oldest
 		FROM feed_processing_jobs WHERE state IN ('pending', 'processing')
+		  AND (${consumer === undefined ? sql`TRUE` : sql`consumer = ${consumer}`})
 	`)) as { pending: number; processing: number; retrying: number; oldest: Date | null }[];
 	return {
 		pending: Number(row?.pending ?? 0),
@@ -47,21 +50,30 @@ export const feedBacklogUnsafe = (depth: FeedJobDepth): boolean =>
 	depth.pending >= MAX_SAFE_BACKLOG || (depth.oldestMs !== null && depth.oldestMs > LIVE_MS);
 
 /** One claimed job; an expired lease can be claimed again after a worker crash. */
-export async function claimFeedJob(env: Env, onlyId?: number): Promise<FeedProcessingJob | null> {
+export async function claimFeedJob(
+	env: Env,
+	onlyId?: number,
+	consumer: FeedConsumer = 'legacy'
+): Promise<FeedProcessingJob | null> {
 	if (!isOwner()) return null;
 	return withOwnedTransaction(env, async (tx) => {
 		const [job] = (await tx.execute(sql`
 			UPDATE feed_processing_jobs SET state = 'processing', attempts = attempts + 1,
 				lease_until = now() + (${LEASE_MS} || ' milliseconds')::interval
 			WHERE id = (
-				SELECT id FROM feed_processing_jobs
-				WHERE (${onlyId === undefined ? sql`TRUE` : sql`id = ${onlyId}`}) AND (
-				   (state = 'pending' AND (lease_until IS NULL OR lease_until <= now()))
-				   OR (state = 'processing' AND lease_until <= now()))
-				ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
+				SELECT j.id FROM feed_processing_jobs j
+				WHERE j.consumer = ${consumer}
+				  AND (${onlyId === undefined ? sql`TRUE` : sql`j.id = ${onlyId}`}) AND (
+				   (j.state = 'pending' AND (j.lease_until IS NULL OR j.lease_until <= now()))
+				   OR (j.state = 'processing' AND j.lease_until <= now()))
+				  AND NOT EXISTS (SELECT 1 FROM feed_processing_jobs earlier
+				      WHERE earlier.consumer = j.consumer AND earlier.server_id = j.server_id
+				        AND earlier.state <> 'done'
+				        AND (earlier.created_at, earlier.id) < (j.created_at, j.id))
+				ORDER BY j.created_at, j.id LIMIT 1 FOR UPDATE OF j SKIP LOCKED
 			)
 			RETURNING id, server_id AS "serverId", kill_ts AS "killTs", event_ids AS "eventIds",
-				created_at AS "createdAt", state, attempts, lease_until AS "leaseUntil",
+				consumer, created_at AS "createdAt", state, attempts, lease_until AS "leaseUntil",
 				done_at AS "doneAt", last_error AS "lastError"
 		`)) as FeedProcessingJob[];
 		return job ?? null;
@@ -87,17 +99,19 @@ export async function processFeedJob(env: Env, job: FeedProcessingJob): Promise<
 	if (byId.size !== ids.length) throw new Error(`Feed job ${job.id} is missing persisted kills`);
 	const batch = (ids as string[]).map((id) => killView(byId.get(id)!));
 	// A delayed replay still fills evidence, but cannot punish today's player for old kills.
-	const healthy = !feedBacklogUnsafe(await feedJobDepth(env));
-	await onKillsIngested(
-		env,
-		job.serverId,
-		batch,
-		healthy && Date.now() - job.createdAt.getTime() <= LIVE_MS
-	);
+	const healthy = !feedBacklogUnsafe(await feedJobDepth(env, job.consumer as FeedConsumer));
+	const allowActions = healthy && Date.now() - job.createdAt.getTime() <= LIVE_MS;
+	if (job.consumer === 'integrity')
+		await processIntegrityBatch(env, job.serverId, batch, allowActions);
+	else await onKillsIngested(env, job.serverId, batch, allowActions);
 }
 
-export async function processNextFeedJob(env: Env, onlyId?: number): Promise<boolean> {
-	const job = await claimFeedJob(env, onlyId);
+export async function processNextFeedJob(
+	env: Env,
+	onlyId?: number,
+	consumer: FeedConsumer = 'legacy'
+): Promise<boolean> {
+	const job = await claimFeedJob(env, onlyId, consumer);
 	if (!job) return false;
 	try {
 		await processFeedJob(env, job);
@@ -134,16 +148,20 @@ export async function processNextFeedJob(env: Env, onlyId?: number): Promise<boo
 	return true;
 }
 
-const pass = () => {
-	if (!envRef || running || !isOwner()) return;
-	running = (async () => {
-		for (let i = 0; i < 20 && envRef && isOwner(); i++)
-			if (!(await processNextFeedJob(envRef))) break;
-	})()
+const pass = (consumer: FeedConsumer) => {
+	if (!envRef || running.has(consumer) || !isOwner()) return;
+	const current = Promise.all(
+		Array.from({ length: 4 }, async () => {
+			for (let i = 0; i < 20 && envRef && isOwner(); i++)
+				if (!(await processNextFeedJob(envRef, undefined, consumer))) break;
+		})
+	)
+		.then(() => {})
 		.catch((err) => console.error('[warcon] feed processing pass', err))
 		.finally(() => {
-			running = null;
+			running.delete(consumer);
 		});
+	running.set(consumer, current);
 };
 
 export function startFeedProcessing(env: Env): void {
@@ -157,12 +175,17 @@ export function startFeedProcessing(env: Env): void {
 		feedJobsRetrying.set(depth.retrying);
 		feedJobsOldestSeconds.set((depth.oldestMs ?? 0) / 1000);
 	});
-	timer = setInterval(pass, 1000);
-	pass();
+	timer = setInterval(() => {
+		pass('legacy');
+		pass('integrity');
+	}, 1000);
+	pass('legacy');
+	pass('integrity');
 }
 
 export function wakeFeedProcessing(): void {
-	pass();
+	pass('legacy');
+	pass('integrity');
 }
 
 export async function stopFeedProcessing(): Promise<void> {
@@ -171,5 +194,5 @@ export async function stopFeedProcessing(): Promise<void> {
 	envRef = null;
 	unregisterMetrics?.();
 	unregisterMetrics = null;
-	await running;
+	await Promise.all([...running.values()]);
 }

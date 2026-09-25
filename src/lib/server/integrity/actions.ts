@@ -9,11 +9,17 @@ export type EffectiveAction = 'KICK' | 'QUARANTINE_24H' | 'QUARANTINE_7D';
 export function effectiveActionKinds(
 	rows: readonly Pick<
 		typeof integrityActions.$inferSelect,
-		'action' | 'source' | 'effectiveAt' | 'revertedAt'
+		'action' | 'source' | 'effectiveAt' | 'revertedAt' | 'deliveryState'
 	>[]
 ): EffectiveAction[] {
 	return rows
-		.filter((row) => row.source === 'RULE' && row.effectiveAt !== null && row.revertedAt === null)
+		.filter(
+			(row) =>
+				row.source === 'RULE' &&
+				row.deliveryState === 'delivered' &&
+				row.effectiveAt !== null &&
+				row.revertedAt === null
+		)
 		.map((row) => row.action)
 		.filter(
 			(action): action is EffectiveAction =>
@@ -57,7 +63,7 @@ export async function recordIntegrityDelivery(
 		.update(integrityActions)
 		.set({
 			deliveryState: state,
-			...(action.action === 'KICK' && state === 'delivered' ? { effectiveAt: at } : {})
+			...(state === 'delivered' ? { effectiveAt: at } : {})
 		})
 		.where(and(eq(integrityActions.id, actionId), isNull(integrityActions.revertedAt)))
 		.returning({ id: integrityActions.id });

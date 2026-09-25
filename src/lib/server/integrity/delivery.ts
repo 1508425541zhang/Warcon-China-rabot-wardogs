@@ -3,10 +3,13 @@ import type { Env } from '../env';
 import {
 	integrityActions,
 	integrityCases,
+	integrityModelState,
 	integrityRules,
 	servers,
 	type OutboxRow
 } from '../db/schema';
+import type { StatisticalAssessment } from './statistics';
+import { STATISTICAL_AUTO_ACTION_ENABLED, STATISTICAL_MODEL_CONFIG } from './statistical-config';
 
 const DISABLED = 'Integrity enforcement disabled before delivery';
 
@@ -49,6 +52,7 @@ export async function integrityDeliverySkipReason(
 	const [rules] = await env.db
 		.select({
 			version: integrityRules.version,
+			assessmentMode: integrityRules.assessmentMode,
 			kick: integrityRules.autoKickEnabled,
 			day: integrityRules.autoQuarantine24hEnabled,
 			week: integrityRules.autoQuarantine7dEnabled,
@@ -58,6 +62,29 @@ export async function integrityDeliverySkipReason(
 		.where(eq(integrityRules.orgId, match.action.orgId))
 		.limit(1);
 	if (!rules || rules.suspended || rules.version !== match.caseRow.ruleVersion) return DISABLED;
+	if (rules.assessmentMode === 'statistical') {
+		const [state] = await env.db
+			.select()
+			.from(integrityModelState)
+			.where(eq(integrityModelState.orgId, match.action.orgId))
+			.limit(1);
+		const frozen = match.caseRow.statistical as StatisticalAssessment | null;
+		if (
+			!STATISTICAL_AUTO_ACTION_ENABLED ||
+			!state ||
+			state.baselineStatus !== 'READY' ||
+			!frozen ||
+			frozen.modelVersion !== STATISTICAL_MODEL_CONFIG.modelVersion ||
+			frozen.featureVersion !== STATISTICAL_MODEL_CONFIG.featureVersion ||
+			frozen.weaponMapVersion !== state.weaponMapVersion ||
+			!frozen.baselineGeneration ||
+			frozen.baselineGeneration !== state.activeBaselineGeneration ||
+			frozen.committee?.generation !== STATISTICAL_MODEL_CONFIG.modelVersion ||
+			frozen.committee.decision !== 'KICK_CANDIDATE' ||
+			frozen.committee.autoActionBlocked
+		)
+			return DISABLED;
+	}
 	switch (match.action.action) {
 		case 'KICK':
 			return rules.kick ? null : DISABLED;

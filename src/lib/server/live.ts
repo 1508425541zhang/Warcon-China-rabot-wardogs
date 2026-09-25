@@ -6,6 +6,7 @@ import type { DbOrTx } from './db';
 import { serverLive, type ServerLiveRow } from './db/schema';
 import type { ServerMemory } from './observe';
 import type { LiveView, Player, Status } from '$lib/types';
+import { normalizeStatus } from './runtime-normalizers';
 
 const iso = (ms: number): string | null => (ms > 0 ? new Date(ms).toISOString() : null);
 
@@ -40,7 +41,7 @@ export function liveViewFromRow(r: ServerLiveRow): LiveView {
 		reservedSlots: r.reservedSlots ?? null,
 		// A hold lasts seconds; a row read cold from the database is not inside one.
 		throttledUntil: null,
-		status: (r.status as Status | null) ?? null,
+		status: normalizeStatus(r.status),
 		players: Array.isArray(r.players) ? (r.players as Player[]) : [],
 		statusAt: r.statusAt ? r.statusAt.toISOString() : null,
 		playersAt: r.playersAt ? r.playersAt.toISOString() : null,

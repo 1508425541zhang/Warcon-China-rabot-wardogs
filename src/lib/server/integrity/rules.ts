@@ -5,6 +5,7 @@ import type { SessionUser } from '../access';
 import { writeAudit } from '../audit';
 import { integrityRules } from '../db/schema';
 import { ApiError } from '../http';
+import { gateway } from '../gateway';
 import { DEFAULT_INTEGRITY_RULES, type IntegrityRuleConfig } from './score';
 import { DEFAULT_ENFORCEMENT, type EnforcementSettings } from './decisions';
 import type { AssessmentMode } from './statistics';
@@ -104,6 +105,9 @@ export function validateIntegrityRules(
 }
 
 const cache = new Map<string, { until: number; rules: RuleSet }>();
+export function invalidateIntegrityRules(orgId: string): void {
+	cache.delete(orgId);
+}
 const enforcementOf = (row: typeof integrityRules.$inferSelect | undefined): EnforcementSettings =>
 	row
 		? {
@@ -161,6 +165,8 @@ export async function saveIntegrityRules(
 		);
 	const saved = await env.db.transaction(async (tx) => {
 		const before = await lockRules(tx, orgId);
+		if (before?.assessmentMode !== 'legacy')
+			throw new ApiError(409, 'Legacy score rules are editable only in legacy assessment mode.');
 		const config = validateIntegrityRules(
 			patch,
 			before
@@ -183,6 +189,7 @@ export async function saveIntegrityRules(
 		return { row, beforeVersion: before?.version ?? 1 };
 	});
 	cache.delete(orgId);
+	await gateway().integrityChanged(orgId);
 	await writeAudit(env, req, {
 		actor,
 		orgId,
@@ -238,6 +245,7 @@ export async function saveAssessmentMode(
 		return row;
 	});
 	cache.delete(orgId);
+	await gateway().integrityChanged(orgId);
 	await writeAudit(env, req, {
 		actor,
 		orgId,
@@ -321,6 +329,7 @@ export async function saveIntegrityEnforcement(
 		return { before, row };
 	});
 	cache.delete(orgId);
+	await gateway().integrityChanged(orgId);
 	await writeAudit(env, req, {
 		actor,
 		orgId,

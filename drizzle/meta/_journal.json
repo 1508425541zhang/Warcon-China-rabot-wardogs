@@ -330,6 +330,27 @@
       "when": 1790341580966,
       "tag": "0046_special_may_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1790347708423,
+      "tag": "0047_calm_vulcan",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1790349273852,
+      "tag": "0048_sticky_wiccan",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1790350021169,
+      "tag": "0049_daily_fallen_one",
+      "breakpoints": true
     }
   ]
 }

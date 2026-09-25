@@ -13,6 +13,7 @@ import { liveView } from './live';
 import { deleteDiscord, editDiscord, postDiscord, type PostResult } from './webhook-delivery';
 import { cardLinks, statusMessage, type StatusServer } from './webhook-status-core';
 import { effectiveFeatures, type FeatureSet } from '$lib/features';
+import { webhookScopeAllows } from './runtime-normalizers';
 
 export const STATUS_TICK_MS = 20_000;
 /** Re-edit an unchanged message this often so its embed timestamps do not drift into the past. */
@@ -115,8 +116,7 @@ export async function refreshStatusMessages(env: Env, now = Date.now()): Promise
 	await Promise.all(
 		hooks.map(({ hook, orgName }) => {
 			const all = byOrg.get(hook.orgId) ?? [];
-			const only = hook.serverIds as string[] | null;
-			const list = only && only.length ? all.filter((s) => only.includes(s.id)) : all;
+			const list = all.filter((s) => webhookScopeAllows(hook.serverIds, s.id));
 			return refreshHook(env, hook, orgName, list, now).catch((err) =>
 				console.error(`[warcon] status messages ${hook.label}`, err)
 			);

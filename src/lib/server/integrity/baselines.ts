@@ -1,7 +1,8 @@
 import { and, eq, gte, or, sql } from 'drizzle-orm';
 import type { Env } from '../env';
-import { integrityBaselines, organizations, samples } from '../db/schema';
-import { DEFAULT_WEAPON_MAP } from './weapons';
+import { integrityBaselines, integrityModelState, organizations, samples } from '../db/schema';
+import { refreshCleanIntegrityBaselines as refreshIntegrityBaselines } from './baseline-replay';
+import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
 import {
 	METRICS,
 	populationBucket,
@@ -11,172 +12,11 @@ import {
 } from './statistics';
 
 const WINDOW_DAYS = 30;
-const HISTOGRAM_BINS = 30;
-const causes = sql.join(
-	Object.keys(DEFAULT_WEAPON_MAP).map((cause) => sql`${cause}`),
-	sql`, `
-);
 let timer: ReturnType<typeof setInterval> | null = null;
 let initial: ReturnType<typeof setTimeout> | null = null;
 
-/** One non-overlapping 180-second player/round sample; no abnormal-window selection bias. */
-export async function refreshIntegrityBaselines(env: Env, orgId: string): Promise<number> {
-	const calculatedAt = new Date();
-	const rows = await env.db.execute(sql`
-		WITH local_valid AS (
-			SELECT 'local'::text AS source, k.server_id, k.instance_id, k.match_id, k.killer_steam_id,
-			       k.map, k.cause, k.distance_m, k.event_time, k.victim_steam_id, k.headshot,
-			       (k.tags ? 'Penetration') AS penetration,
-			       floor(k.event_time / 180)::integer AS slot,
-			       CASE WHEN pop.player_count BETWEEN 1 AND 20 THEN '1–20'
-			            WHEN pop.player_count BETWEEN 21 AND 40 THEN '21–40'
-			            WHEN pop.player_count BETWEEN 41 AND 60 THEN '41–60'
-			            WHEN pop.player_count BETWEEN 61 AND 80 THEN '61–80'
-			            WHEN pop.player_count >= 81 THEN '81+' END AS bucket
-			FROM kills k JOIN servers s ON s.id = k.server_id
-			LEFT JOIN integrity_weapon_map wm ON wm.org_id = s.org_id AND wm.cause = k.cause
-			LEFT JOIN LATERAL (
-				SELECT player_count FROM samples sm
-				WHERE sm.server_id = k.server_id AND sm.ok AND sm.ts <= k.ts
-				  AND sm.ts > k.ts - interval '2 minutes'
-				ORDER BY sm.ts DESC LIMIT 1
-			) pop ON true
-			WHERE s.org_id = ${orgId} AND k.ts >= ${new Date(calculatedAt.getTime() - WINDOW_DAYS * 86_400_000)}
-			  AND k.ts < ${new Date(calculatedAt.getTime() - 10 * 60_000)}
-			  AND k.killer_steam_id IS NOT NULL AND k.killer_steam_id <> k.victim_steam_id
-			  AND k.killer_faction IS NOT NULL AND k.victim_faction IS NOT NULL
-			  AND k.killer_faction <> k.victim_faction AND NOT k.team_kill AND NOT k.suicide
-			  AND NOT (k.tags ?| ARRAY['Suicide','Falling','RoadKill','VehicleExplosion'])
-			  AND coalesce(wm.category, CASE WHEN k.cause IN (${causes}) THEN 'INFANTRY' ELSE 'UNKNOWN' END) = 'INFANTRY'
-		), external_valid AS (
-			SELECT 'external'::text AS source, 'external:' || i.source_server AS server_id,
-			       i.instance_id, i.match_id, i.killer_steam_id, i.map, i.cause,
-			       i.distance_m, i.event_time, i.victim_steam_id, i.headshot, i.penetration,
-			       floor(i.event_time / 180)::integer AS slot,
-			       CASE WHEN i.player_count BETWEEN 1 AND 20 THEN '1–20'
-			            WHEN i.player_count BETWEEN 21 AND 40 THEN '21–40'
-			            WHEN i.player_count BETWEEN 41 AND 60 THEN '41–60'
-			            WHEN i.player_count BETWEEN 61 AND 80 THEN '61–80'
-			            WHEN i.player_count >= 81 THEN '81+' END AS bucket
-			FROM integrity_import_kills i
-			JOIN integrity_import_batches b ON b.id = i.batch_id AND b.status = 'APPROVED'
-			LEFT JOIN integrity_weapon_map wm ON wm.org_id = i.org_id AND wm.cause = i.cause
-			WHERE i.org_id = ${orgId}
-			  AND i.event_at >= ${new Date(calculatedAt.getTime() - WINDOW_DAYS * 86_400_000)}
-			  AND i.event_at < ${new Date(calculatedAt.getTime() - 10 * 60_000)}
-			  AND coalesce(wm.category, CASE WHEN i.cause IN (${causes}) THEN 'INFANTRY' ELSE 'UNKNOWN' END) = 'INFANTRY'
-		), valid AS (
-			SELECT * FROM local_valid UNION ALL SELECT * FROM external_valid
-		), timed AS (
-			SELECT *, lag(event_time) OVER w AS previous_clock,
-			       count(*) OVER (PARTITION BY source, server_id, instance_id, match_id, killer_steam_id, slot
-			                      ORDER BY event_time RANGE BETWEEN 15 PRECEDING AND CURRENT ROW) AS burst15
-			FROM valid WINDOW w AS (PARTITION BY source, server_id, instance_id, match_id, killer_steam_id, slot
-			                        ORDER BY event_time)
-		), windows AS (
-			SELECT source, map, bucket, server_id, instance_id, match_id, killer_steam_id, slot,
-			       count(*)::double precision AS infantry_kills,
-			       count(*)::double precision / 3 AS kpm180,
-			       count(DISTINCT victim_steam_id)::double precision AS unique_victims,
-			       max(burst15)::double precision AS max_kills_15s,
-			       percentile_cont(0.5) WITHIN GROUP (ORDER BY event_time - previous_clock)
-			           FILTER (WHERE previous_clock IS NOT NULL) AS median_kill_interval,
-			       count(*) FILTER (WHERE headshot)::double precision / count(*) AS headshot_rate,
-			       count(*) FILTER (WHERE penetration)::double precision / count(*) AS penetration_rate
-			FROM timed GROUP BY source, map, bucket, server_id, instance_id, match_id, killer_steam_id, slot
-		), weapon_windows AS (
-			SELECT source, map, bucket, cause, server_id, instance_id, match_id, killer_steam_id, slot,
-			       count(*) AS weapon_kills,
-			       count(*) FILTER (WHERE headshot)::double precision / count(*) AS headshot_rate,
-			       max(distance_m) FILTER (WHERE distance_m > 0) AS max_kill_distance
-			FROM valid WHERE cause IS NOT NULL
-			GROUP BY source, map, bucket, cause, server_id, instance_id, match_id, killer_steam_id, slot
-		), metric_values AS (
-			SELECT w.source, w.map, w.bucket, 'INFANTRY'::text AS weapon, m.metric, m.value
-			FROM windows w CROSS JOIN LATERAL (VALUES
-				('kpm180', w.kpm180), ('uniqueVictims', w.unique_victims),
-				('maxKills15s', w.max_kills_15s), ('medianKillInterval', w.median_kill_interval),
-				('headshotRate', CASE WHEN w.infantry_kills >= 10 THEN w.headshot_rate END),
-				('penetrationRate', CASE WHEN w.infantry_kills >= 10 THEN w.penetration_rate END)
-			) m(metric, value) WHERE m.value IS NOT NULL
-			UNION ALL
-			SELECT w.source, w.map, w.bucket, w.cause AS weapon, m.metric, m.value
-			FROM weapon_windows w CROSS JOIN LATERAL (VALUES
-				('headshotRateWeapon', CASE WHEN w.weapon_kills >= 10 THEN w.headshot_rate END),
-				('maxKillDistanceWeapon', CASE WHEN w.weapon_kills >= 3 THEN w.max_kill_distance END)
-			) m(metric, value) WHERE m.value IS NOT NULL
-		), expanded AS (
-			SELECT 1 AS level, source, map, bucket, weapon, metric, value FROM metric_values WHERE bucket IS NOT NULL
-			UNION ALL SELECT 2, source, NULL::text, bucket, weapon, metric, value FROM metric_values WHERE bucket IS NOT NULL
-			UNION ALL SELECT 3, source, NULL::text, NULL::text, weapon, metric, value FROM metric_values
-		), keyed AS (
-			SELECT md5(jsonb_build_array(${orgId}::text, source, level, map, bucket, metric, weapon)::text) AS id,
-			       level, source, map, bucket, weapon, metric, value FROM expanded
-		), medians AS (
-			SELECT id, min(level) AS level, min(source) AS source, min(map) AS map, min(bucket) AS bucket, min(weapon) AS weapon, min(metric) AS metric,
-			       count(*)::integer AS sample_count, min(value) AS minimum, max(value) AS maximum,
-			       percentile_cont(ARRAY[0.5,0.9,0.95,0.99,0.995,0.999,0.9995])
-			           WITHIN GROUP (ORDER BY value) AS quantiles
-			FROM keyed GROUP BY id
-		), deviations AS (
-			SELECT k.id, percentile_cont(0.5) WITHIN GROUP (ORDER BY abs(k.value - m.quantiles[1])) AS mad
-			FROM keyed k JOIN medians m USING (id) GROUP BY k.id
-		), frequencies AS (
-			SELECT id, value, count(*)::integer AS n FROM keyed GROUP BY id, value
-		), cdfs AS (
-			SELECT id, jsonb_agg(jsonb_build_array(value,n) ORDER BY value) AS cdf
-			FROM frequencies GROUP BY id
-		), bin_counts AS (
-			SELECT f.id, CASE WHEN m.maximum = m.minimum THEN 0 ELSE
-			       least(${HISTOGRAM_BINS - 1}, greatest(0, width_bucket(f.value, m.minimum, m.maximum, ${HISTOGRAM_BINS}) - 1)) END AS bin,
-			       sum(f.n)::integer AS n
-			FROM frequencies f JOIN medians m USING (id) GROUP BY f.id, bin
-		), histograms AS (
-			SELECT m.id, jsonb_agg(jsonb_build_object(
-				'from', m.minimum + (m.maximum - m.minimum) * b.i / ${HISTOGRAM_BINS},
-				'to', m.minimum + (m.maximum - m.minimum) * (b.i + 1) / ${HISTOGRAM_BINS},
-				'count', coalesce(bc.n,0)) ORDER BY b.i) AS histogram
-			FROM medians m CROSS JOIN generate_series(0, ${HISTOGRAM_BINS - 1}) b(i)
-			LEFT JOIN bin_counts bc ON bc.id = m.id AND bc.bin = b.i
-			GROUP BY m.id
-		)
-		SELECT m.*, d.mad, c.cdf, h.histogram FROM medians m
-		JOIN deviations d USING (id) JOIN cdfs c USING (id) JOIN histograms h USING (id)
-	`);
-	await env.db.transaction(async (tx) => {
-		await tx.delete(integrityBaselines).where(eq(integrityBaselines.orgId, orgId));
-		if (rows.length)
-			await tx.insert(integrityBaselines).values(
-				rows.map((row) => {
-					const q = row.quantiles as number[];
-					return {
-						id: String(row.id),
-						orgId,
-						source: String(row.source),
-						metric: String(row.metric),
-						level: Number(row.level),
-						map: row.map === null ? null : String(row.map),
-						populationBucket: row.bucket === null ? null : String(row.bucket),
-						weaponCategory: String(row.weapon),
-						sampleCount: Number(row.sample_count),
-						median: q[0],
-						mad: Number(row.mad),
-						p90: q[1],
-						p95: q[2],
-						p99: q[3],
-						p995: q[4],
-						p999: q[5],
-						p9995: q[6],
-						histogram: row.histogram,
-						cdf: row.cdf,
-						windowDays: WINDOW_DAYS,
-						calculatedAt
-					};
-				})
-			);
-	});
-	return rows.length;
-}
+/** Replays the same rolling feature generator used by the live consumer. */
+export { refreshIntegrityBaselines };
 
 export async function populationAt(
 	env: Env,
@@ -199,7 +39,12 @@ export function selectBaselines(
 	rows: readonly (typeof integrityBaselines.$inferSelect)[],
 	map: string,
 	bucket: PopulationBucket | null,
-	now = new Date()
+	now = new Date(),
+	state?: {
+		weaponMapVersion: number;
+		activeBaselineGeneration: string | null;
+		baselineStatus: string;
+	}
 ): Map<MetricCode, DistributionStats> {
 	const selected = new Map<MetricCode, DistributionStats>();
 	for (const metric of Object.keys(METRICS) as MetricCode[]) {
@@ -210,6 +55,12 @@ export function selectBaselines(
 					candidate.weaponCategory === 'INFANTRY' &&
 					candidate.sampleCount >= (candidate.source === 'external' ? 30 : 200) &&
 					candidate.windowDays === WINDOW_DAYS &&
+					candidate.modelVersion === STATISTICAL_MODEL_CONFIG.modelVersion &&
+					candidate.featureVersion === STATISTICAL_MODEL_CONFIG.featureVersion &&
+					(!state ||
+						(state.baselineStatus === 'READY' &&
+							candidate.generation === state.activeBaselineGeneration &&
+							candidate.weaponMapVersion === state.weaponMapVersion)) &&
 					now.getTime() - candidate.calculatedAt.getTime() <= 24 * 60 * 60_000
 			)
 			.sort((a, b) => (a.source === b.source ? a.level - b.level : a.source === 'local' ? -1 : 1))
@@ -229,6 +80,13 @@ export function selectBaselines(
 				populationBucket: row.populationBucket as PopulationBucket | null,
 				weaponCategory: row.weaponCategory,
 				sampleCount: row.sampleCount,
+				uniquePlayers: row.uniquePlayers,
+				uniquePlayerDays: row.uniquePlayerDays,
+				effectiveSampleSize: row.effectiveSampleSize,
+				modelVersion: row.modelVersion,
+				featureVersion: row.featureVersion,
+				weaponMapVersion: row.weaponMapVersion,
+				baselineGeneration: row.generation,
 				median: row.median,
 				mad: row.mad,
 				p90: row.p90,
@@ -251,7 +109,12 @@ export function selectWeaponBaselines(
 	rows: readonly (typeof integrityBaselines.$inferSelect)[],
 	map: string,
 	bucket: PopulationBucket | null,
-	now = new Date()
+	now = new Date(),
+	state?: {
+		weaponMapVersion: number;
+		activeBaselineGeneration: string | null;
+		baselineStatus: string;
+	}
 ): Map<string, DistributionStats> {
 	const selected = new Map<string, DistributionStats>();
 	for (const row of [...rows].sort((a, b) =>
@@ -262,6 +125,12 @@ export function selectWeaponBaselines(
 			row.weaponCategory === 'INFANTRY' ||
 			row.sampleCount < (row.source === 'external' ? 30 : 200) ||
 			row.windowDays !== WINDOW_DAYS ||
+			row.modelVersion !== STATISTICAL_MODEL_CONFIG.modelVersion ||
+			row.featureVersion !== STATISTICAL_MODEL_CONFIG.featureVersion ||
+			(state &&
+				(state.baselineStatus !== 'READY' ||
+					row.generation !== state.activeBaselineGeneration ||
+					row.weaponMapVersion !== state.weaponMapVersion)) ||
 			now.getTime() - row.calculatedAt.getTime() > 24 * 60 * 60_000 ||
 			(row.level === 1 &&
 				(row.map !== map || row.populationBucket !== bucket || bucket === null)) ||
@@ -278,6 +147,13 @@ export function selectWeaponBaselines(
 			populationBucket: row.populationBucket as PopulationBucket | null,
 			weaponCategory: row.weaponCategory,
 			sampleCount: row.sampleCount,
+			uniquePlayers: row.uniquePlayers,
+			uniquePlayerDays: row.uniquePlayerDays,
+			effectiveSampleSize: row.effectiveSampleSize,
+			modelVersion: row.modelVersion,
+			featureVersion: row.featureVersion,
+			weaponMapVersion: row.weaponMapVersion,
+			baselineGeneration: row.generation,
 			median: row.median,
 			mad: row.mad,
 			p90: row.p90,
@@ -301,6 +177,11 @@ export async function loadWeaponBaselines(
 	map: string,
 	bucket: PopulationBucket | null
 ): Promise<Map<string, DistributionStats>> {
+	const [state] = await env.db
+		.select()
+		.from(integrityModelState)
+		.where(eq(integrityModelState.orgId, orgId));
+	if (!state || state.baselineStatus !== 'READY') return new Map();
 	const rows = await env.db
 		.select()
 		.from(integrityBaselines)
@@ -315,7 +196,7 @@ export async function loadWeaponBaselines(
 				gte(integrityBaselines.calculatedAt, new Date(Date.now() - 24 * 60 * 60_000))
 			)
 		);
-	return selectWeaponBaselines(rows, map, bucket);
+	return selectWeaponBaselines(rows, map, bucket, new Date(), state);
 }
 
 export async function loadBaselines(
@@ -324,6 +205,11 @@ export async function loadBaselines(
 	map: string,
 	bucket: PopulationBucket | null
 ) {
+	const [state] = await env.db
+		.select()
+		.from(integrityModelState)
+		.where(eq(integrityModelState.orgId, orgId));
+	if (!state || state.baselineStatus !== 'READY') return new Map<MetricCode, DistributionStats>();
 	const scope = bucket
 		? or(
 				eq(integrityBaselines.level, 3),
@@ -348,7 +234,9 @@ export async function loadBaselines(
 				)
 			),
 		map,
-		bucket
+		bucket,
+		new Date(),
+		state
 	);
 }
 

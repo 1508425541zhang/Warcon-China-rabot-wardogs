@@ -2,7 +2,7 @@
 
 Warcon China 是基于 Warcon 的 WARDOGS 社区服务器自托管 RCON 面板与行为风控扩展。它使用 Bun、SvelteKit 和 PostgreSQL/TimescaleDB，Web 界面与 Worker 共用数据库，Worker 负责与游戏服务器通信。项目直接沿用上游 Warcon 的 WARDOGS RCON 客户端和已验证的 Kill Feed，不重新逆向协议。[项目首页](README.md)提供功能概览与插图，[技术文档](docs/architecture.zh-CN.md)说明系统边界和数据流。
 
-> 本项目不是客户端反作弊软件，不扫描玩家设备。社区风控只使用服务器行为数据和经过授权的公开 Steam 信息。自动踢出与临时隔离默认关闭，只有组织所有者明确确认后才会启用；没有永久自动封禁。
+> 本项目不是客户端反作弊软件，不扫描玩家设备。社区风控只使用服务器行为数据和经过授权的公开 Steam 信息。Legacy 动作开关默认关闭；新版统计委员会自动处罚在代码中固定关闭，等待真实专服 Shadow 校准。没有永久自动封禁。
 
 ## 当前进度
 

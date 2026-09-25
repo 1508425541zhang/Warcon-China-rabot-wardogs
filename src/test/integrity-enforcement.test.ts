@@ -14,7 +14,7 @@ import {
 	servers
 } from '$lib/server/db/schema';
 import { DEFAULT_INTEGRITY_RULES, type IntegrityScore } from '$lib/server/integrity/score';
-import { decideIntegrityAction } from '$lib/server/integrity/decisions';
+import { decideIntegrityAction, decideStatisticalAction } from '$lib/server/integrity/decisions';
 import { getIntegrityRules } from '$lib/server/integrity/rules';
 import { enforceIntegrityCase, integrityCapHit } from '$lib/server/integrity/enforcement';
 import { effectiveActionKinds, recordIntegrityDelivery } from '$lib/server/integrity/actions';
@@ -39,6 +39,7 @@ const score: IntegrityScore = {
 const finding = (steamId: string, extreme = false): BehaviorFinding => ({
 	steamId,
 	instanceId: `i-${steamId}`,
+	roundId: `i-${steamId}:derived:1`,
 	map: 'Kavkazi',
 	anchorClock: 100,
 	windowId: null,
@@ -62,10 +63,16 @@ const statistical = (level: StatisticalAssessment['level']): StatisticalAssessme
 	level,
 	tempoPercentile: level === 'NORMAL' ? 0.5 : 0.9998,
 	precisionPercentile: level === 'NORMAL' ? 0.5 : 0.999,
+	actionTempoPercentile: level === 'NORMAL' ? 0.5 : 0.9998,
+	actionPrecisionPercentile: level === 'NORMAL' ? 0.5 : 0.999,
 	strongestMetric: { code: 'kpm180', value: 8, percentile: 0.9998 },
 	independentEpisodes: 1,
 	sampleCount: 5000,
-	metrics: []
+	metrics: [],
+	committee: {
+		decision: level === 'KICK_CANDIDATE' ? 'KICK_CANDIDATE' : 'NORMAL',
+		autoActionBlocked: false
+	} as NonNullable<StatisticalAssessment['committee']>
 });
 
 describe('Integrity decision gate', () => {
@@ -144,6 +151,57 @@ describe('Integrity decision gate', () => {
 		expect(
 			decideIntegrityAction({ ...base, finding: solo, settings, priorIndependentWindow: true })
 		).toBe('QUARANTINE_24H');
+	});
+	test('statistical escalation requires a fresh candidate and an effective prior action', () => {
+		const candidate = statistical('KICK_CANDIDATE');
+		const current = {
+			...base,
+			finding: finding('76561198000000801', true),
+			assessment: candidate,
+			settings: {
+				...base.settings,
+				autoKickEnabled: true,
+				autoQuarantine24hEnabled: true,
+				autoQuarantine7dEnabled: true
+			}
+		};
+		expect(decideStatisticalAction(current)).toBe('KICK');
+		expect(
+			decideStatisticalAction({
+				...current,
+				assessment: { ...candidate, independentEpisodes: 2 },
+				priorIndependentWindow: true,
+				previousActions: ['KICK']
+			})
+		).toBe('QUARANTINE_24H');
+		expect(
+			decideStatisticalAction({
+				...current,
+				assessment: { ...candidate, independentEpisodes: 3 },
+				priorIndependentWindow: true,
+				previousActions: ['QUARANTINE_24H']
+			})
+		).toBe('QUARANTINE_7D');
+		expect(
+			decideStatisticalAction({
+				...current,
+				assessment: { ...candidate, independentEpisodes: 3 },
+				priorIndependentWindow: true,
+				previousActions: []
+			})
+		).toBe('KICK');
+		expect(
+			decideStatisticalAction({
+				...current,
+				assessment: {
+					...candidate,
+					independentEpisodes: 3,
+					committee: { ...candidate.committee!, autoActionBlocked: true }
+				},
+				priorIndependentWindow: true,
+				previousActions: ['QUARANTINE_24H']
+			})
+		).toBe('OBSERVE');
 	});
 });
 
@@ -336,7 +394,7 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 			await env.db.select().from(integrityActions).where(eq(integrityActions.caseId, input.caseId))
 		).toHaveLength(0);
 	});
-	test('statistical mode uses the saved statistical candidate and existing live safety gates', async () => {
+	test('statistical mode remains release-gated despite a saved candidate', async () => {
 		await setFlags({ autoKickEnabled: true });
 		const input = await candidate(sid(818), true);
 		const assessment = statistical('KICK_CANDIDATE');
@@ -353,7 +411,13 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 				.update(integrityCases)
 				.set({ ruleVersion: 2, statistical: assessment })
 				.where(eq(integrityCases.id, input.caseId));
-			expect(await enforceIntegrityCase(env, input)).toBe('KICK');
+			expect(await enforceIntegrityCase(env, input)).toBe('OBSERVE');
+			expect(
+				await env.db
+					.select()
+					.from(integrityActions)
+					.where(eq(integrityActions.caseId, input.caseId))
+			).toHaveLength(0);
 		} finally {
 			await env.db
 				.update(integrityRules)
@@ -390,9 +454,9 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 			.from(integrityActions)
 			.where(eq(integrityActions.steamId, input.steamId));
 		expect(action.source).toBe('RULE');
-		expect(action.effectiveAt).toBeInstanceOf(Date);
+		expect(action.effectiveAt).toBeNull();
 		expect(action.deliveryState).toBe('pending');
-		expect(effectiveActionKinds([action])).toEqual(['QUARANTINE_24H']);
+		expect(effectiveActionKinds([action])).toEqual([]);
 		const [queued] = await env.db.select().from(outbox).where(eq(outbox.steamId, input.steamId));
 		await env.db.transaction((tx) => recordIntegrityDelivery(tx, queued, 'failed'));
 		const [afterFailedKick] = await env.db
@@ -400,8 +464,8 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 			.from(integrityActions)
 			.where(eq(integrityActions.id, action.id));
 		expect(afterFailedKick.deliveryState).toBe('failed');
-		expect(afterFailedKick.effectiveAt).toBeInstanceOf(Date);
-		expect(effectiveActionKinds([afterFailedKick])).toEqual(['QUARANTINE_24H']);
+		expect(afterFailedKick.effectiveAt).toBeNull();
+		expect(effectiveActionKinds([afterFailedKick])).toEqual([]);
 		const [savedScore] = await env.db
 			.select()
 			.from(integrityScores)

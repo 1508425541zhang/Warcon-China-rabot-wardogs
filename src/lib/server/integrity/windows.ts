@@ -1,4 +1,5 @@
 import type { KillView } from '$lib/types';
+import { validKillDistanceM } from '../feed-core';
 import { countsAsInfantry, type WeaponCategory } from './weapons';
 import { DEFAULT_INTEGRITY_RULES, type BehaviorReason, type IntegrityRuleConfig } from './score';
 
@@ -27,11 +28,14 @@ interface PlayerWindow {
 		penetration: boolean;
 		burst: number;
 	} | null;
+	lastReasons: BehaviorReason[];
 	peakKpm: number;
 }
 
 interface ServerWindow {
 	instanceId: string;
+	matchRow: number | null;
+	roundSequence: number;
 	map: string;
 	latestClock: number;
 	players: Map<string, PlayerWindow>;
@@ -94,7 +98,7 @@ export function weaponWindowMetrics(entries: readonly Entry[]): WeaponWindowMetr
 		};
 		item.kills++;
 		if (entry.headshot) item.headshots++;
-		if (entry.distanceM !== null && Number.isFinite(entry.distanceM) && entry.distanceM > 0)
+		if (entry.distanceM !== null && validKillDistanceM(entry.distanceM) && entry.distanceM > 0)
 			item.maxKillDistanceM = Math.max(item.maxKillDistanceM ?? 0, entry.distanceM);
 		byCause.set(entry.cause, item);
 	}
@@ -104,6 +108,7 @@ export function weaponWindowMetrics(entries: readonly Entry[]): WeaponWindowMetr
 export interface BehaviorFinding {
 	steamId: string;
 	instanceId: string;
+	roundId: string;
 	map: string;
 	/** The first finding's game clock identifies one active window across upgrades. */
 	anchorClock: number;
@@ -122,6 +127,8 @@ export interface BehaviorFinding {
 	medianKillInterval: number | null;
 	weaponMetrics?: WeaponWindowMetric[];
 	reasons: BehaviorReason[];
+	/** True when no legacy severity tier changed on this exact event. */
+	snapshotOnly?: boolean;
 	eventIds: string[];
 }
 
@@ -164,6 +171,10 @@ export class InfantryWindows {
 			result.push({
 				steamId,
 				instanceId: server.instanceId,
+				roundId:
+					server.matchRow === null
+						? `${server.instanceId}:derived:${server.roundSequence}`
+						: `${server.instanceId}:match:${server.matchRow}`,
 				map: server.map,
 				anchorClock: active ? player.lastFindingClock! : server.latestClock,
 				windowId: active ? player.windowId : null,
@@ -180,7 +191,8 @@ export class InfantryWindows {
 				maxKills15s: maxKillsWithin(entries, 15),
 				medianKillInterval: medianKillInterval(entries),
 				weaponMetrics: weaponWindowMetrics(entries),
-				reasons: [],
+				reasons: active ? player.lastReasons : [],
+				snapshotOnly: true,
 				eventIds
 			});
 		}
@@ -194,26 +206,52 @@ export class InfantryWindows {
 		config: IntegrityRuleConfig = DEFAULT_INTEGRITY_RULES
 	): BehaviorFinding[] {
 		const findings: BehaviorFinding[] = [];
-		// Feed batches can arrive out of order; eventTime is the only clock used for metrics.
-		for (const kill of [...batch].sort((a, b) => a.eventTime - b.eventTime)) {
+		// Sort only a single known round. Sorting across maps by reset clocks reverses rounds.
+		const oneRound = batch.every(
+			(kill) =>
+				kill.instanceId === batch[0]?.instanceId &&
+				kill.map === batch[0]?.map &&
+				kill.matchRow === batch[0]?.matchRow
+		);
+		for (const kill of oneRound ? [...batch].sort((a, b) => a.eventTime - b.eventTime) : batch) {
 			const instanceId = kill.instanceId;
 			const clock = kill.eventTime;
-			if (!instanceId || !kill.map || !Number.isFinite(clock) || clock < 0) {
-				this.reset(serverId);
-				continue;
-			}
+			if (!instanceId || !kill.map || !Number.isFinite(clock) || clock < 0) continue;
 			let server = this.servers.get(serverId);
-			// A substantial rewind may be a new round. Smaller late arrivals remain in clock order.
+			const matchRow = kill.matchRow ?? null;
+			if (
+				server &&
+				server.instanceId === instanceId &&
+				server.matchRow !== null &&
+				matchRow !== null &&
+				matchRow < server.matchRow
+			)
+				continue;
+			const explicitRoundChanged =
+				!!server && server.matchRow !== null && matchRow !== null && matchRow > server.matchRow;
+			const derivedRoundChanged =
+				!!server &&
+				(server.matchRow === null || matchRow === null) &&
+				(server.map !== kill.map || (clock <= 5 && server.latestClock >= 20));
 			if (
 				!server ||
 				server.instanceId !== instanceId ||
-				server.map !== kill.map ||
-				clock < server.latestClock - 60 ||
-				(clock <= 5 && server.latestClock >= 20 && server.latestClock < 60)
+				explicitRoundChanged ||
+				derivedRoundChanged
 			) {
-				server = { instanceId, map: kill.map, latestClock: clock, players: new Map() };
+				server = {
+					instanceId,
+					matchRow,
+					roundSequence: (server?.roundSequence ?? 0) + 1,
+					map: kill.map,
+					latestClock: clock,
+					players: new Map()
+				};
 				this.servers.set(serverId, server);
 			}
+			// A delayed event from the same round cannot reset or contaminate a live window.
+			if (server.map !== kill.map || clock <= server.latestClock - INFANTRY_WINDOW_SECONDS)
+				continue;
 			server.latestClock = Math.max(server.latestClock, clock);
 			const killerSteamId = kill.killer?.steamId ?? null;
 			if (!killerSteamId) continue;
@@ -242,6 +280,7 @@ export class InfantryWindows {
 					lastFindingClock: null,
 					windowId: null,
 					best: null,
+					lastReasons: [],
 					peakKpm: 0
 				};
 				server.players.set(killerSteamId, player);
@@ -317,9 +356,14 @@ export class InfantryWindows {
 				penetration: !!player.best?.penetration || severity.penetration,
 				burst: Math.max(player.best?.burst ?? 0, severity.burst)
 			};
+			player.lastReasons = reasons;
 			findings.push({
 				steamId: killerSteamId,
 				instanceId,
+				roundId:
+					server.matchRow === null
+						? `${instanceId}:derived:${server.roundSequence}`
+						: `${instanceId}:match:${server.matchRow}`,
 				map: kill.map,
 				anchorClock: player.lastFindingClock!,
 				windowId: player.windowId,

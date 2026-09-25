@@ -17,6 +17,8 @@ import { nudgeStatusMirror } from './webhook-status';
 import type { Gateway } from './gateway';
 import type { KillView, LiveView } from '$lib/types';
 import { wakeFeedProcessing } from './feed-processing';
+import { invalidateIntegrityRules } from './integrity/rules';
+import { invalidateWeaponMap } from './integrity/weapon-map';
 
 /** Runs one registry action against a server through its lane. */
 export async function runGameAction(
@@ -80,6 +82,10 @@ export const localGateway: Gateway = {
 	},
 	async settingsChanged(env: Env) {
 		await loadSettings(env);
+	},
+	async integrityChanged(orgId: string) {
+		invalidateIntegrityRules(orgId);
+		invalidateWeaponMap(orgId);
 	},
 	triggersChanged(serverId: string) {
 		invalidateTriggers(serverId);

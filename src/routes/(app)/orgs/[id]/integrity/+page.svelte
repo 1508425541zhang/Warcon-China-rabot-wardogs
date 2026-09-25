@@ -396,5 +396,6 @@
 	overrides={data.weaponOverrides}
 	weaponDefaults={data.weaponDefaults}
 	categories={data.weaponCategories}
+	assessmentMode={data.assessmentMode}
 	{lang}
 />

@@ -107,6 +107,35 @@ describe('180-second infantry windows', () => {
 		expect(windows.current('server', '76561198000000001')?.kpm180).toBe(1 / 3);
 	});
 
+	test('same boot and matchId, map A to B to A creates distinct rounds', () => {
+		const windows = new InfantryWindows();
+		const first = windows.observe('server', [kill(3000, 'a1', { matchRow: 10 })], new Map());
+		expect(first).toEqual([]);
+		windows.observe('server', [kill(0, 'b1', { map: 'North', matchRow: 11 })], new Map());
+		const secondRound = windows.snapshots('server', ['76561198000000001'])[0];
+		expect(secondRound.kpm180).toBe(1 / 3);
+		windows.observe('server', [kill(0, 'a2', { map: 'Kavkazi', matchRow: 12 })], new Map());
+		const thirdRound = windows.snapshots('server', ['76561198000000001'])[0];
+		expect(thirdRound.kpm180).toBe(1 / 3);
+		expect(thirdRound.roundId).not.toBe(secondRound.roundId);
+	});
+
+	test('late same-round events at clock 300 cannot reset clock 500, regardless of infantry validity', () => {
+		for (const changes of [{}, { tags: ['VehicleExplosion'] }, { cause: 'Id.Item.Unmapped' }]) {
+			const windows = new InfantryWindows();
+			windows.observe('server', [kill(500, 'current', { matchRow: 20 })], new Map());
+			windows.observe('server', [kill(300, 'late', { matchRow: 20, ...changes })], new Map());
+			expect(windows.current('server', '76561198000000001')?.kpm180).toBe(1 / 3);
+		}
+	});
+
+	test('older persisted matchRow cannot resurrect a previous round after worker restart replay', () => {
+		const windows = new InfantryWindows();
+		windows.observe('server', [kill(5, 'current', { matchRow: 31 })], new Map());
+		windows.observe('server', [kill(3000, 'old', { map: 'North', matchRow: 30 })], new Map());
+		expect(windows.snapshots('server', ['76561198000000001'])[0].roundId).toContain('match:31');
+	});
+
 	test("duplicate event IDs cannot increase a player's count", () => {
 		const windows = new InfantryWindows();
 		windows.observe('server', [kill(10, 'once'), kill(10, 'once')], new Map());

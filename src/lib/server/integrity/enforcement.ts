@@ -1,4 +1,4 @@
-import { and, eq, gte, isNull, ne, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Env } from '../env';
 import {
 	integrityActions,
@@ -28,9 +28,34 @@ import { validateIntegrityRules } from './rules';
 import type { BehaviorFinding } from './windows';
 import type { IntegrityScore } from './score';
 import type { Player } from '$lib/types';
-import { independentEvidence } from './independence';
+import { independentEpisode } from './independence';
 import { effectiveActionKinds } from './actions';
 import type { StatisticalAssessment } from './statistics';
+import { STATISTICAL_AUTO_ACTION_ENABLED, STATISTICAL_MODEL_CONFIG } from './statistical-config';
+import { integrityModelState } from '../db/schema';
+
+export function statisticalActionVersionValid(
+	assessment: StatisticalAssessment | null,
+	state: {
+		weaponMapVersion: number;
+		activeBaselineGeneration: string | null;
+		baselineStatus: string;
+	} | null
+): boolean {
+	return (
+		!!assessment &&
+		!!state &&
+		state.baselineStatus === 'READY' &&
+		assessment.modelVersion === STATISTICAL_MODEL_CONFIG.modelVersion &&
+		assessment.featureVersion === STATISTICAL_MODEL_CONFIG.featureVersion &&
+		assessment.weaponMapVersion === state.weaponMapVersion &&
+		!!assessment.baselineGeneration &&
+		assessment.baselineGeneration === state.activeBaselineGeneration &&
+		assessment.committee?.generation === STATISTICAL_MODEL_CONFIG.modelVersion &&
+		assessment.committee.decision === 'KICK_CANDIDATE' &&
+		!assessment.committee.autoActionBlocked
+	);
+}
 
 const COOLDOWN_MS = 15 * 60_000;
 const HOUR_MS = 60 * 60_000;
@@ -95,6 +120,7 @@ export async function enforceIntegrityCase(
 			!(row.autoKickEnabled || row.autoQuarantine24hEnabled || row.autoQuarantine7dEnabled)
 		)
 			return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };
+		const config = validateIntegrityRules(row.config as Record<string, unknown>);
 		const settings: EnforcementSettings = {
 			autoKickEnabled: row.autoKickEnabled,
 			autoQuarantine24hEnabled: row.autoQuarantine24hEnabled,
@@ -104,7 +130,7 @@ export async function enforceIntegrityCase(
 			autoSuspendedAt: row.autoSuspendedAt
 		};
 		const now = new Date();
-		const [[caseRow], [savedScore], [live], prior, previous] = await Promise.all([
+		const [[caseRow], savedScores, [live], prior, previous] = await Promise.all([
 			tx.select().from(integrityCases).where(eq(integrityCases.id, input.caseId)).limit(1),
 			tx
 				.select()
@@ -118,10 +144,16 @@ export async function enforceIntegrityCase(
 					)
 				)
 				.orderBy(sql`${integrityScores.id} DESC`)
-				.limit(1),
+				.limit(50),
 			tx.select().from(serverLive).where(eq(serverLive.serverId, input.serverId)).limit(1),
 			tx
-				.select({ id: integrityWindows.id, eventIds: integrityWindows.eventIds })
+				.select({
+					id: integrityWindows.id,
+					eventIds: integrityWindows.eventIds,
+					roundId: integrityWindows.roundId,
+					clockTo: integrityWindows.clockTo,
+					observedAt: integrityWindows.observedAt
+				})
 				.from(integrityWindows)
 				.where(
 					and(
@@ -130,7 +162,16 @@ export async function enforceIntegrityCase(
 						input.finding.windowId === null
 							? sql`FALSE`
 							: ne(integrityWindows.id, input.finding.windowId),
-						gte(integrityWindows.observedAt, new Date(now.getTime() - 24 * HOUR_MS))
+						gte(
+							integrityWindows.observedAt,
+							new Date(
+								now.getTime() -
+									(row.assessmentMode === 'statistical'
+										? STATISTICAL_MODEL_CONFIG.persistenceEpisodeHorizonHours
+										: 24) *
+										HOUR_MS
+							)
+						)
 					)
 				),
 			tx
@@ -145,7 +186,35 @@ export async function enforceIntegrityCase(
 				)
 				.orderBy(sql`${integrityActions.createdAt} DESC`)
 		]);
+		const [frozenScore] = caseRow?.scoreId
+			? await tx
+					.select()
+					.from(integrityScores)
+					.where(eq(integrityScores.id, caseRow.scoreId))
+					.limit(1)
+			: [];
+		const savedScore =
+			frozenScore ??
+			(row.assessmentMode === 'statistical'
+				? savedScores.find(
+						(candidate) =>
+							candidate.windowId === input.finding.windowId &&
+							candidate.score === caseRow?.riskScore &&
+							JSON.stringify(candidate.statistical) === JSON.stringify(caseRow?.statistical)
+					)
+				: savedScores[0]);
 		const statistical = savedScore?.statistical as StatisticalAssessment | null;
+		if (row.assessmentMode === 'statistical' && !STATISTICAL_AUTO_ACTION_ENABLED)
+			return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };
+		if (row.assessmentMode === 'statistical') {
+			const [state] = await tx
+				.select()
+				.from(integrityModelState)
+				.where(eq(integrityModelState.orgId, input.orgId))
+				.limit(1);
+			if (!statisticalActionVersionValid(statistical, state ?? null))
+				return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };
+		}
 		if (
 			!caseRow ||
 			caseRow.status !== 'OPEN' ||
@@ -164,10 +233,29 @@ export async function enforceIntegrityCase(
 					JSON.stringify(statistical) !== JSON.stringify(caseRow.statistical)
 				: !savedScore.currentBehaviorAnomaly) ||
 			savedScore.score !== caseRow.riskScore ||
-			savedScore.score !== input.score.score ||
-			savedScore.level !== input.score.level
+			(row.assessmentMode !== 'statistical' &&
+				(savedScore.score !== input.score.score || savedScore.level !== input.score.level))
 		)
 			return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };
+		const frozen = caseRow.snapshot as Partial<BehaviorFinding>;
+		const actionFinding =
+			row.assessmentMode === 'statistical'
+				? {
+						...input.finding,
+						...frozen,
+						windowId: input.finding.windowId,
+						eventIds: Array.isArray(frozen.eventIds) ? frozen.eventIds : []
+					}
+				: input.finding;
+		const actionScore: IntegrityScore =
+			row.assessmentMode === 'statistical'
+				? {
+						score: savedScore.score,
+						level: savedScore.level as IntegrityScore['level'],
+						breakdown: savedScore.breakdown as IntegrityScore['breakdown'],
+						currentBehaviorAnomaly: savedScore.currentBehaviorAnomaly
+					}
+				: input.score;
 		const roster = Array.isArray(live?.players) ? (live.players as Player[]) : [];
 		const feedHealthy =
 			!!live?.ok &&
@@ -175,9 +263,42 @@ export async function enforceIntegrityCase(
 			now.getTime() - live.feedAt.getTime() < 5 * 60_000 &&
 			!!live.playersAt &&
 			now.getTime() - live.playersAt.getTime() < 5 * 60_000;
+		const priorCases = previous.length
+			? await tx
+					.select({ id: integrityCases.id, snapshot: integrityCases.snapshot })
+					.from(integrityCases)
+					.where(
+						inArray(
+							integrityCases.id,
+							previous.map((action) => action.caseId)
+						)
+					)
+			: [];
+		const independentActions = previous.filter((action) => {
+			const snapshot = priorCases.find((caseItem) => caseItem.id === action.caseId)?.snapshot as
+				{ eventIds?: unknown; roundId?: string; clockTo?: number } | undefined;
+			return (
+				snapshot &&
+				independentEpisode(
+					{
+						eventIds: snapshot.eventIds,
+						roundId: snapshot.roundId ?? null,
+						clockTo: snapshot.clockTo ?? NaN,
+						observedAt: action.createdAt
+					},
+					{
+						eventIds: actionFinding.eventIds,
+						roundId: actionFinding.roundId,
+						clockFrom: actionFinding.clockFrom,
+						observedAt: now
+					},
+					STATISTICAL_MODEL_CONFIG.minimumEpisodeSeparationSeconds
+				)
+			);
+		});
 		const decisionInput = {
-			score: input.score,
-			finding: input.finding,
+			score: actionScore,
+			finding: actionFinding,
 			confidence: caseRow.confidence as 'A' | 'B' | 'C' | 'D',
 			feedHealthy,
 			playerOnline:
@@ -187,12 +308,21 @@ export async function enforceIntegrityCase(
 				memory.players.some((player) => player.steamId === input.steamId),
 			onlinePlayers: roster.length,
 			identityReliable:
-				input.finding.eventIds.length > 0 && input.finding.steamId === input.steamId,
+				actionFinding.eventIds.length > 0 && actionFinding.steamId === input.steamId,
 			priorIndependentWindow: prior.some((row) =>
-				independentEvidence(row.eventIds, input.finding.eventIds)
+				independentEpisode(
+					row,
+					{
+						eventIds: actionFinding.eventIds,
+						roundId: actionFinding.roundId,
+						clockFrom: actionFinding.clockFrom,
+						observedAt: now
+					},
+					STATISTICAL_MODEL_CONFIG.minimumEpisodeSeparationSeconds
+				)
 			),
-			previousActions: effectiveActionKinds(previous),
-			rules: validateIntegrityRules(row.config as Record<string, unknown>),
+			previousActions: effectiveActionKinds(independentActions),
+			rules: config,
 			settings
 		};
 		const decision =
@@ -288,7 +418,7 @@ export async function enforceIntegrityCase(
 			source: 'RULE',
 			listEntryId,
 			createdAt: now,
-			effectiveAt: decision === 'KICK' ? null : now,
+			effectiveAt: null,
 			deliveryState: 'pending',
 			expiresAt
 		});
