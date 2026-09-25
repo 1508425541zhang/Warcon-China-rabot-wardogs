@@ -16,7 +16,7 @@ import {
 import { DEFAULT_INTEGRITY_RULES, type IntegrityScore } from '$lib/server/integrity/score';
 import { decideIntegrityAction } from '$lib/server/integrity/decisions';
 import { getIntegrityRules } from '$lib/server/integrity/rules';
-import { enforceIntegrityCase } from '$lib/server/integrity/enforcement';
+import { enforceIntegrityCase, integrityCapHit } from '$lib/server/integrity/enforcement';
 import { effectiveActionKinds, recordIntegrityDelivery } from '$lib/server/integrity/actions';
 import type { BehaviorFinding } from '$lib/server/integrity/windows';
 import { acquireOrRenew, releaseOwnership } from '$lib/server/leadership';
@@ -56,6 +56,12 @@ const finding = (steamId: string, extreme = false): BehaviorFinding => ({
 });
 
 describe('Integrity decision gate', () => {
+	test('organization hourly and server online percentage caps use separate counts', () => {
+		const settings = { autoActionMaxPerHour: 3, autoActionMaxPercentOnline: 10 };
+		expect(integrityCapHit(2, 0, 10, settings)).toBeNull();
+		expect(integrityCapHit(3, 0, 10, settings)).toBe('org_hourly');
+		expect(integrityCapHit(0, 1, 10, settings)).toBe('server_percent');
+	});
 	const base = {
 		score,
 		finding: finding('76561198000000801'),
@@ -447,6 +453,28 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 			.from(integrityActions)
 			.where(eq(integrityActions.steamId, input.steamId));
 		expect(actions).toHaveLength(0);
+	});
+	test('a score saved under an older rule version cannot trigger an action', async () => {
+		await setFlags({ autoKickEnabled: true });
+		const input = await candidate(sid(815));
+		await env.db
+			.update(integrityRules)
+			.set({ version: 2 })
+			.where(eq(integrityRules.orgId, world.org.id));
+		try {
+			expect(await enforceIntegrityCase(env, input)).toBe('OBSERVE');
+			expect(
+				await env.db
+					.select()
+					.from(integrityActions)
+					.where(eq(integrityActions.caseId, input.caseId))
+			).toHaveLength(0);
+		} finally {
+			await env.db
+				.update(integrityRules)
+				.set({ version: 1 })
+				.where(eq(integrityRules.orgId, world.org.id));
+		}
 	});
 	test('rate cap suspends actions while cases remain saved', async () => {
 		await setFlags({ autoKickEnabled: true, autoActionMaxPerHour: 1 });
