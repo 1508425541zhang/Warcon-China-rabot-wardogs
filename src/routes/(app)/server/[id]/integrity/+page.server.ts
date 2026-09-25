@@ -134,7 +134,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			([24, 72, 168] as const).map(async (hours) => {
 				const [row] = await env.db
 					.select({
-						windows: sql<number>`COUNT(*)`,
+						windows: sql<number>`COUNT(DISTINCT ${integrityScores.windowId})`,
 						koPlayers: sql<number>`COUNT(DISTINCT ${integrityScores.steamId}) FILTER (WHERE ${integrityScores.score} >= ${rules.config.koThreshold} AND ${integrityScores.currentBehaviorAnomaly})`,
 						quarantinePlayers: sql<number>`COUNT(DISTINCT ${integrityScores.steamId}) FILTER (WHERE ${integrityScores.score} >= ${rules.config.quarantineThreshold} AND ${integrityScores.currentBehaviorAnomaly})`
 					})

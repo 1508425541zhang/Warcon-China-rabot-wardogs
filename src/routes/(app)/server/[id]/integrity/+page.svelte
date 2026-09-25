@@ -34,11 +34,11 @@
 			breakdown: '评分依据',
 			noActions:
 				'Dry Run：不会自动踢出、封禁或隔离玩家。游戏聊天接收与 WARDOGS 官方总游戏时间未接入。',
-			dryRunTitle: '模拟运行影响预览',
+			dryRunTitle: '历史分数阈值命中统计',
 			dryRunHint:
-				'按当前阈值统计已记录的异常窗口评分；历史权重版本可能不同，不等同于规则回放。不会执行处罚。',
+				'按当前阈值比较已保存的历史分数；历史权重版本可能不同。统计不重新评分，也不执行处罚。',
 			period: '时间范围',
-			windows: '异常窗口',
+			windows: '独立异常窗口',
 			koPlayers: '达到 KO 阈值的独立玩家',
 			quarantinePlayers: '达到隔离阈值的独立玩家',
 			contributors: '过去 7 天主要加分规则',
@@ -85,11 +85,11 @@
 			breakdown: 'Score breakdown',
 			noActions:
 				'Dry Run: no automatic kick, ban or quarantine. Inbound game chat and official WARDOGS playtime are unavailable.',
-			dryRunTitle: 'Dry Run impact preview',
+			dryRunTitle: 'Historical score threshold counts',
 			dryRunHint:
-				'Counts recorded abnormal-window scores against current thresholds. Historical weight versions may differ; this is not rule replay. No action is taken.',
+				'Compares saved historical scores with current thresholds. Earlier scoring weights may differ. Scores are not recalculated and no action is taken.',
 			period: 'Period',
-			windows: 'Abnormal windows',
+			windows: 'Distinct abnormal windows',
 			koPlayers: 'Unique players at KO threshold',
 			quarantinePlayers: 'Unique players at quarantine threshold',
 			contributors: 'Top score contributions in 7 days',

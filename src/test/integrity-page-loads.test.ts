@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
+import { eq } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
 import {
 	integrityCases,
@@ -104,5 +105,28 @@ describe.skipIf(!hasTestDb)('Integrity and Player Dossier page loads', () => {
 		expect(result.integrity.cases).toHaveLength(1);
 		expect(result.integrity.reports).toHaveLength(1);
 		expect(result.player.integrity.latestWindow.kpm180).toBe(4);
+	});
+	test('historical window count does not count an upgraded score twice', async () => {
+		const [window] = await env.db
+			.select()
+			.from(integrityWindows)
+			.where(eq(integrityWindows.steamId, PLAYER));
+		await env.db.insert(integrityScores).values({
+			windowId: window.id,
+			orgId: world.org.id,
+			serverId: world.server.id,
+			steamId: PLAYER,
+			scoredAt: new Date(),
+			ruleVersion: 1,
+			score: 65,
+			level: 'AUTO_QUARANTINE_ELIGIBLE',
+			breakdown: [],
+			currentBehaviorAnomaly: true
+		});
+		const result = await loadBoth();
+		expect(result.integrity.scores).toHaveLength(2);
+		expect(
+			result.integrity.dryRun.every((period: { windows: number }) => period.windows === 1)
+		).toBe(true);
 	});
 });
