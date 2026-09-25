@@ -2,8 +2,18 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { PageProps } from './$types';
 	import { integrityCaseStatus, integrityPartText } from '$lib/integrity-display';
+	import type { StatisticalAssessment } from '$lib/server/integrity/statistics';
+	import DistributionChart from './DistributionChart.svelte';
 
 	let { data }: PageProps = $props();
+	// svelte-ignore state_referenced_locally -- initial selection follows the latest saved assessment.
+	let selectedSteamId = $state(data.scores.find((score) => score.statistical)?.steamId ?? '');
+	let selectedScore = $derived(
+		data.scores.find((score) => score.steamId === selectedSteamId && score.statistical)
+	);
+	let selectedAssessment = $derived(
+		(selectedScore?.statistical ?? null) as StatisticalAssessment | null
+	);
 	let lang = $state<'zh' | 'en'>('zh');
 	function switchLanguage() {
 		lang = lang === 'zh' ? 'en' : 'zh';
@@ -286,6 +296,114 @@
 			? '自动处置仅在组织管理员显式开启后运行；不会自动永久封禁。'
 			: 'Automatic actions run only when enabled by an organization owner; permanent bans are never automatic.'}
 </p>
+
+<section class="mb-6 panel p-4">
+	<h3 class="text-base font-semibold text-white">
+		{lang === 'zh'
+			? '真实历史分布与 Shadow 对照'
+			: 'Historical distributions and shadow comparison'}
+	</h3>
+	<p class="mt-1 text-sm text-mist-400">
+		{lang === 'zh'
+			? '统计判断依据过去 30 天真实有效步兵事件；钟形参考曲线不参与计算。样本少于 200 时显示数据不足。'
+			: 'Statistics use 30 days of accepted infantry events; the visual bell never drives decisions. Fewer than 200 samples means insufficient data.'}
+	</p>
+	<div class="mt-3 flex flex-wrap items-center gap-3">
+		<span class="text-sm text-white"
+			>{lang === 'zh'
+				? '当前评估模式'
+				: 'Assessment mode'}：{data.assessmentMode.toUpperCase()}</span
+		>
+		{#if data.assessmentMode === 'statistical_shadow'}<span class="text-xs text-warn"
+				>{lang === 'zh'
+					? '实际自动处置仍由旧评分决定'
+					: 'Actual enforcement still follows the legacy score'}</span
+			>{/if}
+		<label class="text-xs text-mist-300"
+			>{lang === 'zh' ? '玩家' : 'Player'}
+			<select class="ml-2 input" bind:value={selectedSteamId}>
+				{#each [...new Set(data.scores
+							.filter((score) => score.statistical)
+							.map((score) => score.steamId))] as steamId}<option value={steamId}>{steamId}</option
+					>{/each}
+			</select>
+		</label>
+	</div>
+	{#if selectedAssessment}
+		<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+			<div class="rounded-ctl border border-white/10 p-3">
+				<div class="text-xs text-mist-400">Legacy</div>
+				<div class="text-lg text-white">
+					{selectedScore?.score ?? 0} · {selectedScore?.level ?? 'NORMAL'}
+				</div>
+			</div>
+			<div class="rounded-ctl border border-white/10 p-3">
+				<div class="text-xs text-mist-400">Tempo</div>
+				<div class="text-lg text-white">
+					{selectedAssessment.tempoPercentile === null
+						? '—'
+						: `P${(selectedAssessment.tempoPercentile * 100).toFixed(2)}`}
+				</div>
+			</div>
+			<div class="rounded-ctl border border-white/10 p-3">
+				<div class="text-xs text-mist-400">Precision</div>
+				<div class="text-lg text-white">
+					{selectedAssessment.precisionPercentile === null
+						? '—'
+						: `P${(selectedAssessment.precisionPercentile * 100).toFixed(2)}`}
+				</div>
+			</div>
+			<div class="rounded-ctl border border-white/10 p-3">
+				<div class="text-xs text-mist-400">
+					{lang === 'zh' ? '统计结果 / 独立事件' : 'Statistical result / episodes'}
+				</div>
+				<div class="text-lg text-white">
+					{selectedAssessment.level ?? 'INSUFFICIENT_DATA'} · {selectedAssessment.independentEpisodes}
+				</div>
+			</div>
+		</div>
+		{#if selectedAssessment.status === 'READY'}<div class="mt-4 grid gap-3 lg:grid-cols-2">
+				{#each selectedAssessment.metrics as metric (metric.code)}<DistributionChart
+						{metric}
+						{lang}
+					/>{/each}
+			</div>{:else}<p class="mt-4 text-sm text-warn">
+				{lang === 'zh'
+					? '数据不足：尚无达到 200 个可比历史样本的分组。'
+					: 'Insufficient data: no comparable group has 200 historical samples.'}
+			</p>{/if}
+	{:else}<p class="mt-4 text-sm text-mist-400">
+			{lang === 'zh'
+				? '尚无统计评估。历史基线由 Worker 定期计算。'
+				: 'No statistical assessment yet. The worker builds historical baselines periodically.'}
+		</p>{/if}
+	<h4 class="mt-6 text-sm font-semibold text-white">
+		{lang === 'zh'
+			? '过去 30 天：旧系统与统计系统对照'
+			: 'Last 30 days: legacy and statistical comparison'}
+	</h4>
+	<p class="mt-1 text-xs text-mist-400">
+		{lang === 'zh' ? '可用评估' : 'Ready assessments'}：{data.comparison.total} · {lang === 'zh'
+			? '开始于'
+			: 'Since'}：{data.comparison.since ? when(data.comparison.since) : '—'}
+	</p>
+	<div class="mt-2 table-wrap">
+		<table>
+			<thead><tr><th></th><th>Statistical Normal</th><th>Statistical Abnormal</th></tr></thead
+			><tbody
+				><tr
+					><th>Legacy Normal</th><td>{data.comparison.normalNormal}</td><td
+						>{data.comparison.normalAbnormal}</td
+					></tr
+				><tr
+					><th>Legacy Abnormal</th><td>{data.comparison.abnormalNormal}</td><td
+						>{data.comparison.abnormalAbnormal}</td
+					></tr
+				></tbody
+			>
+		</table>
+	</div>
+</section>
 
 <section class="mb-6 panel p-4">
 	<h3 class="text-base font-semibold text-white">

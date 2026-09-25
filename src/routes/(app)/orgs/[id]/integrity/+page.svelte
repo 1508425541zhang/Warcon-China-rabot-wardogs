@@ -5,10 +5,36 @@
 	import { toast } from '$lib/toast.svelte';
 	import IntegritySettings from '../../../server/[id]/integrity/IntegritySettings.svelte';
 	import type { PageProps } from './$types';
+	import type { AssessmentMode } from '$lib/server/integrity/statistics';
 
 	let { data }: PageProps = $props();
 	let lang = $state<'zh' | 'en'>('zh');
 	let busy = $state(false);
+	// svelte-ignore state_referenced_locally -- editable mode starts with the current owner setting.
+	let assessmentMode = $state<AssessmentMode>(data.assessmentMode);
+	async function saveMode() {
+		if (
+			assessmentMode === 'statistical' &&
+			!(await confirmDialog(
+				'统计模式将接管新的风控判断。请先检查 Baseline 样本、Shadow 对照和差异案件。第一版统计自动处置仅允许满足独立证据与安全下限的临时踢出。确认切换？',
+				{ okLabel: '确认切换统计模式', danger: true }
+			))
+		)
+			return;
+		busy = true;
+		try {
+			await api('PUT', `/api/orgs/${encodeURIComponent(data.orgId)}/integrity/mode`, {
+				mode: assessmentMode,
+				confirmation: assessmentMode === 'statistical' ? 'ENABLE_STATISTICAL_INTEGRITY' : undefined
+			});
+			toast('评估模式已保存。', 'ok');
+			await invalidateAll();
+		} catch (err) {
+			toast(errorMessage(err), 'err');
+		} finally {
+			busy = false;
+		}
+	}
 	// svelte-ignore state_referenced_locally -- editable form starts from the server snapshot.
 	let autoKickEnabled = $state(data.enforcement.autoKickEnabled);
 	// svelte-ignore state_referenced_locally -- editable form starts from the server snapshot.
@@ -90,6 +116,69 @@
 		>{lang === 'zh' ? 'English' : '简体中文'}</button
 	>
 </div>
+<section class="mb-6 panel p-4">
+	<h3 class="text-base font-semibold text-white">
+		{lang === 'zh' ? '统计评估迁移' : 'Statistical assessment migration'}
+	</h3>
+	<p class="mt-2 text-sm text-mist-300">
+		{lang === 'zh'
+			? '默认 Shadow：同时保存旧评分和真实历史百分位，实际自动处置仍由旧评分决定。统计模式需组织 Owner 明确切换。'
+			: 'Shadow is the default: both assessments are saved, while actual enforcement still follows legacy scoring. Only an owner may switch to statistical mode.'}
+	</p>
+	<div class="mt-3 grid gap-2 text-sm sm:grid-cols-4">
+		<div>
+			{lang === 'zh' ? '最大基线样本' : 'Largest baseline'}：<strong
+				>{data.baselineSummary.maxSamples}</strong
+			>
+		</div>
+		<div>
+			{lang === 'zh' ? '可用指标' : 'Available metrics'}：<strong
+				>{data.baselineSummary.metrics}/6</strong
+			>
+		</div>
+		<div>
+			{lang === 'zh' ? 'Shadow 对照记录' : 'Shadow comparisons'}：<strong
+				>{data.comparison.total}</strong
+			>
+		</div>
+		<div>
+			{lang === 'zh' ? '对照起点' : 'Comparison since'}：<strong
+				>{data.comparison.since
+					? new Date(data.comparison.since).toLocaleDateString()
+					: '—'}</strong
+			>
+		</div>
+	</div>
+	<p class="mt-2 text-xs text-mist-400">
+		{lang === 'zh' ? '旧异常／统计正常' : 'Legacy abnormal / statistical normal'}：{data.comparison
+			.abnormalNormal} · {lang === 'zh'
+			? '旧正常／统计异常'
+			: 'Legacy normal / statistical abnormal'}：{data.comparison.normalAbnormal} · {lang === 'zh'
+			? '最近基线计算'
+			: 'Baseline calculated'}：{data.baselineSummary.calculatedAt
+			? new Date(data.baselineSummary.calculatedAt).toLocaleString()
+			: '—'}
+	</p>
+	<div class="mt-4 flex flex-wrap items-end gap-3">
+		<label class="block text-sm"
+			>{lang === 'zh' ? '评估模式' : 'Assessment mode'}
+			<select class="mt-1 input" bind:value={assessmentMode}
+				><option value="legacy">{lang === 'zh' ? '旧规则' : 'Legacy'}</option><option
+					value="statistical_shadow">{lang === 'zh' ? '统计影子模式' : 'Statistical Shadow'}</option
+				><option value="statistical">{lang === 'zh' ? '统计模式' : 'Statistical'}</option></select
+			>
+		</label><button
+			class="btn btn-primary"
+			disabled={busy || assessmentMode === data.assessmentMode}
+			onclick={saveMode}>{lang === 'zh' ? '保存评估模式' : 'Save assessment mode'}</button
+		>
+	</div>
+	{#if data.baselineSummary.metrics === 0}<p class="mt-2 text-sm text-warn">
+			{lang === 'zh'
+				? '历史样本不足；切换后统计系统会保持观察，不会因为缺失基线自动处置。'
+				: 'Insufficient history: statistical mode will observe, not act, without a baseline.'}
+		</p>{/if}
+</section>
 <section class="mb-6 panel p-4">
 	<h3 class="text-base font-semibold text-white">
 		{lang === 'zh' ? '实验性自动处置' : 'Experimental automatic actions'}
