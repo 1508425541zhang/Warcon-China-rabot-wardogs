@@ -31,6 +31,7 @@ export interface IntegrityRuleConfig {
 	koThreshold: number;
 	quarantineThreshold: number;
 	quarantineDays: number;
+	minimumOnlineForAutoAction: number;
 	mode: 'dry_run' | 'enforce';
 }
 
@@ -82,6 +83,7 @@ export const DEFAULT_INTEGRITY_RULES: IntegrityRuleConfig = {
 	koThreshold: 54,
 	quarantineThreshold: 64,
 	quarantineDays: 365,
+	minimumOnlineForAutoAction: 20,
 	mode: 'dry_run'
 };
 

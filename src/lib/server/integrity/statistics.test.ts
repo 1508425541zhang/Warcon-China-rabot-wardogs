@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { decideStatisticalAction, DEFAULT_ENFORCEMENT } from './decisions';
+import { DEFAULT_INTEGRITY_RULES } from './score';
 import { maxKillsWithin, medianKillInterval, type BehaviorFinding } from './windows';
 import {
 	assessDistribution,
@@ -106,6 +107,42 @@ describe('empirical Integrity statistics', () => {
 		expect(medianKillInterval(entries)).toBe(4.5);
 		expect(maxKillsWithin(entries, 15)).toBe(4);
 	});
+	test('a weapon is compared only with its own headshot and distance history', () => {
+		const rifle = 'Id.Item.AK74M';
+		const weaponBaselines = new Map([
+			[
+				`headshotRateWeapon:${rifle}`,
+				{
+					...distribution(
+						'headshotRateWeapon',
+						Array.from({ length: 1000 }, (_, i) => [i / 1000, 1])
+					),
+					weaponCategory: rifle
+				}
+			],
+			[
+				`maxKillDistanceWeapon:${rifle}`,
+				{ ...distribution('maxKillDistanceWeapon', ranking), weaponCategory: rifle }
+			]
+		] as const);
+		const result = assessDistribution(
+			{},
+			new Map(),
+			13,
+			1,
+			[
+				{ cause: rifle, kills: 10, headshots: 10, maxKillDistanceM: 1200 },
+				{ cause: 'Id.Item.SVDM', kills: 3, headshots: 3, maxKillDistanceM: 3000 }
+			],
+			weaponBaselines
+		);
+		expect(result.metrics.map((metric) => metric.code)).toEqual([
+			'headshotRateWeapon',
+			'maxKillDistanceWeapon'
+		]);
+		expect(result.metrics.every((metric) => metric.weaponCategory === rifle)).toBe(true);
+		expect(result.level).toBe('CASE');
+	});
 });
 
 const finding: BehaviorFinding = {
@@ -153,12 +190,31 @@ test('statistical decision has independent evidence, live gates and a hard safet
 		confidence: 'B' as const,
 		feedHealthy: true,
 		playerOnline: true,
+		onlinePlayers: 20,
+		rules: DEFAULT_INTEGRITY_RULES,
 		identityReliable: true,
 		priorIndependentWindow: false,
 		previousActions: [] as const
 	};
 	expect(assessment.level).toBe('KICK_CANDIDATE');
 	expect(decideStatisticalAction(input)).toBe('KICK');
+	expect(decideStatisticalAction({ ...input, onlinePlayers: 19 })).toBe('OBSERVE');
+	expect(
+		decideStatisticalAction({
+			...input,
+			assessment: { ...assessment, independentEpisodes: 2 },
+			previousActions: ['KICK'],
+			settings: { ...input.settings, autoQuarantine24hEnabled: true }
+		})
+	).toBe('QUARANTINE_24H');
+	expect(
+		decideStatisticalAction({
+			...input,
+			assessment: { ...assessment, independentEpisodes: 3 },
+			previousActions: ['QUARANTINE_24H'],
+			settings: { ...input.settings, autoQuarantine7dEnabled: true }
+		})
+	).toBe('QUARANTINE_7D');
 	expect(decideStatisticalAction({ ...input, finding: { ...finding, kpm180: 7 } })).toBe('OBSERVE');
 	expect(decideStatisticalAction({ ...input, feedHealthy: false })).toBe('OBSERVE');
 	expect(

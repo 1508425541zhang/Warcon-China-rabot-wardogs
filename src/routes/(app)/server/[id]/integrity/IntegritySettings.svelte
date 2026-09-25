@@ -127,6 +127,13 @@
 			headingEn: 'Independent windows and auxiliary signals',
 			entries: [
 				{
+					key: 'minimumOnlineForAutoAction',
+					zh: '自动处置最低在线人数',
+					en: 'Minimum players for automatic action',
+					min: 1,
+					max: 100
+				},
+				{
 					key: 'repeatWindowMinutes',
 					zh: '重复窗口观察期（分钟）',
 					en: 'Repeat window period (min)',
