@@ -7,12 +7,18 @@
 		maxKills15s: ['15 秒最多击杀', 'Max kills in 15s'],
 		medianKillInterval: ['击杀间隔中位数', 'Median kill interval'],
 		headshotRate: ['爆头率', 'Headshot rate'],
-		penetrationRate: ['穿透率', 'Penetration rate']
+		penetrationRate: ['穿透率', 'Penetration rate'],
+		headshotRateWeapon: ['同枪械爆头率', 'Headshot rate by weapon'],
+		maxKillDistanceWeapon: ['同枪械最远击杀', 'Maximum kill distance by weapon']
 	};
 	const fmt = (n: number) =>
-		metric.code === 'headshotRate' || metric.code === 'penetrationRate'
+		metric.code === 'headshotRate' ||
+		metric.code === 'penetrationRate' ||
+		metric.code === 'headshotRateWeapon'
 			? `${(n * 100).toFixed(1)}%`
-			: n.toFixed(2);
+			: metric.code === 'maxKillDistanceWeapon'
+				? `${n.toFixed(0)} m`
+				: n.toFixed(2);
 	const quality = (count: number) =>
 		count < 1000
 			? lang === 'zh'

@@ -53,3 +53,9 @@ The Integrity dashboard shows the past 24 hours, 72 hours and 7 days of recorded
 ## Protocol limit
 
 Warcon has a verified outgoing player whisper and a server-to-panel kill feed, but no verified incoming game-chat event. In-game `!report` and `!BAN` commands cannot be enabled until an authorised chat source is available. `!BAN` will only create a report, never a ban, when such a source exists.
+
+## Weapon cohorts and automatic actions
+
+The statistical worker now builds separate 30-day distributions for each exact infantry `cause`: headshot rate requires at least 10 kills with that weapon in a 180-second player window, and maximum kill distance requires at least 3. Both need at least 200 comparable historical windows before appearing in an assessment. Distance is a relative historical outlier, **not** a verified physical maximum for the gun. Unknown weapons, invalid distances, vehicles, team kills, suicides and ambiguous factions do not enter these cohorts. The existing Tempo and combined infantry Precision distributions remain available.
+
+Automatic action also requires the configured minimum number of online players (default 20), a healthy live feed, a matching online SteamID, a complete evidence case, high-confidence statistical history (at least 5,000 comparable samples for action signals), extreme Tempo and independent evidence. Organization owners can enable kick and the two temporary quarantine switches. A statistical candidate first receives a kick; another independent candidate after an effective kick can receive 24 hours; a later candidate after an effective 24-hour restriction can receive 7 days. The owner-configured hourly and online-population caps still suspend automated actions when exceeded. With no accepted kill feed or historical baselines, no statistical automatic action can fire regardless of switch values.

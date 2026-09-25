@@ -81,6 +81,7 @@ describe('Integrity decision gate', () => {
 		confidence: 'B' as const,
 		feedHealthy: true,
 		playerOnline: true,
+		onlinePlayers: 20,
 		identityReliable: true,
 		priorIndependentWindow: false,
 		previousActions: [],
@@ -260,9 +261,10 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 		]);
 		memoryFor(server, org);
 		expect(await acquireOrRenew(env, 'integrity enforcement test')).toBe(true);
-		await env.db
-			.insert(integrityRules)
-			.values({ orgId: world.org.id, config: DEFAULT_INTEGRITY_RULES });
+		await env.db.insert(integrityRules).values({
+			orgId: world.org.id,
+			config: { ...DEFAULT_INTEGRITY_RULES, minimumOnlineForAutoAction: 1 }
+		});
 	});
 	afterAll(async () => {
 		forgetMemory(world.server.id);
@@ -460,6 +462,7 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 					confidence: 'B' as const,
 					feedHealthy: true,
 					playerOnline: true,
+					onlinePlayers: 20,
 					identityReliable: true,
 					priorIndependentWindow: false,
 					rules: DEFAULT_INTEGRITY_RULES

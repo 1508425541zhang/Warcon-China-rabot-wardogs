@@ -140,7 +140,7 @@ export async function enforceIntegrityCase(
 					and(
 						eq(integrityActions.orgId, input.orgId),
 						eq(integrityActions.steamId, input.steamId),
-						gte(integrityActions.createdAt, new Date(now.getTime() - 24 * HOUR_MS))
+						gte(integrityActions.createdAt, new Date(now.getTime() - 7 * 24 * HOUR_MS))
 					)
 				)
 				.orderBy(sql`${integrityActions.createdAt} DESC`)
@@ -185,6 +185,7 @@ export async function enforceIntegrityCase(
 				memory.playersAt > 0 &&
 				now.getTime() - memory.playersAt < 5 * 60_000 &&
 				memory.players.some((player) => player.steamId === input.steamId),
+			onlinePlayers: roster.length,
 			identityReliable:
 				input.finding.eventIds.length > 0 && input.finding.steamId === input.steamId,
 			priorIndependentWindow: prior.some((row) =>
