@@ -16,7 +16,7 @@
 		if (
 			assessmentMode === 'statistical' &&
 			!(await confirmDialog(
-				'统计模式将接管新的风控判断。请先检查 Baseline 样本、Shadow 对照和差异案件。第一版统计自动处置仅允许满足独立证据与安全下限的临时踢出。确认切换？',
+				'统计模式将接管新的风控判断。请先检查 Baseline 样本、Shadow 对照和差异案件。高置信异常可自动踢出；重复独立案件可在开启对应开关后升级为 24 小时或 7 天临时隔离。确认切换？',
 				{ okLabel: '确认切换统计模式', danger: true }
 			))
 		)
@@ -133,7 +133,7 @@
 		</div>
 		<div>
 			{lang === 'zh' ? '可用指标' : 'Available metrics'}：<strong
-				>{data.baselineSummary.metrics}/6</strong
+				>{data.baselineSummary.metrics}/8</strong
 			>
 		</div>
 		<div>
@@ -178,6 +178,11 @@
 				? '历史样本不足；切换后统计系统会保持观察，不会因为缺失基线自动处置。'
 				: 'Insufficient history: statistical mode will observe, not act, without a baseline.'}
 		</p>{/if}
+	<p class="mt-2 text-xs text-mist-400">
+		{lang === 'zh'
+			? '同枪械爆头率与距离按具体武器 cause 分组；距离是历史异常，不代表武器物理射程。少于 200 个可比样本时不参与统计判断。'
+			: 'Weapon headshot rate and distance use exact weapon cohorts. Distance indicates historical rarity, not a physical range limit. Fewer than 200 comparable samples do not count.'}
+	</p>
 </section>
 <section class="mb-6 panel p-4">
 	<h3 class="text-base font-semibold text-white">

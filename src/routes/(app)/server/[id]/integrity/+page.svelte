@@ -363,7 +363,7 @@
 			</div>
 		</div>
 		{#if selectedAssessment.status === 'READY'}<div class="mt-4 grid gap-3 lg:grid-cols-2">
-				{#each selectedAssessment.metrics as metric (metric.code)}<DistributionChart
+				{#each selectedAssessment.metrics as metric (`${metric.code}:${metric.weaponCategory}`)}<DistributionChart
 						{metric}
 						{lang}
 					/>{/each}

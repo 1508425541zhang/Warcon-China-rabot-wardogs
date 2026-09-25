@@ -17,7 +17,7 @@ import { steamBanSignals } from './steam-signals';
 import { enforceIntegrityCase } from './enforcement';
 import { publicMessage } from '../http';
 import { evidenceIds, independentEvidence, overlapsEvidence } from './independence';
-import { loadBaselines, populationAt } from './baselines';
+import { loadBaselines, loadWeaponBaselines, populationAt } from './baselines';
 import { assessDistribution, type StatisticalAssessment } from './statistics';
 import type { KillView } from '$lib/types';
 
@@ -105,6 +105,10 @@ export async function processIntegrityBatch(
 		rules.assessmentMode === 'legacy'
 			? null
 			: await loadBaselines(env, orgId, latest[0].map, bucket);
+	const weaponBaselines =
+		rules.assessmentMode === 'legacy'
+			? null
+			: await loadWeaponBaselines(env, orgId, latest[0].map, bucket);
 	const profiles = steamEnabled(env)
 		? await getProfiles(
 				env,
@@ -194,7 +198,9 @@ export async function processIntegrityBatch(
 						},
 						baselines,
 						finding.infantryKills,
-						recent.length + 1
+						recent.length + 1,
+						finding.weaponMetrics ?? [],
+						weaponBaselines ?? new Map()
 					)
 				: null;
 			if (

@@ -25,7 +25,7 @@ export async function refreshIntegrityBaselines(env: Env, orgId: string): Promis
 	const rows = await env.db.execute(sql`
 		WITH valid AS (
 			SELECT k.server_id, k.instance_id, k.match_id, k.killer_steam_id,
-			       k.map, k.event_time, k.victim_steam_id, k.headshot,
+			       k.map, k.cause, k.distance_m, k.event_time, k.victim_steam_id, k.headshot,
 			       (k.tags ? 'Penetration') AS penetration,
 			       floor(k.event_time / 180)::integer AS slot,
 			       CASE WHEN pop.player_count BETWEEN 1 AND 20 THEN '1–20'
@@ -65,23 +65,36 @@ export async function refreshIntegrityBaselines(env: Env, orgId: string): Promis
 			       count(*) FILTER (WHERE headshot)::double precision / count(*) AS headshot_rate,
 			       count(*) FILTER (WHERE penetration)::double precision / count(*) AS penetration_rate
 			FROM timed GROUP BY map, bucket, server_id, instance_id, match_id, killer_steam_id, slot
+		), weapon_windows AS (
+			SELECT map, bucket, cause, server_id, instance_id, match_id, killer_steam_id, slot,
+			       count(*) AS weapon_kills,
+			       count(*) FILTER (WHERE headshot)::double precision / count(*) AS headshot_rate,
+			       max(distance_m) FILTER (WHERE distance_m > 0) AS max_kill_distance
+			FROM valid WHERE cause IS NOT NULL
+			GROUP BY map, bucket, cause, server_id, instance_id, match_id, killer_steam_id, slot
 		), metric_values AS (
-			SELECT w.map, w.bucket, m.metric, m.value
+			SELECT w.map, w.bucket, 'INFANTRY'::text AS weapon, m.metric, m.value
 			FROM windows w CROSS JOIN LATERAL (VALUES
 				('kpm180', w.kpm180), ('uniqueVictims', w.unique_victims),
 				('maxKills15s', w.max_kills_15s), ('medianKillInterval', w.median_kill_interval),
 				('headshotRate', CASE WHEN w.infantry_kills >= 10 THEN w.headshot_rate END),
 				('penetrationRate', CASE WHEN w.infantry_kills >= 10 THEN w.penetration_rate END)
 			) m(metric, value) WHERE m.value IS NOT NULL
+			UNION ALL
+			SELECT w.map, w.bucket, w.cause AS weapon, m.metric, m.value
+			FROM weapon_windows w CROSS JOIN LATERAL (VALUES
+				('headshotRateWeapon', CASE WHEN w.weapon_kills >= 10 THEN w.headshot_rate END),
+				('maxKillDistanceWeapon', CASE WHEN w.weapon_kills >= 3 THEN w.max_kill_distance END)
+			) m(metric, value) WHERE m.value IS NOT NULL
 		), expanded AS (
-			SELECT 1 AS level, map, bucket, metric, value FROM metric_values WHERE bucket IS NOT NULL
-			UNION ALL SELECT 2, NULL::text, bucket, metric, value FROM metric_values WHERE bucket IS NOT NULL
-			UNION ALL SELECT 3, NULL::text, NULL::text, metric, value FROM metric_values
+			SELECT 1 AS level, map, bucket, weapon, metric, value FROM metric_values WHERE bucket IS NOT NULL
+			UNION ALL SELECT 2, NULL::text, bucket, weapon, metric, value FROM metric_values WHERE bucket IS NOT NULL
+			UNION ALL SELECT 3, NULL::text, NULL::text, weapon, metric, value FROM metric_values
 		), keyed AS (
-			SELECT md5(jsonb_build_array(${orgId}::text, level, map, bucket, metric, 'INFANTRY')::text) AS id,
-			       level, map, bucket, metric, value FROM expanded
+			SELECT md5(jsonb_build_array(${orgId}::text, level, map, bucket, metric, weapon)::text) AS id,
+			       level, map, bucket, weapon, metric, value FROM expanded
 		), medians AS (
-			SELECT id, min(level) AS level, min(map) AS map, min(bucket) AS bucket, min(metric) AS metric,
+			SELECT id, min(level) AS level, min(map) AS map, min(bucket) AS bucket, min(weapon) AS weapon, min(metric) AS metric,
 			       count(*)::integer AS sample_count, min(value) AS minimum, max(value) AS maximum,
 			       percentile_cont(ARRAY[0.5,0.9,0.95,0.99,0.995,0.999,0.9995])
 			           WITHIN GROUP (ORDER BY value) AS quantiles
@@ -124,7 +137,7 @@ export async function refreshIntegrityBaselines(env: Env, orgId: string): Promis
 						level: Number(row.level),
 						map: row.map === null ? null : String(row.map),
 						populationBucket: row.bucket === null ? null : String(row.bucket),
-						weaponCategory: 'INFANTRY',
+						weaponCategory: String(row.weapon),
 						sampleCount: Number(row.sample_count),
 						median: q[0],
 						mad: Number(row.mad),
@@ -174,6 +187,7 @@ export function selectBaselines(
 			.filter(
 				(candidate) =>
 					candidate.metric === metric &&
+					candidate.weaponCategory === 'INFANTRY' &&
 					candidate.sampleCount >= 200 &&
 					candidate.windowDays === WINDOW_DAYS &&
 					now.getTime() - candidate.calculatedAt.getTime() <= 24 * 60 * 60_000
@@ -209,6 +223,75 @@ export function selectBaselines(
 			});
 	}
 	return selected;
+}
+
+/** Exact cause is the comparison cohort; unknown and mixed weapons never receive a proxy baseline. */
+export function selectWeaponBaselines(
+	rows: readonly (typeof integrityBaselines.$inferSelect)[],
+	map: string,
+	bucket: PopulationBucket | null,
+	now = new Date()
+): Map<string, DistributionStats> {
+	const selected = new Map<string, DistributionStats>();
+	for (const row of [...rows].sort((a, b) => a.level - b.level)) {
+		if (
+			(row.metric !== 'headshotRateWeapon' && row.metric !== 'maxKillDistanceWeapon') ||
+			row.weaponCategory === 'INFANTRY' ||
+			row.sampleCount < 200 ||
+			row.windowDays !== WINDOW_DAYS ||
+			now.getTime() - row.calculatedAt.getTime() > 24 * 60 * 60_000 ||
+			(row.level === 1 &&
+				(row.map !== map || row.populationBucket !== bucket || bucket === null)) ||
+			(row.level === 2 && (row.populationBucket !== bucket || bucket === null))
+		)
+			continue;
+		const key = `${row.metric}:${row.weaponCategory}`;
+		if (selected.has(key)) continue;
+		selected.set(key, {
+			id: row.id,
+			metric: row.metric as DistributionStats['metric'],
+			map: row.map,
+			populationBucket: row.populationBucket as PopulationBucket | null,
+			weaponCategory: row.weaponCategory,
+			sampleCount: row.sampleCount,
+			median: row.median,
+			mad: row.mad,
+			p90: row.p90,
+			p95: row.p95,
+			p99: row.p99,
+			p995: row.p995,
+			p999: row.p999,
+			p9995: row.p9995,
+			histogram: row.histogram as DistributionStats['histogram'],
+			cdf: row.cdf as DistributionStats['cdf'],
+			windowDays: row.windowDays,
+			calculatedAt: row.calculatedAt
+		});
+	}
+	return selected;
+}
+
+export async function loadWeaponBaselines(
+	env: Env,
+	orgId: string,
+	map: string,
+	bucket: PopulationBucket | null
+): Promise<Map<string, DistributionStats>> {
+	const rows = await env.db
+		.select()
+		.from(integrityBaselines)
+		.where(
+			and(
+				eq(integrityBaselines.orgId, orgId),
+				or(
+					eq(integrityBaselines.metric, 'headshotRateWeapon'),
+					eq(integrityBaselines.metric, 'maxKillDistanceWeapon')
+				),
+				gte(integrityBaselines.sampleCount, 200),
+				gte(integrityBaselines.calculatedAt, new Date(Date.now() - 24 * 60 * 60_000))
+			)
+		);
+	return selectWeaponBaselines(rows, map, bucket);
 }
 
 export async function loadBaselines(
