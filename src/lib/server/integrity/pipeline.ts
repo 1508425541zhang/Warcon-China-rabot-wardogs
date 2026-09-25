@@ -17,6 +17,8 @@ import { steamBanSignals } from './steam-signals';
 import { enforceIntegrityCase } from './enforcement';
 import { publicMessage } from '../http';
 import { evidenceIds, independentEvidence, overlapsEvidence } from './independence';
+import { loadBaselines, populationAt } from './baselines';
+import { assessDistribution, type StatisticalAssessment } from './statistics';
 import type { KillView } from '$lib/types';
 
 const infantry = new InfantryWindows();
@@ -78,12 +80,31 @@ export async function processIntegrityBatch(
 		);
 	}
 	const findings = infantry.observe(serverId, batch, overrides, rules.config);
+	if (rules.assessmentMode !== 'legacy') {
+		const existing = new Set(findings.map((finding) => finding.steamId));
+		findings.push(
+			...infantry
+				.snapshots(
+					serverId,
+					batch.flatMap((kill) => (kill.killer?.steamId ? [kill.killer.steamId] : []))
+				)
+				.filter((finding) => !existing.has(finding.steamId))
+		);
+	}
 	if (!findings.length) return;
 	// Only the strongest state of each active window in this batch needs a database write.
 	const byWindow = new Map<string, (typeof findings)[number]>();
 	for (const finding of findings)
 		byWindow.set(`${finding.steamId}:${finding.instanceId}:${finding.anchorClock}`, finding);
 	const latest = [...byWindow.values()];
+	const bucket =
+		rules.assessmentMode === 'legacy'
+			? null
+			: await populationAt(env, serverId, new Date(batch[0].ts));
+	const baselines =
+		rules.assessmentMode === 'legacy'
+			? null
+			: await loadBaselines(env, orgId, latest[0].map, bucket);
 	const profiles = steamEnabled(env)
 		? await getProfiles(
 				env,
@@ -161,6 +182,37 @@ export async function processIntegrityBatch(
 			const recent = recentRows
 				.filter((row) => row.id !== windowId && independentEvidence(row.eventIds, finding.eventIds))
 				.slice(0, 2);
+			const statistical: StatisticalAssessment | null = baselines
+				? assessDistribution(
+						{
+							kpm180: finding.kpm180,
+							uniqueVictims: finding.uniqueVictims,
+							maxKills15s: finding.maxKills15s,
+							medianKillInterval: finding.medianKillInterval,
+							headshotRate: finding.headshots / finding.infantryKills,
+							penetrationRate: finding.penetrations / finding.infantryKills
+						},
+						baselines,
+						finding.infantryKills,
+						recent.length + 1
+					)
+				: null;
+			if (
+				!finding.reasons.length &&
+				(!statistical ||
+					statistical.level === 'NORMAL' ||
+					statistical.status === 'INSUFFICIENT_DATA')
+			)
+				continue;
+			const [previousAssessment] =
+				windowId === null
+					? []
+					: await tx
+							.select({ statistical: integrityScores.statistical })
+							.from(integrityScores)
+							.where(eq(integrityScores.windowId, windowId))
+							.orderBy(desc(integrityScores.id))
+							.limit(1);
 			if (windowId === null) {
 				const [window] = await tx
 					.insert(integrityWindows)
@@ -179,6 +231,8 @@ export async function processIntegrityBatch(
 						headshots: finding.headshots,
 						penetrations: finding.penetrations,
 						burstPoints: finding.burstPoints,
+						maxKills15s: finding.maxKills15s,
+						medianKillInterval: finding.medianKillInterval,
 						behaviorReasons: finding.reasons,
 						eventIds: finding.eventIds
 					})
@@ -201,6 +255,8 @@ export async function processIntegrityBatch(
 						headshots: finding.headshots,
 						penetrations: finding.penetrations,
 						burstPoints: finding.burstPoints,
+						maxKills15s: finding.maxKills15s,
+						medianKillInterval: finding.medianKillInterval,
 						behaviorReasons: finding.reasons,
 						eventIds: [...new Set([...(evidenceIds(saved.eventIds) ?? []), ...finding.eventIds])]
 					})
@@ -242,9 +298,21 @@ export async function processIntegrityBatch(
 				score: score.score,
 				level: score.level,
 				breakdown: score.breakdown,
+				statistical,
 				currentBehaviorAnomaly: score.currentBehaviorAnomaly
 			});
-			if (score.score >= rules.config.koThreshold) {
+			const legacyCase = score.score >= rules.config.koThreshold;
+			const statisticalCase =
+				statistical?.level === 'CASE' || statistical?.level === 'KICK_CANDIDATE';
+			const newStatisticalLevel =
+				statisticalCase &&
+				(previousAssessment?.statistical as StatisticalAssessment | null)?.level !==
+					statistical?.level;
+			if (
+				rules.assessmentMode === 'statistical'
+					? newStatisticalLevel
+					: legacyCase || newStatisticalLevel
+			) {
 				const caseId = await freezeFindingEvidence(tx, {
 					orgId,
 					serverId,
@@ -255,31 +323,40 @@ export async function processIntegrityBatch(
 					steamKnown: steam.known,
 					ruleVersion: rules.version,
 					rulesSnapshot: rules.config,
-					createdAt: now
+					createdAt: now,
+					statistical,
+					trigger:
+						!legacyCase && statisticalCase ? 'STATISTICAL_WINDOW' : 'ABNORMAL_INFANTRY_WINDOW'
 				});
-				alerts.push({
-					caseId,
-					serverId,
-					serverName: memoryOf(serverId)?.server.name ?? serverId,
-					steamId: finding.steamId,
-					map: finding.map,
-					score: score.score,
-					level: score.level,
-					breakdown: score.breakdown,
-					infantryKills: finding.infantryKills,
-					kpm180: finding.kpm180,
-					uniqueVictims: finding.uniqueVictims,
-					uniqueReporters: Number(reporters?.count ?? 0),
-					createdAt: now
-				});
-				candidates.push({
-					orgId,
-					serverId,
-					steamId: finding.steamId,
-					caseId,
-					finding: { ...finding, windowId },
-					score
-				});
+				if (legacyCase)
+					alerts.push({
+						caseId,
+						serverId,
+						serverName: memoryOf(serverId)?.server.name ?? serverId,
+						steamId: finding.steamId,
+						map: finding.map,
+						score: score.score,
+						level: score.level,
+						breakdown: score.breakdown,
+						infantryKills: finding.infantryKills,
+						kpm180: finding.kpm180,
+						uniqueVictims: finding.uniqueVictims,
+						uniqueReporters: Number(reporters?.count ?? 0),
+						createdAt: now
+					});
+				if (
+					rules.assessmentMode === 'statistical'
+						? statistical?.level === 'KICK_CANDIDATE'
+						: legacyCase
+				)
+					candidates.push({
+						orgId,
+						serverId,
+						steamId: finding.steamId,
+						caseId,
+						finding: { ...finding, windowId },
+						score
+					});
 			}
 			infantry.markPersisted(serverId, finding, windowId);
 		}

@@ -19,6 +19,7 @@ import { getIntegrityRules } from '$lib/server/integrity/rules';
 import { enforceIntegrityCase, integrityCapHit } from '$lib/server/integrity/enforcement';
 import { effectiveActionKinds, recordIntegrityDelivery } from '$lib/server/integrity/actions';
 import type { BehaviorFinding } from '$lib/server/integrity/windows';
+import type { StatisticalAssessment } from '$lib/server/integrity/statistics';
 import { acquireOrRenew, releaseOwnership } from '$lib/server/leadership';
 import { forgetMemory, memoryFor } from '$lib/server/observe';
 import { grantEntry, serverListOf } from '$lib/server/lists';
@@ -51,8 +52,20 @@ const finding = (steamId: string, extreme = false): BehaviorFinding => ({
 	penetrations: 0,
 	penetrationPct: 0,
 	burstPoints: extreme ? 12 : 10,
+	maxKills15s: extreme ? 8 : 6,
+	medianKillInterval: 4,
 	reasons: extreme ? ['kpm', 'burst', 'headshot'] : ['kpm', 'burst'],
 	eventIds: [`e-${steamId}`]
+});
+const statistical = (level: StatisticalAssessment['level']): StatisticalAssessment => ({
+	status: 'READY',
+	level,
+	tempoPercentile: level === 'NORMAL' ? 0.5 : 0.9998,
+	precisionPercentile: level === 'NORMAL' ? 0.5 : 0.999,
+	strongestMetric: { code: 'kpm180', value: 8, percentile: 0.9998 },
+	independentEpisodes: 1,
+	sampleCount: 5000,
+	metrics: []
 });
 
 describe('Integrity decision gate', () => {
@@ -282,6 +295,69 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 		expect(action.deliveryState).toBe('pending');
 		expect(action.effectiveAt).toBeNull();
 		expect(effectiveActionKinds([action])).toEqual([]);
+	});
+	test('Shadow: legacy KICK still executes when the statistical result is NORMAL', async () => {
+		await setFlags({ autoKickEnabled: true });
+		const input = await candidate(sid(816));
+		const shadow = statistical('NORMAL');
+		await env.db
+			.update(integrityScores)
+			.set({ statistical: shadow })
+			.where(eq(integrityScores.windowId, input.finding.windowId!));
+		await env.db
+			.update(integrityCases)
+			.set({ statistical: shadow })
+			.where(eq(integrityCases.id, input.caseId));
+		expect((await getIntegrityRules(env, world.org.id)).assessmentMode).toBe('statistical_shadow');
+		expect(await enforceIntegrityCase(env, input)).toBe('KICK');
+	});
+	test('Shadow: statistical KICK_CANDIDATE cannot execute when legacy is NORMAL', async () => {
+		await setFlags({ autoKickEnabled: true });
+		const input = await candidate(sid(817), true);
+		const legacy: IntegrityScore = {
+			score: 10,
+			level: 'NORMAL',
+			breakdown: [],
+			currentBehaviorAnomaly: false
+		};
+		const shadow = statistical('KICK_CANDIDATE');
+		await env.db
+			.update(integrityScores)
+			.set({ score: 10, level: 'NORMAL', currentBehaviorAnomaly: false, statistical: shadow })
+			.where(eq(integrityScores.windowId, input.finding.windowId!));
+		await env.db
+			.update(integrityCases)
+			.set({ riskScore: 10, statistical: shadow })
+			.where(eq(integrityCases.id, input.caseId));
+		expect(await enforceIntegrityCase(env, { ...input, score: legacy })).toBe('OBSERVE');
+		expect(
+			await env.db.select().from(integrityActions).where(eq(integrityActions.caseId, input.caseId))
+		).toHaveLength(0);
+	});
+	test('statistical mode uses the saved statistical candidate and existing live safety gates', async () => {
+		await setFlags({ autoKickEnabled: true });
+		const input = await candidate(sid(818), true);
+		const assessment = statistical('KICK_CANDIDATE');
+		await env.db
+			.update(integrityRules)
+			.set({ assessmentMode: 'statistical', version: 2 })
+			.where(eq(integrityRules.orgId, world.org.id));
+		try {
+			await env.db
+				.update(integrityScores)
+				.set({ ruleVersion: 2, statistical: assessment })
+				.where(eq(integrityScores.windowId, input.finding.windowId!));
+			await env.db
+				.update(integrityCases)
+				.set({ ruleVersion: 2, statistical: assessment })
+				.where(eq(integrityCases.id, input.caseId));
+			expect(await enforceIntegrityCase(env, input)).toBe('KICK');
+		} finally {
+			await env.db
+				.update(integrityRules)
+				.set({ assessmentMode: 'statistical_shadow', version: 1 })
+				.where(eq(integrityRules.orgId, world.org.id));
+		}
 	});
 	test('failed and unknown kicks remain ineffective; only delivery counts', async () => {
 		await setFlags({ autoKickEnabled: true });

@@ -1,5 +1,6 @@
 import type { BehaviorFinding } from './windows';
 import type { IntegrityScore, IntegrityRuleConfig } from './score';
+import type { StatisticalAssessment } from './statistics';
 
 export type IntegrityDecision = 'OBSERVE' | 'KICK' | 'QUARANTINE_24H' | 'QUARANTINE_7D';
 export interface EnforcementSettings {
@@ -68,4 +69,32 @@ export function decideIntegrityAction(input: DecisionInput): IntegrityDecision {
 		if (settings.autoQuarantine24hEnabled) return 'QUARANTINE_24H';
 	}
 	return settings.autoKickEnabled ? 'KICK' : 'OBSERVE';
+}
+
+/** First statistical enforcement release permits only a protective kick with independent evidence. */
+export function decideStatisticalAction(
+	input: Omit<DecisionInput, 'score' | 'rules'> & { assessment: StatisticalAssessment }
+): IntegrityDecision {
+	const { assessment, finding, settings } = input;
+	if (
+		settings.autoSuspendedAt ||
+		!settings.autoKickEnabled ||
+		!input.feedHealthy ||
+		!input.playerOnline ||
+		!input.identityReliable ||
+		(input.confidence !== 'A' && input.confidence !== 'B') ||
+		assessment.status !== 'READY' ||
+		assessment.level !== 'KICK_CANDIDATE' ||
+		assessment.sampleCount < 5000 ||
+		assessment.tempoPercentile === null ||
+		assessment.tempoPercentile < 0.9995 ||
+		!(
+			(assessment.precisionPercentile !== null && assessment.precisionPercentile >= 0.995) ||
+			(input.priorIndependentWindow && assessment.independentEpisodes >= 2)
+		)
+	)
+		return 'OBSERVE';
+	// Existing extreme behavior is a hard safety floor: rarity alone cannot lower the action bar.
+	if (finding.kpm180 < 8) return 'OBSERVE';
+	return 'KICK';
 }

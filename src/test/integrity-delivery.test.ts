@@ -171,6 +171,20 @@ describe.skipIf(!hasTestDb)('Integrity delivery guard', () => {
 		expect(clientSpy).not.toHaveBeenCalled();
 	});
 
+	test('changing assessment mode invalidates a previously queued kick before delivery', async () => {
+		await rule({});
+		const { row, actionId } = await created(825);
+		await rule({ assessmentMode: 'statistical', version: 2 });
+		try {
+			await deliverOne(env, row);
+			expect((await outboxOf(row.id)).state).toBe('skipped');
+			expect((await actionOf(actionId)).effectiveAt).toBeNull();
+			expect(clientSpy).not.toHaveBeenCalled();
+		} finally {
+			await rule({ assessmentMode: 'statistical_shadow', version: 1 });
+		}
+	});
+
 	test('closing the quarantine switch leaves its active list entry in place', async () => {
 		await rule({});
 		const { row, actionId } = await created(823, 'QUARANTINE_24H');

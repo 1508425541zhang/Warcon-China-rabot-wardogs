@@ -15,6 +15,7 @@ import {
 import { getIntegrityRules } from '$lib/server/integrity/rules';
 import { weaponOverrides } from '$lib/server/integrity/weapon-map';
 import { liveInfantryMetrics } from '$lib/server/integrity/live';
+import { shadowComparison } from '$lib/server/integrity/baselines';
 import type { Player, Status } from '$lib/types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -33,6 +34,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 						confidence: integrityCases.confidence,
 						riskScore: integrityCases.riskScore,
 						riskBreakdown: integrityCases.riskBreakdown,
+						statistical: integrityCases.statistical,
 						snapshot: integrityCases.snapshot,
 						trigger: integrityCases.trigger
 					})
@@ -48,6 +50,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 						score: integrityScores.score,
 						level: integrityScores.level,
 						breakdown: integrityScores.breakdown,
+						statistical: integrityScores.statistical,
 						ruleVersion: integrityScores.ruleVersion
 					})
 					.from(integrityScores)
@@ -170,6 +173,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			LIMIT 5
 		`)) as { code: string; points: number }[];
 		const canConfigure = (await orgRoleFor(env, user, server.orgId)) === 'owner';
+		const comparison = await shadowComparison(env, server.orgId, rules.config.koThreshold);
 		return {
 			cases: cases.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
 			scores: scores.map((item) => ({ ...item, scoredAt: item.scoredAt.toISOString() })),
@@ -186,6 +190,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			feedRowsTruncated: recentKills.length > 3000,
 			onlinePlayers,
 			ruleVersion: rules.version,
+			assessmentMode: rules.assessmentMode,
+			comparison,
 			kpmBands: rules.config.kpmBands,
 			mode: rules.enforcement.autoSuspendedAt
 				? 'suspended'

@@ -51,6 +51,28 @@ export function burstPoints(entries: readonly Pick<Entry, 'clock'>[]): number {
 	return 0;
 }
 
+export function maxKillsWithin(entries: readonly Pick<Entry, 'clock'>[], seconds: number): number {
+	const clocks = entries.map((entry) => entry.clock).sort((a, b) => a - b);
+	let start = 0;
+	let maximum = 0;
+	for (let end = 0; end < clocks.length; end++) {
+		while (clocks[start] < clocks[end] - seconds) start++;
+		maximum = Math.max(maximum, end - start + 1);
+	}
+	return maximum;
+}
+
+export function medianKillInterval(entries: readonly Pick<Entry, 'clock'>[]): number | null {
+	if (entries.length < 2) return null;
+	const clocks = entries.map((entry) => entry.clock).sort((a, b) => a - b);
+	const gaps = clocks
+		.slice(1)
+		.map((clock, i) => clock - clocks[i])
+		.sort((a, b) => a - b);
+	const middle = Math.floor(gaps.length / 2);
+	return gaps.length % 2 ? gaps[middle] : (gaps[middle - 1] + gaps[middle]) / 2;
+}
+
 export interface BehaviorFinding {
 	steamId: string;
 	instanceId: string;
@@ -68,6 +90,8 @@ export interface BehaviorFinding {
 	penetrations: number;
 	penetrationPct: number;
 	burstPoints: number;
+	maxKills15s: number;
+	medianKillInterval: number | null;
 	reasons: BehaviorReason[];
 	eventIds: string[];
 }
@@ -90,6 +114,47 @@ export class InfantryWindows {
 	markPersisted(serverId: string, finding: BehaviorFinding, windowId: number): void {
 		const player = this.servers.get(serverId)?.players.get(finding.steamId);
 		if (player?.lastFindingClock === finding.anchorClock) player.windowId = windowId;
+	}
+
+	/** Current accepted infantry evidence, including behavior below the legacy finding thresholds. */
+	snapshots(serverId: string, steamIds: readonly string[]): BehaviorFinding[] {
+		const server = this.servers.get(serverId);
+		if (!server) return [];
+		const result: BehaviorFinding[] = [];
+		for (const steamId of new Set(steamIds)) {
+			const player = server.players.get(steamId);
+			if (!player?.entries.length) continue;
+			const entries = player.entries.filter(
+				(entry) => entry.clock > server.latestClock - INFANTRY_WINDOW_SECONDS
+			);
+			if (!entries.length) continue;
+			const eventIds = entries.map((entry) => entry.eventId);
+			const active = eventIds.some((eventId) => player.episodeEventIds.has(eventId));
+			const headshots = entries.filter((entry) => entry.headshot).length;
+			const penetrations = entries.filter((entry) => entry.penetration).length;
+			result.push({
+				steamId,
+				instanceId: server.instanceId,
+				map: server.map,
+				anchorClock: active ? player.lastFindingClock! : server.latestClock,
+				windowId: active ? player.windowId : null,
+				clockFrom: entries[0].clock,
+				clockTo: server.latestClock,
+				infantryKills: entries.length,
+				kpm180: entries.length / 3,
+				uniqueVictims: new Set(entries.map((entry) => entry.victimSteamId)).size,
+				headshots,
+				headshotPct: (100 * headshots) / entries.length,
+				penetrations,
+				penetrationPct: (100 * penetrations) / entries.length,
+				burstPoints: burstPoints(entries),
+				maxKills15s: maxKillsWithin(entries, 15),
+				medianKillInterval: medianKillInterval(entries),
+				reasons: [],
+				eventIds
+			});
+		}
+		return result;
 	}
 
 	observe(
@@ -236,6 +301,8 @@ export class InfantryWindows {
 				penetrations,
 				penetrationPct,
 				burstPoints: burst,
+				maxKills15s: maxKillsWithin(player.entries, 15),
+				medianKillInterval: medianKillInterval(player.entries),
 				reasons,
 				eventIds
 			});

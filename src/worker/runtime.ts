@@ -19,6 +19,7 @@ import { subscribe } from '$lib/server/events';
 import { organizations } from '$lib/server/db/schema';
 import { RELAY_PREFIX, serializeError } from '$lib/server/relay';
 import { metricsResponse } from '$lib/server/metrics';
+import { startIntegrityBaselines, stopIntegrityBaselines } from '$lib/server/integrity/baselines';
 import type { Priority } from '$lib/server/dispatcher';
 
 const json = (data: unknown, status = 200) =>
@@ -33,6 +34,7 @@ export function startWorker(env: Env, label = 'worker'): ReturnType<typeof Bun.s
 	setGateway(localGateway);
 	startPoller(env, label);
 	startFeedProcessing(env);
+	startIntegrityBaselines(env);
 	const port = Number(env.WORKER_PORT) || 7700;
 	const server = Bun.serve({
 		port,
@@ -171,6 +173,7 @@ async function relay(env: Env, path: string, url: URL, req: Request): Promise<Re
 }
 
 export async function stopWorker(): Promise<void> {
+	stopIntegrityBaselines();
 	await stopFeedProcessing();
 	await stopPoller();
 }

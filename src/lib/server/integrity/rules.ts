@@ -7,11 +7,13 @@ import { integrityRules } from '../db/schema';
 import { ApiError } from '../http';
 import { DEFAULT_INTEGRITY_RULES, type IntegrityRuleConfig } from './score';
 import { DEFAULT_ENFORCEMENT, type EnforcementSettings } from './decisions';
+import type { AssessmentMode } from './statistics';
 
 export interface RuleSet {
 	version: number;
 	config: IntegrityRuleConfig;
 	enforcement: EnforcementSettings;
+	assessmentMode: AssessmentMode;
 }
 
 const bounds: Record<string, [number, number]> = {
@@ -129,6 +131,7 @@ export async function getIntegrityRules(env: Env, orgId: string): Promise<RuleSe
 	const [row] = await env.db.select().from(integrityRules).where(eq(integrityRules.orgId, orgId));
 	const rules = {
 		version: row?.version ?? 1,
+		assessmentMode: (row?.assessmentMode ?? 'statistical_shadow') as AssessmentMode,
 		config: row
 			? validateIntegrityRules(row.config as Record<string, unknown>)
 			: DEFAULT_INTEGRITY_RULES,
@@ -186,8 +189,64 @@ export async function saveIntegrityRules(
 	});
 	return {
 		version: saved.row.version,
+		assessmentMode: saved.row.assessmentMode as AssessmentMode,
 		config: validateIntegrityRules(saved.row.config as Record<string, unknown>),
 		enforcement: enforcementOf(saved.row)
+	};
+}
+
+/** Owner-only route calls this separately; changing engines invalidates old case rule versions. */
+export async function saveAssessmentMode(
+	env: Env,
+	req: Request,
+	actor: SessionUser,
+	orgId: string,
+	mode: AssessmentMode,
+	confirmation: string
+): Promise<RuleSet> {
+	if (!['legacy', 'statistical_shadow', 'statistical'].includes(mode))
+		throw new ApiError(400, 'Unknown Integrity assessment mode.');
+	if (mode === 'statistical' && confirmation !== 'ENABLE_STATISTICAL_INTEGRITY')
+		throw new ApiError(400, 'Explicit statistical enforcement confirmation is required.');
+	const saved = await env.db.transaction(async (tx) => {
+		const current = await lockRules(tx, orgId);
+		const [row] = current
+			? await tx
+					.update(integrityRules)
+					.set({
+						assessmentMode: mode,
+						version: sql`${integrityRules.version} + 1`,
+						updatedBy: actor.id,
+						updatedAt: new Date()
+					})
+					.where(eq(integrityRules.orgId, orgId))
+					.returning()
+			: await tx
+					.insert(integrityRules)
+					.values({
+						orgId,
+						config: DEFAULT_INTEGRITY_RULES,
+						assessmentMode: mode,
+						updatedBy: actor.id
+					})
+					.returning();
+		return row;
+	});
+	cache.delete(orgId);
+	await writeAudit(env, req, {
+		actor,
+		orgId,
+		category: 'org',
+		action: 'integrity.assessment_mode.update',
+		outcome: 'ok',
+		message: `Integrity assessment mode: ${mode}`,
+		detail: { mode, version: saved.version }
+	});
+	return {
+		version: saved.version,
+		assessmentMode: mode,
+		config: validateIntegrityRules(saved.config as Record<string, unknown>),
+		enforcement: enforcementOf(saved)
 	};
 }
 
