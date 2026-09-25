@@ -45,6 +45,13 @@
 		feedAt: string | null;
 	}
 	let feed = $state<FeedSetup | null>(null);
+	let feedIsLoopback = $derived.by(() => {
+		try {
+			return ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(feed?.url ?? '').hostname);
+		} catch {
+			return false;
+		}
+	});
 	let feedBusy = $state(false);
 	let feedPath = $derived(`/api/servers/${encodeURIComponent(id)}/feed`);
 	async function loadFeed() {
@@ -358,13 +365,19 @@
 				{:else}
 					<button
 						class="btn btn-sm btn-primary"
-						disabled={feedBusy || busy || !doc}
+						disabled={feedBusy || busy || !doc || (feedIsLoopback && !data.server.demo)}
 						onclick={configureFeed}>配置</button
 					>
 				{/if}
 			</span>
 		{/if}
 	</div>
+	{#if feedIsLoopback && !data.server.demo}
+		<p class="mb-3 text-sm text-warn">
+			当前回传地址是本机地址，远程游戏服务器无法向它发送击杀事件。请先提供游戏服务器可访问的公网
+			HTTPS 地址，再配置 Kill Feed。
+		</p>
+	{/if}
 	{#if feed?.configured && feed.token}
 		<div class="grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr]">
 			<span class="text-[13px] text-mist-400 md:pt-1.5">地址</span>

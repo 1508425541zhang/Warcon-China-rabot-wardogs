@@ -103,6 +103,7 @@ export async function loadPlayerIntegrity(env: Env, server: ServerRow, steamId: 
 		current: current ? { kills: current.kills, deaths: current.deaths } : null,
 		metrics,
 		metricsAvailable:
+			!!server.feedTokenHash &&
 			!!live?.feedAt &&
 			Date.now() - live.feedAt.getTime() < 5 * 60_000 &&
 			recentKills.length <= 1000
