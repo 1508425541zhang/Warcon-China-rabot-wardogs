@@ -15,6 +15,7 @@ import { getProfiles, steamEnabled } from '../steam';
 import { steamBanSignals } from './steam-signals';
 import { enforceIntegrityCase } from './enforcement';
 import { publicMessage } from '../http';
+import { evidenceIds, independentEvidence, overlapsEvidence } from './independence';
 import type { KillView } from '$lib/types';
 
 const infantry = new InfantryWindows();
@@ -91,25 +92,47 @@ export async function processIntegrityBatch(
 						gte(integrityReports.createdAt, new Date(now.getTime() - 24 * 60 * 60_000))
 					)
 				);
-			const recent = await tx
-				.select({ kpm180: integrityWindows.kpm180 })
+			const recentRows = await tx
+				.select({
+					id: integrityWindows.id,
+					kpm180: integrityWindows.kpm180,
+					eventIds: integrityWindows.eventIds
+				})
 				.from(integrityWindows)
 				.where(
 					and(
 						eq(integrityWindows.orgId, orgId),
 						eq(integrityWindows.steamId, finding.steamId),
-						finding.windowId === null
-							? sql`TRUE`
-							: sql`${integrityWindows.id} <> ${finding.windowId}`,
 						gte(
 							integrityWindows.observedAt,
 							new Date(now.getTime() - rules.config.repeatWindowMinutes * 60_000)
 						)
 					)
 				)
-				.orderBy(desc(integrityWindows.observedAt))
-				.limit(2);
+				.orderBy(desc(integrityWindows.observedAt));
 			let windowId = finding.windowId;
+			// A restarted worker has no in-memory window ID. Recover the saved episode by
+			// evidence overlap before allowing any prior window to count as independent.
+			if (windowId === null) {
+				const saved = await tx
+					.select({ id: integrityWindows.id, eventIds: integrityWindows.eventIds })
+					.from(integrityWindows)
+					.where(
+						and(
+							eq(integrityWindows.orgId, orgId),
+							eq(integrityWindows.serverId, serverId),
+							eq(integrityWindows.steamId, finding.steamId),
+							eq(integrityWindows.instanceId, finding.instanceId),
+							eq(integrityWindows.map, finding.map)
+						)
+					)
+					.orderBy(desc(integrityWindows.observedAt));
+				windowId =
+					saved.find((row) => overlapsEvidence(row.eventIds, finding.eventIds))?.id ?? null;
+			}
+			const recent = recentRows
+				.filter((row) => row.id !== windowId && independentEvidence(row.eventIds, finding.eventIds))
+				.slice(0, 2);
 			if (windowId === null) {
 				const [window] = await tx
 					.insert(integrityWindows)
@@ -134,6 +157,11 @@ export async function processIntegrityBatch(
 					.returning({ id: integrityWindows.id });
 				windowId = window.id;
 			} else {
+				const [saved] = await tx
+					.select({ eventIds: integrityWindows.eventIds })
+					.from(integrityWindows)
+					.where(eq(integrityWindows.id, windowId));
+				if (!saved) throw new Error('Integrity episode disappeared before update.');
 				await tx
 					.update(integrityWindows)
 					.set({
@@ -146,7 +174,7 @@ export async function processIntegrityBatch(
 						penetrations: finding.penetrations,
 						burstPoints: finding.burstPoints,
 						behaviorReasons: finding.reasons,
-						eventIds: finding.eventIds
+						eventIds: [...new Set([...(evidenceIds(saved.eventIds) ?? []), ...finding.eventIds])]
 					})
 					.where(eq(integrityWindows.id, windowId));
 			}
@@ -156,7 +184,8 @@ export async function processIntegrityBatch(
 				finding.steamId,
 				now,
 				rules.config.repeatKoWindowHours,
-				windowId
+				windowId,
+				finding.eventIds
 			);
 			const signals = {
 				behaviorReasons: finding.reasons,

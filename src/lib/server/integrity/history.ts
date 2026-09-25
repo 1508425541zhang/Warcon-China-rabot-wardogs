@@ -1,6 +1,7 @@
 import { and, eq, gte, inArray, lt, ne } from 'drizzle-orm';
 import type { DbOrTx } from '../db';
-import { integrityScores } from '../db/schema';
+import { integrityScores, integrityWindows } from '../db/schema';
+import { independentEvidence } from './independence';
 
 /** Previous execution-level *recorded* result, never reinterpreted with today's thresholds. */
 export async function hadRecentAutoKo(
@@ -9,7 +10,8 @@ export async function hadRecentAutoKo(
 	steamId: string,
 	before: Date,
 	windowHours: number,
-	currentWindowId: number | null
+	currentWindowId: number | null,
+	currentEventIds: readonly string[]
 ): Promise<boolean> {
 	const conditions = [
 		eq(integrityScores.orgId, orgId),
@@ -25,10 +27,10 @@ export async function hadRecentAutoKo(
 		lt(integrityScores.scoredAt, before)
 	];
 	if (currentWindowId !== null) conditions.push(ne(integrityScores.windowId, currentWindowId));
-	const [row] = await db
-		.select({ id: integrityScores.id })
+	const rows = await db
+		.select({ eventIds: integrityWindows.eventIds })
 		.from(integrityScores)
-		.where(and(...conditions))
-		.limit(1);
-	return !!row;
+		.innerJoin(integrityWindows, eq(integrityWindows.id, integrityScores.windowId))
+		.where(and(...conditions));
+	return rows.some((row) => independentEvidence(row.eventIds, currentEventIds));
 }

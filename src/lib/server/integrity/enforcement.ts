@@ -27,6 +27,7 @@ import { validateIntegrityRules } from './rules';
 import type { BehaviorFinding } from './windows';
 import type { IntegrityScore } from './score';
 import type { Player } from '$lib/types';
+import { independentEvidence } from './independence';
 
 const COOLDOWN_MS = 15 * 60_000;
 const HOUR_MS = 60 * 60_000;
@@ -102,7 +103,7 @@ export async function enforceIntegrityCase(
 				.limit(1),
 			tx.select().from(serverLive).where(eq(serverLive.serverId, input.serverId)).limit(1),
 			tx
-				.select({ id: integrityWindows.id })
+				.select({ id: integrityWindows.id, eventIds: integrityWindows.eventIds })
 				.from(integrityWindows)
 				.where(
 					and(
@@ -113,8 +114,7 @@ export async function enforceIntegrityCase(
 							: ne(integrityWindows.id, input.finding.windowId),
 						gte(integrityWindows.observedAt, new Date(now.getTime() - 24 * HOUR_MS))
 					)
-				)
-				.limit(1),
+				),
 			tx
 				.select()
 				.from(integrityActions)
@@ -159,7 +159,9 @@ export async function enforceIntegrityCase(
 				memory.players.some((player) => player.steamId === input.steamId),
 			identityReliable:
 				input.finding.eventIds.length > 0 && input.finding.steamId === input.steamId,
-			priorIndependentWindow: prior.length > 0,
+			priorIndependentWindow: prior.some((row) =>
+				independentEvidence(row.eventIds, input.finding.eventIds)
+			),
 			previousActions: previous
 				.map((action) => action.action)
 				.filter(

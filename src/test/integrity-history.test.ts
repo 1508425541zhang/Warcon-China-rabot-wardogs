@@ -31,7 +31,7 @@ describe.skipIf(!hasTestDb)('recorded repeat KO history', () => {
 					infantryKills: 12,
 					kpm180: 4,
 					uniqueVictims: 12,
-					eventIds: []
+					eventIds: [`window-${n}`]
 				}))
 			)
 			.returning({ id: integrityWindows.id });
@@ -47,8 +47,20 @@ describe.skipIf(!hasTestDb)('recorded repeat KO history', () => {
 			breakdown: [],
 			currentBehaviorAnomaly: true
 		});
-		expect(await hadRecentAutoKo(env.db, world.org.id, steamId, now, 24, current.id)).toBe(true);
-		expect(await hadRecentAutoKo(env.db, world.org.id, steamId, now, 1, current.id)).toBe(false);
-		expect(await hadRecentAutoKo(env.db, world.org.id, steamId, now, 24, old.id)).toBe(false);
+		expect(
+			await hadRecentAutoKo(env.db, world.org.id, steamId, now, 24, current.id, ['window-2'])
+		).toBe(true);
+		expect(
+			await hadRecentAutoKo(env.db, world.org.id, steamId, now, 1, current.id, ['window-2'])
+		).toBe(false);
+		expect(
+			await hadRecentAutoKo(env.db, world.org.id, steamId, now, 24, old.id, ['window-1'])
+		).toBe(false);
+		expect(
+			await hadRecentAutoKo(env.db, world.org.id, steamId, now, 24, current.id, [
+				'window-1',
+				'fresh'
+			])
+		).toBe(false);
 	});
 });

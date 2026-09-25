@@ -236,4 +236,48 @@ describe('180-second infantry windows', () => {
 		expect(upgraded[0].eventIds).toContain('fast-7');
 		expect(windows.observe('server', [kill(154, 'fast-7')], new Map())).toEqual([]);
 	});
+
+	test('overlapping evidence remains one episode after its original 180-second anchor expires', () => {
+		const windows = new InfantryWindows();
+		const first = windows.observe(
+			'server',
+			Array.from({ length: 12 }, (_, i) => kill(i * 12, `episode-old-${i}`)),
+			new Map()
+		);
+		windows.markPersisted('server', first[0], 42);
+		const upgrade = windows.observe(
+			'server',
+			Array.from({ length: 8 }, (_, i) => kill(140 + i * 2, `episode-fast-${i}`)),
+			new Map()
+		);
+		expect(upgrade).toHaveLength(1);
+		expect(upgrade[0].windowId).toBe(42);
+		expect(windows.observe('server', [kill(313, 'episode-next')], new Map())).toEqual([]);
+		const laterUpgrade = windows.observe(
+			'server',
+			Array.from({ length: 15 }, (_, i) => kill(314 + i, `episode-later-${i}`, { headshot: true })),
+			new Map()
+		);
+		expect(laterUpgrade).toHaveLength(1);
+		expect(laterUpgrade[0].windowId).toBe(42);
+		expect(laterUpgrade[0].anchorClock).toBe(first[0].anchorClock);
+	});
+
+	test('a zero-overlap finding starts a genuinely new episode', () => {
+		const windows = new InfantryWindows();
+		const first = windows.observe(
+			'server',
+			Array.from({ length: 12 }, (_, i) => kill(i * 12, `first-${i}`)),
+			new Map()
+		);
+		windows.markPersisted('server', first[0], 42);
+		const second = windows.observe(
+			'server',
+			Array.from({ length: 12 }, (_, i) => kill(600 + i * 12, `second-${i}`)),
+			new Map()
+		);
+		expect(second).toHaveLength(1);
+		expect(second[0].windowId).toBeNull();
+		expect(second[0].eventIds.some((id) => first[0].eventIds.includes(id))).toBe(false);
+	});
 });

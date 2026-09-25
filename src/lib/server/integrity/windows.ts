@@ -14,6 +14,8 @@ interface Entry {
 
 interface PlayerWindow {
 	entries: Entry[];
+	/** All valid event IDs connected to the current abnormal episode. */
+	episodeEventIds: Set<string>;
 	lastFindingClock: number | null;
 	windowId: number | null;
 	best: {
@@ -136,7 +138,14 @@ export class InfantryWindows {
 			if (clock <= server.latestClock - INFANTRY_WINDOW_SECONDS) continue;
 			let player = server.players.get(killerSteamId);
 			if (!player) {
-				player = { entries: [], lastFindingClock: null, windowId: null, best: null, peakKpm: 0 };
+				player = {
+					entries: [],
+					episodeEventIds: new Set(),
+					lastFindingClock: null,
+					windowId: null,
+					best: null,
+					peakKpm: 0
+				};
 				server.players.set(killerSteamId, player);
 			}
 			if (player.entries.some((entry) => entry.eventId === kill.eventId)) continue;
@@ -180,9 +189,10 @@ export class InfantryWindows {
 				penetration: reasons.includes('penetration'),
 				burst
 			};
+			const eventIds = player.entries.map((item) => item.eventId);
 			const active =
 				player.lastFindingClock !== null &&
-				server.latestClock - player.lastFindingClock < INFANTRY_WINDOW_SECONDS;
+				eventIds.some((eventId) => player.episodeEventIds.has(eventId));
 			if (
 				active &&
 				player.best &&
@@ -197,7 +207,9 @@ export class InfantryWindows {
 				player.lastFindingClock = server.latestClock;
 				player.windowId = null;
 				player.best = null;
+				player.episodeEventIds = new Set(eventIds);
 			}
+			if (active) for (const eventId of eventIds) player.episodeEventIds.add(eventId);
 			player.best = {
 				kpm: Math.max(player.best?.kpm ?? 0, severity.kpm),
 				victims: Math.max(player.best?.victims ?? 0, severity.victims),
@@ -222,7 +234,7 @@ export class InfantryWindows {
 				penetrationPct,
 				burstPoints: burst,
 				reasons,
-				eventIds: player.entries.map((item) => item.eventId)
+				eventIds
 			});
 		}
 		const server = this.servers.get(serverId);
