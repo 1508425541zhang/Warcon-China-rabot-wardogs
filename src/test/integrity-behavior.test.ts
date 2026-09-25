@@ -133,7 +133,7 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 		expect(snapshot.vacBans).toBe(0);
 		expect(snapshot.gameBans).toBe(0);
 		expect(snapshot.daysSinceLastBan).toBeNull();
-		expect(snapshot.repeatAutoKo).toBe(false);
+		expect(snapshot.repeatHighRiskWindow).toBe(false);
 		expect(snapshot.eventIds).toHaveLength(21);
 		expect(snapshot.ruleVersion).toBe(1);
 		expect(await env.db.select().from(outbox).where(eq(outbox.steamId, player))).toHaveLength(0);
@@ -229,7 +229,7 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 			expect.objectContaining({ code: 'repeat_window' })
 		);
 		expect(scores[1].breakdown).not.toContainEqual(
-			expect.objectContaining({ code: 'repeat_auto_ko' })
+			expect.objectContaining({ code: 'repeat_high_risk_window' })
 		);
 	});
 });

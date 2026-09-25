@@ -100,7 +100,7 @@ export async function freezeFindingEvidence(db: DbOrTx, input: FreezeInput): Pro
 			vacBans: input.signals.vacBans,
 			gameBans: input.signals.gameBans,
 			daysSinceLastBan: input.signals.daysSinceLastBan,
-			repeatAutoKo: input.signals.repeatAutoKo,
+			repeatHighRiskWindow: input.signals.repeatHighRiskWindow,
 			uniqueReporters: input.signals.uniqueReporters,
 			ruleVersion: input.ruleVersion,
 			eventIds: input.finding.eventIds,

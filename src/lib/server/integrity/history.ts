@@ -3,8 +3,8 @@ import type { DbOrTx } from '../db';
 import { integrityScores, integrityWindows } from '../db/schema';
 import { independentEvidence } from './independence';
 
-/** Previous execution-level *recorded* result, never reinterpreted with today's thresholds. */
-export async function hadRecentAutoKo(
+/** A prior high-risk score is evidence history, not proof that an action was delivered. */
+export async function hadRecentHighRiskWindow(
 	db: DbOrTx,
 	orgId: string,
 	steamId: string,

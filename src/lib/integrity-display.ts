@@ -5,7 +5,8 @@ const RISK_LABELS: Record<string, string> = {
 	repeat_window: '独立异常窗口',
 	repeat_extreme: '重复极高 KPM',
 	unique_reports: '独立举报人',
-	repeat_auto_ko: '再次达到移出阈值',
+	repeat_auto_ko: '重复高风险窗口', // Historic snapshots retain the old component code.
+	repeat_high_risk_window: '重复高风险窗口',
 	headshots: '步兵爆头',
 	penetrations: '穿透击杀',
 	kill_burst: '短时间击杀',

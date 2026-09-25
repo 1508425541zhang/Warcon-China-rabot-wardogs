@@ -177,6 +177,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			actions: actions.map((item) => ({
 				...item,
 				createdAt: item.createdAt.toISOString(),
+				effectiveAt: item.effectiveAt?.toISOString() ?? null,
 				expiresAt: item.expiresAt?.toISOString() ?? null,
 				revertedAt: item.revertedAt?.toISOString() ?? null
 			})),

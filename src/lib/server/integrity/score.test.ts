@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { integrityPartText } from '$lib/integrity-display';
 import { scoreIntegrity, type IntegritySignals } from './score';
 import { validateIntegrityRules } from './rules';
 
@@ -8,7 +9,7 @@ const normal: IntegritySignals = {
 	uniqueVictims: 7,
 	previousKpm: [],
 	uniqueReporters: 0,
-	repeatAutoKo: false,
+	repeatHighRiskWindow: false,
 	infantryKills: 11,
 	headshots: 11,
 	penetrations: 11,
@@ -20,6 +21,10 @@ const normal: IntegritySignals = {
 };
 
 describe('explainable Integrity score', () => {
+	test('legacy and current high-risk repeat codes display the same meaning', () => {
+		expect(integrityPartText('repeat_auto_ko', 'old code')).toBe('重复高风险窗口');
+		expect(integrityPartText('repeat_high_risk_window', 'new code')).toBe('重复高风险窗口');
+	});
 	test('below 4 KPM is normal even with high headshot share on a small sample', () => {
 		const score = scoreIntegrity(normal);
 		expect(score.score).toBe(0);
@@ -68,7 +73,7 @@ describe('explainable Integrity score', () => {
 			vacBans: 10,
 			gameBans: 10,
 			daysSinceLastBan: 1,
-			repeatAutoKo: true
+			repeatHighRiskWindow: true
 		});
 		expect(score.breakdown.find((component) => component.code === 'steam_ban_prior')?.points).toBe(
 			15
