@@ -225,6 +225,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 				revertedAt: item.revertedAt?.toISOString() ?? null
 			})),
 			feedAt: live?.feedAt?.toISOString() ?? null,
+			feedConfigured: !!server.feedTokenHash,
 			playersAt: live?.playersAt?.toISOString() ?? null,
 			feedRowsTruncated: recentKills.length > 3000,
 			onlinePlayers,

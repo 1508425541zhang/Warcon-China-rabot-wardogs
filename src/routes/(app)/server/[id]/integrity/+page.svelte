@@ -222,7 +222,8 @@
 		}
 	}
 	let metricsAvailable = $derived(
-		!!data.feedAt &&
+		data.feedConfigured &&
+			!!data.feedAt &&
 			Date.now() - new Date(data.feedAt).getTime() < 5 * 60_000 &&
 			!data.feedRowsTruncated
 	);
@@ -312,6 +313,21 @@
 		<div class="mt-2 text-sm text-white">{data.feedAt ? when(data.feedAt) : t.noFeed}</div>
 	</div>
 </div>
+
+{#if !data.feedConfigured || !data.feedAt}
+	<p class="mb-5 rounded-ctl border border-warn/20 bg-warn/5 px-4 py-3 text-sm text-warn">
+		{lang === 'zh'
+			? data.feedConfigured
+				? '已创建 Kill Feed 令牌，但尚未收到游戏服务器的击杀事件。步兵 KPM 暂无可靠数据；请检查服务器配置中的回传地址，并确认游戏服务器能访问该地址。'
+				: '此服务器尚未配置 Kill Feed，步兵 KPM 暂无可靠数据。RCON 玩家列表只有累计击杀数，不能推算 180 秒纯步兵 KPM。'
+			: data.feedConfigured
+				? 'A Kill Feed token exists, but no events have arrived. Infantry KPM is unavailable; check the callback URL and game-server reachability.'
+				: 'Kill Feed is not configured. The RCON roster only has cumulative kills and cannot provide a reliable 180-second infantry KPM.'}
+		<a class="ml-1 underline" href="/server/{data.server.id}/config">
+			{lang === 'zh' ? '查看服务器配置' : 'Open server configuration'}
+		</a>
+	</p>
+{/if}
 
 <p class="mb-5 rounded-ctl border border-warn/20 bg-warn/5 px-4 py-3 text-sm text-warn">
 	{lang === 'zh' ? '规则继承自组织。' : 'Rules are inherited from the organization.'}
