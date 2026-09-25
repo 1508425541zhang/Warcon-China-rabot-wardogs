@@ -33,6 +33,7 @@ const NOT_ROLE_BASED = [
 	'GET api/public/servers/[id]/matches/[matchId]',
 	'GET api/public/servers/[id]/players/[steamId]',
 	'GET auth/steam/callback',
+	'GET docs/integrity-import.zh-CN.md',
 	'GET metrics',
 	'GET sign-out',
 	'POST sign-out'
