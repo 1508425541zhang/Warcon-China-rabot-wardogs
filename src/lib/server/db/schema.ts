@@ -1482,3 +1482,43 @@ export const playerProgressSamples = pgTable(
 		index('player_progress_match_idx').on(t.matchId, t.observedAt)
 	]
 );
+
+export const factionLockRules = pgTable('faction_lock_rules', {
+	serverId: text('server_id')
+		.primaryKey()
+		.references(() => servers.id, { onDelete: 'cascade' }),
+	enabled: boolean('enabled').notNull().default(false),
+	graceSeconds: integer('grace_seconds').notNull().default(120),
+	capacities: jsonb('capacities').notNull().default({}),
+	updatedAt: ts('updated_at').notNull().defaultNow()
+});
+export const factionMovePermits = pgTable(
+	'faction_move_permits',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		serverId: text('server_id').notNull(),
+		steamId: text('steam_id').notNull(),
+		faction: text('faction').notNull(),
+		createdAt: ts('created_at').notNull().defaultNow(),
+		expiresAt: ts('expires_at').notNull()
+	},
+	(t) => [index('faction_permit_lookup_idx').on(t.serverId, t.steamId, t.expiresAt)]
+);
+export const factionLockEvents = pgTable(
+	'faction_lock_events',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		matchId: bigint('match_id', { mode: 'number' }).notNull(),
+		steamId: text('steam_id').notNull(),
+		fromFaction: text('from_faction').notNull(),
+		toFaction: text('to_faction').notNull(),
+		state: text('state').notNull(),
+		reason: text('reason').notNull(),
+		createdAt: ts('created_at').notNull().defaultNow(),
+		updatedAt: ts('updated_at').notNull().defaultNow()
+	},
+	(t) => [index('faction_lock_pending_idx').on(t.serverId, t.state, t.createdAt)]
+);

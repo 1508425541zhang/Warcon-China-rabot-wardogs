@@ -768,6 +768,10 @@
 	}
 </script>
 
+<a class="mb-4 inline-block text-accent" href="/server/{data.server.id}/faction-lock"
+	>禁止自行换边：设置与记录 →</a
+>
+
 <svelte:window
 	onclick={() => (addOpen = false)}
 	onkeydown={(e) => e.key === 'Escape' && (addOpen = false)}

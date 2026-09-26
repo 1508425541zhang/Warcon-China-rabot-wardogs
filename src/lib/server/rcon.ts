@@ -1,3 +1,4 @@
+import { factionMovePermits } from './db/schema';
 // Server-side client for the WDRCON HTTP API (mirrors rcon.wardogs.com's js/api.js).
 import type { Env } from './env';
 import { flag, isDemoServer } from './env';
@@ -94,7 +95,7 @@ export class WardogsClient {
 	private target: GameTarget;
 	constructor(
 		private env: Env,
-		server: Pick<ServerRow, 'host' | 'port' | 'scheme'>,
+		private server: Pick<ServerRow, 'host' | 'port' | 'scheme'> & { id?: string },
 		private key: string,
 		private demoKey: string | null,
 		private timeoutMs = 10000,
@@ -118,6 +119,26 @@ export class WardogsClient {
 		body?: string,
 		headers: Record<string, string> = {}
 	): Promise<GameResponse> {
+		// Record before dispatch so an observer cannot mistake panel/balancer moves for player input.
+		const move = method.toUpperCase() === 'PATCH' ? /^\/v1\/players\/(\d{17})$/.exec(path) : null;
+		if (move && this.server.id && body) {
+			let payload: unknown;
+			try {
+				payload = JSON.parse(body);
+			} catch {
+				payload = null;
+			}
+			const faction = (payload as { faction?: unknown } | null)?.faction;
+			if (typeof faction === 'string' && faction.length > 0 && faction.length <= 100)
+				await this.env.db
+					.insert(factionMovePermits)
+					.values({
+						serverId: this.server.id,
+						steamId: move[1],
+						faction,
+						expiresAt: new Date(Date.now() + 120000)
+					});
+		}
 		const all = { Authorization: `Bearer ${this.key}`, ...headers };
 		if (this.demoKey) {
 			return mockHandle(this.demoKey, method, path, all, body);
