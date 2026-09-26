@@ -1,5 +1,7 @@
 # WARDOGS Community Integrity System
 
+> **历史分阶段实现记录。** 当前功能、默认开关与数据限制请看[中文功能介绍](features.zh-CN.md)；统计委员会的投票与直接踢出条件以[委员会 v3](committee-v3.zh-CN.md)为准。以下旧评分与临时隔离描述主要对应 Legacy，不应套用到统计委员会。
+
 This is NOT a client anti-cheat. It does not inspect player devices. It is a server-side behavioral integrity and moderation system.
 
 The work is being added to Warcon in reviewable phases. **Automatic enforcement is disabled by default.** Organization owners may explicitly enable experimental kick and 24-hour or 7-day server-specific quarantine independently. No permanent automatic ban exists. The [technical implementation plan](wardogs-community-integrity-plan.zh-CN.md) records later work. Existing Warcon connect-risk automation remains independent.

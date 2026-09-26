@@ -1,40 +1,42 @@
-# Warcon China 中文说明
+# Warcon China 中文使用说明
 
-Warcon China 是基于 Warcon 的 WARDOGS 社区服务器自托管 RCON 面板与行为风控扩展。它使用 Bun、SvelteKit 和 PostgreSQL/TimescaleDB，Web 界面与 Worker 共用数据库，Worker 负责与游戏服务器通信。项目直接沿用上游 Warcon 的 WARDOGS RCON 客户端和已验证的 Kill Feed，不重新逆向协议。[项目首页](README.md)提供功能概览与插图，[技术文档](docs/architecture.zh-CN.md)说明系统边界和数据流。
+面向 WARDOGS 社区服的中文 RCON 管理与行为风控面板，基于 Warcon，使用 Bun、SvelteKit、PostgreSQL/TimescaleDB，网页与 Worker 分开运行。
 
-> 本项目不是客户端反作弊软件，不扫描玩家设备。社区风控只使用服务器行为数据和经过授权的公开 Steam 信息。Legacy 动作开关默认关闭；新版统计委员会自动处罚在代码中固定关闭，等待真实专服 Shadow 校准。没有永久自动封禁。
+## 第一次使用
 
-## 当前进度
+1. 按[从零安装指南](docs/install.zh-CN.md)安装 Docker、复制配置、生成密钥并启动服务；不必另装数据库或 Bun。
+2. 打开 `/setup`，自己创建所有者账号。**没有默认网页账号密码**，数据库密码不能用于网页登录。
+3. 创建组织，添加服务器。没有游戏服可先用主机 `demo`、端口 `1`、协议 `http`、密码 `demo` 体验。
+4. 真实服务器先测试 RCON，再单独配置 Kill Feed。远程游戏服无法向你电脑的 `localhost` 回传。
+5. 观察真实事件和数据完整性，再选择风控模式及需要的自动化开关。
 
-- SteamID64 组织档案、历史昵称和首次/最近出现时间。
-- 可由组织所有者调整的武器分类；未知武器不计入纯步兵 KPM。
-- 滚动 180 秒纯步兵 KPM、爆头率、穿透率、短时爆发、独立异常窗口、可解释风险分及证据案件；默认仅记录。
-- 最近 30 天真实历史分布、人口与地图分组、Percentile、Median/MAD 和可视化曲线；默认统计影子模式，实际自动处置仍沿用旧评分，样本不足时不编造结论。
-- 组织所有者在“组织 → 社区风控”调整 KPM 分段、风险阈值、辅助信号参数和武器分类；服务器页面只展示该服数据和继承的组织规则。
-- 在线风控表和玩家档案显示击杀、死亡、KD、180 秒纯步兵 KPM、近 10 分钟峰值、独立受害者、风险等级和评分分项。KD 只供查看，不单独加分。
-- 首次设置、登录、注册、管理后台、组织与服务器管理、自动化规则、统计页面和公开页面的主要界面文字已改为简体中文；RCON、SteamID64、配置键等需原样输入的标识保留。
-- 已公开状态页的服务器提供中文举报表单；需登录并绑定 Steam。举报保存前后各 180 秒的相关击杀证据，按独立举报人计分。
-- 管理页显示 24 小时、72 小时和 7 天的历史影响预览；可选 Discord 案件提醒不会泄露举报人身份。
-- 实验性自动处置分别控制踢出、24 小时和 7 天临时隔离；强证据门槛、人工封禁优先、15 分钟冷却、每小时/在线人数限额及人工恢复熔断共同约束执行。临时隔离写入现有面板封禁列表，到期自动失效，重连期间继续拒入。
+## 去哪里操作
 
-完整设计与未完成项目见[实施计划](docs/wardogs-community-integrity-plan.zh-CN.md)和[功能状态文档](docs/integrity-system.md)。
+| 想做什么 | 入口与说明 |
+| --- | --- |
+| 看在线玩家、击杀与地图 | 服务器概览、玩家列表与玩家详情 |
+| 配置 RCON／击杀回传 | 添加服务器／服务器配置页的“击杀事件” |
+| 查看分数、专家票和案件 | 社区风控；规则继承组织，组织所有者负责修改 |
+| 查看旧案件 | 证据案件的查看与归档入口，底部分页 |
+| 保存人工审核与处罚 | 案件证据；[确认违规并封禁7天](docs/case-review-penalty.zh-CN.md) |
+| 设置 AI 服务商、模型、密钥 | 风控的 [AI 辅审页面](docs/integrity-ai.zh-CN.md) |
+| 导入外服历史 | [JSON／JSONL 导入与审核](docs/integrity-import.zh-CN.md) |
+| 设置换边、武器、数值与平衡 | 自动化；每项有独立开关和参数 |
+| 列出同阵营疑似组队玩家 | 自动化 → [组队控制](docs/group-control.zh-CN.md)，不会自动处罚 |
+| 编辑赛后奖项与公告 | 自动化 → [赛后自动发布 · 荣誉公告](docs/match-awards.zh-CN.md) |
 
-## 使用 Docker Compose 运行
+## 分清三种决定
 
-**第一次安装请直接打开[中文从零安装指南](docs/install.zh-CN.md)**。里面从 Docker 和 Git 的安装、打开终端、复制配置、生成四个不同密钥、检查容器、创建账号，到模拟服务器、接入真实游戏服和排查错误，按顺序逐步写明。
+- **模型判断**：五专家投票形成观察或待审核案件。未知表示该专家缺少足够可靠数据，不等于正常。详见[委员会 v3](docs/committee-v3.zh-CN.md)。
+- **AI 建议**：自动读取案件相关已保存数据，输出 JSON 理由、可疑度建议和数字核对；不能封禁或代替人工确认。
+- **实际处置**：委员会仅在 KPM＞4 且另一独立专家至少可疑、组织开关及保护均满足时直接踢出；人工确认违规封禁 7 天。Legacy 和其他自动化使用各自规则。所有动作保留记录，没有自动永久封禁。
 
-快速核对：
+新安装为统计影子模式，自动处置默认关闭。Legacy 可调评分表与委员会版本化投票门槛是两套规则；KD 只作风控参考，但可以另行设置服务器硬性 KD 限制。
 
-1. 安装并启动 Docker，克隆本仓库，进入含 `docker-compose.yml` 的目录。
-2. 复制 `.env.example` 为 `.env`；设置不同的 `BETTER_AUTH_SECRET`、`ENCRYPTION_KEY`、`RELAY_SECRET`、`POSTGRES_PASSWORD`。本机试用设置 `ORIGIN=http://localhost:3000`。
-3. 依次运行 `docker compose config -q`、`docker compose up -d --build` 和 `docker compose ps -a`。
-4. 打开 `http://localhost:3000/setup`，**自己创建**所有者账号和网页登录密码。项目没有默认网页密码；`POSTGRES_PASSWORD` 只是数据库密码。
-5. 登录后可先添加主机 `demo`、端口 `1`、密码 `demo` 的模拟服务器，无需真实游戏服。
+## 功能与限制
 
-Compose 已包含 PostgreSQL/TimescaleDB，不必单独安装。不要提交 `.env`；公网使用需先配置 HTTPS。更多代理、备份和服务器接入细节见[安装指南](docs/install.zh-CN.md)与[上游英文 README](README.upstream.md)。
+完整的五专家标准、玩家图表、全部自动化、六个赛后奖项和数据边界见[功能介绍](docs/features.zh-CN.md)。主界面使用简体中文，游戏原始名称、API 字段与部分后端错误可能保留英文。
 
-## 重要限制
+没有已验证的游戏聊天读取接口，`!report`／`!BAN` 尚未接入；没有客户端扫描；不根据延迟猜测 IP；无工程医疗贡献数据时不生成该奖项。Steam API 不能替代 Kill Feed 或提供本项目未接入的完整官方生涯。
 
-目前已确认的游戏接口能发送私聊和推送击杀事件，没有已验证的玩家聊天读取入口。因此游戏内 `!report` 和 `!BAN` 暂不可用，也不会把 `!BAN` 当成封禁命令。实验性临时隔离需要组织所有者明确开启；任何自动永久封禁均未实现。
-
-游戏服务器、Steam 和 Discord 返回的原始名称、原因及少数后端错误消息可能仍为英文。爆头率、穿透率和游戏时钟短时爆发已使用有效的 Kill Feed 步兵事件；Steam VAC / Game Ban 仅在资料有效时参与行为发现后的评分。WARDOGS 官方总游戏时间仍未知，不参与评分。部署前需要 PostgreSQL/TimescaleDB。
+[项目首页](README.md) · [逐步安装与排障](docs/install.zh-CN.md) · [技术架构](docs/architecture.zh-CN.md) · [上游说明](README.upstream.md)

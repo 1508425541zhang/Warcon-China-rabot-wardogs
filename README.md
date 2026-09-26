@@ -8,7 +8,7 @@
 
 > **默认仅记录与人工审核。** Legacy 模式保留组织所有者逐项确认的实验性动作开关；统计委员会须显式开启自动踢出；仅KPM＞4且另一专家至少可疑才可直接踢出，普通投票只建待审核案件。不会自动永久封禁。Warcon 原有的入服账号风险自动化是独立功能。
 
-[从零安装：逐步图文说明](docs/install.zh-CN.md) · [中文使用说明](README.zh-CN.md) · [案件审核与七天封禁](docs/case-review-penalty.zh-CN.md) · [自动强弱阵营平衡](docs/skill-balance.zh-CN.md) · [硬性数值限制](docs/numeric-limits.zh-CN.md) · [五专家委员会规则（v3）](docs/committee-v3.zh-CN.md) · [技术架构与规则](docs/architecture.zh-CN.md) · [功能完成情况](docs/integrity-system.md) · [上游完整说明](README.upstream.md)
+[从零安装：一步一步操作](docs/install.zh-CN.md) · [中文使用说明](README.zh-CN.md) · [案件审核与七天封禁](docs/case-review-penalty.zh-CN.md) · [自动强弱阵营平衡](docs/skill-balance.zh-CN.md) · [硬性数值限制](docs/numeric-limits.zh-CN.md) · [五专家委员会规则（v3）](docs/committee-v3.zh-CN.md) · [技术架构与规则](docs/architecture.zh-CN.md) · [完整功能介绍](docs/features.zh-CN.md) · [AI 辅审](docs/integrity-ai.zh-CN.md) · [历史导入](docs/integrity-import.zh-CN.md) · [组队控制](docs/group-control.zh-CN.md) · [赛后荣誉公告](docs/match-awards.zh-CN.md) · [上游完整说明](README.upstream.md)
 
 ## 从事件到证据
 
@@ -20,22 +20,27 @@
 
 ## 你现在可以做什么
 
-| 功能                                                     | 当前状态                                             |
-| -------------------------------------------------------- | ---------------------------------------------------- |
-| 多服务器 RCON 管理、组织权限、审计、玩家档案             | 可用，继承自 Warcon                                  |
-| SteamID64 档案、历史昵称、在线击杀/死亡/KD               | 可用；昵称不作身份主键                               |
-| 180 秒纯步兵 KPM、近 10 分钟峰值、独立异常窗口           | 可用；无可靠 Feed 时隐藏或降级                       |
-| 爆头率、穿透率、短时爆发、Steam 封禁历史、重复高风险窗口 | 可用；只在行为发现后读取 Steam，缺失或过期按未知处理 |
-| Legacy KPM 分段与风险权重、武器分类                      | Legacy 分数规则可调整；统计模型数学参数只读          |
-| 30 天真实历史分布、Percentile、Median/MAD 和分布曲线     | 可用；默认统计影子模式，样本不足时明确说明           |
-| 风险分、分项解释、证据案件、24 小时/72 小时/7 天影响预览 | 可用，属于模拟运行和人工审核                         |
-| 网页举报、可选 Discord 案件提醒                          | 可用；举报需登录并绑定 Steam，提醒不公开举报人       |
-| 实验性自动踢出、24 小时或 7 天临时隔离                   | Legacy 保留开关；委员会按v3条件仅自动踢出            |
-| 游戏内 `!report`/`!BAN`                                  | 未接入；当前没有已验证的游戏聊天接收接口             |
+| 功能 | 当前能力 |
+| --- | --- |
+| 中文 RCON 管理 | 多服务器、组织权限、审计、玩家、地图、封禁与公开状态页 |
+| 玩家指标与图表 | 击杀、死亡、KD、180 秒纯步兵 KPM、峰值；按武器切换的全服击杀距离分布 |
+| 五专家委员会 | 击杀节奏、精准度、生涯偏差、本局变化点、持续异常；P90 可疑、P95 高度异常 |
+| 证据案件与归档 | 首页最近 5 件、分页归档、冻结证据、审核和处罚记录关联 |
+| AI 自动辅审 | 兼容 OpenAI 的 API；案件 JSON 输入／输出、理由与数字核对，仅建议不封禁 |
+| 历史数据导入 | JSON／JSONL 模板、校验、审核与撤销；外服记录有独立来源 |
+| 管理员确认违规 | 明确确认后本服封禁 7 天；证据不足不处罚 |
+| 自动化规则 | 禁止换边、武器限制、死亡后强弱队平衡、KPM／KD／金钱效率上限 |
+| 疑似组队识别 | 昵称前缀相似度、人数阈值、手动／自动、结构化／AI；只列名单 |
+| 赛后荣誉广播 | MVP、多杀、一命连杀、赚钱、持有金钱、在线时长；每项第一，并列随机 |
+| 外部资料与通知 | 可选 Steam API、网页举报、Discord 案件提醒 |
 
-## KPM 分段如何计分
+**委员会普通投票只产生观察或待审核案件。**至少 2 票可疑及以上进入观察；至少 3 票高度异常或 4 票可疑及以上生成案件。只有 **KPM 严格大于 4 + 另一独立专家至少可疑**，且组织已启用、数据和执行保护均通过，才走委员会直接踢出通道。AI 不代替管理员作处罚决定。
 
-纯步兵 KPM = 最近 180 秒有效纯步兵击杀数 ÷ 3。默认小于 4.00 视为正常 KPM；达到门槛只是一项行为风险信号，不能单独认定作弊。每次**只取命中的最高一档**，不会把各档加分累加。
+新安装默认统计影子模式，自动处置开关关闭。各项自动化独立设置，不能把展示阈值等同于已经启用。完整入口、默认行为、样本条件和数据限制见[功能介绍](docs/features.zh-CN.md)。
+
+## Legacy KPM 分段如何计分
+
+纯步兵 KPM = 最近 180 秒有效纯步兵击杀数 ÷ 3。Legacy 默认小于 4.00 不加 KPM 分；达到门槛只是一项行为风险信号，不能单独认定作弊。每次**只取命中的最高一档**，不会把各档加分累加。
 
 | 180 秒纯步兵 KPM | 默认加分 |
 | ---------------- | -------: |
@@ -54,7 +59,7 @@ KD 会在玩家档案中显示供参考，**不单独加风险分**。以上是 
 
 ## 从零安装：先在自己的电脑上试
 
-**新安装没有默认网页账号或密码。**你会在首次打开 `/setup` 时亲自创建所有者账号。Docker Compose 会连同 PostgreSQL/TimescaleDB 一起启动；无需另外安装数据库或 Bun。完整的 Windows、macOS、Ubuntu 操作步骤和故障排查见[中文从零安装指南](docs/install.zh-CN.md)。最短路径如下：
+**新安装没有默认网页账号或密码。** 你会在首次打开 `/setup` 时亲自创建所有者账号。Docker Compose 会连同 PostgreSQL/TimescaleDB 一起启动；无需另外安装数据库或 Bun。完整的 Windows、macOS、Ubuntu 操作步骤和故障排查见[中文从零安装指南](docs/install.zh-CN.md)。最短路径如下：
 
 1. 安装并启动 [Docker Desktop](https://docs.docker.com/desktop/)（Ubuntu 安装 Docker Engine 和 Compose 插件），安装 [Git](https://git-scm.com/downloads)。在终端确认 `docker compose version` 和 `git --version` 能显示版本。
 2. 执行 `git clone https://github.com/1508425541zhang/Warcon-China-rabot-wardogs.git`，然后 `cd Warcon-China-rabot-wardogs`。
@@ -68,4 +73,4 @@ KD 会在玩家档案中显示供参考，**不单独加风险分**。以上是 
 
 ## 技术与来源
 
-项目以 [Warcon](https://github.com/warcon-app/warcon) 为基础，保留上游的协议实现和 MIT 许可，WARDOGS RCON 边界见[现有 API 研究文档](docs/wardogs-api.md)。本仓库的中文说明和社区风控扩展用于服务器侧管理，不代表 WARDOGS、BULKHEAD 或 Team17 官方产品。
+项目以 [Warcon](https://github.com/warcon-app/warcon) 为基础，沿用上游协议实现；当前仓库许可见 [AGPL-3.0 许可证](LICENSE)，WARDOGS RCON 边界见[现有 API 研究文档](docs/wardogs-api.md)。本仓库的中文说明和社区风控扩展用于服务器侧管理，不代表 WARDOGS、BULKHEAD 或 Team17 官方产品。

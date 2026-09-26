@@ -53,10 +53,14 @@ nano .env
 | `POSTGRES_PASSWORD` | 随机字符串 D | 数据库密码，**不是网页登录密码** |
 | `ORIGIN` | `http://localhost:3000` | 你稍后在浏览器打开的精确地址 |
 
-**A、B、C、D 每个都必须不同。**Windows PowerShell 运行下面一行四次，每次把显示的结果复制到不同设置后面：
+**A、B、C、D 每个都必须不同。**Windows PowerShell 运行下面整段四次，每次把显示的结果复制到不同设置后面：
 
 ```powershell
-$b = [byte[]]::new(32); [Security.Cryptography.RandomNumberGenerator]::Fill($b); [Convert]::ToBase64String($b)
+$bytes = New-Object byte[] 32
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
+$rng.Dispose()
 ```
 
 macOS/Linux 运行下面一行四次：
@@ -123,7 +127,31 @@ http://localhost:3000/setup
 
 运行面板的机器必须能连到游戏服 RCON 端口。只允许这台机器访问该端口，不要把 RCON 公开给整个互联网。如果游戏服与 Docker 在同一台机器上，容器里的 `127.0.0.1` 不是宿主机；这时按 `docker-compose.yml` 的 `extra_hosts` 注释及[上游接入说明](getting-started.md#turning-on-rcon-on-the-game-server)使用 `host.docker.internal`。
 
+### 6.1 单独启用 Kill Feed：这一步决定能否收到击杀
+
+RCON 测试成功只说明“面板能连接游戏服”。Kill Feed 的方向相反：**游戏服 → 面板公网 HTTPS 地址**。两个连接都成功，才有完整数据。
+
+1. 先完成下文“准备开放给互联网时”的域名、HTTPS 与 `ORIGIN` 设置。游戏服在另一台机器时，不能填 `localhost`、`127.0.0.1` 或只能在你家访问的地址。
+2. 登录面板，打开真实服务器的 **配置 → 击杀事件**。组织所有者点击 **配置**。
+3. 面板生成专用令牌，并把回传配置写入 `ServerSettings.ini` 的 `[WDServerFeed]`。核对页面显示的地址与令牌；游戏会自行追加 `/api/ingest/events`，不要擅自重复追加路径。
+4. 如果配置文件不可写，先让游戏服提供者解决配置写入权限；如果值由游戏启动参数固定，需要修改游戏服启动参数，网页无法覆盖。
+5. 写入后在合适时间重启**游戏服务器**，使游戏读取配置。只重启 Warcon 容器不能让游戏重新读取其配置。
+6. 产生一次真实击杀，再看页面是否从“尚未收到任何批次”变为最近收到事件。已生成令牌不等于已经收到事件。
+7. 更换令牌或直接修改过游戏服文件时，点击 **再次写入配置** 并让游戏重新读取；旧令牌不能继续使用。
+
+如果没有批次，检查游戏服能否访问面板 HTTPS、证书是否可信、反向代理是否允许 POST `/api/ingest/events`、防火墙是否放行。已有批次却无纯步兵 KPM，再检查武器分类、双方阵营和玩家列表是否及时；换图本身不能修复缺失来源。
+
+### 6.2 开启需要的功能
+
 社区风控默认是**统计影子模式**：同时保存旧评分和真实历史百分位，实际自动处置仍由旧规则决定；自动处置开关初始关闭。统计基线需要最近 30 天足够多的有效纯步兵击杀事件。没有足够样本时页面会明确说明，而不是显示假的曲线。
+
+统计委员会规则见[五专家 v3](committee-v3.zh-CN.md)。默认影子模式不等于委员会自动执行；切换统计模式及开启自动踢出前，应检查页面的数据健康、基线与保护状态。普通投票只建案件，KPM＞4 且另一独立专家至少可疑才可能直接踢出。
+
+可选设置：
+
+- Steam 公开资料：将自己的 `STEAM_API_KEY` 写入 `.env`，再运行 `docker compose up -d`。没有 Key 仍可管理服务器；Steam Key 无法补回击杀日志。
+- AI 辅审：进入风控 AI 设置，填写兼容服务的地址、密钥和模型，测试成功后启用自动审查，见[AI 指南](integrity-ai.zh-CN.md)。
+- 自动化：逐项开启需要的规则。赛后荣誉还须启用对局广播规则及“自动生成本局获奖名单并广播”，见[模板指南](match-awards.zh-CN.md)。
 
 ## 第 7 步：日常操作
 
@@ -136,9 +164,41 @@ http://localhost:3000/setup
 | 看 Worker 日志 | `docker compose logs --tail=80 worker` |
 | 停止，保留数据 | `docker compose down` |
 | 再启动 | `docker compose up -d` |
-| 更新代码和容器 | `git pull`，随后 `docker compose up -d --build` |
+| 更新代码和容器 | `git pull --ff-only origin main`，随后 `docker compose up -d --build`（先按下文备份） |
 
-**不要执行 `docker compose down -v`**：`-v` 会删除数据库卷。更新前备份 `.env` 和数据库；数据库备份与恢复见[上游完整说明](../README.upstream.md)。
+**不要执行 `docker compose down -v`**：`-v` 会删除数据库卷。更新前备份 `.env` 和数据库；具体备份命令见下一节。
+
+### 7.1 备份：先留住数据，再更新
+
+以下命令使用 Compose 内置数据库，先在项目目录执行。备份文件可能含玩家与审核数据，应保存到只有管理员能访问的位置。
+
+```text
+docker compose exec -T db pg_dump -U warcon -d warcon -Fc -f /tmp/warcon-backup.dump
+docker compose cp db:/tmp/warcon-backup.dump ./warcon-backup.dump
+```
+
+确认当前目录出现非空 `warcon-backup.dump`，改成带日期的文件名另存，避免下一次覆盖。另行安全备份 `.env`，尤其是 `ENCRYPTION_KEY`；只有数据库、没有原加密密钥，将无法解密已有 RCON 等凭据。这种容器内生成再复制的方法也适用于 Windows PowerShell，不依赖二进制输出重定向。
+
+需要恢复时，先保留现有部署与数据，在独立目录／独立 Compose 项目准备恢复环境，使用匹配数据库版本和原 `.env`，将备份交给 `pg_restore` 恢复后核验。不要对唯一生产库直接清空恢复；完整运维参考[上游说明](../README.upstream.md)。
+
+### 7.2 更新与重启
+
+用 Git 克隆安装且本地没有改动时：
+
+```text
+git pull --ff-only origin main
+docker compose up -d --build
+docker compose ps -a
+docker compose logs --tail=80 migrate warcon worker
+```
+
+如果 Git 提示有本地修改或分支不能快进，先保留修改并解决差异，不要直接强制重置。下载 ZIP 安装的用户可解压新版本到新目录，保留原配置和数据库，避免因项目目录名改变而误连一个新空卷。数据库迁移可能不可逆，回退镜像并不等于回退数据库。
+
+服务设置了 `restart: unless-stopped`；主机重启后仍需要 Docker 引擎启动。Windows 在 Docker Desktop 设置中启用登录后自动启动，电脑不要休眠；关机和休眠时不会继续处理服务器事件。长期运行可部署在持续开机的 Linux 主机上。
+
+### 7.3 本机 3000 端口被占用
+
+停止当前服务后，在 `docker-compose.yml` 将已有的 `'3000:3000'` 改为 `'3300:3000'`，只修改左边的宿主机端口；把 `.env` 改为 `ORIGIN=http://localhost:3300`。运行 `docker compose up -d`，之后访问 `http://localhost:3300`。不要再使用旧的 3000 地址。
 
 ## 出问题时按顺序检查
 
@@ -162,6 +222,15 @@ docker compose run --rm worker bun ./build/reset-auth.js admin
 
 ## 准备开放给互联网时
 
+按以下顺序配置公网部署：
+
+1. 准备持续运行的主机和自己的域名，例如 `panel.example.com`；把域名 DNS 指向这台主机。
+2. 用 Caddy、Nginx 等反向代理配置域名与可信 HTTPS 证书，将请求转发到 Warcon 的 3000 端口。代理与应用在不同容器时，要使用可互通的 Docker 网络地址，不能把代理容器的 `localhost` 当作应用。
+3. 如果代理直接运行在宿主机，可把 Compose 已有端口改为 `'127.0.0.1:3000:3000'`，让浏览器和游戏服统一经过 HTTPS。默认 `'3000:3000'` 会监听所有网卡，请结合防火墙限制直连。
+4. 设置 `.env` 中 `ORIGIN=https://panel.example.com`，运行 `docker compose up -d`。管理员始终用同一域名登录。
+5. 按实际代理链配置客户端 IP 头，只信任你控制的代理；不要盲目开启任意来源的转发头。数据库与 Worker 内部端口无需公开。
+6. 用外部网络打开登录页及 `/api/health`，再回第 6.1 节配置真实游戏服回传。代理不得用交互登录页或验证挑战阻断 Kill Feed 路径；该接口使用自己的令牌验证。
+
 本机测试地址 `http://localhost:3000` 只适合同一台电脑。需要远程管理员登录时，先配置域名和 **HTTPS 反向代理**，再把 `.env` 的 `ORIGIN` 改成管理员实际打开的完整地址，例如 `https://panel.example.com`（末尾没有 `/`）。按[上游部署说明](../README.upstream.md)配置代理和客户端 IP 头。不要向互联网开放数据库与 Worker 的内部端口，并定期备份数据库和 `.env`。
 
-本项目不是客户端反作弊软件，不扫描玩家设备。当前没有已验证的游戏聊天读取接口，因此游戏内 `!report`、`!BAN` 未接入；也没有自动永久封禁。更多信息见[技术架构](architecture.zh-CN.md)与[功能状态](integrity-system.md)。
+本项目不是客户端反作弊软件，不扫描玩家设备。当前没有已验证的游戏聊天读取接口，因此游戏内 `!report`、`!BAN` 未接入；也没有自动永久封禁。更多信息见[技术架构](architecture.zh-CN.md)与[完整功能介绍](features.zh-CN.md)。
