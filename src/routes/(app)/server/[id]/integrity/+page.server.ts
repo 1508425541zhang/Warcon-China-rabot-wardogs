@@ -1,7 +1,7 @@
 import { loadCurrentRisks } from '$lib/server/integrity/current-risk';
 import { error } from '@sveltejs/kit';
 import { mapId } from '$lib/format';
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 import { getEnv } from '$lib/server/env';
 import { orgRoleFor, requireServerCap } from '$lib/server/access';
@@ -189,6 +189,30 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			ORDER BY points DESC
 			LIMIT 5
 		`)) as { code: string; points: number }[];
+		const caseReviews = cases.length
+			? await env.db
+					.selectDistinctOn([integrityLabels.caseId], {
+						caseId: integrityLabels.caseId,
+						label: integrityLabels.label,
+						reason: integrityLabels.reason,
+						createdAt: integrityLabels.createdAt
+					})
+					.from(integrityLabels)
+					.where(
+						and(
+							eq(integrityLabels.orgId, server.orgId),
+							inArray(
+								integrityLabels.caseId,
+								cases.map((c) => c.id)
+							)
+						)
+					)
+					.orderBy(
+						integrityLabels.caseId,
+						desc(integrityLabels.createdAt),
+						desc(integrityLabels.id)
+					)
+			: [];
 		const canConfigure = (await orgRoleFor(env, user, server.orgId)) === 'owner';
 		const comparison = await shadowComparison(env, server.orgId, rules.config.koThreshold);
 		const [shadowRows, labelRows] = await Promise.all([
@@ -249,7 +273,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			assessmentMode: rules.assessmentMode,
 			comparison,
 			committeeShadow,
-			labels: labelRows.slice(0, 5000).map((row) => ({
+			labels: caseReviews.map((row) => ({
 				caseId: row.caseId,
 				label: row.label,
 				reason: row.reason,
