@@ -6,9 +6,9 @@
 
 **面向 WARDOGS 社区服务器的中文管理面板与行为风控扩展。** 本项目基于开源 [Warcon](https://github.com/warcon-app/warcon)，沿用其 RCON 客户端、服务器管理、Kill Feed、组织权限和审计能力，在服务端增加可解释的玩家行为分析。这里的“风控”指辅助管理员发现异常和保存证据，不是客户端反作弊，也不读取玩家设备。
 
-> **默认仅记录与人工审核。** Legacy 模式保留组织所有者逐项确认的实验性动作开关；新版统计委员会自动处罚在代码中固定关闭，等待真实专服数据校准。不会自动永久封禁。Warcon 原有的入服账号风险自动化是独立功能。
+> **默认仅记录与人工审核。** Legacy 模式保留组织所有者逐项确认的实验性动作开关；统计委员会须显式开启自动踢出；仅KPM＞4且另一专家至少可疑才可直接踢出，普通投票只建待审核案件。不会自动永久封禁。Warcon 原有的入服账号风险自动化是独立功能。
 
-[从零安装：逐步图文说明](docs/install.zh-CN.md) · [中文使用说明](README.zh-CN.md) · [案件审核与七天封禁](docs/case-review-penalty.zh-CN.md) · [自动强弱阵营平衡](docs/skill-balance.zh-CN.md) · [硬性数值限制](docs/numeric-limits.zh-CN.md) · [委员会模型与上线边界](docs/integrity-ensemble.zh-CN.md) · [技术架构与规则](docs/architecture.zh-CN.md) · [功能完成情况](docs/integrity-system.md) · [上游完整说明](README.upstream.md)
+[从零安装：逐步图文说明](docs/install.zh-CN.md) · [中文使用说明](README.zh-CN.md) · [案件审核与七天封禁](docs/case-review-penalty.zh-CN.md) · [自动强弱阵营平衡](docs/skill-balance.zh-CN.md) · [硬性数值限制](docs/numeric-limits.zh-CN.md) · [五专家委员会规则（v3）](docs/committee-v3.zh-CN.md) · [技术架构与规则](docs/architecture.zh-CN.md) · [功能完成情况](docs/integrity-system.md) · [上游完整说明](README.upstream.md)
 
 ## 从事件到证据
 
@@ -30,7 +30,7 @@
 | 30 天真实历史分布、Percentile、Median/MAD 和分布曲线     | 可用；默认统计影子模式，样本不足时明确说明           |
 | 风险分、分项解释、证据案件、24 小时/72 小时/7 天影响预览 | 可用，属于模拟运行和人工审核                         |
 | 网页举报、可选 Discord 案件提醒                          | 可用；举报需登录并绑定 Steam，提醒不公开举报人       |
-| 实验性自动踢出、24 小时或 7 天临时隔离                   | Legacy 保留开关；统计委员会自动动作固定关闭          |
+| 实验性自动踢出、24 小时或 7 天临时隔离                   | Legacy 保留开关；委员会按v3条件仅自动踢出            |
 | 游戏内 `!report`/`!BAN`                                  | 未接入；当前没有已验证的游戏聊天接收接口             |
 
 ## KPM 分段如何计分
@@ -46,7 +46,7 @@
 | 6.00 至低于 8.00 |      +42 |
 | 8.00 及以上      |      +52 |
 
-KD 会在玩家档案中显示供参考，**不单独加风险分**。以上是 Legacy 分数分段，仅在 Legacy 模式可修改；统计委员会的阈值与投票规则由版本化代码控制，见[委员会文档](docs/integrity-ensemble.zh-CN.md)。
+KD 会在玩家档案中显示供参考，**不单独加风险分**。以上是 Legacy 分数分段，仅在 Legacy 模式可修改；统计委员会的阈值与投票规则由版本化代码控制，见[委员会文档](docs/committee-v3.zh-CN.md)。
 
 ## 没有游戏服务器，也能预览
 

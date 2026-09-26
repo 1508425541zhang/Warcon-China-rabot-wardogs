@@ -1,8 +1,6 @@
-import { SUSTAINED_KPM_POLICY } from './sustained-kpm';
 import type { BehaviorFinding } from './windows';
 import type { IntegrityScore, IntegrityRuleConfig } from './score';
 import type { StatisticalAssessment } from './statistics';
-import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
 
 export type IntegrityDecision = 'OBSERVE' | 'KICK' | 'QUARANTINE_24H' | 'QUARANTINE_7D';
 export interface EnforcementSettings {
@@ -75,22 +73,12 @@ export function decideIntegrityAction(input: DecisionInput): IntegrityDecision {
 	return settings.autoKickEnabled ? 'KICK' : 'OBSERVE';
 }
 
-/** Statistical actions escalate only after a previously effective, independently evidenced action. */
+/** Only high KPM plus another expert can directly kick; votes alone create review cases. */
 export function decideStatisticalAction(
 	input: Omit<DecisionInput, 'score'> & { assessment: StatisticalAssessment }
 ): IntegrityDecision {
 	const { assessment, finding, settings } = input;
-	const hardTempo =
-		assessment.committee?.verdicts?.some(
-			(vote) =>
-				vote.evidenceFamily === 'TEMPO' &&
-				vote.decision === 'CHEAT_LIKELY' &&
-				vote.hardEvidence === true &&
-				vote.confidence >= 0.995 &&
-				vote.evidenceQuality >= 0.995 &&
-				vote.evidenceRefs.length >= 24 &&
-				finding.kpm180 >= 8
-		) ?? false;
+
 	if (
 		settings.autoSuspendedAt ||
 		!settings.autoKickEnabled ||
@@ -102,39 +90,16 @@ export function decideStatisticalAction(
 		assessment.status !== 'READY' ||
 		assessment.committee?.decision !== 'KICK_CANDIDATE' ||
 		assessment.committee.autoActionBlocked ||
-		assessment.level !== 'KICK_CANDIDATE' ||
-		assessment.sampleCount < STATISTICAL_MODEL_CONFIG.minimumBaselineSamples ||
-		assessment.actionTempoPercentile === null ||
-		assessment.actionTempoPercentile < STATISTICAL_MODEL_CONFIG.kickPercentile ||
-		!(
-			(assessment.actionPrecisionPercentile !== null &&
-				assessment.actionPrecisionPercentile >= STATISTICAL_MODEL_CONFIG.watchPercentile) ||
-			(input.priorIndependentWindow && assessment.independentEpisodes >= 2) ||
-			hardTempo
+		assessment.level !== 'KICK_CANDIDATE'
+	)
+		return 'OBSERVE';
+
+	if (
+		!(finding.kpm180 > 4) ||
+		!assessment.committee.verdicts?.some(
+			(v) => v.modelId !== 'tempo' && (v.decision === 'SUSPICIOUS' || v.decision === 'CHEAT_LIKELY')
 		)
 	)
 		return 'OBSERVE';
-	// Keep a configurable absolute floor in addition to the independent statistical evidence.
-	const sustained = assessment.sustainedKpm;
-	if (
-		!sustained ||
-		sustained.policyVersion !== SUSTAINED_KPM_POLICY ||
-		!sustained.passed ||
-		sustained.requiredMinutes !== input.rules.committeeKpmMinutes ||
-		sustained.threshold !== input.rules.kpmBands[0].min
-	)
-		return 'OBSERVE';
-	if (
-		settings.autoQuarantine7dEnabled &&
-		assessment.independentEpisodes >= 3 &&
-		input.previousActions.includes('QUARANTINE_24H')
-	)
-		return 'QUARANTINE_7D';
-	if (
-		settings.autoQuarantine24hEnabled &&
-		assessment.independentEpisodes >= 2 &&
-		input.previousActions.includes('KICK')
-	)
-		return 'QUARANTINE_24H';
 	return 'KICK';
 }

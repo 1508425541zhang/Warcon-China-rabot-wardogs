@@ -428,6 +428,13 @@
       "when": 1790350021180,
       "tag": "0060_numeric_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1790350021181,
+      "tag": "0061_server_precision",
+      "breakpoints": true
     }
   ]
 }

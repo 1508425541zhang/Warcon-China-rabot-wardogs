@@ -90,6 +90,7 @@ export const DEFAULT_INTEGRITY_RULES: IntegrityRuleConfig = {
 };
 
 export interface IntegritySignals {
+	committeeMode?: boolean;
 	behaviorReasons: BehaviorReason[];
 	kpm180: number;
 	uniqueVictims: number;
@@ -144,9 +145,17 @@ export function scoreIntegrity(
 	const add = (code: string, points: number, detail: string) => {
 		if (points > 0) breakdown.push({ code, points, detail });
 	};
-	const kpmPoints = tier(signals.kpm180, config.kpmBands);
-	add('infantry_kpm_180', kpmPoints, `${signals.kpm180.toFixed(2)} infantry KPM`);
-	if (kpmPoints) {
+	const kpmPoints = signals.committeeMode
+		? signals.kpm180 > 2
+			? 6
+			: 0
+		: tier(signals.kpm180, config.kpmBands);
+	add(
+		signals.committeeMode ? 'committee_kpm_watch' : 'infantry_kpm_180',
+		kpmPoints,
+		`${signals.kpm180.toFixed(2)} infantry KPM`
+	);
+	if (kpmPoints && !signals.committeeMode) {
 		add(
 			'unique_victims',
 			tier(signals.uniqueVictims, config.uniqueVictimBands),
@@ -217,7 +226,8 @@ export function scoreIntegrity(
 		score,
 		level,
 		breakdown,
-		currentBehaviorAnomaly: signals.behaviorReasons.length > 0
+		currentBehaviorAnomaly:
+			signals.behaviorReasons.length > 0 || (!!signals.committeeMode && signals.kpm180 > 2)
 	};
 }
 

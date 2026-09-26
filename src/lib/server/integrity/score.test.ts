@@ -148,3 +148,17 @@ function normalRulesWithoutNewFields() {
 	} = validateIntegrityRules({});
 	return old;
 }
+
+test('committee KPM strictly above 2 adds exactly six points without old bands stacking', () => {
+	for (const [kpm180, points] of [
+		[2, 0],
+		[2.01, 6],
+		[4, 6],
+		[4.01, 6],
+		[10, 6]
+	]) {
+		const result = scoreIntegrity({ ...normal, kpm180, committeeMode: true });
+		expect(result.score).toBe(points);
+		expect(result.breakdown.some((p) => p.code === 'infantry_kpm_180')).toBe(false);
+	}
+});

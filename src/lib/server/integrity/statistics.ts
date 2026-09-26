@@ -32,6 +32,7 @@ export interface HistogramBin {
 	count: number;
 }
 export interface DistributionStats {
+	serverId?: string | null;
 	id: string;
 	source: 'local' | 'external';
 	metric: MetricCode;
@@ -62,6 +63,7 @@ export interface DistributionStats {
 }
 
 export interface MetricAssessment {
+	serverId?: string | null;
 	code: MetricCode;
 	source: 'local' | 'external';
 	value: number;
@@ -92,6 +94,13 @@ export interface MetricAssessment {
 }
 
 export interface StatisticalAssessment {
+	changePointContext?: {
+		scope: 'current_round_all_weapons';
+		bucketSeconds: number;
+		completedBuckets: number;
+		roundId: string;
+	};
+	kpmRule?: { value: number; watchAbove: number; highAbove: number; points: number };
 	sustainedKpm?: import('./sustained-kpm').SustainedKpm;
 	modelVersion?: string;
 	featureVersion?: string;
@@ -214,6 +223,7 @@ export function assessDistribution(
 		metrics.push({
 			code,
 			source: baseline.source,
+			serverId: baseline.serverId,
 			value,
 			tail: METRICS[code].tail,
 			percentile,
@@ -254,11 +264,14 @@ export function assessDistribution(
 	);
 	const ready = metrics.length > 0;
 	const caseLevel =
-		(tempo !== null && tempo >= 0.999) ||
-		(precision !== null && precision >= 0.999) ||
-		(tempo !== null && tempo >= 0.99 && precision !== null && precision >= 0.99);
+		(tempo !== null && tempo >= STATISTICAL_MODEL_CONFIG.kickPercentile) ||
+		(precision !== null && precision >= STATISTICAL_MODEL_CONFIG.kickPercentile) ||
+		(tempo !== null &&
+			tempo >= STATISTICAL_MODEL_CONFIG.watchPercentile &&
+			precision !== null &&
+			precision >= STATISTICAL_MODEL_CONFIG.watchPercentile);
 	// A second Tempo measurement from the same episode is not independent evidence.
-	// P99.95 needs enough observations to resolve the tail; low-sample baselines remain review-only.
+	// Automatic actions require adequate reference support; committee voting sets the final level.
 	const actionMetrics = metrics.filter((metric) => actionBaselineEligible(metric));
 	const actionTempo = maxFor('Tempo', actionMetrics);
 	const actionPrecision = maxFor('Precision', actionMetrics);
@@ -273,7 +286,8 @@ export function assessDistribution(
 			? 'KICK_CANDIDATE'
 			: caseLevel
 				? 'CASE'
-				: (tempo !== null && tempo >= 0.99) || (precision !== null && precision >= 0.99)
+				: (tempo !== null && tempo >= STATISTICAL_MODEL_CONFIG.watchPercentile) ||
+					  (precision !== null && precision >= STATISTICAL_MODEL_CONFIG.watchPercentile)
 					? 'WATCH'
 					: 'NORMAL';
 	return {

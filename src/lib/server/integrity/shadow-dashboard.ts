@@ -4,6 +4,7 @@ import type { CommitteeDecision, ExpertDecision } from './committee';
 const decisions: CommitteeDecision[] = [
 	'NORMAL',
 	'WATCH',
+	'CASE',
 	'KICK_CANDIDATE',
 	'ESCALATION_CANDIDATE'
 ];

@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import {
 	dataQualityVeto,
 	EXPERT_MODELS,
+	assessCommittee,
 	hasStatisticalAnomaly,
 	voteCommittee,
 	type EvidenceFamily,
@@ -28,104 +29,69 @@ const v = (
 });
 
 describe('independent expert committee', () => {
-	test('50-sample preliminary review participates but cannot claim a P99 extreme or hard evidence', () => {
-		const tempo = EXPERT_MODELS.find((item) => item.id === 'tempo')!;
-		const result = tempo.assess({
-			statistical: {
-				metrics: [
-					{ source: 'local', code: 'kpm180', value: 8, sampleCount: 50, extremenessPercentile: 1 }
-				]
-			} as StatisticalAssessment,
-			currentKpm: 8,
-			independentEpisodes: 1,
-			eventIds: Array.from({ length: 24 }, (_, i) => `e-${i}`)
-		});
-		expect(result.decision).toBe('SUSPICIOUS');
-		expect(result.hardEvidence).toBe(false);
+	test('P90 is suspicious, P95 is high, without a consecutive-KPM gate', () => {
+		const expert = EXPERT_MODELS.find((m) => m.id === 'tempo')!;
+		for (const [p, decision] of [
+			[0.899, 'NORMAL'],
+			[0.9, 'SUSPICIOUS'],
+			[0.949, 'SUSPICIOUS'],
+			[0.95, 'CHEAT_LIKELY']
+		] as const) {
+			const result = expert.assess({
+				statistical: {
+					metrics: [{ source: 'local', code: 'kpm180', sampleCount: 200, extremenessPercentile: p }]
+				} as StatisticalAssessment,
+				currentKpm: 1,
+				independentEpisodes: 0,
+				eventIds: ['e']
+			});
+			expect(result.decision).toBe(decision);
+			expect(result.hardEvidence).not.toBe(true);
+		}
 	});
-	test('two independent CHEAT votes qualify for a Kick candidate', () => {
-		expect(
-			voteCommittee([v('TEMPO', 'CHEAT_LIKELY'), v('PRECISION', 'CHEAT_LIKELY')]).decision
-		).toBe('KICK_CANDIDATE');
-	});
-	test('one CHEAT plus two independent SUSPICIOUS votes qualifies', () => {
+	test('five ballots: two positive watch, three high or four positive create review cases only', () => {
+		expect(voteCommittee([v('TEMPO', 'SUSPICIOUS'), v('CAREER', 'SUSPICIOUS')]).decision).toBe(
+			'WATCH'
+		);
 		expect(
 			voteCommittee([
 				v('TEMPO', 'CHEAT_LIKELY'),
-				v('PRECISION', 'SUSPICIOUS'),
-				v('CAREER', 'SUSPICIOUS')
+				v('CAREER', 'CHEAT_LIKELY'),
+				v('CHANGE_POINT', 'CHEAT_LIKELY')
 			]).decision
-		).toBe('KICK_CANDIDATE');
-	});
-	test('career does not create an independent third vote from the same tempo', () => {
+		).toBe('CASE');
 		expect(
 			voteCommittee([
 				v('TEMPO', 'SUSPICIOUS'),
-				v('PRECISION', 'SUSPICIOUS'),
-				v('CAREER', 'SUSPICIOUS')
+				v('CAREER', 'SUSPICIOUS'),
+				v('CHANGE_POINT', 'SUSPICIOUS'),
+				v('PRECISION', 'SUSPICIOUS')
 			]).decision
-		).toBe('WATCH');
-	});
-	test('three correlated tempo models count as one vote', () => {
-		const result = voteCommittee([
-			v('TEMPO', 'SUSPICIOUS', 'kpm'),
-			v('TEMPO', 'SUSPICIOUS', 'burst'),
-			v('TEMPO', 'SUSPICIOUS', 'interval')
-		]);
-		expect(result.decision).toBe('WATCH');
-		expect(result.independentSuspiciousFamilies).toBe(1);
-	});
-	test('one ordinary CHEAT vote does not qualify', () => {
-		expect(voteCommittee([v('TEMPO', 'CHEAT_LIKELY')]).decision).toBe('WATCH');
-	});
-	test('one verified hard-evidence vote qualifies, while weak or undocumented claims do not', () => {
-		const strong = { ...v('PRECISION', 'CHEAT_LIKELY'), hardEvidence: true, confidence: 0.999 };
-		expect(voteCommittee([strong]).decision).toBe('KICK_CANDIDATE');
-		expect(voteCommittee([{ ...strong, evidenceQuality: 0.8 }]).decision).toBe('WATCH');
-		expect(voteCommittee([{ ...strong, evidenceRefs: [] }]).decision).toBe('WATCH');
-	});
-	test('tempo marks only an extraordinary clean-baseline KPM window as hard evidence', () => {
-		const tempo = EXPERT_MODELS.find((item) => item.id === 'tempo')!;
-		const statistical = (value: number, percentile: number) =>
-			({
-				metrics: [
-					{
-						code: 'kpm180',
-						source: 'local',
-						sampleCount: 10_000,
-						uniquePlayers: 100,
-						uniquePlayerDays: 100,
-						effectiveSampleSize: 1000,
-						value,
-						extremenessPercentile: percentile
-					}
-				]
-			}) as StatisticalAssessment;
-		const input = {
-			statistical: statistical(8, 0.9999),
-			independentEpisodes: 1,
-			currentKpm: 8,
-			eventIds: Array.from({ length: 24 }, (_, i) => `e-${i}`)
-		};
-		expect(tempo.assess(input).hardEvidence).toBe(true);
-		expect(tempo.assess({ ...input, statistical: statistical(7.9, 0.9999) }).hardEvidence).toBe(
-			false
+		).toBe('CASE');
+		expect(voteCommittee([v('TEMPO', 'CHEAT_LIKELY'), v('CAREER', 'CHEAT_LIKELY')]).decision).toBe(
+			'WATCH'
+		);
+		expect(voteCommittee([v('TEMPO', 'CHEAT_LIKELY'), v('TEMPO', 'CHEAT_LIKELY')]).cheatVotes).toBe(
+			1
 		);
 	});
-	test('data quality veto blocks action despite unanimous CHEAT votes', () => {
-		const result = voteCommittee(
-			[v('TEMPO', 'CHEAT_LIKELY'), v('PRECISION', 'CHEAT_LIKELY')],
+	test('single extraordinary or undocumented signal is not a direct kick', () => {
+		expect(
+			voteCommittee([{ ...v('TEMPO', 'CHEAT_LIKELY'), hardEvidence: true }]).decision
+		).not.toBe('KICK_CANDIDATE');
+	});
+	test('unknowns do not manufacture positive votes', () => {
+		const r = voteCommittee([v('CAREER', 'UNKNOWN'), v('PRECISION', 'UNKNOWN')]);
+		expect(r.unknownVotes).toBe(2);
+		expect(r.cheatVotes + r.suspiciousVotes + r.normalVotes).toBe(0);
+	});
+	test('data quality veto is retained for review cases', () => {
+		const r = voteCommittee(
+			[v('TEMPO', 'CHEAT_LIKELY'), v('CAREER', 'CHEAT_LIKELY'), v('CHANGE_POINT', 'CHEAT_LIKELY')],
 			['FEED_STALE']
 		);
-		expect(result.decision).toBe('KICK_CANDIDATE');
-		expect(result.autoActionBlocked).toBe(true);
-		expect(result.vetoReasons).toContain('FEED_STALE');
-	});
-	test('UNKNOWN is never counted as NORMAL', () => {
-		const result = voteCommittee([v('CAREER', 'UNKNOWN')]);
-		expect(result.unknownVotes).toBe(1);
-		expect(result.normalVotes).toBe(0);
-		expect(result.decision).toBe('WATCH');
+		expect(r.decision).toBe('CASE');
+		expect(r.autoActionBlocked).toBe(true);
 	});
 	test('missing identity and stale baseline are separate veto reasons', () => {
 		expect(
@@ -159,4 +125,42 @@ describe('independent expert committee', () => {
 		expect(hasStatisticalAnomaly(assessment('maxKillDistanceWeapon', 1))).toBe(false);
 		expect(hasStatisticalAnomaly(assessment('kpm180', 0.995))).toBe(true);
 	});
+});
+
+test('KPM bypass requires >4 and a non-tempo expert; absence of KPM never stops five ballots', () => {
+	const quality = {
+		feedHealthy: true,
+		backlogSafe: true,
+		identityReliable: true,
+		roundReliable: true,
+		baselineFresh: true,
+		versionsMatch: true,
+		baselinePopulationAdequate: true
+	};
+	const ids = ['tempo', 'precision', 'career_deviation', 'change_point', 'persistence'];
+	const models = ids.map((id, i) => ({
+		id,
+		version: 'test',
+		evidenceFamily: 'TEMPO' as const,
+		assess: () => v('TEMPO', i === 1 ? 'SUSPICIOUS' : 'NORMAL', id)
+	}));
+	const input = {
+		statistical: { status: 'READY', metrics: [] } as unknown as StatisticalAssessment,
+		currentKpm: 4,
+		independentEpisodes: 0,
+		eventIds: ['e']
+	};
+	expect(assessCommittee(input, quality, models).decision).not.toBe('KICK_CANDIDATE');
+	expect(assessCommittee({ ...input, currentKpm: 4.01 }, quality, models).decision).toBe(
+		'KICK_CANDIDATE'
+	);
+	const three = models.map((m, i) => ({
+		...m,
+		assess: () => v('TEMPO', i < 3 ? 'CHEAT_LIKELY' : 'NORMAL', m.id)
+	}));
+	expect(assessCommittee({ ...input, currentKpm: 1 }, quality, three).decision).toBe('CASE');
+	expect(
+		assessCommittee({ ...input, currentKpm: 4.01 }, { ...quality, feedHealthy: false }, models)
+			.autoActionBlocked
+	).toBe(true);
 });

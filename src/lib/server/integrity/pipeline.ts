@@ -15,7 +15,7 @@ import { killView } from '../feed';
 import { withOwnedTransaction } from '../leadership';
 import { memoryOf } from '../observe';
 import { notifyIntegrityCase, type IntegrityCaseAlert } from '../webhook-delivery';
-import { loadSustainedKpm } from './sustained-kpm';
+import { loadRoundChangeSeries } from './round-change';
 import { InfantryWindows } from './windows';
 import { generateBatchFeatures } from './features';
 import { weaponOverrides } from './weapon-map';
@@ -104,6 +104,47 @@ export async function processIntegrityBatch(
 	const findings = generated.findings;
 	if (rules.assessmentMode !== 'legacy') {
 		findings.push(...generated.snapshots);
+		// Wake the round-wide change-point expert for vehicle and other non-infantry kills too.
+		const latestKills = new Map<string, KillView>();
+		for (const event of batch)
+			if (
+				event.killer?.steamId &&
+				!event.suicide &&
+				!event.teamKill &&
+				event.killer.steamId !== event.victim.steamId &&
+				Number.isSafeInteger(event.matchRow)
+			)
+				latestKills.set(`${event.killer.steamId}:${event.instanceId}:${event.matchRow}`, event);
+		for (const event of latestKills.values()) {
+			if (findings.some((f) => f.eventIds.includes(event.eventId))) continue;
+			const steamId = event.killer!.steamId,
+				roundId = `${event.instanceId}:match:${event.matchRow}`;
+			const snapshot = infantry.snapshots(serverId, [steamId]).find((f) => f.roundId === roundId);
+			findings.push({
+				...snapshot,
+				steamId,
+				instanceId: event.instanceId ?? '',
+				roundId,
+				map: event.map,
+				anchorClock: snapshot?.anchorClock ?? event.eventTime,
+				windowId: snapshot?.windowId ?? null,
+				clockFrom: Math.max(0, event.eventTime - 180),
+				clockTo: event.eventTime,
+				infantryKills: snapshot?.infantryKills ?? 0,
+				kpm180: snapshot?.kpm180 ?? 0,
+				uniqueVictims: snapshot?.uniqueVictims ?? 0,
+				headshots: snapshot?.headshots ?? 0,
+				headshotPct: snapshot?.headshotPct ?? 0,
+				penetrations: snapshot?.penetrations ?? 0,
+				penetrationPct: snapshot?.penetrationPct ?? 0,
+				burstPoints: snapshot?.burstPoints ?? 0,
+				maxKills15s: snapshot?.maxKills15s ?? 0,
+				medianKillInterval: snapshot?.medianKillInterval ?? null,
+				reasons: [],
+				snapshotOnly: true,
+				eventIds: [...new Set([...(snapshot?.eventIds ?? []), event.eventId])]
+			});
+		}
 	}
 	if (!findings.length) return;
 	// Only the strongest state of each active window in this batch needs a database write.
@@ -142,8 +183,8 @@ export async function processIntegrityBatch(
 		let selected = context.get(key);
 		if (!selected) {
 			const [baselines, weaponBaselines] = await Promise.all([
-				loadBaselines(env, orgId, finding.map, bucket),
-				loadWeaponBaselines(env, orgId, finding.map, bucket)
+				loadBaselines(env, orgId, finding.map, bucket, serverId),
+				loadWeaponBaselines(env, orgId, finding.map, bucket, serverId)
 			]);
 			selected = { baselines, weaponBaselines };
 			context.set(key, selected);
@@ -179,6 +220,7 @@ export async function processIntegrityBatch(
 					kpm180: integrityWindows.kpm180,
 					roundId: integrityWindows.roundId,
 					clockTo: integrityWindows.clockTo,
+					clockFrom: integrityWindows.clockFrom,
 					eventIds: integrityWindows.eventIds,
 					observedAt: integrityWindows.observedAt
 				})
@@ -288,18 +330,41 @@ export async function processIntegrityBatch(
 						candidate.windowId,
 						candidate.statistical as StatisticalAssessment | null
 					);
-			const recentStatistical = statisticalCandidates
-				.filter((row) => hasStatisticalAnomaly(latestPriorScore.get(row.id) ?? null))
-				.slice(0, 2);
+			const recentStatistical: typeof statisticalCandidates = [];
+			for (const row of statisticalCandidates) {
+				if (!hasStatisticalAnomaly(latestPriorScore.get(row.id) ?? null)) continue;
+				if (
+					recentStatistical.some(
+						(newer) =>
+							!independentEpisode(
+								row,
+								{
+									eventIds: evidenceIds(newer.eventIds) ?? [],
+									roundId: newer.roundId ?? '',
+									clockFrom: newer.clockFrom,
+									observedAt: newer.observedAt
+								},
+								STATISTICAL_MODEL_CONFIG.minimumEpisodeSeparationSeconds
+							)
+					)
+				)
+					continue;
+				recentStatistical.push(row);
+				if (recentStatistical.length === 2) break;
+			}
 			const statistical: StatisticalAssessment | null = selected
 				? assessDistribution(
 						{
-							kpm180: finding.kpm180,
-							uniqueVictims: finding.uniqueVictims,
-							maxKills15s: finding.maxKills15s,
+							kpm180: finding.infantryKills ? finding.kpm180 : null,
+							uniqueVictims: finding.infantryKills ? finding.uniqueVictims : null,
+							maxKills15s: finding.infantryKills ? finding.maxKills15s : null,
 							medianKillInterval: finding.medianKillInterval,
-							headshotRate: finding.headshots / finding.infantryKills,
-							penetrationRate: finding.penetrations / finding.infantryKills
+							headshotRate: finding.infantryKills
+								? finding.headshots / finding.infantryKills
+								: null,
+							penetrationRate: finding.infantryKills
+								? finding.penetrations / finding.infantryKills
+								: null
 						},
 						selected.baselines,
 						finding.infantryKills,
@@ -309,20 +374,6 @@ export async function processIntegrityBatch(
 					)
 				: null;
 			if (statistical) {
-				statistical.sustainedKpm = await loadSustainedKpm(
-					tx,
-					{
-						serverId,
-						steamId: finding.steamId,
-						instanceId: finding.instanceId,
-						roundId: finding.roundId,
-						clock: finding.clockTo,
-						at: now,
-						minutes: rules.config.committeeKpmMinutes,
-						threshold: rules.config.kpmBands[0].min
-					},
-					overrides
-				);
 				const currentEvent = [...batch]
 					.reverse()
 					.find((event) => finding.eventIds.includes(event.eventId));
@@ -335,6 +386,18 @@ export async function processIntegrityBatch(
 								currentEvent ? new Date(currentEvent.ts) : now
 							)
 						: null;
+				const matchRow = Number(finding.roundId.match(/:match:(\d+)$/)?.[1]);
+				const changeSeries = Number.isSafeInteger(matchRow)
+					? await loadRoundChangeSeries(tx, {
+							serverId,
+							steamId: finding.steamId,
+							instanceId: finding.instanceId,
+							matchRow,
+							clock: finding.clockTo,
+							at: currentEvent ? new Date(currentEvent.ts) : now
+						})
+					: [];
+				if (changeSeries.length >= 20) statistical.status = 'READY';
 				const recentKpm = [...recentStatistical]
 					.reverse()
 					.map((row) => row.kpm180)
@@ -353,10 +416,24 @@ export async function processIntegrityBatch(
 					actionBaselineEligible(metric)
 				);
 				const nowMs = now.getTime();
+				statistical.changePointContext = {
+					scope: 'current_round_all_weapons',
+					bucketSeconds: 15,
+					completedBuckets: changeSeries.length,
+					roundId: finding.roundId
+				};
+				statistical.kpmRule = {
+					value: finding.kpm180,
+					watchAbove: 2,
+					highAbove: 4,
+					points: finding.kpm180 > 2 ? 6 : 0
+				};
+				statistical.independentEpisodes =
+					recentStatistical.length + (hasStatisticalAnomaly(statistical) ? 1 : 0);
 				statistical.committee = assessCommittee(
 					{
 						statistical,
-						independentEpisodes: recentStatistical.length + 1,
+						independentEpisodes: statistical.independentEpisodes,
 						career: career
 							? {
 									sampleCount: career.sampleCount,
@@ -366,7 +443,7 @@ export async function processIntegrityBatch(
 									recentKpm
 								}
 							: undefined,
-						changeSeries: career ? [...career.orderedKpm, ...recentKpm] : undefined,
+						changeSeries,
 						currentKpm: finding.kpm180,
 						eventIds: finding.eventIds
 					},
@@ -408,9 +485,11 @@ export async function processIntegrityBatch(
 				statistical.level =
 					statistical.committee.decision === 'KICK_CANDIDATE'
 						? 'KICK_CANDIDATE'
-						: statistical.committee.decision === 'WATCH'
-							? 'WATCH'
-							: 'NORMAL';
+						: statistical.committee.decision === 'CASE'
+							? 'CASE'
+							: statistical.committee.decision === 'WATCH'
+								? 'WATCH'
+								: 'NORMAL';
 			}
 			if (
 				finding.reasons.length ||
@@ -517,7 +596,10 @@ export async function processIntegrityBatch(
 				daysSinceLastBan: steam.daysSinceLastBan,
 				wardogsPlaytimeHours: null
 			};
-			const score = scoreIntegrity(signals, rules.config);
+			const score = scoreIntegrity(
+				{ ...signals, committeeMode: rules.assessmentMode !== 'legacy' },
+				rules.config
+			);
 			const [savedScore] = await tx
 				.insert(integrityScores)
 				.values({
@@ -682,7 +764,18 @@ export async function processIntegrityBatch(
 	const stillLive = batch.length > 0 && Date.now() - Date.parse(batch[0].ts) <= 5 * 60_000;
 	for (const candidate of allowActions && stillLive ? candidates : []) {
 		try {
-			await enforceIntegrityCase(env, candidate);
+			const result = await enforceIntegrityCase(env, candidate);
+			if (result === 'KICK')
+				await env.db
+					.update(integrityCases)
+					.set({ status: 'AUTO_ACTION' })
+					.where(
+						and(
+							eq(integrityCases.id, candidate.caseId),
+							eq(integrityCases.status, 'OPEN'),
+							isNotNull(integrityCases.statistical)
+						)
+					);
 		} catch (err) {
 			console.warn(`[warcon] Integrity enforcement on ${serverId}:`, publicMessage(err));
 		}

@@ -44,7 +44,8 @@ export function selectBaselines(
 		weaponMapVersion: number;
 		activeBaselineGeneration: string | null;
 		baselineStatus: string;
-	}
+	},
+	serverId?: string
 ): Map<MetricCode, DistributionStats> {
 	const selected = new Map<MetricCode, DistributionStats>();
 	for (const metric of Object.keys(METRICS) as MetricCode[]) {
@@ -52,6 +53,8 @@ export function selectBaselines(
 			.filter(
 				(candidate) =>
 					candidate.metric === metric &&
+					(!['headshotRate', 'penetrationRate', 'headshotRateWeapon'].includes(metric) ||
+						(!!serverId && candidate.serverId === serverId)) &&
 					candidate.weaponCategory === 'INFANTRY' &&
 					candidate.sampleCount >=
 						(candidate.source === 'external'
@@ -78,6 +81,7 @@ export function selectBaselines(
 		if (row)
 			selected.set(metric, {
 				id: row.id,
+				serverId: row.serverId,
 				source: row.source as DistributionStats['source'],
 				metric,
 				map: row.map,
@@ -118,13 +122,15 @@ export function selectWeaponBaselines(
 		weaponMapVersion: number;
 		activeBaselineGeneration: string | null;
 		baselineStatus: string;
-	}
+	},
+	serverId?: string
 ): Map<string, DistributionStats> {
 	const selected = new Map<string, DistributionStats>();
 	for (const row of [...rows].sort((a, b) =>
 		a.source === b.source ? a.level - b.level : a.source === 'local' ? -1 : 1
 	)) {
 		if (
+			(row.metric === 'headshotRateWeapon' && (!serverId || row.serverId !== serverId)) ||
 			(row.metric !== 'headshotRateWeapon' && row.metric !== 'maxKillDistanceWeapon') ||
 			row.weaponCategory === 'INFANTRY' ||
 			row.sampleCount <
@@ -147,6 +153,7 @@ export function selectWeaponBaselines(
 		if (selected.has(key)) continue;
 		selected.set(key, {
 			id: row.id,
+			serverId: row.serverId,
 			source: row.source as DistributionStats['source'],
 			metric: row.metric as DistributionStats['metric'],
 			map: row.map,
@@ -181,7 +188,8 @@ export async function loadWeaponBaselines(
 	env: Env,
 	orgId: string,
 	map: string,
-	bucket: PopulationBucket | null
+	bucket: PopulationBucket | null,
+	serverId?: string
 ): Promise<Map<string, DistributionStats>> {
 	const [state] = await env.db
 		.select()
@@ -205,14 +213,15 @@ export async function loadWeaponBaselines(
 				)
 			)
 		);
-	return selectWeaponBaselines(rows, map, bucket, new Date(), state);
+	return selectWeaponBaselines(rows, map, bucket, new Date(), state, serverId);
 }
 
 export async function loadBaselines(
 	env: Env,
 	orgId: string,
 	map: string,
-	bucket: PopulationBucket | null
+	bucket: PopulationBucket | null,
+	serverId?: string
 ) {
 	const [state] = await env.db
 		.select()
@@ -248,7 +257,8 @@ export async function loadBaselines(
 		map,
 		bucket,
 		new Date(),
-		state
+		state,
+		serverId
 	);
 }
 

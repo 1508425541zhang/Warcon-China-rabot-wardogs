@@ -95,6 +95,7 @@ function balancedSamples(rows: readonly ReferenceSample[]): ReferenceSample[] {
 	for (const row of rows) {
 		const key = JSON.stringify([
 			row.source,
+			row.serverId,
 			row.player,
 			row.day,
 			row.map,
@@ -113,6 +114,7 @@ function balancedSamples(rows: readonly ReferenceSample[]): ReferenceSample[] {
 	for (const row of dayCapped) {
 		const key = JSON.stringify([
 			row.source,
+			row.serverId,
 			row.player,
 			row.map,
 			row.bucket,
@@ -171,6 +173,7 @@ class ReferenceReplay {
 		for (const sample of metricSamples(feature, row)) {
 			const key = JSON.stringify([
 				sample.source,
+				sample.serverId,
 				sample.player,
 				sample.day,
 				sample.map,
@@ -191,6 +194,7 @@ class ReferenceReplay {
 }
 
 interface Cohort {
+	serverId: string | null;
 	source: Source;
 	level: number;
 	map: string | null;
@@ -209,11 +213,25 @@ function cohorts(samples: readonly ReferenceSample[]): Cohort[] {
 					[2, null, sample.bucket] as const,
 					[3, null, null] as const
 				]) {
-			const key = JSON.stringify([sample.source, level, map, bucket, sample.metric, sample.weapon]);
+			const serverId =
+				sample.source === 'local' &&
+				['headshotRate', 'penetrationRate', 'headshotRateWeapon'].includes(sample.metric)
+					? sample.serverId
+					: null;
+			const key = JSON.stringify([
+				serverId,
+				sample.source,
+				level,
+				map,
+				bucket,
+				sample.metric,
+				sample.weapon
+			]);
 			let group = groups.get(key);
 			if (!group) {
 				group = {
 					source: sample.source,
+					serverId,
 					level,
 					map,
 					bucket,
@@ -394,6 +412,7 @@ export async function refreshCleanIntegrityBaselines(env: Env, orgId: string): P
 						id: crypto.randomUUID(),
 						orgId,
 						source: group.source,
+						serverId: group.serverId,
 						metric: group.metric,
 						level: group.level,
 						map: group.map,

@@ -542,6 +542,7 @@ export const integrityBaselines = pgTable(
 		orgId: text('org_id')
 			.notNull()
 			.references(() => organizations.id, { onDelete: 'cascade' }),
+		serverId: text('server_id'),
 		metric: text('metric').notNull(),
 		level: integer('level').notNull(),
 		map: text('map'),
@@ -570,7 +571,10 @@ export const integrityBaselines = pgTable(
 		windowDays: integer('window_days').notNull().default(30),
 		calculatedAt: ts('calculated_at').notNull()
 	},
-	(t) => [index('integrity_baselines_lookup_idx').on(t.orgId, t.metric, t.level)]
+	(t) => [
+		index('integrity_baselines_lookup_idx').on(t.orgId, t.metric, t.level),
+		index('integrity_baselines_server_idx').on(t.orgId, t.serverId, t.metric)
+	]
 );
 
 /** Only safe/normal windows enter this append-only career reference history. */

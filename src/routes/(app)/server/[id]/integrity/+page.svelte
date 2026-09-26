@@ -347,23 +347,21 @@
 		</label>
 	</div>
 	{#if selectedAssessment}
-		{#if selectedAssessment.sustainedKpm}
-			<div class="mt-3 panel p-3 text-sm">
-				<strong
-					>连续60秒步兵KPM：{selectedAssessment.sustainedKpm.passed ? '达标' : '未达标'}</strong
-				>
-				<p>
-					需要连续 {selectedAssessment.sustainedKpm.requiredMinutes} 个完整分钟，每分钟 KPM ≥ {selectedAssessment
-						.sustainedKpm.threshold}；按对局时钟分段，不计算未结束分钟。
-				</p>
-				<div class="flex flex-wrap gap-3">
-					{#each selectedAssessment.sustainedKpm.windows as w}<span
-							>{w.from}–{w.to}秒：{w.kpm} KPM · {w.exceeded ? '达标' : '未达标'}</span
-						>{/each}
-				</div>
-				<p>{selectedAssessment.sustainedKpm.reason}。180秒平均KPM仍供展示，不能替代逐分钟条件。</p>
-			</div>
-		{/if}
+		<div class="mt-3 panel p-3 text-sm">
+			<strong>委员会：五专家独立投票</strong>
+			<p>
+				两票可疑：观察；三票高度异常或四票可疑及以上：生成案件，不自动踢出。KPM＞4且另一专家至少可疑：直接踢出通道。
+			</p>
+			{#if selectedAssessment.kpmRule}<p>
+					180秒步兵KPM：{selectedAssessment.kpmRule.value.toFixed(2)} · 警惕加分：{selectedAssessment
+						.kpmRule.points}。专家不再受连续分钟条件限制。
+				</p>{:else}<p>这是旧版本历史评估，保留原记录，不按新阈值追溯处罚。</p>{/if}
+			{#if selectedAssessment.changePointContext}<p>
+					变化点：本局全部武器，已形成{selectedAssessment.changePointContext
+						.completedBuckets}个完整15秒区间。
+				</p>{/if}
+		</div>
+
 		<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 			<div class="rounded-ctl border border-white/10 p-3">
 				<div class="text-xs text-mist-400">Legacy</div>
@@ -450,7 +448,8 @@
 	<div class="mt-3 flex flex-wrap gap-4 text-sm text-white">
 		<span>NORMAL：{data.committeeShadow.counts.NORMAL}</span>
 		<span>WATCH：{data.committeeShadow.counts.WATCH}</span>
-		<span>KICK_CANDIDATE：{data.committeeShadow.counts.KICK_CANDIDATE}</span>
+		<span>待审核案件：{data.committeeShadow.counts.CASE}</span>
+		<span>直接踢出候选：{data.committeeShadow.counts.KICK_CANDIDATE}</span>
 		<span
 			>{lang === 'zh' ? '意见分歧率' : 'Disagreement'}：{data.committeeShadow.disagreementRate ===
 			null
