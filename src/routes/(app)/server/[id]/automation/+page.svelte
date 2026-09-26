@@ -1,4 +1,6 @@
 <script lang="ts">
+	import FactionLockSettings from '$lib/components/FactionLockSettings.svelte';
+	import WeaponRestrictionSettings from '$lib/components/WeaponRestrictionSettings.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage } from '$lib/api';
 	import { fmtAgo, fmtSpan, fmtTime, mapLabel } from '$lib/format';
@@ -768,9 +770,27 @@
 	}
 </script>
 
-<a class="mb-4 inline-block text-accent" href="/server/{data.server.id}/faction-lock"
-	>禁止自行换边：设置与记录 →</a
->
+<div class="mb-5 space-y-4">
+	<details class="panel p-4">
+		<summary class="cursor-pointer font-semibold"
+			>禁止自行换边 · {data.factionLock.rule.enabled ? '已启用' : '未启用'}（点击设置）</summary
+		>
+		<div class="mt-4">
+			<FactionLockSettings data={{ ...data.factionLock, teams: data.teams, server: data.server }} />
+		</div>
+	</details>
+	<details class="panel p-4">
+		<summary class="cursor-pointer font-semibold"
+			>武器／载具限制 · {data.weaponRestriction.rule.enabled
+				? '已启用'
+				: '未启用'}（点击设置）</summary
+		><WeaponRestrictionSettings
+			serverId={data.server.id}
+			data={data.weaponRestriction}
+			feed={data.feed}
+		/>
+	</details>
+</div>
 
 <svelte:window
 	onclick={() => (addOpen = false)}
