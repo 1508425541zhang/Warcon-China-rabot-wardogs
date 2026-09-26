@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, or, isNull, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, or, isNull, lt, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import type { Env } from '../env';
 import {
@@ -12,7 +12,14 @@ import {
 } from '../db/schema';
 import { encryptSecret, decryptSecret } from '../crypto';
 import { ApiError } from '../http';
-import { apiBase, settingsInput, reviewOutput, numericChecks, SYSTEM } from './ai-protocol';
+import {
+	apiBase,
+	settingsInput,
+	reviewOutput,
+	numericChecks,
+	SYSTEM,
+	PROMPT_VERSION
+} from './ai-protocol';
 import { aiRequest } from './ai-client';
 export async function aiSettings(env: Env, orgId: string) {
 	const [row] = await env.db
@@ -33,6 +40,8 @@ export async function saveAiSettings(env: Env, orgId: string, input: unknown) {
 	if (/[\r\n]/.test(value.apiKey)) throw new ApiError(400, '密钥不能包含换行。');
 	const row = {
 		orgId,
+		autoEnabled: value.autoEnabled,
+		dailyLimit: value.dailyLimit,
 		baseUrl,
 		model: value.model,
 		tokenParameter: value.tokenParameter,
@@ -123,10 +132,13 @@ export async function aiCall(
 	env: Env,
 	orgId: string,
 	operation: 'models' | 'test' | 'review',
-	bundle?: Awaited<ReturnType<typeof aiBundle>>
+	bundle?: Awaited<ReturnType<typeof aiBundle>>,
+	automatic = false,
+	requester: typeof aiRequest = aiRequest
 ) {
 	const config = await aiSettings(env, orgId);
 	if (!config) throw new ApiError(400, '请先保存 API 地址和密钥。');
+	if (automatic && !config.autoEnabled) throw new ApiError(409, '自动初审已暂停。');
 	if (operation !== 'models' && !config.model) throw new ApiError(400, '请选择模型并保存。');
 	const input = JSON.stringify(bundle);
 	if (input && Buffer.byteLength(input) > 256000)
@@ -152,10 +164,25 @@ export async function aiCall(
 	}
 	const claimed = await env.db
 		.update(integrityAiSettings)
-		.set({ lastRequestAt: new Date() })
+		.set({
+			lastRequestAt: new Date(),
+			...(automatic
+				? {
+						budgetDay: new Date().toISOString().slice(0, 10),
+						dailyRequests: sql`CASE WHEN ${integrityAiSettings.budgetDay} = ${new Date().toISOString().slice(0, 10)} THEN ${integrityAiSettings.dailyRequests} + 1 ELSE 1 END`
+					}
+				: {})
+		})
 		.where(
 			and(
 				eq(integrityAiSettings.orgId, orgId),
+				eq(integrityAiSettings.updatedAt, config.updatedAt),
+				...(automatic
+					? [
+							eq(integrityAiSettings.autoEnabled, true),
+							sql`(${integrityAiSettings.budgetDay} <> ${new Date().toISOString().slice(0, 10)} OR ${integrityAiSettings.dailyRequests} < ${integrityAiSettings.dailyLimit})`
+						]
+					: []),
 				or(
 					isNull(integrityAiSettings.lastRequestAt),
 					lt(integrityAiSettings.lastRequestAt, new Date(Date.now() - 65000))
@@ -165,7 +192,7 @@ export async function aiCall(
 		.returning({ id: integrityAiSettings.orgId });
 	if (!claimed.length) throw new ApiError(429, '同一组织每65秒最多请求一次，请稍后再试。');
 	const key = decryptSecret(env, config.keyEnc);
-	const response = (await aiRequest(
+	const response = (await requester(
 		config.baseUrl,
 		key,
 		operation === 'models' ? 'models' : 'chat/completions',
@@ -208,6 +235,7 @@ export async function aiCall(
 	if (!validated.success) throw new ApiError(502, '模型审核结果字段不完整，未保存为有效结论。');
 	const result = {
 		...validated.data,
+		promptVersion: PROMPT_VERSION,
 		model: config.model,
 		usage: response.usage ?? null,
 		advisoryOnly: true

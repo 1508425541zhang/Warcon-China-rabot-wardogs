@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AiCaseSummary from '$lib/components/AiCaseSummary.svelte';
 	import { api, errorMessage } from '$lib/api';
 	import { committeeModelName, committeeUnknownReason } from '$lib/committee-display';
 	import { onMount } from 'svelte';
@@ -725,7 +726,8 @@
 							<td
 								><a
 									class="font-mono text-accent"
-									href="/server/{data.server.id}/players/{item.steamId}">{item.steamId}</a
+									href="/server/{data.server.id}/players/{item.steamId}"
+									>{item.name || item.steamId} {item.name ? `· ${item.steamId.slice(-6)}` : ''}</a
 								></td
 							>
 							<td class="font-mono">{item.id}</td>
@@ -743,6 +745,10 @@
 									<div class="mt-1 text-xs text-mist-400">{latest.reason}</div>{/if}
 							</td>
 							<td>
+								<AiCaseSummary
+									job={data.aiJobs.find((j) => j.caseId === item.id)}
+									enabled={data.aiAutoEnabled}
+								/>
 								<details>
 									<summary class="cursor-pointer">{t.breakdown}</summary>
 									{#if caseSignals(item.snapshot)}<p class="mt-2 text-xs text-accent">

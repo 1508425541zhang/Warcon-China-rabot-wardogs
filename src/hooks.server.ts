@@ -1,3 +1,4 @@
+import { startIntegrityAi, stopIntegrityAi } from '$lib/server/integrity/ai-queue';
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 import { building } from '$app/environment';
 import { json, redirect } from '@sveltejs/kit';
@@ -78,6 +79,7 @@ export const init: ServerInit = async () => {
 		startFeedProcessing(env);
 		startIntegrityBaselines(env);
 		startIntegrityProfileRefresh(env);
+		startIntegrityAi(env);
 	}
 	registerFleetCollector(env);
 	installShutdown(env);
@@ -104,6 +106,7 @@ function installShutdown(env: Awaited<ReturnType<typeof initEnv>>): void {
 		void (async () => {
 			if (env.WARCON_ROLE !== 'web') {
 				stopIntegrityBaselines();
+				await stopIntegrityAi().catch(() => {});
 				await stopIntegrityProfileRefresh().catch(() => {});
 				await stopFeedProcessing().catch(() => {});
 				await stopPoller().catch(() => {});

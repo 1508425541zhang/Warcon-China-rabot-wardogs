@@ -1525,6 +1525,10 @@ export const factionLockEvents = pgTable(
 
 /** Per-organisation OpenAI-compatible assistant, isolated from enforcement. */
 export const integrityAiSettings = pgTable('integrity_ai_settings', {
+	autoEnabled: boolean('auto_enabled').notNull().default(true),
+	dailyLimit: integer('daily_limit').notNull().default(100),
+	budgetDay: text('budget_day').notNull().default(''),
+	dailyRequests: integer('daily_requests').notNull().default(0),
 	orgId: text('org_id')
 		.primaryKey()
 		.references(() => organizations.id, { onDelete: 'cascade' }),
@@ -1579,4 +1583,22 @@ export const weaponRestrictionEvents = pgTable(
 	(t) => [
 		index('weapon_restriction_player_idx').on(t.serverId, t.matchId, t.steamId, t.createdAt.desc())
 	]
+);
+
+export const integrityAiJobs = pgTable(
+	'integrity_ai_jobs',
+	{
+		caseId: text('case_id')
+			.primaryKey()
+			.references(() => integrityCases.id, { onDelete: 'cascade' }),
+		state: text('state').notNull().default('pending'),
+		attempts: integer('attempts').notNull().default(0),
+		nextAt: ts('next_at').notNull().defaultNow(),
+		leaseUntil: ts('lease_until'),
+		claimToken: text('claim_token'),
+		lastError: text('last_error'),
+		result: jsonb('result'),
+		updatedAt: ts('updated_at').notNull().defaultNow()
+	},
+	(t) => [index('integrity_ai_jobs_due_idx').on(t.state, t.nextAt)]
 );

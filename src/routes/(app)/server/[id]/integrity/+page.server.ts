@@ -1,3 +1,5 @@
+import { aiJobViews } from '$lib/server/integrity/ai-queue';
+import { aiSettings } from '$lib/server/integrity/ai';
 import { loadCurrentRisks } from '$lib/server/integrity/current-risk';
 import { error } from '@sveltejs/kit';
 import { mapId } from '$lib/format';
@@ -8,6 +10,7 @@ import { orgRoleFor, requireServerCap } from '$lib/server/access';
 import { normalizeError } from '$lib/server/http';
 import {
 	integrityCases,
+	steamProfiles,
 	integrityLabels,
 	integrityActions,
 	integrityReports,
@@ -31,6 +34,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			await Promise.all([
 				env.db
 					.select({
+						name: steamProfiles.persona,
 						id: integrityCases.id,
 						steamId: integrityCases.steamId,
 						createdAt: integrityCases.createdAt,
@@ -43,6 +47,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 						trigger: integrityCases.trigger
 					})
 					.from(integrityCases)
+					.leftJoin(steamProfiles, eq(steamProfiles.steamId, integrityCases.steamId))
 					.where(eq(integrityCases.serverId, server.id))
 					.orderBy(desc(integrityCases.createdAt))
 					.limit(50),
@@ -253,6 +258,11 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			shadowRows.length > 5000 || labelRows.length > 5000
 		);
 		return {
+			aiJobs: await aiJobViews(
+				env,
+				cases.map((c) => c.id)
+			),
+			aiAutoEnabled: !!(await aiSettings(env, server.orgId))?.autoEnabled,
 			cases: cases.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
 			scores: scores.map((item) => ({ ...item, scoredAt: item.scoredAt.toISOString() })),
 			reports: reports.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
