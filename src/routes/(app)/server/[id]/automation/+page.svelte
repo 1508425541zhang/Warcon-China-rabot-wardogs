@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkillBalanceSettings from '$lib/components/SkillBalanceSettings.svelte';
 	import FactionLockSettings from '$lib/components/FactionLockSettings.svelte';
 	import WeaponRestrictionSettings from '$lib/components/WeaponRestrictionSettings.svelte';
 	import { invalidateAll } from '$app/navigation';
@@ -771,6 +772,14 @@
 </script>
 
 <div class="mb-5 space-y-4">
+	<details class="mb-4 panel p-4">
+		<summary class="cursor-pointer font-semibold"
+			>强弱阵营平衡 · {data.skillBalance.rule.enabled ? '已启用' : '未启用'}（点击设置）</summary
+		>
+		<div class="mt-3">
+			<SkillBalanceSettings data={data.skillBalance} serverId={data.server.id} />
+		</div>
+	</details>
 	<details class="panel p-4">
 		<summary class="cursor-pointer font-semibold"
 			>禁止自行换边 · {data.factionLock.rule.enabled ? '已启用' : '未启用'}（点击设置）</summary

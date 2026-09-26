@@ -1602,3 +1602,30 @@ export const integrityAiJobs = pgTable(
 	},
 	(t) => [index('integrity_ai_jobs_due_idx').on(t.state, t.nextAt)]
 );
+
+export const skillBalanceRules = pgTable('skill_balance_rules', {
+	serverId: text('server_id')
+		.primaryKey()
+		.references(() => servers.id, { onDelete: 'cascade' }),
+	enabled: boolean('enabled').notNull().default(false),
+	graceSeconds: integer('grace_seconds').notNull().default(300),
+	leadPoints: integer('lead_points').notNull().default(40),
+	updatedAt: ts('updated_at').notNull().defaultNow()
+});
+export const skillBalanceRuns = pgTable(
+	'skill_balance_runs',
+	{
+		id: text('id').primaryKey(),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		matchId: bigint('match_id', { mode: 'number' }).notNull(),
+		state: text('state').notNull(),
+		reason: text('reason').notNull(),
+		plan: jsonb('plan').notNull(),
+		moves: jsonb('moves').notNull().default([]),
+		createdAt: ts('created_at').notNull().defaultNow(),
+		updatedAt: ts('updated_at').notNull().defaultNow()
+	},
+	(t) => [uniqueIndex('skill_balance_round_unique').on(t.serverId, t.matchId)]
+);
