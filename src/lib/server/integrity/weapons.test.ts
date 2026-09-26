@@ -12,6 +12,11 @@ const smallArm = {
 };
 
 describe('exact weapon classification', () => {
+	test('observed named Mosin and MP9 small arms count without guessing opaque item codes', () => {
+		for (const cause of ['Id.Item.Mosin', 'Id.Item.MP9'])
+			expect(countsAsInfantry({ ...smallArm, cause })).toBe(true);
+		expect(classifyWeapon({ ...smallArm, cause: 'Id.Item.WEPN_035' })).toBe('UNKNOWN');
+	});
 	test('known small arm counts only across known opposing factions', () => {
 		expect(classifyWeapon(smallArm)).toBe('INFANTRY');
 		expect(countsAsInfantry(smallArm)).toBe(true);
