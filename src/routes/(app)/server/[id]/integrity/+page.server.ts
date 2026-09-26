@@ -1,3 +1,4 @@
+import { loadCurrentRisks } from '$lib/server/integrity/current-risk';
 import { error } from '@sveltejs/kit';
 import { mapId } from '$lib/format';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
@@ -122,6 +123,14 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		const recentScore = new Map<string, (typeof liveScores)[number]>();
 		for (const row of liveScores)
 			if (!recentScore.has(row.steamId)) recentScore.set(row.steamId, row);
+		const currentRisks = await loadCurrentRisks(
+			env,
+			server.orgId,
+			roster.map((p) => p.steamId),
+			recentScore,
+			rules.config,
+			now
+		);
 		const infantry = liveInfantryMetrics(recentKills.slice(0, 3000), status, mappings);
 		const latestKill = recentKills[0];
 		const feedMetricsAvailable =
@@ -136,9 +145,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 				kills: player.kills,
 				deaths: player.deaths,
 				infantry: infantry.get(player.steamId) ?? null,
-				riskScore: recentScore.get(player.steamId)?.score ?? null,
-				riskLevel: recentScore.get(player.steamId)?.level ?? null,
-				riskBreakdown: recentScore.get(player.steamId)?.breakdown ?? []
+				riskScore: currentRisks.get(player.steamId)?.score ?? null,
+				riskLevel: currentRisks.get(player.steamId)?.level ?? null,
+				riskBreakdown: currentRisks.get(player.steamId)?.breakdown ?? []
 			}))
 			.sort((a, b) => (b.riskScore ?? -1) - (a.riskScore ?? -1));
 		const dryRun = await Promise.all(

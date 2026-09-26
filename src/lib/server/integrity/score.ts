@@ -210,20 +210,23 @@ export function scoreIntegrity(
 		100,
 		breakdown.reduce((sum, item) => sum + item.points, 0)
 	);
-	const level: IntegrityLevel =
-		score >= config.quarantineThreshold
-			? 'AUTO_QUARANTINE_ELIGIBLE'
-			: score >= config.koThreshold
-				? 'AUTO_KO'
-				: score >= config.activeWatchThreshold
-					? 'ACTIVE_WATCH'
-					: score >= config.passiveWatchThreshold
-						? 'PASSIVE_WATCH'
-						: 'NORMAL';
+	const level = integrityLevel(score, config);
 	return {
 		score,
 		level,
 		breakdown,
 		currentBehaviorAnomaly: signals.behaviorReasons.length > 0
 	};
+}
+
+export function integrityLevel(score: number, config: IntegrityRuleConfig): IntegrityLevel {
+	return score >= config.quarantineThreshold
+		? 'AUTO_QUARANTINE_ELIGIBLE'
+		: score >= config.koThreshold
+			? 'AUTO_KO'
+			: score >= config.activeWatchThreshold
+				? 'ACTIVE_WATCH'
+				: score >= config.passiveWatchThreshold
+					? 'PASSIVE_WATCH'
+					: 'NORMAL';
 }
