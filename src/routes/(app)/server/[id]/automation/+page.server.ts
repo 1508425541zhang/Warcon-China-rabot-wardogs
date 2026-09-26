@@ -1,3 +1,4 @@
+import { groupControlView } from '$lib/server/group-control';
 import { numericLimitView } from '$lib/server/numeric-limits';
 import { skillBalanceView } from '$lib/server/skill-balance';
 import { factionLockView } from '$lib/server/faction-lock';
@@ -22,8 +23,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
 	try {
 		const { server } = await requireServerCap(env, locals, params.id, 'automation.manage');
-		const [numericLimits, skillBalance, factionLock, weaponRestriction, [live]] = await Promise.all(
-			[
+		const [groupControl, numericLimits, skillBalance, factionLock, weaponRestriction, [live]] =
+			await Promise.all([
+				groupControlView(env, server.id),
 				numericLimitView(env, server.id),
 				skillBalanceView(env, server.id),
 				factionLockView(env, server.id),
@@ -32,10 +34,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 					.select({ status: serverLive.status })
 					.from(serverLive)
 					.where(eq(serverLive.serverId, server.id))
-			]
-		);
+			]);
 		// What the kinds need before they can run here, so the Add menu and the editor can say so.
 		return {
+			groupControl,
 			numericLimits,
 			skillBalance,
 			factionLock,
