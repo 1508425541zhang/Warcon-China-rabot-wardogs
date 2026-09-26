@@ -50,8 +50,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 					.from(integrityCases)
 					.leftJoin(steamProfiles, eq(steamProfiles.steamId, integrityCases.steamId))
 					.where(eq(integrityCases.serverId, server.id))
-					.orderBy(desc(integrityCases.createdAt))
-					.limit(50),
+					.orderBy(desc(integrityCases.createdAt), desc(integrityCases.id))
+					.limit(5),
 				env.db
 					.select({
 						id: integrityScores.id,
