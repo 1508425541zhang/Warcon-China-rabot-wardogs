@@ -15,6 +15,7 @@ import { killView } from '../feed';
 import { withOwnedTransaction } from '../leadership';
 import { memoryOf } from '../observe';
 import { notifyIntegrityCase, type IntegrityCaseAlert } from '../webhook-delivery';
+import { loadSustainedKpm } from './sustained-kpm';
 import { InfantryWindows } from './windows';
 import { generateBatchFeatures } from './features';
 import { weaponOverrides } from './weapon-map';
@@ -308,6 +309,20 @@ export async function processIntegrityBatch(
 					)
 				: null;
 			if (statistical) {
+				statistical.sustainedKpm = await loadSustainedKpm(
+					tx,
+					{
+						serverId,
+						steamId: finding.steamId,
+						instanceId: finding.instanceId,
+						roundId: finding.roundId,
+						clock: finding.clockTo,
+						at: now,
+						minutes: rules.config.committeeKpmMinutes,
+						threshold: rules.config.kpmBands[0].min
+					},
+					overrides
+				);
 				const currentEvent = [...batch]
 					.reverse()
 					.find((event) => finding.eventIds.includes(event.eventId));

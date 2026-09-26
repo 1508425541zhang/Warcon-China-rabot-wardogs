@@ -1,3 +1,4 @@
+import { consecutiveMinutes } from '$lib/server/integrity/sustained-kpm';
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
@@ -61,6 +62,7 @@ const finding = (steamId: string, extreme = false): BehaviorFinding => ({
 	eventIds: [`e-${steamId}`]
 });
 const statistical = (level: StatisticalAssessment['level']): StatisticalAssessment => ({
+	sustainedKpm: consecutiveMinutes([1, 2, 3, 4, 61, 62, 63, 64, 121, 122, 123, 124], 180, 3, 4),
 	status: 'READY',
 	level,
 	tempoPercentile: level === 'NORMAL' ? 0.5 : 0.9998,
@@ -425,14 +427,12 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 			assessment.weaponMapVersion = 1;
 			assessment.baselineGeneration = 'test-active-baseline';
 			assessment.committee!.generation = STATISTICAL_MODEL_CONFIG.modelVersion;
-			await env.db
-				.insert(integrityModelState)
-				.values({
-					orgId: world.org.id,
-					weaponMapVersion: 1,
-					activeBaselineGeneration: 'test-active-baseline',
-					baselineStatus: 'READY'
-				});
+			await env.db.insert(integrityModelState).values({
+				orgId: world.org.id,
+				weaponMapVersion: 1,
+				activeBaselineGeneration: 'test-active-baseline',
+				baselineStatus: 'READY'
+			});
 			await env.db
 				.update(integrityScores)
 				.set({ statistical: assessment })

@@ -92,6 +92,7 @@ export interface MetricAssessment {
 }
 
 export interface StatisticalAssessment {
+	sustainedKpm?: import('./sustained-kpm').SustainedKpm;
 	modelVersion?: string;
 	featureVersion?: string;
 	weaponMapVersion?: number | null;

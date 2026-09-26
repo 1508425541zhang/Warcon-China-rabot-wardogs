@@ -1,3 +1,4 @@
+import { SUSTAINED_KPM_POLICY } from './sustained-kpm';
 import { and, eq, gte, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Env } from '../env';
 import {
@@ -44,6 +45,7 @@ export function statisticalActionVersionValid(
 ): boolean {
 	return (
 		!!assessment &&
+		assessment.sustainedKpm?.policyVersion === SUSTAINED_KPM_POLICY &&
 		!!state &&
 		state.baselineStatus === 'READY' &&
 		assessment.modelVersion === STATISTICAL_MODEL_CONFIG.modelVersion &&

@@ -397,6 +397,23 @@
 		</label>
 	</div>
 	{#if selectedAssessment}
+		{#if selectedAssessment.sustainedKpm}
+			<div class="mt-3 panel p-3 text-sm">
+				<strong
+					>连续60秒步兵KPM：{selectedAssessment.sustainedKpm.passed ? '达标' : '未达标'}</strong
+				>
+				<p>
+					需要连续 {selectedAssessment.sustainedKpm.requiredMinutes} 个完整分钟，每分钟 KPM ≥ {selectedAssessment
+						.sustainedKpm.threshold}；按对局时钟分段，不计算未结束分钟。
+				</p>
+				<div class="flex flex-wrap gap-3">
+					{#each selectedAssessment.sustainedKpm.windows as w}<span
+							>{w.from}–{w.to}秒：{w.kpm} KPM · {w.exceeded ? '达标' : '未达标'}</span
+						>{/each}
+				</div>
+				<p>{selectedAssessment.sustainedKpm.reason}。180秒平均KPM仍供展示，不能替代逐分钟条件。</p>
+			</div>
+		{/if}
 		<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 			<div class="rounded-ctl border border-white/10 p-3">
 				<div class="text-xs text-mist-400">Legacy</div>
