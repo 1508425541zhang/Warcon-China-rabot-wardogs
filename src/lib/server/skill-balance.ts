@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lt, ne, sql } from 'drizzle-orm';
 import { mapId } from '$lib/format';
 import { planSkillBalance, type BalancePlan } from '$lib/skill-balance-policy';
 import type { Player, Status } from '$lib/types';
@@ -13,9 +13,7 @@ import {
 	type ServerRow
 } from './db/schema';
 import { isOwner, withOwnedTransaction } from './leadership';
-import { ACTIONS } from './actions';
-import { GameError, type WardogsClient } from './rcon';
-import { writeAudit } from './audit';
+import type { WardogsClient } from './rcon';
 
 export type BalanceMove = {
 	steamId: string;
@@ -35,6 +33,9 @@ export async function skillBalanceView(env: Env, serverId: string) {
 			.limit(20)
 	]);
 	return {
+		executionAvailable: false,
+		executionBlock:
+			'本服RCON未提供当前存活、重生及装备状态，也没有仅死亡时生效的条件调队接口。仅生成候选名单，不执行交换，不主动杀死玩家。',
 		rule: rule ?? { enabled: false, graceSeconds: 300, leadPoints: 40 },
 		runs: runs.map((r) => ({
 			...r,
@@ -48,11 +49,11 @@ export async function skillBalanceView(env: Env, serverId: string) {
 	};
 }
 
-/** Called inside the observation's server lane. One durable attempt per match, never replay an uncertain move. */
+/** Candidate monitoring only until the game exposes an enforceable dead/spawn-safe move contract. */
 export async function runSkillBalance(
 	env: Env,
 	server: ServerRow,
-	client: WardogsClient,
+	_client: WardogsClient,
 	input: {
 		players: Player[];
 		status: Status;
@@ -76,30 +77,51 @@ export async function runSkillBalance(
 		.where(and(eq(matches.serverId, server.id), isNull(matches.endedAt)))
 		.orderBy(desc(matches.id))
 		.limit(1);
-	const validStatus = (s: Status) =>
-		!!round?.map &&
-		mapId(s.map) === mapId(round.map) &&
-		s.matchSeconds !== null &&
-		Number.isFinite(s.matchSeconds) &&
-		s.matchSeconds >= rule.graceSeconds &&
-		!(s.scoreCap !== null && s.scores.some((t) => t.score >= s.scoreCap!));
 	if (
-		!round ||
-		!validStatus(input.status) ||
+		!round?.map ||
+		mapId(input.status.map) !== mapId(round.map) ||
 		now.getTime() - Math.max(round.startedAt.getTime(), input.startupAt) < rule.graceSeconds * 1000
 	)
 		return;
+	await env.db
+		.update(skillBalanceRuns)
+		.set({ state: 'cancelled', reason: '对局已结束，旧候选作废', updatedAt: now })
+		.where(
+			and(
+				eq(skillBalanceRuns.serverId, server.id),
+				ne(skillBalanceRuns.matchId, round.id),
+				eq(skillBalanceRuns.state, 'waiting_safe')
+			)
+		);
 	const id = `skill-balance:${server.id}:${round.id}`;
-	if (
-		(
-			await env.db
-				.select({ id: skillBalanceRuns.id })
-				.from(skillBalanceRuns)
-				.where(eq(skillBalanceRuns.id, id))
-		).length
-	)
+	const cancel = async (reason: string) => {
+		await env.db
+			.update(skillBalanceRuns)
+			.set({ state: 'cancelled', reason, updatedAt: now })
+			.where(and(eq(skillBalanceRuns.id, id), eq(skillBalanceRuns.state, 'waiting_safe')));
+	};
+	const [latest] = await env.db
+		.select()
+		.from(kills)
+		.where(and(eq(kills.serverId, server.id), eq(kills.matchRow, round.id)))
+		.orderBy(desc(kills.ts))
+		.limit(1);
+	if (!latest || now.getTime() - latest.ts.getTime() > 60000) {
+		await cancel('当前对局Feed过期，候选作废');
 		return;
-	const clock = input.status.matchSeconds!;
+	}
+	const clock =
+		input.status.matchSeconds ??
+		latest.eventTime + Math.max(0, (now.getTime() - latest.ts.getTime()) / 1000);
+	if (
+		!Number.isFinite(clock) ||
+		clock < rule.graceSeconds ||
+		(input.status.scoreCap !== null &&
+			input.status.scores.some((s) => s.score >= input.status.scoreCap!))
+	) {
+		await cancel('对局处于开局或结束保护');
+		return;
+	}
 	const scope = and(
 		eq(kills.serverId, server.id),
 		eq(kills.matchRow, round.id),
@@ -165,8 +187,10 @@ export async function runSkillBalance(
 		Number(coverage.last) > clock + 5 ||
 		clock - Number(coverage.last) > 60 ||
 		now.getTime() - new Date(coverage.received).getTime() > 60000
-	)
+	) {
+		await cancel('当前对局Feed无法覆盖完整窗口');
 		return;
+	}
 	const ranked = input.players
 		.filter(
 			(p) =>
@@ -186,132 +210,37 @@ export async function runSkillBalance(
 			};
 		});
 	const plan = planSkillBalance(input.status, ranked, rule.leadPoints);
-	if (!plan) return;
-	const claimed = await withOwnedTransaction(env, async (tx) => {
+	if (!plan) {
+		await cancel('分差、选人或阵营条件不再满足');
+		return;
+	}
+
+	// Current verified game build has no safe life-state / conditional move contract.
+	// Never infer present death from a delayed Kill Feed or issue the forced-respawn action.
+	await withOwnedTransaction(env, async (tx) => {
 		const [current] = await tx
 			.select()
 			.from(skillBalanceRules)
 			.where(eq(skillBalanceRules.serverId, server.id))
 			.for('share');
-		if (!current?.enabled || current.updatedAt.getTime() !== rule.updatedAt.getTime()) return false;
-		const rows = await tx
+		if (!current?.enabled || current.updatedAt.getTime() !== rule.updatedAt.getTime()) return;
+		const values = {
+			id,
+			serverId: server.id,
+			matchId: round.id,
+			state: 'waiting_safe',
+			reason: '已选出3对玩家；缺少可验证的死亡／重生安全调队接口，不执行交换',
+			plan,
+			moves: [],
+			updatedAt: now
+		};
+		await tx
 			.insert(skillBalanceRuns)
-			.values({
-				id,
-				serverId: server.id,
-				matchId: round.id,
-				state: 'executing',
-				reason: '已锁定三对玩家，开始逐对调队',
-				plan,
-				moves: []
-			})
-			.onConflictDoNothing()
-			.returning();
-		return rows.length === 1;
-	});
-	if (!claimed) return;
-	const moves: BalanceMove[] = [];
-	const save = async (state: string, reason: string) => {
-		await env.db
-			.update(skillBalanceRuns)
-			.set({ state, reason, moves: [...moves], updatedAt: new Date() })
-			.where(eq(skillBalanceRuns.id, id));
-	};
-	const roster = async () =>
-		((await ACTIONS.players.run(client, {})) as { players: Player[] }).players;
-	const preflight = async () => {
-		if (!isOwner()) throw new Error('Worker 控制权已转移，停止调队');
-		const [current] = await env.db
-			.select()
-			.from(skillBalanceRules)
-			.where(eq(skillBalanceRules.serverId, server.id));
-		const [active] = await env.db.select().from(matches).where(eq(matches.id, round.id));
-		const status = (await ACTIONS.status.run(client, {})) as Status;
-		if (
-			!current?.enabled ||
-			current.updatedAt.getTime() !== rule.updatedAt.getTime() ||
-			active?.endedAt ||
-			!validStatus(status) ||
-			status.matchSeconds! < clock - 5
-		)
-			throw new Error('设置、地图或对局状态改变，停止调队');
-		const still = planSkillBalance(status, ranked, rule.leadPoints);
-		if (!still || still.strong !== plan.strong || still.weak !== plan.weak)
-			throw new Error('阵营领先关系或分差改变，停止调队');
-	};
-	const move = async (p: Player, to: string) => {
-		const entry: BalanceMove = { steamId: p.steamId, from: p.faction!, to, state: 'sending' };
-		moves.push(entry);
-		await save('executing', '正在调队；发送中断不会自动重复');
-		await withOwnedTransaction(env, (tx) =>
-			tx.insert(factionMovePermits).values({
-				serverId: server.id,
-				steamId: p.steamId,
-				faction: to,
-				expiresAt: new Date(Date.now() + 120000)
-			})
-		);
-		try {
-			await ACTIONS.changeTeam.run(client, { steamId: p.steamId, faction: to });
-			const actual = (await roster()).find((q) => q.steamId === p.steamId);
-			if (actual?.faction !== to) throw new Error('调队后未能确认目标阵营，停止后续操作');
-			entry.state = 'confirmed';
-			await save('executing', '调队已确认');
-		} catch (e) {
-			entry.state = e instanceof GameError ? 'failed' : 'unknown';
-			entry.reason = e instanceof Error ? e.message : '调队失败';
-			await save('partial', entry.reason);
-			throw e;
-		}
-	};
-	let completed = 0;
-	try {
-		for (const pair of plan.pairs) {
-			await preflight();
-			const fresh = await roster();
-			const a = fresh.find((p) => p.steamId === pair.strong.steamId),
-				b = fresh.find((p) => p.steamId === pair.weak.steamId);
-			if (a?.faction !== plan.strong || b?.faction !== plan.weak)
-				throw new Error('候选玩家离线或已换边，停止本轮平衡');
-			// No spectator staging and no forced disconnect when a destination is full.
-			await move(b, plan.strong);
-			try {
-				await preflight();
-				await move(a, plan.weak);
-			} catch (e) {
-				// Compensate only when a fresh roster proves the second move did NOT happen.
-				// A timeout/unknown result is never blindly retried.
-				const status = (await ACTIONS.status.run(client, {})) as Status;
-				const current = await roster();
-				if (
-					isOwner() &&
-					validStatus(status) &&
-					status.matchSeconds! >= clock - 5 &&
-					current.find((p) => p.steamId === a.steamId)?.faction === plan.strong &&
-					current.find((p) => p.steamId === b.steamId)?.faction === plan.strong
-				) {
-					await move({ ...b, faction: plan.strong }, plan.weak);
-				}
-				throw e;
-			}
-			completed++;
-		}
-		await save('done', '已完成3对玩家交换（共6人）');
-	} catch (e) {
-		await save(
-			completed || moves.some((m) => m.state === 'confirmed') ? 'partial' : 'error',
-			e instanceof Error ? e.message : '平衡失败'
-		);
-	}
-	const [result] = await env.db.select().from(skillBalanceRuns).where(eq(skillBalanceRuns.id, id));
-	await writeAudit(env, null, {
-		server,
-		orgId: server.orgId,
-		category: 'trigger',
-		action: 'skill_balance.' + result.state,
-		actorName: '强弱阵营平衡',
-		outcome: result.state === 'done' ? 'ok' : 'error',
-		message: result.reason,
-		detail: { runId: id, plan, moves, completedPairs: completed }
+			.values(values)
+			.onConflictDoUpdate({
+				target: skillBalanceRuns.id,
+				set: { plan, state: values.state, reason: values.reason, updatedAt: now },
+				setWhere: sql`${skillBalanceRuns.state} IN ('waiting_safe','cancelled')`
+			});
 	});
 }

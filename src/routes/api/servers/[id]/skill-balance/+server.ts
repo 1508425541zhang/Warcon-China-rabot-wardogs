@@ -1,7 +1,8 @@
+import { and, eq } from 'drizzle-orm';
 import { getEnv } from '$lib/server/env';
 import { requireServerCap } from '$lib/server/access';
 import { apiJson, param, readJson, route, ApiError } from '$lib/server/http';
-import { skillBalanceRules } from '$lib/server/db/schema';
+import { skillBalanceRules, skillBalanceRuns } from '$lib/server/db/schema';
 import { writeAudit } from '$lib/server/audit';
 
 export const POST = route(async (event) => {
@@ -31,10 +32,22 @@ export const POST = route(async (event) => {
 		leadPoints: Number(body.leadPoints),
 		updatedAt: new Date()
 	};
-	await env.db
-		.insert(skillBalanceRules)
-		.values(values)
-		.onConflictDoUpdate({ target: skillBalanceRules.serverId, set: values });
+	await env.db.transaction(async (tx) => {
+		await tx
+			.insert(skillBalanceRules)
+			.values(values)
+			.onConflictDoUpdate({ target: skillBalanceRules.serverId, set: values });
+		await tx
+			.update(skillBalanceRuns)
+			.set({
+				state: 'cancelled',
+				reason: values.enabled ? '配置已变更，等待重新选人' : '管理员已关闭候选监测',
+				updatedAt: new Date()
+			})
+			.where(
+				and(eq(skillBalanceRuns.serverId, server.id), eq(skillBalanceRuns.state, 'waiting_safe'))
+			);
+	});
 	await writeAudit(env, event.request, {
 		actor: user,
 		server,

@@ -107,67 +107,45 @@ describe.skipIf(!hasTestDb)('skill balance durable execution', () => {
 			env.db.insert(skillBalanceRules).values({ serverId: server.id, enabled: true });
 		return { env, world, server, players, moves, moveSpy, input, status, run, enable };
 	}
-	test('default off; enabling swaps three pairs once and issues faction-lock permits', async () => {
+
+	test('default off; enabled monitoring records three pairs but never moves or kills', async () => {
 		const t = await setup();
 		expect((await skillBalanceView(t.env, t.server.id)).rule.enabled).toBe(false);
 		await t.run();
 		expect(t.moves).toHaveLength(0);
 		await t.enable();
 		await t.run();
-		expect(t.moves).toHaveLength(6);
-		expect((await skillBalanceView(t.env, t.server.id)).runs[0].state).toBe('done');
+		await t.run();
+		const view = await skillBalanceView(t.env, t.server.id);
+		expect(view.executionAvailable).toBe(false);
+		expect(view.runs).toHaveLength(1);
+		expect(view.runs[0].state).toBe('waiting_safe');
+		expect(view.runs[0].plan.pairs).toHaveLength(3);
+		expect(t.moveSpy).not.toHaveBeenCalled();
 		expect(
 			await t.env.db
 				.select()
 				.from(factionMovePermits)
 				.where(eq(factionMovePermits.serverId, t.server.id))
-		).toHaveLength(6);
-		await t.run();
-		expect(t.moves).toHaveLength(6);
+		).toHaveLength(0);
 	});
-	test('full target never kicks, retries or pretends a completed swap', async () => {
+	test('recent death is not proof that a player is currently unspawned', async () => {
 		const t = await setup();
 		await t.enable();
-		t.moveSpy.mockImplementation(async () => {
-			throw new GameError(400, 'full', 'faction_full');
-		});
+		await t.env.db
+			.update(kills)
+			.set({ ts: new Date(), eventTime: 600 })
+			.where(eq(kills.serverId, t.server.id));
 		await t.run();
-		expect(t.moveSpy).toHaveBeenCalledTimes(1);
-		expect((await skillBalanceView(t.env, t.server.id)).runs[0].state).toBe('error');
-		await t.run();
-		expect(t.moveSpy).toHaveBeenCalledTimes(1);
+		expect(t.moveSpy).not.toHaveBeenCalled();
 	});
-	test('failed second move compensates the first only after confirming actual factions', async () => {
+	test('live builds without matchSeconds still show candidate monitoring', async () => {
 		const t = await setup();
 		await t.enable();
-		let n = 0;
-		t.moveSpy.mockImplementation(async (_c, p) => {
-			n++;
-			if (n === 2) throw new GameError(400, 'full', 'faction_full');
-			t.players.find((v) => v.steamId === p.steamId)!.faction = String(p.faction);
-			return { respawned: true, message: '' };
-		});
+		t.status.matchSeconds = null;
 		await t.run();
-		expect(n).toBe(3);
-		expect(t.players.map((p) => p.faction)).toEqual(['A', 'A', 'A', 'C', 'C', 'C']);
-		expect((await skillBalanceView(t.env, t.server.id)).runs[0].state).toBe('partial');
-	});
-	test('mid-operation disable stops further pairs and compensates current pair', async () => {
-		const t = await setup();
-		await t.enable();
-		let n = 0;
-		t.moveSpy.mockImplementation(async (_c, p) => {
-			n++;
-			t.players.find((v) => v.steamId === p.steamId)!.faction = String(p.faction);
-			await t.env.db
-				.update(skillBalanceRules)
-				.set({ enabled: false })
-				.where(eq(skillBalanceRules.serverId, t.server.id));
-			return { respawned: true, message: '' };
-		});
-		await t.run();
-		expect(n).toBe(2);
-		expect(t.players.map((p) => p.faction)).toEqual(['A', 'A', 'A', 'C', 'C', 'C']);
+		expect((await skillBalanceView(t.env, t.server.id)).runs[0].state).toBe('waiting_safe');
+		expect(t.moveSpy).not.toHaveBeenCalled();
 	});
 	test('map transition and insufficient lead prevent any dispatch', async () => {
 		const t = await setup();
@@ -227,7 +205,7 @@ describe.skipIf(!hasTestDb)('skill balance durable execution', () => {
 		const t = await setup();
 		await t.enable();
 		await Promise.all([t.run(), t.run()]);
-		expect(t.moves).toHaveLength(6);
+		expect(t.moves).toHaveLength(0);
 		expect(
 			await t.env.db
 				.select()
