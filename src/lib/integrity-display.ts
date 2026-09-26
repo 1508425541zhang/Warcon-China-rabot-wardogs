@@ -29,8 +29,12 @@ export function integrityPartText(code: string, detail: string, lang: 'zh' | 'en
 }
 
 export const integrityCaseStatus = (value: string) =>
-	(({ OPEN: '待审核', REVIEWING: '审核中', CLOSED: '已结案' }) as Record<string, string>)[value] ??
-	value;
+	(
+		({ OPEN: '待审核', REVIEWED: '已审核', REVIEWING: '审核中', CLOSED: '已结案' }) as Record<
+			string,
+			string
+		>
+	)[value] ?? value;
 
 /** Render legacy advisory risk reasons without changing stored evidence or scoring. */
 export function legacyRiskReasonZh(code: string, text: string): string {

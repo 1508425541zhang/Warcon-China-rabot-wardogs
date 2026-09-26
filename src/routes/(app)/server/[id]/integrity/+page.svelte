@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { api, errorMessage } from '$lib/api';
 	import { committeeModelName, committeeUnknownReason } from '$lib/committee-display';
 	import { onMount } from 'svelte';
 	import { refreshVisible } from '$lib/refresh-visible';
@@ -23,28 +24,42 @@
 	let pendingLabel = $state<Record<string, string>>({});
 	let pendingReason = $state<Record<string, string>>({});
 	let labelError = $state('');
+	let labelNotice = $state('');
+	let editingReview = $state<Record<string, boolean>>({});
+	const reviewNames: Record<string, string> = {
+		FALSE_POSITIVE: '误判',
+		CONFIRMED_ABUSE: '确认违规',
+		INSUFFICIENT_EVIDENCE: '证据不足',
+		DATA_ERROR: '数据错误'
+	};
 	let savingLabel = $state<string | null>(null);
 	async function saveLabel(caseId: string) {
+		if (savingLabel !== null) return;
 		labelError = '';
+		labelNotice = '';
 		savingLabel = caseId;
 		try {
-			const response = await fetch(
+			await api(
+				'POST',
 				`/api/orgs/${encodeURIComponent(data.server.orgId)}/integrity/cases/${encodeURIComponent(caseId)}/labels`,
-				{
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ label: pendingLabel[caseId], reason: pendingReason[caseId] })
-				}
+				{ label: pendingLabel[caseId], reason: pendingReason[caseId] }
 			);
-			if (!response.ok) throw new Error((await response.json()).error ?? '保存失败');
+			labelNotice = `案件 ${caseId} 审核已保存。`;
+			editingReview[caseId] = false;
 			pendingReason[caseId] = '';
-			await invalidateAll();
-		} catch (error) {
-			labelError = error instanceof Error ? error.message : '保存失败';
+			pendingLabel[caseId] = '';
+			try {
+				await invalidateAll();
+			} catch {
+				labelError = '审核已保存，但页面刷新失败，请重新加载页面。';
+			}
+		} catch (err) {
+			labelError = errorMessage(err);
 		} finally {
 			savingLabel = null;
 		}
 	}
+
 	function switchLanguage() {
 		lang = lang === 'zh' ? 'en' : 'zh';
 	}
@@ -689,6 +704,7 @@
 
 <section class="mb-6 panel p-4">
 	<h3 class="mb-3 text-base font-semibold text-white">{t.cases}</h3>
+	{#if labelNotice}<p class="mb-2 text-sm text-accent" role="status">{labelNotice}</p>{/if}
 	{#if labelError}<p class="mb-2 text-sm text-warn">{labelError}</p>{/if}
 	{#if data.cases.length}
 		<div class="table-wrap">
@@ -714,7 +730,17 @@
 							<td class="font-mono">{item.id}</td>
 							<td>{item.riskScore}</td>
 							<td>{item.confidence}</td>
-							<td>{lang === 'zh' ? integrityCaseStatus(item.status) : item.status}</td>
+							<td
+								>{latest
+									? '已审核'
+									: lang === 'zh'
+										? integrityCaseStatus(item.status)
+										: item.status}
+								{#if latest}<div class="mt-1 text-xs text-mist-300">
+										{reviewNames[latest.label] ?? latest.label} · {when(latest.createdAt)}
+									</div>
+									<div class="mt-1 text-xs text-mist-400">{latest.reason}</div>{/if}
+							</td>
 							<td>
 								<details>
 									<summary class="cursor-pointer">{t.breakdown}</summary>
@@ -731,9 +757,19 @@
 												'UNKNOWN'}
 										</p>{/if}
 									{#if latest}<p class="mt-2 text-xs text-mist-300">
-											人工标签：{latest.label} · {latest.reason}
+											审核结论：{reviewNames[latest.label] ?? latest.label} · {latest.reason}
 										</p>{/if}
-									{#if data.canConfigure}<div class="mt-3 flex flex-wrap items-center gap-2">
+									{#if data.canConfigure && latest && !editingReview[item.id]}<button
+											class="btn-secondary mt-2 btn text-xs"
+											onclick={() => {
+												editingReview[item.id] = true;
+												pendingLabel[item.id] = latest.label;
+												pendingReason[item.id] = latest.reason;
+											}}>修改审核结论</button
+										>{/if}
+									{#if data.canConfigure && (!latest || editingReview[item.id])}<div
+											class="mt-3 flex flex-wrap items-center gap-2"
+										>
 											<select class="input text-xs" bind:value={pendingLabel[item.id]}
 												><option value="">选择审核结论</option><option value="FALSE_POSITIVE"
 													>误判</option
@@ -746,7 +782,9 @@
 												bind:value={pendingReason[item.id]}
 											/><button
 												class="btn-secondary btn text-xs"
-												disabled={savingLabel === item.id}
+												disabled={savingLabel !== null ||
+													!pendingLabel[item.id] ||
+													(pendingReason[item.id]?.trim().length ?? 0) < 5}
 												onclick={() => saveLabel(item.id)}>保存标签</button
 											>
 										</div>{/if}
