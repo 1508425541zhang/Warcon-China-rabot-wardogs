@@ -47,22 +47,20 @@ describe.skipIf(!hasTestDb)('automatic AI initial review', () => {
 		});
 		const add = async (extra: Record<string, unknown> = {}) => {
 			const id = crypto.randomUUID();
-			await env.db
-				.insert(integrityCases)
-				.values({
-					id,
-					orgId: w.org.id,
-					serverId: w.server.id,
-					steamId: '76561198000777777',
-					createdAt: new Date(),
-					confidence: 'HIGH',
-					trigger: 'test',
-					ruleVersion: 1,
-					riskScore: 40,
-					riskBreakdown: [],
-					snapshot: { infantryKills: 6, kpm180: 2 },
-					...extra
-				});
+			await env.db.insert(integrityCases).values({
+				id,
+				orgId: w.org.id,
+				serverId: w.server.id,
+				steamId: '76561198000777777',
+				createdAt: new Date(),
+				confidence: 'HIGH',
+				trigger: 'test',
+				ruleVersion: 1,
+				riskScore: 40,
+				riskBreakdown: [],
+				snapshot: { infantryKills: 6, kpm180: 2 },
+				...extra
+			});
 			return id;
 		};
 		const first = await add();
@@ -136,6 +134,15 @@ describe.skipIf(!hasTestDb)('automatic AI initial review', () => {
 			.from(integrityAiSettings)
 			.where(eq(integrityAiSettings.orgId, w.org.id));
 		expect(settings.dailyRequests).toBe(1);
+		await env.db
+			.update(integrityAiJobs)
+			.set({ result: { ...result, promptVersion: 'integrity-triage-v2' } })
+			.where(eq(integrityAiJobs.caseId, first));
+		await discoverAiJobs(env);
+		expect(
+			(await env.db.select().from(integrityAiJobs).where(eq(integrityAiJobs.caseId, first)))[0]
+				.state
+		).toBe('pending');
 		const third = await add();
 		await discoverAiJobs(env);
 		await env.db
@@ -162,21 +169,19 @@ describe.skipIf(!hasTestDb)('automatic AI initial review', () => {
 			model: 'test-model'
 		});
 		const id = crypto.randomUUID();
-		await env.db
-			.insert(integrityCases)
-			.values({
-				id,
-				orgId: w.org.id,
-				serverId: w.server.id,
-				steamId: '76561198000777778',
-				createdAt: new Date(),
-				confidence: 'HIGH',
-				trigger: 'test',
-				ruleVersion: 1,
-				riskScore: 0,
-				riskBreakdown: [],
-				snapshot: {}
-			});
+		await env.db.insert(integrityCases).values({
+			id,
+			orgId: w.org.id,
+			serverId: w.server.id,
+			steamId: '76561198000777778',
+			createdAt: new Date(),
+			confidence: 'HIGH',
+			trigger: 'test',
+			ruleVersion: 1,
+			riskScore: 0,
+			riskBreakdown: [],
+			snapshot: {}
+		});
 		await discoverAiJobs(env);
 		const reviewer: typeof aiCall = (env, org, op, bundle, automatic) =>
 			aiCall(env, org, op, bundle, automatic, async () => ({
