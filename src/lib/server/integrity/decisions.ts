@@ -1,3 +1,4 @@
+import { SUSTAINED_KPM_POLICY } from './sustained-kpm';
 import type { BehaviorFinding } from './windows';
 import type { IntegrityScore, IntegrityRuleConfig } from './score';
 import type { StatisticalAssessment } from './statistics';
@@ -114,7 +115,15 @@ export function decideStatisticalAction(
 	)
 		return 'OBSERVE';
 	// Keep a configurable absolute floor in addition to the independent statistical evidence.
-	if (finding.kpm180 < input.rules.kpmBands[0].min) return 'OBSERVE';
+	const sustained = assessment.sustainedKpm;
+	if (
+		!sustained ||
+		sustained.policyVersion !== SUSTAINED_KPM_POLICY ||
+		!sustained.passed ||
+		sustained.requiredMinutes !== input.rules.committeeKpmMinutes ||
+		sustained.threshold !== input.rules.kpmBands[0].min
+	)
+		return 'OBSERVE';
 	if (
 		settings.autoQuarantine7dEnabled &&
 		assessment.independentEpisodes >= 3 &&

@@ -1,3 +1,4 @@
+import { consecutiveMinutes } from '$lib/server/integrity/sustained-kpm';
 import { describe, expect, test } from 'bun:test';
 import { decideStatisticalAction, DEFAULT_ENFORCEMENT } from './decisions';
 import { DEFAULT_INTEGRITY_RULES } from './score';
@@ -209,6 +210,12 @@ test('statistical decision has independent evidence, live gates and a hard safet
 		24,
 		1
 	);
+	assessment.sustainedKpm = consecutiveMinutes(
+		[1, 2, 3, 4, 61, 62, 63, 64, 121, 122, 123, 124],
+		180,
+		3,
+		4
+	);
 	assessment.committee = { decision: 'KICK_CANDIDATE', autoActionBlocked: false } as NonNullable<
 		typeof assessment.committee
 	>;
@@ -250,7 +257,15 @@ test('statistical decision has independent evidence, live gates and a hard safet
 			finding: { ...finding, kpm180: DEFAULT_INTEGRITY_RULES.kpmBands[0].min }
 		})
 	).toBe('KICK');
-	expect(decideStatisticalAction({ ...input, finding: { ...finding, kpm180: 2 } })).toBe('OBSERVE');
+	expect(
+		decideStatisticalAction({
+			...input,
+			assessment: {
+				...assessment,
+				sustainedKpm: consecutiveMinutes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 180, 3, 4)
+			}
+		})
+	).toBe('OBSERVE');
 	expect(decideStatisticalAction({ ...input, feedHealthy: false })).toBe('OBSERVE');
 	expect(
 		decideStatisticalAction({ ...input, assessment: { ...assessment, sampleCount: 199 } })

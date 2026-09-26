@@ -1,3 +1,4 @@
+import { consecutiveMinutes } from '$lib/server/integrity/sustained-kpm';
 import { describe, expect, test } from 'bun:test';
 import {
 	dataQualityVeto,
@@ -143,6 +144,12 @@ describe('independent expert committee', () => {
 		const assessment = (code: string, percentile: number) =>
 			({
 				status: 'READY',
+				sustainedKpm: consecutiveMinutes(
+					[1, 2, 3, 4, 61, 62, 63, 64, 121, 122, 123, 124],
+					180,
+					3,
+					4
+				),
 				modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
 				featureVersion: STATISTICAL_MODEL_CONFIG.featureVersion,
 				metrics: [{ code, extremenessPercentile: percentile }]

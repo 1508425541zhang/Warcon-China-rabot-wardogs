@@ -1,3 +1,4 @@
+import { consecutiveMinutes } from '$lib/server/integrity/sustained-kpm';
 import { describe, expect, test } from 'bun:test';
 import { statisticalActionVersionValid } from './enforcement';
 import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
@@ -6,6 +7,7 @@ import type { StatisticalAssessment } from './statistics';
 describe('statistical action generation gate', () => {
 	test('weapon mapping, baseline generation and status drift invalidate a frozen candidate', () => {
 		const assessment = {
+			sustainedKpm: consecutiveMinutes([1, 2, 3, 4, 61, 62, 63, 64, 121, 122, 123, 124], 180, 3, 4),
 			modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
 			featureVersion: STATISTICAL_MODEL_CONFIG.featureVersion,
 			weaponMapVersion: 7,

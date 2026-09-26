@@ -1,5 +1,6 @@
 /** Explainable Integrity score. This is separate from Warcon's legacy advisory risk score. */
 export interface IntegrityRuleConfig {
+	committeeKpmMinutes: number;
 	kpmBands: { min: number; points: number }[];
 	uniqueVictimBands: { min: number; points: number }[];
 	reportBands: { min: number; points: number }[];
@@ -36,6 +37,7 @@ export interface IntegrityRuleConfig {
 }
 
 export const DEFAULT_INTEGRITY_RULES: IntegrityRuleConfig = {
+	committeeKpmMinutes: 3,
 	kpmBands: [
 		{ min: 4, points: 18 },
 		{ min: 4.5, points: 24 },

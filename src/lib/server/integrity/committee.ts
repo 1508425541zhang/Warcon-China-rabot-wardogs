@@ -1,3 +1,4 @@
+import { SUSTAINED_KPM_POLICY } from './sustained-kpm';
 import type { StatisticalAssessment } from './statistics';
 import {
 	STATISTICAL_AUTO_ACTION_ENABLED,
@@ -67,7 +68,12 @@ export function hasStatisticalAnomaly(assessment: StatisticalAssessment | null):
 	)
 		return false;
 	return assessment.metrics.some(
-		(metric) => metric.code !== 'maxKillDistanceWeapon' && metric.extremenessPercentile >= 0.99
+		(metric) =>
+			metric.code !== 'maxKillDistanceWeapon' &&
+			metric.extremenessPercentile >= 0.99 &&
+			(!['kpm180', 'uniqueVictims', 'maxKills15s', 'medianKillInterval'].includes(metric.code) ||
+				(assessment.sustainedKpm?.policyVersion === SUSTAINED_KPM_POLICY &&
+					assessment.sustainedKpm.passed))
 	);
 }
 
@@ -309,7 +315,24 @@ export function assessCommittee(
 	models: readonly IntegrityExpertModel[] = EXPERT_MODELS
 ): CommitteeResult {
 	return voteCommittee(
-		models.map((expert) => expert.assess(input)),
+		models.map((expert) => {
+			const result = expert.assess(input);
+			if (
+				['TEMPO', 'CAREER', 'CHANGE_POINT'].includes(result.evidenceFamily) &&
+				!(
+					input.statistical.sustainedKpm?.policyVersion === SUSTAINED_KPM_POLICY &&
+					input.statistical.sustainedKpm.passed
+				)
+			)
+				return {
+					...result,
+					decision: 'UNKNOWN' as const,
+					hardEvidence: false,
+					reasons: [...result.reasons, 'CONSECUTIVE_60S_KPM_NOT_MET'],
+					confidence: 0
+				};
+			return result;
+		}),
 		dataQualityVeto(quality)
 	);
 }

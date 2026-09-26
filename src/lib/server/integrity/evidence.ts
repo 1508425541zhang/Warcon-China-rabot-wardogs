@@ -61,9 +61,15 @@ export async function freezeFindingEvidence(db: DbOrTx, input: FreezeInput): Pro
 				eq(kills.serverId, input.serverId),
 				eq(kills.instanceId, input.finding.instanceId),
 				eq(kills.map, input.finding.map),
-				gt(kills.eventTime, input.finding.clockTo - 180),
+				gte(
+					kills.eventTime,
+					Math.min(
+						input.finding.clockTo - 180,
+						input.statistical?.sustainedKpm?.windows[0]?.from ?? input.finding.clockTo - 180
+					)
+				),
 				lte(kills.eventTime, input.finding.clockTo),
-				gte(kills.ts, new Date(firstReceived - 180_000)),
+				gte(kills.ts, new Date(firstReceived - 240_000)),
 				lte(kills.ts, input.createdAt)
 			)
 		)

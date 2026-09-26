@@ -23,6 +23,10 @@ export function canReuseStatisticalCase(
 ): boolean {
 	return (
 		!!saved &&
+		saved.sustainedKpm?.policyVersion === current.sustainedKpm?.policyVersion &&
+		saved.sustainedKpm?.passed === current.sustainedKpm?.passed &&
+		saved.sustainedKpm?.requiredMinutes === current.sustainedKpm?.requiredMinutes &&
+		saved.sustainedKpm?.threshold === current.sustainedKpm?.threshold &&
 		saved.modelVersion === current.modelVersion &&
 		saved.featureVersion === current.featureVersion &&
 		saved.weaponMapVersion === current.weaponMapVersion &&

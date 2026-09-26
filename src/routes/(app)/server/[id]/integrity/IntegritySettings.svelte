@@ -129,6 +129,13 @@
 			headingEn: 'Independent windows and auxiliary signals',
 			entries: [
 				{
+					key: 'committeeKpmMinutes',
+					zh: '委员会 KPM 连续完整分钟数（2或3）',
+					en: 'Consecutive complete KPM minutes (2 or 3)',
+					min: 2,
+					max: 3
+				},
+				{
 					key: 'minimumOnlineForAutoAction',
 					zh: '自动处置最低在线人数',
 					en: 'Minimum players for automatic action',
@@ -284,6 +291,21 @@
 		}
 	];
 
+	async function saveMinutes() {
+		busy = true;
+		problem = notice = '';
+		try {
+			await api('PUT', `/api/orgs/${encodeURIComponent(orgId)}/integrity/rules`, {
+				values: { committeeKpmMinutes: draft.committeeKpmMinutes }
+			});
+			await invalidateAll();
+			notice = '连续分钟规则已保存。';
+		} catch (err) {
+			problem = errorMessage(err);
+		} finally {
+			busy = false;
+		}
+	}
 	async function saveRules() {
 		if (validationError) {
 			problem = validationError;
@@ -337,6 +359,20 @@
 </script>
 
 <section id="integrity-settings" class="mt-6 space-y-5">
+	<div class="panel p-5">
+		<h3 class="font-semibold">委员会连续分钟规则</h3>
+		<p class="text-sm">
+			当前每分钟步兵 KPM 阈值：{config.kpmBands[0]
+				.min}。连续完整分钟全部达到阈值才具备统计自动处罚资格；不是180秒总击杀的平均值。其他数据和人数保护仍然生效。
+		</p>
+		<label
+			>连续分钟数<select class="ml-2 input" bind:value={draft.committeeKpmMinutes}
+				><option value={2}>2个60秒窗口</option><option value={3}>3个60秒窗口（180秒）</option
+				></select
+			></label
+		><button class="ml-3 btn" disabled={busy} onclick={saveMinutes}>保存连续分钟规则</button
+		>{#if notice}<p role="status">{notice}</p>{/if}{#if problem}<p role="alert">{problem}</p>{/if}
+	</div>
 	{#if assessmentMode === 'legacy'}
 		<div class="panel p-5">
 			<h3 class="text-lg font-semibold text-white">

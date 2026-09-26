@@ -18,6 +18,7 @@ export interface RuleSet {
 }
 
 const bounds: Record<string, [number, number]> = {
+	committeeKpmMinutes: [2, 3],
 	repeatWindowMinutes: [1, 120],
 	repeatSecond: [0, 30],
 	repeatThird: [0, 30],
@@ -65,6 +66,7 @@ export function validateIntegrityRules(
 			throw new ApiError(400, `${key} must be between ${min} and ${max}.`);
 	}
 	if (
+		!Number.isInteger(next.committeeKpmMinutes) ||
 		!Number.isInteger(next.burstFindingMin) ||
 		!Number.isInteger(next.repeatKoWindowHours) ||
 		!Number.isInteger(next.minimumOnlineForAutoAction)
@@ -165,7 +167,10 @@ export async function saveIntegrityRules(
 		);
 	const saved = await env.db.transaction(async (tx) => {
 		const before = await lockRules(tx, orgId);
-		if (before?.assessmentMode !== 'legacy')
+		if (
+			before?.assessmentMode !== 'legacy' &&
+			Object.keys(patch).some((key) => key !== 'committeeKpmMinutes')
+		)
 			throw new ApiError(409, 'Legacy score rules are editable only in legacy assessment mode.');
 		const config = validateIntegrityRules(
 			patch,
