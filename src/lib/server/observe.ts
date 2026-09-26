@@ -1,3 +1,4 @@
+import { recordPlayerProgress } from './player-progress';
 // One observation of one game server, and the worker's memory of every server it watches.
 //
 // An observation reads status and/or the player list (whichever is due), diffs the players
@@ -744,7 +745,13 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	// player the lists want banned here, seen on the list: banned now, not at the sync's retry.
 	if (look)
 		await stage('match', m, () =>
-			withOwnedTransaction(env, (tx) => reconcileMatch(tx, m, ts, look, matchEnd, prevStatusAt))
+			withOwnedTransaction(env, async (tx) => {
+				await reconcileMatch(tx, m, ts, look, matchEnd, prevStatusAt);
+			})
+		);
+	if (players && saved && m.status && started - m.statusAt < 30_000)
+		await stage('progress', m, () =>
+			withOwnedTransaction(env, (tx) => recordPlayerProgress(tx, server.id, players!, ts))
 		);
 	if (isOwner()) await stage('lists', m, () => keepLists(env, m, client, started, ts));
 	// After the lists, so a ban just placed removes the player at this look, not the next.

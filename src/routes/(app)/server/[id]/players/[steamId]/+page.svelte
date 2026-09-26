@@ -12,6 +12,7 @@
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
+	import PlayerProgressChart from '$lib/components/PlayerProgressChart.svelte';
 	import WeaponDistanceChart from '$lib/components/WeaponDistanceChart.svelte';
 	import CareerPanel from '$lib/components/CareerPanel.svelte';
 	import CombatSummary from '$lib/components/CombatSummary.svelte';
@@ -346,6 +347,8 @@
 			</details>{/if}
 	</section>
 {/if}
+
+{#if data.playerProgress}<PlayerProgressChart rounds={data.playerProgress} />{/if}
 
 {#if data.weaponDistances}<WeaponDistanceChart data={data.weaponDistances} />{/if}
 
