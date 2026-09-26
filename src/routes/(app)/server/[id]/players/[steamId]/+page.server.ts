@@ -1,3 +1,4 @@
+import { loadWeaponDistances } from '$lib/server/weapon-distance';
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getEnv } from '$lib/server/env';
@@ -32,7 +33,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		const integrity = access.caps.has('integrity.view')
 			? await loadPlayerIntegrity(env, server, params.steamId)
 			: null;
-		return { dossier: d, career, multiServer: visible.length > 1, integrity };
+		const weaponDistances = access.caps.has('integrity.view')
+			? await loadWeaponDistances(env, server.id, params.steamId)
+			: null;
+		return { dossier: d, career, multiServer: visible.length > 1, integrity, weaponDistances };
 	} catch (err) {
 		const known = normalizeError(err);
 		if (!known) throw err;

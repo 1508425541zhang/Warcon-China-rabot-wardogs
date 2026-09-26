@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { committeeModelName, committeeUnknownReason } from '$lib/committee-display';
 	import { onMount } from 'svelte';
 	import { refreshVisible } from '$lib/refresh-visible';
 	onMount(() => refreshVisible(invalidateAll));
@@ -492,13 +493,23 @@
 					><tr
 						><th>{lang === 'zh' ? '模型' : 'Model'}</th><th>NORMAL</th><th>SUSPICIOUS</th><th
 							>CHEAT_LIKELY</th
-						><th>UNKNOWN</th></tr
+						><th>{lang === 'zh' ? '未知（未参与判断）' : 'UNKNOWN'}</th><th
+							>{lang === 'zh' ? '未知原因 · 记录数' : 'Unknown reasons · count'}</th
+						></tr
 					></thead
 				><tbody>
 					{#each Object.entries(data.committeeShadow.models) as [model, votes] (model)}<tr
-							><td>{model}</td><td>{votes.NORMAL}</td><td>{votes.SUSPICIOUS}</td><td
-								>{votes.CHEAT_LIKELY}</td
-							><td>{votes.UNKNOWN}</td></tr
+							><td>{lang === 'zh' ? (committeeModelName[model] ?? model) : model}</td><td
+								>{votes.NORMAL}</td
+							><td>{votes.SUSPICIOUS}</td><td>{votes.CHEAT_LIKELY}</td><td>{votes.UNKNOWN}</td><td
+								class="max-w-md text-xs text-mist-400"
+							>
+								{#each Object.entries(data.committeeShadow.unknownReasons[model] ?? {}) as [reason, count] (reason)}
+									<div>
+										{lang === 'zh' ? (committeeUnknownReason[reason] ?? reason) : reason} · {count}
+									</div>
+								{:else}—{/each}
+							</td></tr
 						>{/each}
 				</tbody>
 			</table>

@@ -42,3 +42,20 @@ describe('committee shadow calibration summary', () => {
 		expect(result.confirmedAbuse).toBe(1);
 	});
 });
+
+test('unknown reasons remain visible and are deduplicated per episode', () => {
+	const row = {
+		windowId: 7,
+		statistical: {
+			committee: {
+				decision: 'WATCH',
+				verdicts: [
+					{ modelId: 'precision', decision: 'UNKNOWN', reasons: ['NO_CLEAN_PRECISION_BASELINE'] }
+				]
+			}
+		}
+	};
+	const result = summarizeCommitteeShadow([row, row], [], false);
+	expect(result.models.precision.UNKNOWN).toBe(1);
+	expect(result.unknownReasons.precision.NO_CLEAN_PRECISION_BASELINE).toBe(1);
+});

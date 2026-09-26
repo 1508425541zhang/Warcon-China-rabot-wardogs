@@ -12,6 +12,7 @@
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import BanDialog from '$lib/components/BanDialog.svelte';
+	import WeaponDistanceChart from '$lib/components/WeaponDistanceChart.svelte';
 	import CareerPanel from '$lib/components/CareerPanel.svelte';
 	import CombatSummary from '$lib/components/CombatSummary.svelte';
 	import { describeSync, STATE_TONE } from '$lib/lists';
@@ -345,6 +346,8 @@
 			</details>{/if}
 	</section>
 {/if}
+
+{#if data.weaponDistances}<WeaponDistanceChart data={data.weaponDistances} />{/if}
 
 <div class="grid grid-cols-1 gap-4 xl:grid-cols-[3fr_2fr]">
 	<div class="space-y-4">
