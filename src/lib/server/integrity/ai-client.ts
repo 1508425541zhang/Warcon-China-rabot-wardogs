@@ -17,7 +17,8 @@ export async function aiRequest(
 			url,
 			{
 				method: body === undefined ? 'GET' : 'POST',
-				autoSelectFamily: false,
+				// Node forwards socket options; the installed HTTPS typings omit this field.
+				...{ autoSelectFamily: false },
 				headers: {
 					authorization: `Bearer ${key}`,
 					'content-type': 'application/json',
