@@ -109,7 +109,19 @@ const strongest = (input: ModelInput, family: 'Tempo' | 'Precision') =>
 				? ['kpm180', 'uniqueVictims', 'maxKills15s', 'medianKillInterval'].includes(metric.code)
 				: ['headshotRate', 'penetrationRate', 'headshotRateWeapon'].includes(metric.code)
 		)
-		.filter((metric) => actionBaselineEligible(metric))
+		.filter(
+			(metric) =>
+				metric.source === 'local' &&
+				metric.sampleCount >= STATISTICAL_MODEL_CONFIG.minimumAssessmentSamples
+		)
+		// A finite reference cannot resolve a more extreme tail than one extra observation.
+		.map((metric) => ({
+			...metric,
+			extremenessPercentile: Math.min(
+				metric.extremenessPercentile,
+				metric.sampleCount / (metric.sampleCount + 1)
+			)
+		}))
 		.sort((a, b) => b.extremenessPercentile - a.extremenessPercentile)[0];
 
 export const EXPERT_MODELS: readonly IntegrityExpertModel[] = [
@@ -132,6 +144,7 @@ export const EXPERT_MODELS: readonly IntegrityExpertModel[] = [
 			...result,
 			hardEvidence:
 				metric.code === 'kpm180' &&
+				actionBaselineEligible(metric) &&
 				metric.sampleCount >= 10_000 &&
 				metric.value >= 8 &&
 				metric.extremenessPercentile >= 0.9999 &&

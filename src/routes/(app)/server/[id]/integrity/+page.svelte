@@ -353,8 +353,8 @@
 	</h3>
 	<p class="mt-1 text-sm text-mist-400">
 		{lang === 'zh'
-			? '统计判断依据过去 30 天真实有效步兵事件；钟形参考曲线不参与计算。样本少于 200 时显示数据不足。'
-			: 'Statistics use 30 days of accepted infantry events; the visual bell never drives decisions. Fewer than 200 samples means insufficient data.'}
+			? '统计依据过去 30 天真实有效步兵事件；50 个本服样本开始初评，自动踢出仍需 200 个样本及完整保护条件。钟形参考曲线不参与计算。'
+			: 'Statistics use 30 days of accepted infantry events. Preliminary review starts at 50 local samples; auto kick requires 200 and all protection gates. The visual bell never drives decisions.'}
 	</p>
 	<div class="mt-3 flex flex-wrap items-center gap-3">
 		<span class="text-sm text-white"
@@ -417,8 +417,8 @@
 					/>{/each}
 			</div>{:else}<p class="mt-4 text-sm text-warn">
 				{lang === 'zh'
-					? '数据不足：尚无达到 200 个可比历史样本的分组。'
-					: 'Insufficient data: no comparable group has 200 historical samples.'}
+					? '数据不足：尚无达到 50 个本服可比历史样本的分组。'
+					: 'Insufficient data: no local comparable group has 50 historical samples.'}
 			</p>{/if}
 	{:else}<p class="mt-4 text-sm text-mist-400">
 			{lang === 'zh'

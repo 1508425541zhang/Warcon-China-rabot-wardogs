@@ -83,7 +83,7 @@ describe.skipIf(!hasTestDb)('PostgreSQL empirical baselines', () => {
 		expect(low.p99).toBeLessThan(high.p99);
 		expect(percentilePosition(low.cdf, 0.5)).toBeGreaterThan(percentilePosition(high.cdf, 0.5));
 		const limited = own.map((row) =>
-			row.metric === 'kpm180' && row.level === 1 ? { ...row, sampleCount: 50 } : row
+			row.metric === 'kpm180' && row.level === 1 ? { ...row, sampleCount: 49 } : row
 		);
 		expect(selectBaselines(limited, 'Kavkazi', '1–20').get('kpm180')?.map).toBeNull();
 		expect(selectBaselines(limited, 'Kavkazi', null).get('kpm180')?.populationBucket).toBeNull();

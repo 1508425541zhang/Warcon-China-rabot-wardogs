@@ -128,7 +128,7 @@ export function populationBucket(count: number | null): PopulationBucket | null 
 }
 
 export function sampleQuality(count: number): SampleQuality {
-	return count < 200
+	return count < STATISTICAL_MODEL_CONFIG.minimumAssessmentSamples
 		? 'INSUFFICIENT_DATA'
 		: count < 1000
 			? 'LOW_SAMPLE'
@@ -200,7 +200,8 @@ export function assessDistribution(
 			value === undefined ||
 			value === null ||
 			!baseline ||
-			baseline.sampleCount < (baseline.source === 'external' ? 30 : 200)
+			baseline.sampleCount <
+				(baseline.source === 'external' ? 30 : STATISTICAL_MODEL_CONFIG.minimumAssessmentSamples)
 		)
 			continue;
 		if (
