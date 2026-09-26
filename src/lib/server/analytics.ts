@@ -11,6 +11,7 @@ import { matches, playerSessions, servers } from './db/schema';
 import { settings } from './settings';
 
 import { MAX_COVER_S } from './rollups';
+import { loadMatchRetention, type MatchRetention } from './match-retention';
 
 export type Range = '24h' | '7d' | '30d';
 const RANGE_MS: Record<Range, number> = {
@@ -104,6 +105,7 @@ export interface Combat {
 	longest: LongestKill[];
 }
 export interface Analytics {
+	retention: MatchRetention[];
 	range: Range;
 	from: string;
 	to: string;
@@ -320,6 +322,7 @@ export async function loadAnalytics(env: Env, serverId: string, range: Range): P
 	const down = num(totals?.down);
 	return {
 		range,
+		retention: await loadMatchRetention(env, serverId, from),
 		from: from.toISOString(),
 		to: to.toISOString(),
 		sampleSeconds: Math.round(settings().sampleMs / 1000),

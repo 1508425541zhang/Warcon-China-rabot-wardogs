@@ -6,6 +6,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import PopulationChart from '$lib/components/PopulationChart.svelte';
 	import CashChart from '$lib/components/CashChart.svelte';
+	import RetentionChart from '$lib/components/RetentionChart.svelte';
 	import SortHeader from '$lib/components/SortHeader.svelte';
 	import { TableSort } from '$lib/table.svelte';
 	import { factionColor } from '$lib/format';
@@ -192,6 +193,8 @@
 			emptyText="No cash samples in this range yet. The poller records cash per faction with every sample."
 		/>
 	</div>
+
+	<RetentionChart points={a.retention ?? []} />
 
 	<div class="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
 		<div class="panel">
