@@ -414,6 +414,13 @@
       "when": 1790350021178,
       "tag": "0058_integrity_ai_automatic",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1790350021179,
+      "tag": "0059_skill_balance",
+      "breakpoints": true
     }
   ]
 }

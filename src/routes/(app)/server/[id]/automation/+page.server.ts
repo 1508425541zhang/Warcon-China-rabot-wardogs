@@ -1,3 +1,4 @@
+import { skillBalanceView } from '$lib/server/skill-balance';
 import { factionLockView } from '$lib/server/faction-lock';
 import { weaponRestrictionView } from '$lib/server/weapon-restrictions';
 import { serverLive } from '$lib/server/db/schema';
@@ -20,7 +21,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
 	try {
 		const { server } = await requireServerCap(env, locals, params.id, 'automation.manage');
-		const [factionLock, weaponRestriction, [live]] = await Promise.all([
+		const [skillBalance, factionLock, weaponRestriction, [live]] = await Promise.all([
+			skillBalanceView(env, server.id),
 			factionLockView(env, server.id),
 			weaponRestrictionView(env, server.id),
 			env.db
@@ -30,6 +32,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		]);
 		// What the kinds need before they can run here, so the Add menu and the editor can say so.
 		return {
+			skillBalance,
 			factionLock,
 			weaponRestriction,
 			teams: (live?.status as Status | null)?.scores?.map((s) => s.name) ?? [],

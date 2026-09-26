@@ -8,7 +8,7 @@
 
 > **默认仅记录与人工审核。** Legacy 模式保留组织所有者逐项确认的实验性动作开关；新版统计委员会自动处罚在代码中固定关闭，等待真实专服数据校准。不会自动永久封禁。Warcon 原有的入服账号风险自动化是独立功能。
 
-[从零安装：逐步图文说明](docs/install.zh-CN.md) · [中文使用说明](README.zh-CN.md) · [案件审核与七天封禁](docs/case-review-penalty.zh-CN.md) · [委员会模型与上线边界](docs/integrity-ensemble.zh-CN.md) · [技术架构与规则](docs/architecture.zh-CN.md) · [功能完成情况](docs/integrity-system.md) · [上游完整说明](README.upstream.md)
+[从零安装：逐步图文说明](docs/install.zh-CN.md) · [中文使用说明](README.zh-CN.md) · [案件审核与七天封禁](docs/case-review-penalty.zh-CN.md) · [自动强弱阵营平衡](docs/skill-balance.zh-CN.md) · [委员会模型与上线边界](docs/integrity-ensemble.zh-CN.md) · [技术架构与规则](docs/architecture.zh-CN.md) · [功能完成情况](docs/integrity-system.md) · [上游完整说明](README.upstream.md)
 
 ## 从事件到证据
 

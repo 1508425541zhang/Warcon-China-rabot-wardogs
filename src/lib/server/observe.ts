@@ -1,3 +1,4 @@
+import { runSkillBalance } from './skill-balance';
 import { runWeaponRestrictions } from './weapon-restrictions';
 import { runFactionLock } from './faction-lock';
 import { recordPlayerProgress } from './player-progress';
@@ -777,6 +778,18 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 				players: players!,
 				status: m.status!,
 				statusAt: m.statusAt,
+				boundary: !!matchEnd,
+				now: ts
+			})
+		);
+	if (players && saved && m.status && isOwner())
+		await stage('skill-balance', m, () =>
+			runSkillBalance(env, server, client, {
+				players: players!,
+				status: m.status!,
+				statusAt: m.statusAt,
+				trusted: joinsTrusted,
+				startupAt: m.startedAt,
 				boundary: !!matchEnd,
 				now: ts
 			})
