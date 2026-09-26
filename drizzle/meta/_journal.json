@@ -421,6 +421,13 @@
       "when": 1790350021179,
       "tag": "0059_skill_balance",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1790350021180,
+      "tag": "0060_numeric_limits",
+      "breakpoints": true
     }
   ]
 }

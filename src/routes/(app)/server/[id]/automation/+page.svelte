@@ -1,4 +1,5 @@
 <script lang="ts">
+	import NumericLimitSettings from '$lib/components/NumericLimitSettings.svelte';
 	import SkillBalanceSettings from '$lib/components/SkillBalanceSettings.svelte';
 	import FactionLockSettings from '$lib/components/FactionLockSettings.svelte';
 	import WeaponRestrictionSettings from '$lib/components/WeaponRestrictionSettings.svelte';
@@ -772,9 +773,16 @@
 </script>
 
 <div class="mb-5 space-y-4">
+	<details class="mb-4">
+		<summary class="cursor-pointer p-3"
+			>硬性数值限制 · {data.numericLimits.config.enabled ? '已启用' : '未启用'}（点击设置）</summary
+		><NumericLimitSettings data={data.numericLimits} serverId={id} />
+	</details>
 	<details class="mb-4 panel p-4">
 		<summary class="cursor-pointer font-semibold"
-			>强弱阵营平衡 · {data.skillBalance.rule.enabled ? '候选监测已启用' : '未启用'}（点击设置）</summary
+			>强弱阵营平衡 · {data.skillBalance.rule.enabled
+				? '已启用（死亡事件触发）'
+				: '未启用'}（点击设置）</summary
 		>
 		<div class="mt-3">
 			<SkillBalanceSettings data={data.skillBalance} serverId={data.server.id} />

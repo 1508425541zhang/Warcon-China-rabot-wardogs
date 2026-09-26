@@ -1,3 +1,4 @@
+import { processSkillBalanceDeaths } from '$lib/server/skill-balance-deaths';
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { ACTIONS } from '$lib/server/actions';
@@ -13,7 +14,7 @@ import {
 	factionMovePermits
 } from '$lib/server/db/schema';
 import type { Player, Status } from '$lib/types';
-import { GameError, type WardogsClient } from '$lib/server/rcon';
+import { GameError, WardogsClient } from '$lib/server/rcon';
 import { hasTestDb, testEnv } from './db';
 import { seedWorld } from './world';
 import { callApi, stubGateway } from './call';
@@ -117,9 +118,9 @@ describe.skipIf(!hasTestDb)('skill balance durable execution', () => {
 		await t.run();
 		await t.run();
 		const view = await skillBalanceView(t.env, t.server.id);
-		expect(view.executionAvailable).toBe(false);
+		expect(view.executionAvailable).toBe(true);
 		expect(view.runs).toHaveLength(1);
-		expect(view.runs[0].state).toBe('waiting_safe');
+		expect(view.runs[0].state).toBe('waiting_death');
 		expect(view.runs[0].plan.pairs).toHaveLength(3);
 		expect(t.moveSpy).not.toHaveBeenCalled();
 		expect(
@@ -144,7 +145,7 @@ describe.skipIf(!hasTestDb)('skill balance durable execution', () => {
 		await t.enable();
 		t.status.matchSeconds = null;
 		await t.run();
-		expect((await skillBalanceView(t.env, t.server.id)).runs[0].state).toBe('waiting_safe');
+		expect((await skillBalanceView(t.env, t.server.id)).runs[0].state).toBe('waiting_death');
 		expect(t.moveSpy).not.toHaveBeenCalled();
 	});
 	test('map transition and insufficient lead prevent any dispatch', async () => {
@@ -212,5 +213,137 @@ describe.skipIf(!hasTestDb)('skill balance durable execution', () => {
 				.from(skillBalanceRuns)
 				.where(eq(skillBalanceRuns.serverId, t.server.id))
 		).toHaveLength(1);
+	});
+	test('fresh victim death switches only that player; duplicate never repeats or force-kills', async () => {
+		const t = await setup();
+		await t.enable();
+		await t.run();
+		const [run] = await t.env.db
+			.select()
+			.from(skillBalanceRuns)
+			.where(eq(skillBalanceRuns.serverId, t.server.id));
+		await t.env.db
+			.update(skillBalanceRuns)
+			.set({ createdAt: new Date(Date.now() - 1000) })
+			.where(eq(skillBalanceRuns.id, run.id));
+		const patches: unknown[] = [];
+		const client = {
+			json: async (method: string, path: string, body: { faction: string }) => {
+				patches.push({ method, path, body });
+				t.players.find((p) => path.endsWith(p.steamId))!.faction = body.faction;
+				return {};
+			}
+		};
+		mocks.push(
+			spyOn(WardogsClient, 'forServer').mockResolvedValue(client as unknown as WardogsClient)
+		);
+		const [death] = await t.env.db
+			.insert(kills)
+			.values({
+				serverId: t.server.id,
+				matchRow: run.matchId,
+				instanceId: 'test-instance',
+				matchId: 'test-match',
+				eventId: crypto.randomUUID(),
+				eventTime: 601,
+				ts: new Date(),
+				map: 'Europe',
+				killerSteamId: t.players[3].steamId,
+				victimSteamId: t.players[0].steamId,
+				victimName: 'p0',
+				tags: []
+			})
+			.returning();
+		await processSkillBalanceDeaths(t.env, t.server.id, [death]);
+		await processSkillBalanceDeaths(t.env, t.server.id, [death]);
+		expect(patches).toEqual([
+			{ method: 'PATCH', path: `/v1/players/${death.victimSteamId}`, body: { faction: 'C' } }
+		]);
+		expect(t.moveSpy).not.toHaveBeenCalled();
+		const view = await skillBalanceView(t.env, t.server.id);
+		expect(view.runs[0].moves.filter((m) => m.state === 'confirmed')).toHaveLength(1);
+	});
+	test('stale, suicide and previous match deaths never dispatch', async () => {
+		const t = await setup();
+		await t.enable();
+		await t.run();
+		const [run] = await t.env.db
+			.select()
+			.from(skillBalanceRuns)
+			.where(eq(skillBalanceRuns.serverId, t.server.id));
+		await t.env.db
+			.update(skillBalanceRuns)
+			.set({ createdAt: new Date(Date.now() - 20000) })
+			.where(eq(skillBalanceRuns.id, run.id));
+		const factory = spyOn(WardogsClient, 'forServer');
+		mocks.push(factory);
+		const [death] = await t.env.db
+			.insert(kills)
+			.values({
+				serverId: t.server.id,
+				matchRow: run.matchId,
+				instanceId: 'test-instance',
+				matchId: 'test-match',
+				eventId: crypto.randomUUID(),
+				eventTime: 601,
+				ts: new Date(),
+				map: 'Europe',
+				killerSteamId: t.players[3].steamId,
+				victimSteamId: t.players[0].steamId,
+				victimName: 'p0',
+				tags: []
+			})
+			.returning();
+		await processSkillBalanceDeaths(t.env, t.server.id, [
+			{ ...death, ts: new Date(Date.now() - 6000) },
+			{ ...death, suicide: true },
+			{ ...death, matchId: 'old' }
+		]);
+		expect(factory).not.toHaveBeenCalled();
+	});
+	test('unknown dispatch never repeats and blocks its counterpart', async () => {
+		const t = await setup();
+		await t.enable();
+		await t.run();
+		const [run] = await t.env.db
+			.select()
+			.from(skillBalanceRuns)
+			.where(eq(skillBalanceRuns.serverId, t.server.id));
+		await t.env.db
+			.update(skillBalanceRuns)
+			.set({ createdAt: new Date(Date.now() - 1000) })
+			.where(eq(skillBalanceRuns.id, run.id));
+		const list = run.moves as { steamId: string }[];
+		let sends = 0;
+		mocks.push(
+			spyOn(WardogsClient, 'forServer').mockResolvedValue({
+				json: async () => {
+					sends++;
+					throw new Error('timeout');
+				}
+			} as unknown as WardogsClient)
+		);
+		for (const [n, victim] of [list[0].steamId, list[0].steamId, list[1].steamId].entries()) {
+			const [death] = await t.env.db
+				.insert(kills)
+				.values({
+					serverId: t.server.id,
+					matchRow: run.matchId,
+					instanceId: 'test-instance',
+					matchId: 'test-match',
+					eventId: crypto.randomUUID(),
+					eventTime: 601 + n,
+					ts: new Date(),
+					map: 'Europe',
+					killerSteamId: '76561198099999999',
+					victimSteamId: victim,
+					victimName: 'test',
+					tags: []
+				})
+				.returning();
+			await processSkillBalanceDeaths(t.env, t.server.id, [death]);
+		}
+		expect(sends).toBe(1);
+		expect(t.moveSpy).not.toHaveBeenCalled();
 	});
 });

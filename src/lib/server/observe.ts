@@ -1,3 +1,4 @@
+import { runNumericLimits } from './numeric-limits';
 import { runSkillBalance } from './skill-balance';
 import { runWeaponRestrictions } from './weapon-restrictions';
 import { runFactionLock } from './faction-lock';
@@ -790,6 +791,17 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 				statusAt: m.statusAt,
 				trusted: joinsTrusted,
 				startupAt: m.startedAt,
+				boundary: !!matchEnd,
+				now: ts
+			})
+		);
+	if (players && saved && m.status && isOwner())
+		await stage('numeric-limits', m, () =>
+			runNumericLimits(env, server, client, {
+				players: players!,
+				status: m.status!,
+				statusAt: m.statusAt,
+				trusted: joinsTrusted,
 				boundary: !!matchEnd,
 				now: ts
 			})

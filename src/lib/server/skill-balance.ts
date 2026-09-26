@@ -21,6 +21,10 @@ export type BalanceMove = {
 	to: string;
 	state: string;
 	reason?: string;
+	eventId?: string;
+	instanceId?: string;
+	eventTime?: number;
+	attemptedAt?: string;
 };
 export async function skillBalanceView(env: Env, serverId: string) {
 	const [[rule], runs] = await Promise.all([
@@ -33,14 +37,18 @@ export async function skillBalanceView(env: Env, serverId: string) {
 			.limit(20)
 	]);
 	return {
-		executionAvailable: false,
-		executionBlock:
-			'本服RCON未提供当前存活、重生及装备状态，也没有仅死亡时生效的条件调队接口。仅生成候选名单，不执行交换，不主动杀死玩家。',
+		executionAvailable: true,
+		executionBlock: '',
 		rule: rule ?? { enabled: false, graceSeconds: 300, leadPoints: 40 },
 		runs: runs.map((r) => ({
 			...r,
 			plan: r.plan as BalancePlan,
-			moves: r.moves as BalanceMove[],
+			moves: (r.moves as BalanceMove[]).map((m) =>
+				m.state === 'sending' &&
+				Date.now() - Date.parse(m.attemptedAt ?? r.updatedAt.toISOString()) > 120000
+					? { ...m, state: 'unknown', reason: '发送过程已中断，请人工核对；不会自动重试' }
+					: m
+			),
 			createdAt: r.createdAt.toISOString(),
 			updatedAt: r.updatedAt.toISOString(),
 			state:
@@ -49,7 +57,7 @@ export async function skillBalanceView(env: Env, serverId: string) {
 	};
 }
 
-/** Candidate monitoring only until the game exposes an enforceable dead/spawn-safe move contract. */
+/** Select once, then let fresh accepted death events drive each participant independently. */
 export async function runSkillBalance(
 	env: Env,
 	server: ServerRow,
@@ -90,15 +98,25 @@ export async function runSkillBalance(
 			and(
 				eq(skillBalanceRuns.serverId, server.id),
 				ne(skillBalanceRuns.matchId, round.id),
-				eq(skillBalanceRuns.state, 'waiting_safe')
+				sql`${skillBalanceRuns.state} IN ('waiting_death','waiting_safe')`
 			)
 		);
 	const id = `skill-balance:${server.id}:${round.id}`;
+	const [existing] = await env.db
+		.select()
+		.from(skillBalanceRuns)
+		.where(eq(skillBalanceRuns.id, id));
+	if (existing && existing.state !== 'waiting_safe') return;
 	const cancel = async (reason: string) => {
 		await env.db
 			.update(skillBalanceRuns)
 			.set({ state: 'cancelled', reason, updatedAt: now })
-			.where(and(eq(skillBalanceRuns.id, id), eq(skillBalanceRuns.state, 'waiting_safe')));
+			.where(
+				and(
+					eq(skillBalanceRuns.id, id),
+					sql`${skillBalanceRuns.state} IN ('waiting_death','waiting_safe')`
+				)
+			);
 	};
 	const [latest] = await env.db
 		.select()
@@ -215,8 +233,7 @@ export async function runSkillBalance(
 		return;
 	}
 
-	// Current verified game build has no safe life-state / conditional move contract.
-	// Never infer present death from a delayed Kill Feed or issue the forced-respawn action.
+	// The operator explicitly selected fresh Kill Feed death as the dispatch trigger.
 	await withOwnedTransaction(env, async (tx) => {
 		const [current] = await tx
 			.select()
@@ -228,10 +245,19 @@ export async function runSkillBalance(
 			id,
 			serverId: server.id,
 			matchId: round.id,
-			state: 'waiting_safe',
-			reason: '已选出3对玩家；缺少可验证的死亡／重生安全调队接口，不执行交换',
-			plan,
-			moves: [],
+			state: 'waiting_death',
+			reason: '已选出3对玩家，逐人等待新的被击杀事件',
+			plan: {
+				...plan,
+				selectedClock: clock,
+				instanceId: latest.instanceId,
+				gameMatchId: latest.matchId,
+				ruleUpdatedAt: rule.updatedAt.toISOString()
+			},
+			moves: plan.pairs.flatMap((pair) => [
+				{ steamId: pair.strong.steamId, from: plan.strong, to: plan.weak, state: 'waiting' },
+				{ steamId: pair.weak.steamId, from: plan.weak, to: plan.strong, state: 'waiting' }
+			]),
 			updatedAt: now
 		};
 		await tx
@@ -239,8 +265,15 @@ export async function runSkillBalance(
 			.values(values)
 			.onConflictDoUpdate({
 				target: skillBalanceRuns.id,
-				set: { plan, state: values.state, reason: values.reason, updatedAt: now },
-				setWhere: sql`${skillBalanceRuns.state} IN ('waiting_safe','cancelled')`
+				set: {
+					plan: values.plan,
+					moves: values.moves,
+					state: values.state,
+					reason: values.reason,
+					createdAt: now,
+					updatedAt: now
+				},
+				setWhere: sql`${skillBalanceRuns.state} IN ('waiting_safe')`
 			});
 	});
 }

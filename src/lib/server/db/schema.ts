@@ -1629,3 +1629,31 @@ export const skillBalanceRuns = pgTable(
 	},
 	(t) => [uniqueIndex('skill_balance_round_unique').on(t.serverId, t.matchId)]
 );
+
+export const numericLimitRules = pgTable('numeric_limit_rules', {
+	serverId: text('server_id')
+		.primaryKey()
+		.references(() => servers.id, { onDelete: 'cascade' }),
+	config: jsonb('config').notNull(),
+	updatedAt: ts('updated_at').notNull().defaultNow()
+});
+export const numericLimitEvents = pgTable(
+	'numeric_limit_events',
+	{
+		id: text('id').primaryKey(),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		matchId: bigint('match_id', { mode: 'number' })
+			.notNull()
+			.references(() => matches.id, { onDelete: 'cascade' }),
+		steamId: text('steam_id').notNull(),
+		ruleVersion: text('rule_version').notNull(),
+		action: text('action').notNull(),
+		state: text('state').notNull(),
+		evidence: jsonb('evidence').notNull(),
+		createdAt: ts('created_at').notNull().defaultNow(),
+		updatedAt: ts('updated_at').notNull().defaultNow()
+	},
+	(t) => [index('numeric_limit_player_idx').on(t.serverId, t.matchId, t.steamId, t.createdAt)]
+);

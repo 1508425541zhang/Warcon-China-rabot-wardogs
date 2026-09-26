@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getEnv } from '$lib/server/env';
 import { requireServerCap } from '$lib/server/access';
 import { apiJson, param, readJson, route, ApiError } from '$lib/server/http';
@@ -41,11 +41,16 @@ export const POST = route(async (event) => {
 			.update(skillBalanceRuns)
 			.set({
 				state: 'cancelled',
-				reason: values.enabled ? '配置已变更，等待重新选人' : '管理员已关闭候选监测',
+				reason: values.enabled
+					? '配置已变更，本局计划停止，等待下一局'
+					: '管理员已关闭平衡；剩余玩家停止调队',
 				updatedAt: new Date()
 			})
 			.where(
-				and(eq(skillBalanceRuns.serverId, server.id), eq(skillBalanceRuns.state, 'waiting_safe'))
+				and(
+					eq(skillBalanceRuns.serverId, server.id),
+					inArray(skillBalanceRuns.state, ['waiting_safe', 'waiting_death'])
+				)
 			);
 	});
 	await writeAudit(env, event.request, {

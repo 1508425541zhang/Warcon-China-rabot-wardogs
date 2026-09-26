@@ -1,3 +1,4 @@
+import {processSkillBalanceDeaths} from './skill-balance-deaths';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import {
@@ -172,7 +173,10 @@ export async function processFeedJob(env: Env, job: FeedProcessingJob): Promise<
 	const allowActions = healthy && Date.now() - job.createdAt.getTime() <= LIVE_MS;
 	if (job.consumer === 'integrity')
 		await processIntegrityBatch(env, job.serverId, batch, allowActions);
-	else await onKillsIngested(env, job.serverId, batch, allowActions);
+	else {
+ if(allowActions)await processSkillBalanceDeaths(env,job.serverId,rows).catch(err=>console.error('[warcon] death-triggered balance',err));
+ await onKillsIngested(env, job.serverId, batch, allowActions);
+ }
 }
 
 export async function processNextFeedJob(
