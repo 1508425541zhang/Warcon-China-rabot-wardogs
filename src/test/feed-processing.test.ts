@@ -601,6 +601,11 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 	});
 
 	test('the live player list wins over a stale session faction', async () => {
+		// Production RCON reports display names while the feed is normalized to catalog IDs.
+		await env.db
+			.update(serverLive)
+			.set({ status: { map: 'Bakurani' } })
+			.where(eq(serverLive.serverId, world.server.id));
 		await env.db
 			.update(playerSessions)
 			.set({ faction: 'Blue' })

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { integrityMetricDisplay } from '$lib/integrity-metric-display';
 	import { invalidateAll } from '$app/navigation';
 	import type { PageProps } from './$types';
 	import { integrityCaseStatus, integrityPartText } from '$lib/integrity-display';
@@ -90,7 +91,8 @@
 			victims: '独立受害者',
 			level: '风险级别',
 			unscored: '未评分',
-			metricMissing: '暂无可靠击杀数据；阵营或武器未确认时不显示 0',
+			metricMissing:
+				'≥ 表示仅统计已确认的步兵击杀，仍有阵营或武器待确认；— 表示暂无可显示数据。未评分表示尚无规则评分记录。',
 			truncated: '近期击杀数据超过查询上限，KPM 暂不显示。',
 			kdHint: 'KD 仅作参考，不单独加风险分。风险分显示过去 15 分钟内的最高记录。'
 		},
@@ -141,7 +143,8 @@
 			victims: 'Unique victims',
 			level: 'Risk level',
 			unscored: 'Not scored',
-			metricMissing: 'No reliable recent kill data; unknown faction or weapon is not zero',
+			metricMissing:
+				'≥ counts confirmed infantry kills only; some factions or weapons remain unconfirmed. — means unavailable. Unscored means no rule assessment is recorded yet.',
 			truncated: 'Recent kill rows exceeded the query limit; KPM is hidden.',
 			kdHint:
 				'KD is context only and never adds risk by itself. Risk shows the highest recorded score in the past 15 minutes.'
@@ -528,6 +531,7 @@
 	</div>
 	<p class="mt-1 mb-3 text-xs text-mist-400">
 		{t.dataAt}: {data.playersAt ? when(data.playersAt) : t.noFeed} · {t.kdHint}
+		<br />{t.metricMissing}
 	</p>
 	{#if data.feedRowsTruncated}<p class="mb-2 text-sm text-warn">{t.truncated}</p>{/if}
 	{#if data.onlinePlayers.length}
@@ -557,19 +561,26 @@
 								title={!metricsAvailable || player.infantry?.reliable === false
 									? t.metricMissing
 									: undefined}
-								>{metricsAvailable && player.infantry?.reliable !== false
-									? (player.infantry?.kpm180 ?? 0).toFixed(2)
-									: '—'}</td
+								>{integrityMetricDisplay(
+									player.infantry?.kpm180 ?? 0,
+									metricsAvailable,
+									player.infantry?.reliable !== false
+								)}</td
 							>
 							<td
-								>{metricsAvailable && player.infantry?.reliable !== false
-									? (player.infantry?.peakKpm180 ?? 0).toFixed(2)
-									: '—'}</td
+								>{integrityMetricDisplay(
+									player.infantry?.peakKpm180 ?? 0,
+									metricsAvailable,
+									player.infantry?.reliable !== false
+								)}</td
 							>
 							<td
-								>{metricsAvailable && player.infantry?.reliable !== false
-									? (player.infantry?.uniqueVictims180 ?? 0)
-									: '—'}</td
+								>{integrityMetricDisplay(
+									player.infantry?.uniqueVictims180 ?? 0,
+									metricsAvailable,
+									player.infantry?.reliable !== false,
+									0
+								)}</td
 							>
 							<td>{player.riskScore ?? '—'}</td><td>{levelName(player.riskLevel)}</td>
 							<td

@@ -1,4 +1,5 @@
 import { error } from '@sveltejs/kit';
+import { mapId } from '$lib/format';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 import { getEnv } from '$lib/server/env';
@@ -125,7 +126,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		const latestKill = recentKills[0];
 		const feedMetricsAvailable =
 			!!latestKill &&
-			(!status?.map || status.map === latestKill.map) &&
+			(!status?.map || mapId(status.map) === mapId(latestKill.map)) &&
 			(status?.matchSeconds == null || status.matchSeconds >= latestKill.eventTime - 5);
 		const onlinePlayers = roster
 			.filter((player) => /^\d{17}$/.test(player.steamId))

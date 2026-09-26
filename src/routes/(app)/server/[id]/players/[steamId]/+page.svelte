@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { integrityMetricDisplay } from '$lib/integrity-metric-display';
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage, rconPost } from '$lib/api';
 	import { fmtNum, fmtTime } from '$lib/format';
@@ -175,9 +176,31 @@
 							: '—'
 					: '—'
 			],
-			['步兵 KPM180', i.metricsAvailable ? (i.metrics?.kpm180 ?? 0).toFixed(2) : '—'],
-			['近 10 分钟峰值 KPM', i.metricsAvailable ? (i.metrics?.peakKpm180 ?? 0).toFixed(2) : '—'],
-			['独立受害者', i.metricsAvailable ? (i.metrics?.uniqueVictims180 ?? 0) : '—'],
+			[
+				'步兵 KPM180（≥ 为已确认下限）',
+				integrityMetricDisplay(
+					i.metrics?.kpm180 ?? 0,
+					i.metricsAvailable,
+					i.metrics?.reliable !== false
+				)
+			],
+			[
+				'近 10 分钟峰值 KPM（≥ 为已确认下限）',
+				integrityMetricDisplay(
+					i.metrics?.peakKpm180 ?? 0,
+					i.metricsAvailable,
+					i.metrics?.reliable !== false
+				)
+			],
+			[
+				'独立受害者（≥ 为已确认下限）',
+				integrityMetricDisplay(
+					i.metrics?.uniqueVictims180 ?? 0,
+					i.metricsAvailable,
+					i.metrics?.reliable !== false,
+					0
+				)
+			],
 			['风险分', i.riskScore ?? '—'],
 			['风险级别', integrityLevelName(i.riskLevel)]
 		] as [string, string | number][];
