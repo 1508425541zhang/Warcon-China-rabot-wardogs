@@ -1522,3 +1522,25 @@ export const factionLockEvents = pgTable(
 	},
 	(t) => [index('faction_lock_pending_idx').on(t.serverId, t.state, t.createdAt)]
 );
+
+/** Per-organisation OpenAI-compatible assistant, isolated from enforcement. */
+export const integrityAiSettings = pgTable('integrity_ai_settings', {
+	orgId: text('org_id')
+		.primaryKey()
+		.references(() => organizations.id, { onDelete: 'cascade' }),
+	baseUrl: text('base_url').notNull(),
+	model: text('model').notNull(),
+	keyEnc: text('key_enc').notNull(),
+	tokenParameter: text('token_parameter').notNull().default('max_tokens'),
+	maxTokens: integer('max_tokens').notNull().default(1200),
+	updatedAt: ts('updated_at').notNull().defaultNow(),
+	lastRequestAt: ts('last_request_at')
+});
+export const integrityAiReviews = pgTable('integrity_ai_reviews', {
+	fingerprint: text('fingerprint').primaryKey(),
+	caseId: text('case_id')
+		.notNull()
+		.references(() => integrityCases.id, { onDelete: 'cascade' }),
+	result: jsonb('result').notNull(),
+	createdAt: ts('created_at').notNull().defaultNow()
+});

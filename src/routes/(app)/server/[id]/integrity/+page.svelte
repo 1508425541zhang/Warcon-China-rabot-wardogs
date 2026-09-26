@@ -306,6 +306,7 @@
 		<p class="mt-1 text-sm text-mist-400">{t.intro}</p>
 	</div>
 	<div class="flex gap-2">
+		<a class="btn-quiet btn" href={`/server/${data.server.id}/integrity/ai`}>AI 辅助审核 →</a>
 		{#if data.orgIntegrityUrl}<a class="btn-quiet btn" href={data.orgIntegrityUrl}
 				>{lang === 'zh' ? '组织风控设置' : 'Organization Integrity settings'}</a
 			>{/if}
