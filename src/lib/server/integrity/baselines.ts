@@ -53,7 +53,10 @@ export function selectBaselines(
 				(candidate) =>
 					candidate.metric === metric &&
 					candidate.weaponCategory === 'INFANTRY' &&
-					candidate.sampleCount >= (candidate.source === 'external' ? 30 : 200) &&
+					candidate.sampleCount >=
+						(candidate.source === 'external'
+							? 30
+							: STATISTICAL_MODEL_CONFIG.minimumAssessmentSamples) &&
 					candidate.windowDays === WINDOW_DAYS &&
 					candidate.modelVersion === STATISTICAL_MODEL_CONFIG.modelVersion &&
 					candidate.featureVersion === STATISTICAL_MODEL_CONFIG.featureVersion &&
@@ -124,7 +127,8 @@ export function selectWeaponBaselines(
 		if (
 			(row.metric !== 'headshotRateWeapon' && row.metric !== 'maxKillDistanceWeapon') ||
 			row.weaponCategory === 'INFANTRY' ||
-			row.sampleCount < (row.source === 'external' ? 30 : 200) ||
+			row.sampleCount <
+				(row.source === 'external' ? 30 : STATISTICAL_MODEL_CONFIG.minimumAssessmentSamples) ||
 			row.windowDays !== WINDOW_DAYS ||
 			row.modelVersion !== STATISTICAL_MODEL_CONFIG.modelVersion ||
 			row.featureVersion !== STATISTICAL_MODEL_CONFIG.featureVersion ||

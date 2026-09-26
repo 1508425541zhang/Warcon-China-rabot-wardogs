@@ -27,6 +27,21 @@ const v = (
 });
 
 describe('independent expert committee', () => {
+	test('50-sample preliminary review participates but cannot claim a P99 extreme or hard evidence', () => {
+		const tempo = EXPERT_MODELS.find((item) => item.id === 'tempo')!;
+		const result = tempo.assess({
+			statistical: {
+				metrics: [
+					{ source: 'local', code: 'kpm180', value: 8, sampleCount: 50, extremenessPercentile: 1 }
+				]
+			} as StatisticalAssessment,
+			currentKpm: 8,
+			independentEpisodes: 1,
+			eventIds: Array.from({ length: 24 }, (_, i) => `e-${i}`)
+		});
+		expect(result.decision).toBe('SUSPICIOUS');
+		expect(result.hardEvidence).toBe(false);
+	});
 	test('two independent CHEAT votes qualify for a Kick candidate', () => {
 		expect(
 			voteCommittee([v('TEMPO', 'CHEAT_LIKELY'), v('PRECISION', 'CHEAT_LIKELY')]).decision

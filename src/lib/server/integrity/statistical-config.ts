@@ -5,6 +5,7 @@ export const STATISTICAL_MODEL_CONFIG = Object.freeze({
 	persistenceEpisodeHorizonHours: 24,
 	minimumEpisodeSeparationSeconds: 60,
 	minimumIndependentEpisodes: 2,
+	minimumAssessmentSamples: 50,
 	minimumBaselineSamples: 200,
 	minimumBaselinePlayers: 20,
 	minimumBaselinePlayerDays: 20,

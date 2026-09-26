@@ -72,7 +72,8 @@ describe('empirical Integrity statistics', () => {
 	test('MAD is explanatory and a zero MAD has no invented z-score', () => {
 		expect(robustZ(9, 5, 2)).toBeCloseTo(1.349);
 		expect(robustZ(9, 5, 0)).toBeNull();
-		expect(sampleQuality(199)).toBe('INSUFFICIENT_DATA');
+		expect(sampleQuality(49)).toBe('INSUFFICIENT_DATA');
+		expect(sampleQuality(199)).toBe('LOW_SAMPLE');
 		expect(sampleQuality(200)).toBe('LOW_SAMPLE');
 		expect(sampleQuality(1000)).toBe('NORMAL_SAMPLE');
 		expect(sampleQuality(5000)).toBe('HIGH_SAMPLE');
