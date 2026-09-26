@@ -67,11 +67,13 @@ export function countsAsInfantry(
 		victimSteamId: string;
 		killerFaction: string | null;
 		victimFaction: string | null;
+		factionBracketed?: boolean;
 	},
 	overrides: ReadonlyMap<string, WeaponCategory> = new Map()
 ): boolean {
 	return (
 		!!kill.killerSteamId &&
+		kill.factionBracketed !== false &&
 		!kill.teamKill &&
 		kill.killerSteamId !== kill.victimSteamId &&
 		!!kill.killerFaction &&

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	dataQualityVeto,
+	EXPERT_MODELS,
 	hasStatisticalAnomaly,
 	voteCommittee,
 	type EvidenceFamily,
@@ -59,6 +60,37 @@ describe('independent expert committee', () => {
 	});
 	test('one ordinary CHEAT vote does not qualify', () => {
 		expect(voteCommittee([v('TEMPO', 'CHEAT_LIKELY')]).decision).toBe('WATCH');
+	});
+	test('one verified hard-evidence vote qualifies, while weak or undocumented claims do not', () => {
+		const strong = { ...v('PRECISION', 'CHEAT_LIKELY'), hardEvidence: true, confidence: 0.999 };
+		expect(voteCommittee([strong]).decision).toBe('KICK_CANDIDATE');
+		expect(voteCommittee([{ ...strong, evidenceQuality: 0.8 }]).decision).toBe('WATCH');
+		expect(voteCommittee([{ ...strong, evidenceRefs: [] }]).decision).toBe('WATCH');
+	});
+	test('tempo marks only an extraordinary clean-baseline KPM window as hard evidence', () => {
+		const tempo = EXPERT_MODELS.find((item) => item.id === 'tempo')!;
+		const statistical = (value: number, percentile: number) =>
+			({
+				metrics: [
+					{
+						code: 'kpm180',
+						source: 'local',
+						sampleCount: 5000,
+						value,
+						extremenessPercentile: percentile
+					}
+				]
+			}) as StatisticalAssessment;
+		const input = {
+			statistical: statistical(8, 0.9999),
+			independentEpisodes: 1,
+			currentKpm: 8,
+			eventIds: Array.from({ length: 24 }, (_, i) => `e-${i}`)
+		};
+		expect(tempo.assess(input).hardEvidence).toBe(true);
+		expect(tempo.assess({ ...input, statistical: statistical(7.9, 0.9999) }).hardEvidence).toBe(
+			false
+		);
 	});
 	test('data quality veto blocks action despite unanimous CHEAT votes', () => {
 		const result = voteCommittee(

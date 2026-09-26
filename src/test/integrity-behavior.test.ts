@@ -131,7 +131,7 @@ describe.skipIf(!hasTestDb)('Community Integrity behavior persistence', () => {
 			.select()
 			.from(integrityModelState)
 			.where(eq(integrityModelState.orgId, world.org.id));
-		expect(state.baselineStatus).toBe('STALE');
+		expect(state.baselineStatus).toBe('READY');
 		const snapshot = evidence.snapshot as Record<string, unknown>;
 		expect(snapshot.behaviorReasons).toContain('burst');
 		expect(snapshot.burstPoints).toBe(12);

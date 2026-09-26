@@ -116,7 +116,7 @@ export const EXPERT_MODELS: readonly IntegrityExpertModel[] = [
 	model('tempo', 'TEMPO', (input, self) => {
 		const metric = strongest(input, 'Tempo');
 		if (!metric) return verdict(self, 'UNKNOWN', ['NO_CLEAN_TEMPO_BASELINE'], input.eventIds, 0);
-		return verdict(
+		const result = verdict(
 			self,
 			metric.extremenessPercentile >= 0.9995
 				? 'CHEAT_LIKELY'
@@ -126,6 +126,16 @@ export const EXPERT_MODELS: readonly IntegrityExpertModel[] = [
 			[metric.code],
 			input.eventIds
 		);
+		// One extraordinary, well-sampled rolling infantry tempo observation may
+		// stand alone. The shared data-quality veto and release gate still apply.
+		return {
+			...result,
+			hardEvidence:
+				metric.code === 'kpm180' &&
+				metric.value >= 8 &&
+				metric.extremenessPercentile >= 0.9999 &&
+				input.eventIds.length >= 24
+		};
 	}),
 	model('precision', 'PRECISION', (input, self) => {
 		const metric = strongest(input, 'Precision');
@@ -225,7 +235,13 @@ export function voteCommittee(
 	const byFamily = new Map<EvidenceFamily, ExpertVerdict>();
 	for (const item of verdicts) {
 		const current = byFamily.get(item.evidenceFamily);
-		if (!current || rank[item.decision] > rank[current.decision])
+		if (
+			!current ||
+			rank[item.decision] > rank[current.decision] ||
+			(rank[item.decision] === rank[current.decision] &&
+				item.hardEvidence === true &&
+				current.hardEvidence !== true)
+		)
 			byFamily.set(item.evidenceFamily, item);
 	}
 	const votes = [...byFamily.values()];
@@ -233,7 +249,19 @@ export function voteCommittee(
 	const cheatVotes = count('CHEAT_LIKELY');
 	const suspiciousVotes = count('SUSPICIOUS');
 	const unknownVotes = count('UNKNOWN');
-	const kick = cheatVotes >= 2 || (cheatVotes >= 1 && suspiciousVotes >= 2) || suspiciousVotes >= 3;
+	const exceptionalEvidence = votes.some(
+		(v) =>
+			v.decision === 'CHEAT_LIKELY' &&
+			v.hardEvidence === true &&
+			v.confidence >= 0.995 &&
+			v.evidenceQuality >= 0.995 &&
+			v.evidenceRefs.length > 0
+	);
+	const kick =
+		exceptionalEvidence ||
+		cheatVotes >= 2 ||
+		(cheatVotes >= 1 && suspiciousVotes >= 2) ||
+		suspiciousVotes >= 3;
 	return {
 		generation: STATISTICAL_MODEL_CONFIG.modelVersion,
 		verdicts: [...verdicts],

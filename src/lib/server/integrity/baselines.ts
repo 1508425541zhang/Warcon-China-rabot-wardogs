@@ -61,7 +61,8 @@ export function selectBaselines(
 						(state.baselineStatus === 'READY' &&
 							candidate.generation === state.activeBaselineGeneration &&
 							candidate.weaponMapVersion === state.weaponMapVersion)) &&
-					now.getTime() - candidate.calculatedAt.getTime() <= 24 * 60 * 60_000
+					now.getTime() - candidate.calculatedAt.getTime() <=
+						STATISTICAL_MODEL_CONFIG.maximumBaselineAgeHours * 60 * 60_000
 			)
 			.sort((a, b) => (a.source === b.source ? a.level - b.level : a.source === 'local' ? -1 : 1))
 			.find((candidate) =>
@@ -131,7 +132,8 @@ export function selectWeaponBaselines(
 				(state.baselineStatus !== 'READY' ||
 					row.generation !== state.activeBaselineGeneration ||
 					row.weaponMapVersion !== state.weaponMapVersion)) ||
-			now.getTime() - row.calculatedAt.getTime() > 24 * 60 * 60_000 ||
+			now.getTime() - row.calculatedAt.getTime() >
+				STATISTICAL_MODEL_CONFIG.maximumBaselineAgeHours * 60 * 60_000 ||
 			(row.level === 1 &&
 				(row.map !== map || row.populationBucket !== bucket || bucket === null)) ||
 			(row.level === 2 && (row.populationBucket !== bucket || bucket === null))
@@ -193,7 +195,10 @@ export async function loadWeaponBaselines(
 					eq(integrityBaselines.metric, 'maxKillDistanceWeapon')
 				),
 				gte(integrityBaselines.sampleCount, 30),
-				gte(integrityBaselines.calculatedAt, new Date(Date.now() - 24 * 60 * 60_000))
+				gte(
+					integrityBaselines.calculatedAt,
+					new Date(Date.now() - STATISTICAL_MODEL_CONFIG.maximumBaselineAgeHours * 60 * 60_000)
+				)
 			)
 		);
 	return selectWeaponBaselines(rows, map, bucket, new Date(), state);
@@ -229,7 +234,10 @@ export async function loadBaselines(
 				and(
 					eq(integrityBaselines.orgId, orgId),
 					gte(integrityBaselines.sampleCount, 30),
-					gte(integrityBaselines.calculatedAt, new Date(Date.now() - 24 * 60 * 60_000)),
+					gte(
+						integrityBaselines.calculatedAt,
+						new Date(Date.now() - STATISTICAL_MODEL_CONFIG.maximumBaselineAgeHours * 60 * 60_000)
+					),
 					scope
 				)
 			),

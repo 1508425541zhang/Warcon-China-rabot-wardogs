@@ -932,6 +932,8 @@ export const kills = pgTable(
 		killerSteamId: text('killer_steam_id'),
 		killerName: text('killer_name'),
 		killerFaction: text('killer_faction'),
+		/** Both sides were unchanged across feed receipt and the next player observation. */
+		factionBracketed: boolean('faction_bracketed').notNull().default(false),
 		victimSteamId: text('victim_steam_id').notNull(),
 		victimName: text('victim_name').notNull(),
 		victimFaction: text('victim_faction'),

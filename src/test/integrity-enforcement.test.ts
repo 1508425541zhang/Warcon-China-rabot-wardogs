@@ -454,9 +454,9 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 			.from(integrityActions)
 			.where(eq(integrityActions.steamId, input.steamId));
 		expect(action.source).toBe('RULE');
-		expect(action.effectiveAt).toBeNull();
+		expect(action.effectiveAt).toBeInstanceOf(Date);
 		expect(action.deliveryState).toBe('pending');
-		expect(effectiveActionKinds([action])).toEqual([]);
+		expect(effectiveActionKinds([action])).toEqual(['QUARANTINE_24H']);
 		const [queued] = await env.db.select().from(outbox).where(eq(outbox.steamId, input.steamId));
 		await env.db.transaction((tx) => recordIntegrityDelivery(tx, queued, 'failed'));
 		const [afterFailedKick] = await env.db
@@ -464,8 +464,8 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 			.from(integrityActions)
 			.where(eq(integrityActions.id, action.id));
 		expect(afterFailedKick.deliveryState).toBe('failed');
-		expect(afterFailedKick.effectiveAt).toBeNull();
-		expect(effectiveActionKinds([afterFailedKick])).toEqual([]);
+		expect(afterFailedKick.effectiveAt).toBeInstanceOf(Date);
+		expect(effectiveActionKinds([afterFailedKick])).toEqual(['QUARANTINE_24H']);
 		const [savedScore] = await env.db
 			.select()
 			.from(integrityScores)

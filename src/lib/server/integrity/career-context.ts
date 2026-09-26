@@ -1,6 +1,6 @@
 import { and, desc, eq, lt, sql } from 'drizzle-orm';
 import type { DbOrTx } from '../db';
-import { integrityCases, integrityPlayerCareers, integrityPlayerMetricHistory } from '../db/schema';
+import { integrityPlayerCareers, integrityPlayerMetricHistory } from '../db/schema';
 import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
 
 type HistoryRow = Pick<
@@ -79,19 +79,13 @@ export function summarizeCleanCareer(rows: readonly HistoryRow[]) {
 	};
 }
 
-/** Any existing case freezes the clean personal reference pending offline adjudication. */
+/** Only windows containing case evidence are removed; a case does not erase a player's clean career. */
 export async function loadCleanCareerContext(
 	db: DbOrTx,
 	orgId: string,
 	steamId: string,
 	before: Date
 ) {
-	const [caseRow] = await db
-		.select({ id: integrityCases.id })
-		.from(integrityCases)
-		.where(and(eq(integrityCases.orgId, orgId), eq(integrityCases.steamId, steamId)))
-		.limit(1);
-	if (caseRow) return null;
 	const [existing] = await db
 		.select()
 		.from(integrityPlayerCareers)
@@ -128,7 +122,16 @@ export async function loadCleanCareerContext(
 				eq(integrityPlayerMetricHistory.steamId, steamId),
 				eq(integrityPlayerMetricHistory.modelVersion, STATISTICAL_MODEL_CONFIG.modelVersion),
 				eq(integrityPlayerMetricHistory.featureVersion, STATISTICAL_MODEL_CONFIG.featureVersion),
-				lt(integrityPlayerMetricHistory.observedAt, before)
+				lt(integrityPlayerMetricHistory.observedAt, before),
+				sql`NOT EXISTS (
+					SELECT 1 FROM integrity_case_events ce
+					JOIN integrity_cases c ON c.id = ce.case_id
+					WHERE c.org_id = ${orgId} AND c.steam_id = ${steamId}
+					AND ce.event->>'killerSteamId' = ${steamId}
+					AND ce.event->>'ts' IS NOT NULL
+					AND (ce.event->>'ts')::timestamptz > ${integrityPlayerMetricHistory.observedAt} - interval '180 seconds'
+					AND (ce.event->>'ts')::timestamptz <= ${integrityPlayerMetricHistory.observedAt}
+				)`
 			)
 		)
 		.orderBy(desc(integrityPlayerMetricHistory.observedAt))
