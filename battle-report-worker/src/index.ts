@@ -1,4 +1,6 @@
 import PostalMime from "postal-mime";
+import { createMimeMessage } from "mimetext";
+import { EmailMessage } from "cloudflare:email";
 
 interface SendEmail {
   send(message: {
@@ -282,15 +284,22 @@ export default {
       .run();
 
     try {
-      await message.reply({
-        from: message.to,
-        to: message.from,
-        subject: subject ? `Re: ${subject}` : `${env.APP_NAME || "战斗 Report"}：邮件已收到`,
-        text:
+      const reply = createMimeMessage();
+      if (messageId) {
+        reply.setHeader("In-Reply-To", messageId);
+        reply.setHeader("References", messageId);
+      }
+      reply.setSender(message.to);
+      reply.setRecipient(message.from);
+      reply.setSubject(subject ? `Re: ${subject}` : `${env.APP_NAME || "战斗 Report"}：邮件已收到`);
+      reply.addMessage({
+        contentType: "text/plain",
+        data:
           `你的邮件已经被 ${env.APP_NAME || "战斗 Report"} 收到并进入记录。\n\n` +
           `邮件记录编号：${id}\n` +
           "本回执仅确认收件，不代表举报内容已经被认定成立。"
-      } as never);
+      });
+      await message.reply(new EmailMessage(message.to, message.from, reply.asRaw()));
     } catch (error) {
       console.error("email reply failed", error);
     }
