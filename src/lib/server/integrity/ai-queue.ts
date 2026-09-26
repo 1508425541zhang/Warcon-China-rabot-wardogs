@@ -10,6 +10,10 @@ let running: Promise<void> | null = null;
 export async function discoverAiJobs(env: Env) {
 	if (!isOwner()) return;
 	await withOwnedTransaction(env, async (tx) => {
+		await tx.execute(sql`UPDATE integrity_ai_jobs j SET state='pending',attempts=0,next_at=now(),result=NULL,last_error=NULL,updated_at=now()
+ FROM integrity_cases c JOIN integrity_ai_settings s ON s.org_id=c.org_id
+ WHERE j.case_id=c.id AND j.state='done' AND j.result->>'promptVersion' IS DISTINCT FROM ${PROMPT_VERSION}
+ AND s.auto_enabled AND c.status='OPEN' AND c.reviewed_at IS NULL AND c.created_at>=now()-interval '7 days'`);
 		await tx.execute(sql`INSERT INTO integrity_ai_jobs(case_id)
  SELECT c.id FROM integrity_cases c JOIN integrity_ai_settings s ON s.org_id=c.org_id
  JOIN organizations o ON o.id=c.org_id

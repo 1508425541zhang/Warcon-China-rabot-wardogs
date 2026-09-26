@@ -21,6 +21,7 @@ import {
 	PROMPT_VERSION
 } from './ai-protocol';
 import { aiRequest } from './ai-client';
+import { expandedAiEvidence } from './ai-evidence';
 export async function aiSettings(env: Env, orgId: string) {
 	const [row] = await env.db
 		.select()
@@ -112,11 +113,11 @@ export async function aiBundle(env: Env, orgId: string, serverId: string, caseId
 		.where(eq(steamProfiles.steamId, c.steamId));
 	return {
 		player: player ?? { steamId: c.steamId, name: null },
-		schemaVersion: 1,
+		schemaVersion: 2,
 		scope:
-			'所选案件全部已保存证据、冻结规则与审核记录；不是服务器全量日志；历史列表最多20条，触发事件不保证覆盖完整对局。',
+			'案件冻结资料＋玩家整局击杀死亡＋案件180秒全服交战背景；无法定位轮次时为案件前24小时玩家记录。逐条完整、无抽样；数据库记录完整不代表游戏回传无缺失。历史索引仍最多20条。',
 		case: c,
-		events,
+		evidence: await expandedAiEvidence(env, c, events),
 		reviews,
 		actions,
 		recentCases: history.slice(0, 20),
