@@ -18,6 +18,8 @@ export type WeaponCategory = (typeof WEAPON_CATEGORIES)[number];
 /** Only small arms explicitly named in Warcon's observed cause catalogue. */
 export const DEFAULT_WEAPON_MAP: Readonly<Record<string, WeaponCategory>> = {
 	'Id.Item.AK74M': 'INFANTRY',
+	'Id.Item.Mosin': 'INFANTRY',
+	'Id.Item.MP9': 'INFANTRY',
 	'Id.Item.WEPN_029': 'INFANTRY',
 	'Id.Item.M4': 'INFANTRY',
 	'Id.Item.M500': 'INFANTRY',
