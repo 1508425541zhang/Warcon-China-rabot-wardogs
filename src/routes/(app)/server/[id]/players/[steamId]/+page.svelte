@@ -310,7 +310,8 @@
 		<p class="mt-1 text-xs text-mist-400">
 			KPM 与风险分独立显示：180 秒 KPM＝有效步兵击杀数 ÷ 3；实时 KPM＝最近 60
 			秒有效步兵击杀数。回传可用但没有击杀时显示 0.00；≥ 为已确认下限，“—”为数据不可用。KD
-			不单独加分，未评分表示最近没有风险评分记录。
+			不单独加分。已知 VAC、游戏封禁与 24 小时独立举报会独立计分；缺少 KPM
+			不影响这些分项。未评分表示暂无可用信号。
 		</p>
 		<div class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
 			{#each integrityTiles as item (item[0])}

@@ -1,3 +1,5 @@
+import { loadCurrentRisks } from './current-risk';
+import { getIntegrityRules } from './rules';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { mapId } from '$lib/format';
 import type { Env } from '../env';
@@ -74,6 +76,17 @@ export async function loadPlayerIntegrity(env: Env, server: ServerRow, steamId: 
 			weaponOverrides(env, server.orgId)
 		]
 	);
+	const rules = await getIntegrityRules(env, server.orgId);
+	const currentRisk = (
+		await loadCurrentRisks(
+			env,
+			server.orgId,
+			[steamId],
+			new Map(risk ? [[steamId, risk]] : []),
+			rules.config,
+			now
+		)
+	).get(steamId);
 	const status = live?.status && typeof live.status === 'object' ? (live.status as Status) : null;
 	const roster = Array.isArray(live?.players) ? (live.players as Player[]) : [];
 	const current = roster.find((player) => player.steamId === steamId) ?? null;
@@ -86,9 +99,9 @@ export async function loadPlayerIntegrity(env: Env, server: ServerRow, steamId: 
 		aliases: profile && Array.isArray(profile.aliases) ? (profile.aliases as string[]) : [],
 		firstSeen: profile?.firstSeen.toISOString() ?? null,
 		lastSeen: profile?.lastSeen.toISOString() ?? null,
-		riskScore: risk?.score ?? null,
-		riskLevel: risk?.level ?? null,
-		breakdown: risk?.breakdown ?? [],
+		riskScore: currentRisk?.score ?? null,
+		riskLevel: currentRisk?.level ?? null,
+		breakdown: currentRisk?.breakdown ?? [],
 		latestWindow: window
 			? {
 					kpm180: window.kpm180,

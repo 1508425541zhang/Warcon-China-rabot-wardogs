@@ -9,7 +9,8 @@ import {
 	integrityWindows,
 	kills,
 	serverLive,
-	servers
+	servers,
+	steamProfiles
 } from '$lib/server/db/schema';
 import { hasTestDb, testEnv } from './db';
 import { callLoad, stubGateway } from './call';
@@ -44,6 +45,28 @@ describe.skipIf(!hasTestDb)('Integrity and Player Dossier page loads', () => {
 		const result = await loadBoth();
 		expect(result.integrity.scores).toEqual([]);
 		expect(result.player.integrity.riskScore).toBeNull();
+	});
+	test('cached VAC scores both live views without any Kill Feed or saved score', async () => {
+		await env.db
+			.insert(steamProfiles)
+			.values({ steamId: PLAYER, vacBans: 1, daysSinceLastBan: 30 });
+		await env.db
+			.insert(serverLive)
+			.values({
+				serverId: world.server.id,
+				players: [{ steamId: PLAYER, name: 'VAC test', kills: 0, deaths: 0 }]
+			});
+		try {
+			const result = await loadBoth();
+			expect(result.player.integrity.riskScore).toBe(8);
+			expect(result.player.integrity.metricsAvailable).toBe(false);
+			expect(result.integrity.onlinePlayers[0].riskScore).toBe(8);
+			expect(result.integrity.scores).toEqual([]);
+			expect(result.integrity.actions).toEqual([]);
+		} finally {
+			await env.db.delete(steamProfiles).where(eq(steamProfiles.steamId, PLAYER));
+			await env.db.delete(serverLive).where(eq(serverLive.serverId, world.server.id));
+		}
 	});
 	test('both pages load with a window, score, report, and case; malformed historic JSON is ignored', async () => {
 		const now = new Date();
@@ -140,14 +163,12 @@ describe.skipIf(!hasTestDb)('Integrity and Player Dossier page loads', () => {
 			.set({ feedTokenHash: 'test-feed' })
 			.where(eq(servers.id, world.server.id))
 			.returning();
-		await env.db
-			.insert(serverLive)
-			.values({
-				serverId: server.id,
-				feedAt: now,
-				status: { map: 'Ozeti' },
-				players: [{ steamId: PLAYER, kills: 0, deaths: 0 }]
-			});
+		await env.db.insert(serverLive).values({
+			serverId: server.id,
+			feedAt: now,
+			status: { map: 'Ozeti' },
+			players: [{ steamId: PLAYER, kills: 0, deaths: 0 }]
+		});
 		const event = {
 			serverId: server.id,
 			ts: now,
@@ -163,26 +184,22 @@ describe.skipIf(!hasTestDb)('Integrity and Player Dossier page loads', () => {
 			cause: 'Id.Item.AK74M',
 			tags: []
 		};
-		await env.db
-			.insert(kills)
-			.values({
-				...event,
-				eventId: 'other-kill',
-				eventTime: 400,
-				killerSteamId: '76561198000000423'
-			});
+		await env.db.insert(kills).values({
+			...event,
+			eventId: 'other-kill',
+			eventTime: 400,
+			killerSteamId: '76561198000000423'
+		});
 		const empty = await loadPlayerIntegrity(env, server, PLAYER);
 		expect(empty.metricsAvailable).toBe(true);
 		expect(empty.metrics).toBeNull();
-		await env.db
-			.insert(kills)
-			.values({
-				...event,
-				ts: new Date(now.getTime() - 240_000),
-				eventId: 'old-own-kill',
-				eventTime: 160,
-				killerSteamId: PLAYER
-			});
+		await env.db.insert(kills).values({
+			...event,
+			ts: new Date(now.getTime() - 240_000),
+			eventId: 'old-own-kill',
+			eventTime: 160,
+			killerSteamId: PLAYER
+		});
 		const old = await loadPlayerIntegrity(env, server, PLAYER);
 		expect(old.metricsAvailable).toBe(true);
 		expect(old.metrics?.kpm180).toBe(0);
