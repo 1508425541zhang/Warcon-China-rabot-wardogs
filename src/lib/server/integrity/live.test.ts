@@ -19,6 +19,24 @@ const make = (clock: number, victim: string, changes: Partial<KillRow> = {}): Ki
 	}) as KillRow;
 
 describe('online infantry metrics', () => {
+	test('60 and 180 second windows count independently, even without any risk finding', () => {
+		const rows = [make(240, 'a'), make(200, 'b'), make(100, 'c'), make(60, 'd')];
+		const m = liveInfantryMetrics(rows, { map: 'map-a', matchSeconds: 240 }, new Map()).get(
+			'76561198000000101'
+		);
+		expect(m?.infantryKills180).toBe(3);
+		expect(m?.kpm180).toBe(1);
+		expect(m?.infantryKills60).toBe(2);
+		expect(m?.kpm60).toBe(2);
+	});
+	test('a quiet server without a game clock still ages old kills out', () => {
+		const rows = [make(240, 'a', { ts: new Date(Date.now() - 181_000) })];
+		const m = liveInfantryMetrics(rows, { map: 'map-a', matchSeconds: null }, new Map()).get(
+			'76561198000000101'
+		);
+		expect(m?.kpm180).toBe(0);
+		expect(m?.kpm60).toBe(0);
+	});
 	test('a live display name does not hide accepted kills with a catalog map ID', () => {
 		const result = liveInfantryMetrics(
 			[

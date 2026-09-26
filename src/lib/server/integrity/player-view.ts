@@ -67,14 +67,10 @@ export async function loadPlayerIntegrity(env: Env, server: ServerRow, steamId: 
 				.select()
 				.from(kills)
 				.where(
-					and(
-						eq(kills.serverId, server.id),
-						eq(kills.killerSteamId, steamId),
-						gte(kills.ts, new Date(now.getTime() - 10 * 60_000))
-					)
+					and(eq(kills.serverId, server.id), gte(kills.ts, new Date(now.getTime() - 10 * 60_000)))
 				)
 				.orderBy(desc(kills.ts))
-				.limit(1001),
+				.limit(3001),
 			weaponOverrides(env, server.orgId)
 		]
 	);
@@ -82,7 +78,7 @@ export async function loadPlayerIntegrity(env: Env, server: ServerRow, steamId: 
 	const roster = Array.isArray(live?.players) ? (live.players as Player[]) : [];
 	const current = roster.find((player) => player.steamId === steamId) ?? null;
 	const metrics =
-		recentKills.length <= 1000
+		recentKills.length <= 3000
 			? (liveInfantryMetrics(recentKills, status, mappings).get(steamId) ?? null)
 			: null;
 	const latestKill = recentKills[0];
@@ -108,7 +104,7 @@ export async function loadPlayerIntegrity(env: Env, server: ServerRow, steamId: 
 			!!server.feedTokenHash &&
 			!!live?.feedAt &&
 			Date.now() - live.feedAt.getTime() < 5 * 60_000 &&
-			recentKills.length <= 1000 &&
+			recentKills.length <= 3000 &&
 			!!latestKill &&
 			(!status?.map || mapId(status.map) === mapId(latestKill.map)) &&
 			(status?.matchSeconds == null || status.matchSeconds >= latestKill.eventTime - 5)

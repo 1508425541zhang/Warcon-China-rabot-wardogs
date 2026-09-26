@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { refreshVisible } from '$lib/refresh-visible';
+	onMount(() => refreshVisible(invalidateAll));
 	import { integrityMetricDisplay } from '$lib/integrity-metric-display';
 	import { invalidateAll } from '$app/navigation';
 	import type { PageProps } from './$types';
@@ -540,9 +543,9 @@
 				<thead
 					><tr
 						><th>{t.player}</th><th>{t.kills}</th><th>{t.deaths}</th><th>{t.kd}</th><th>{t.kpm}</th
-						><th>{t.peakKpm}</th><th>{t.victims}</th><th>{t.risk}</th><th>{t.level}</th><th
-							>{t.breakdown}</th
-						></tr
+						><th>{lang === 'zh' ? '实时步兵 KPM（60 秒）' : 'Infantry KPM (60s)'}</th><th
+							>{t.peakKpm}</th
+						><th>{t.victims}</th><th>{t.risk}</th><th>{t.level}</th><th>{t.breakdown}</th></tr
 					></thead
 				>
 				<tbody
@@ -564,7 +567,14 @@
 								>{integrityMetricDisplay(
 									player.infantry?.kpm180 ?? 0,
 									metricsAvailable,
-									player.infantry?.reliable !== false
+									player.infantry?.reliable180 !== false
+								)}</td
+							>
+							<td
+								>{integrityMetricDisplay(
+									player.infantry?.kpm60 ?? 0,
+									metricsAvailable,
+									player.infantry?.reliable60 !== false
 								)}</td
 							>
 							<td

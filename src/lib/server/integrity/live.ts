@@ -6,6 +6,10 @@ import { classifyWeapon, countsAsInfantry, type WeaponCategory } from './weapons
 export interface LiveInfantryMetrics {
 	infantryKills180: number;
 	kpm180: number;
+	infantryKills60: number;
+	kpm60: number;
+	reliable180: boolean;
+	reliable60: boolean;
 	peakKpm180: number;
 	uniqueVictims180: number;
 	/** A plausible infantry kill lacked a reliable weapon or faction classification. */
@@ -30,9 +34,12 @@ export function liveInfantryMetrics(
 		status.matchSeconds < latestClock - 5
 	)
 		return new Map();
-	const clock = Math.max(latestClock, status?.matchSeconds ?? latestClock);
+	// Some live builds omit the game clock. Keep windows advancing between feed arrivals.
+	const elapsed =
+		newest.ts instanceof Date ? Math.max(0, (Date.now() - newest.ts.getTime()) / 1000) : 0;
+	const clock = Math.max(latestClock, status?.matchSeconds ?? latestClock + elapsed);
 	const byPlayer = new Map<string, KillRow[]>();
-	const uncertain = new Set<string>();
+	const uncertain = new Map<string, number>();
 	for (const row of matchRows) {
 		if (
 			row.killerSteamId &&
@@ -57,7 +64,10 @@ export function liveInfantryMetrics(
 						row.factionBracketed === false ||
 						(row.factionBracketed && !row.factionObservedAt)))
 			)
-				uncertain.add(row.killerSteamId);
+				uncertain.set(
+					row.killerSteamId,
+					Math.max(uncertain.get(row.killerSteamId) ?? -Infinity, row.eventTime)
+				);
 		}
 		if (
 			!countsAsInfantry(
@@ -82,7 +92,7 @@ export function liveInfantryMetrics(
 		byPlayer.set(row.killerSteamId!, player);
 	}
 	const result = new Map<string, LiveInfantryMetrics>();
-	for (const steamId of new Set([...byPlayer.keys(), ...uncertain])) {
+	for (const steamId of new Set([...byPlayer.keys(), ...uncertain.keys()])) {
 		const playerRows = byPlayer.get(steamId) ?? [];
 		playerRows.sort((a, b) => a.eventTime - b.eventTime);
 		let start = 0;
@@ -94,9 +104,15 @@ export function liveInfantryMetrics(
 		const current = playerRows.filter(
 			(row) => row.eventTime > clock - 180 && row.eventTime <= clock
 		);
+		const short = current.filter((row) => row.eventTime > clock - 60);
+		const unknownClock = uncertain.get(steamId) ?? -Infinity;
 		result.set(steamId, {
 			infantryKills180: current.length,
 			kpm180: current.length / 3,
+			infantryKills60: short.length,
+			kpm60: short.length,
+			reliable180: unknownClock <= clock - 180,
+			reliable60: unknownClock <= clock - 60,
 			peakKpm180: peak / 3,
 			uniqueVictims180: new Set(current.map((row) => row.victimSteamId)).size,
 			reliable: !uncertain.has(steamId)

@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { refreshVisible } from '$lib/refresh-visible';
+	onMount(() => refreshVisible(invalidateAll));
 	import { integrityMetricDisplay } from '$lib/integrity-metric-display';
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage, rconPost } from '$lib/api';
@@ -177,11 +180,37 @@
 					: '—'
 			],
 			[
+				'实时步兵 KPM（最近 60 秒）',
+				integrityMetricDisplay(
+					i.metrics?.kpm60 ?? 0,
+					i.metricsAvailable,
+					i.metrics?.reliable60 !== false
+				)
+			],
+			[
+				'60 秒有效步兵击杀',
+				integrityMetricDisplay(
+					i.metrics?.infantryKills60 ?? 0,
+					i.metricsAvailable,
+					i.metrics?.reliable60 !== false,
+					0
+				)
+			],
+			[
+				'180 秒有效步兵击杀',
+				integrityMetricDisplay(
+					i.metrics?.infantryKills180 ?? 0,
+					i.metricsAvailable,
+					i.metrics?.reliable180 !== false,
+					0
+				)
+			],
+			[
 				'步兵 KPM180（≥ 为已确认下限）',
 				integrityMetricDisplay(
 					i.metrics?.kpm180 ?? 0,
 					i.metricsAvailable,
-					i.metrics?.reliable !== false
+					i.metrics?.reliable180 !== false
 				)
 			],
 			[
@@ -279,7 +308,9 @@
 			<a class="text-sm text-accent" href="/server/{id}/integrity">查看风控总览 →</a>
 		</div>
 		<p class="mt-1 text-xs text-mist-400">
-			KD 仅供管理员参考，不单独触发风控分。KPM 使用 180 秒纯步兵击杀窗口；数据不足时显示“—”。
+			KPM 与风险分独立显示：180 秒 KPM＝有效步兵击杀数 ÷ 3；实时 KPM＝最近 60
+			秒有效步兵击杀数。回传可用但没有击杀时显示 0.00；≥ 为已确认下限，“—”为数据不可用。KD
+			不单独加分，未评分表示最近没有风险评分记录。
 		</p>
 		<div class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
 			{#each integrityTiles as item (item[0])}
