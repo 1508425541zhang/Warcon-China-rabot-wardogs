@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "battle-report",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-20",
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "battle-report-db",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+    }
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ],
+  "vars": {
+    "APP_NAME": "战斗 Report",
+    "REPORT_FROM_EMAIL": "report@YOUR_DOMAIN",
+    "ADMIN_EMAIL": "YOUR_VERIFIED_ADMIN_EMAIL"
+  }
+}
