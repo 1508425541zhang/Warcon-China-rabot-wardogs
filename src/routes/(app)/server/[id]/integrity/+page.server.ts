@@ -13,6 +13,7 @@ import {
 	steamProfiles,
 	integrityLabels,
 	integrityActions,
+	listEntries,
 	integrityReports,
 	integrityScores,
 	kills,
@@ -252,6 +253,26 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 				.orderBy(desc(integrityLabels.createdAt))
 				.limit(5001)
 		]);
+
+		const reviewCaseIds = [
+			...new Set([
+				...cases.map((c) => c.id),
+				...actions.filter((a) => a.source === 'REVIEW').map((a) => a.caseId)
+			])
+		];
+		const reviewPenalties = reviewCaseIds.length
+			? await env.db
+					.select({ action: integrityActions, entry: listEntries })
+					.from(integrityActions)
+					.leftJoin(listEntries, eq(listEntries.id, integrityActions.listEntryId))
+					.where(
+						and(
+							eq(integrityActions.serverId, server.id),
+							eq(integrityActions.source, 'REVIEW'),
+							inArray(integrityActions.caseId, reviewCaseIds)
+						)
+					)
+			: [];
 		const committeeShadow = summarizeCommitteeShadow(
 			shadowRows.slice(0, 5000),
 			labelRows.slice(0, 5000),
@@ -263,6 +284,17 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 				cases.map((c) => c.id)
 			),
 			aiAutoEnabled: !!(await aiSettings(env, server.orgId))?.autoEnabled,
+			reviewPenalties: reviewPenalties.map(({ action, entry }) => ({
+				caseId: action.caseId,
+				id: action.id,
+				deliveryState: action.deliveryState,
+				expiresAt: entry?.expiresAt?.toISOString() ?? null,
+				active:
+					!!entry &&
+					!entry.removedAt &&
+					!action.revertedAt &&
+					(!entry.expiresAt || entry.expiresAt > now)
+			})),
 			cases: cases.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
 			scores: scores.map((item) => ({ ...item, scoredAt: item.scoredAt.toISOString() })),
 			reports: reports.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),

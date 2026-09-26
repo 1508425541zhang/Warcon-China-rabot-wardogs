@@ -40,12 +40,20 @@
 		labelNotice = '';
 		savingLabel = caseId;
 		try {
-			await api(
+			const result = await api<{
+				label: { penalty: { reused: boolean; expiresAt: string | null } | null };
+			}>(
 				'POST',
 				`/api/orgs/${encodeURIComponent(data.server.orgId)}/integrity/cases/${encodeURIComponent(caseId)}/labels`,
 				{ label: pendingLabel[caseId], reason: pendingReason[caseId] }
 			);
-			labelNotice = `案件 ${caseId} 审核已保存。`;
+			labelNotice =
+				`案件 ${caseId} 审核已保存。` +
+				(result.label.penalty
+					? result.label.penalty.reused
+						? '沿用该案件已有处罚，未重复封禁或延长时间。'
+						: '封禁已保存，即时踢出已排队；具体状态见案件处罚记录。'
+					: '');
 			editingReview[caseId] = false;
 			pendingReason[caseId] = '';
 			pendingLabel[caseId] = '';
@@ -216,6 +224,11 @@
 				})[(state ?? 'unknown') as 'pending' | 'delivered' | 'failed' | 'skipped' | 'unknown'];
 	const actionState = (item: (typeof data.actions)[number]) => {
 		if (item.revertedAt) return lang === 'zh' ? '已撤销' : 'Reverted';
+		if (item.source === 'REVIEW') {
+			const linked = data.reviewPenalties.find((p) => p.id === item.id);
+			const active = linked?.active ?? (!item.expiresAt || new Date(item.expiresAt) > new Date());
+			return `${active ? '人工封禁有效' : '人工封禁已到期或已撤销'}；即时踢出：${deliveryLabel(item.deliveryState)}`;
+		}
 		if (item.action === 'KICK') return deliveryLabel(item.deliveryState);
 		return `${lang === 'zh' ? '隔离已生效；即时踢出' : 'Quarantine active; immediate kick'}：${deliveryLabel(item.deliveryState)}`;
 	};
@@ -691,7 +704,7 @@
 
 <section class="mb-6 panel p-4">
 	<h3 class="mb-3 text-base font-semibold text-white">
-		{lang === 'zh' ? '自动处置记录' : 'Automatic actions'}
+		{lang === 'zh' ? '处罚记录（自动／人工）' : 'Actions (automatic / human review)'}
 	</h3>
 	{#if data.actions.length}
 		<div class="table-wrap">
@@ -709,15 +722,18 @@
 					>{#each data.actions as item (item.id)}<tr
 							><td>{when(item.createdAt)}</td><td class="font-mono">{item.steamId}</td><td
 								class="font-mono">{item.caseId}</td
-							><td>{item.action}</td><td>{actionState(item)}</td><td
-								>{item.effectiveAt ? when(item.effectiveAt) : '—'}</td
+							><td
+								>{item.source === 'REVIEW'
+									? '人工确认违规（7天；保留更长期封禁）'
+									: item.action}</td
+							><td>{actionState(item)}</td><td>{item.effectiveAt ? when(item.effectiveAt) : '—'}</td
 							><td>{item.expiresAt ? when(item.expiresAt) : '—'}</td></tr
 						>{/each}</tbody
 				>
 			</table>
 		</div>
 	{:else}<p class="text-sm text-mist-400">
-			{lang === 'zh' ? '暂无自动处置。' : 'No automatic actions.'}
+			{lang === 'zh' ? '暂无处罚记录。' : 'No actions.'}
 		</p>{/if}
 </section>
 
@@ -783,6 +799,14 @@
 									{#if latest}<p class="mt-2 text-xs text-mist-300">
 											审核结论：{reviewNames[latest.label] ?? latest.label} · {latest.reason}
 										</p>{/if}
+
+									{#each data.reviewPenalties.filter((p) => p.caseId === item.id) as penalty (penalty.id)}
+										<p class="mt-2 text-xs text-amber-300">
+											人工审核处罚：{penalty.active ? '封禁有效' : '封禁已到期或已撤销'} · 到期：{penalty.expiresAt
+												? when(penalty.expiresAt)
+												: '永久（沿用已有封禁）'} · 即时踢出：{deliveryLabel(penalty.deliveryState)}
+										</p>
+									{/each}
 									{#if data.canConfigure && latest && !editingReview[item.id]}<button
 											class="btn-secondary mt-2 btn text-xs"
 											onclick={() => {
@@ -794,10 +818,13 @@
 									{#if data.canConfigure && (!latest || editingReview[item.id])}<div
 											class="mt-3 flex flex-wrap items-center gap-2"
 										>
+											<p class="w-full text-xs text-mist-300">
+												确认违规会在本服务器立即封禁7天并排队踢出；已有更长期或永久封禁予以保留。重复保存不会续期。修改审核结论不会撤销已有封禁，撤销请到封禁管理操作。
+											</p>
 											<select class="input text-xs" bind:value={pendingLabel[item.id]}
 												><option value="">选择审核结论</option><option value="FALSE_POSITIVE"
 													>误判</option
-												><option value="CONFIRMED_ABUSE">确认违规</option><option
+												><option value="CONFIRMED_ABUSE">确认违规／作弊（封禁7天）</option><option
 													value="INSUFFICIENT_EVIDENCE">证据不足</option
 												><option value="DATA_ERROR">数据错误</option></select
 											><input
@@ -809,7 +836,12 @@
 												disabled={savingLabel !== null ||
 													!pendingLabel[item.id] ||
 													(pendingReason[item.id]?.trim().length ?? 0) < 5}
-												onclick={() => saveLabel(item.id)}>保存标签</button
+												onclick={() => saveLabel(item.id)}
+												>{savingLabel === item.id
+													? '正在保存…'
+													: pendingLabel[item.id] === 'CONFIRMED_ABUSE'
+														? '确认违规并封禁7天'
+														: '保存审核结论'}</button
 											>
 										</div>{/if}
 								</details>

@@ -2,6 +2,9 @@ import { and, eq } from 'drizzle-orm';
 import type { Env } from '../env';
 import {
 	integrityActions,
+	listEntries,
+	lists,
+	serverLists,
 	integrityCases,
 	integrityModelState,
 	integrityRules,
@@ -38,7 +41,7 @@ export async function integrityDeliverySkipReason(
 		.limit(1);
 	if (
 		!match ||
-		match.action.source !== 'RULE' ||
+		!['RULE', 'REVIEW'].includes(match.action.source) ||
 		match.action.revertedAt ||
 		match.action.serverId !== row.serverId ||
 		match.action.steamId !== row.steamId ||
@@ -46,9 +49,37 @@ export async function integrityDeliverySkipReason(
 		match.caseRow.serverId !== row.serverId ||
 		match.caseRow.steamId !== row.steamId ||
 		match.server.orgId !== match.action.orgId ||
-		match.caseRow.status !== 'OPEN'
+		(match.action.source === 'RULE' && match.caseRow.status !== 'OPEN')
 	)
 		return 'Integrity action or case changed before delivery';
+	if (match.action.source === 'REVIEW') {
+		if (
+			match.action.action !== 'QUARANTINE_7D' ||
+			!match.action.listEntryId ||
+			!match.caseRow.reviewedAt
+		)
+			return '人工审核处罚记录不完整';
+		const [entry] = await env.db
+			.select({ ban: listEntries })
+			.from(listEntries)
+			.innerJoin(lists, eq(lists.id, listEntries.listId))
+			.innerJoin(serverLists, eq(serverLists.listId, lists.id))
+			.where(
+				and(
+					eq(listEntries.id, match.action.listEntryId),
+					eq(lists.kind, 'ban'),
+					eq(lists.orgId, match.action.orgId),
+					eq(serverLists.serverId, row.serverId)
+				)
+			);
+		const ban = entry?.ban;
+		return ban &&
+			ban.steamId === row.steamId &&
+			!ban.removedAt &&
+			(!ban.expiresAt || ban.expiresAt > new Date())
+			? null
+			: '人工封禁已撤销或到期';
+	}
 	const [rules] = await env.db
 		.select({
 			version: integrityRules.version,

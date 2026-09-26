@@ -1,3 +1,5 @@
+import { applyReviewPenalty } from './review-penalty';
+import { wakeDelivery } from '../outbox';
 import { and, eq, desc } from 'drizzle-orm';
 import type { Env } from '../env';
 import type { SessionUser } from '../access';
@@ -69,7 +71,11 @@ export async function labelIntegrityCase(
 			.update(integrityCases)
 			.set({ status: 'REVIEWED', reviewedBy: saved.reviewerId, reviewedAt: saved.createdAt })
 			.where(eq(integrityCases.id, caseId));
-		return saved;
+		const penalty =
+			label === 'CONFIRMED_ABUSE'
+				? await applyReviewPenalty(tx, caseRow, actor, reason.trim())
+				: null;
+		return { ...saved, penalty };
 	});
 	await writeAudit(env, request, {
 		actor,
@@ -78,7 +84,15 @@ export async function labelIntegrityCase(
 		action: 'integrity.case.label',
 		outcome: 'ok',
 		message: `${label} label recorded for ${caseId}`,
-		detail: { caseId, label, labelId: row.id }
+		detail: {
+			caseId,
+			label,
+			labelId: row.id,
+			actionId: row.penalty?.id,
+			expiresAt: row.penalty?.expiresAt,
+			source: row.penalty ? 'REVIEW' : undefined
+		}
 	});
+	if (row.penalty) wakeDelivery();
 	return row;
 }
