@@ -1,5 +1,6 @@
 import type { StatisticalAssessment } from './statistics';
 import type { CommitteeDecision, ExpertDecision } from './committee';
+import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
 
 const decisions: CommitteeDecision[] = [
 	'NORMAL',
@@ -26,6 +27,11 @@ export function summarizeCommitteeShadow(
 	let disagreement = 0;
 	let assessed = 0;
 	for (const row of rows) {
+		if (
+			(row.statistical as StatisticalAssessment | null)?.modelVersion !==
+			STATISTICAL_MODEL_CONFIG.modelVersion
+		)
+			continue;
 		if (row.windowId === null || seen.has(row.windowId)) continue;
 		seen.add(row.windowId);
 		const committee = (row.statistical as StatisticalAssessment | null)?.committee;
@@ -54,7 +60,12 @@ export function summarizeCommitteeShadow(
 	}
 	const latestLabel = new Map<string, string>();
 	for (const row of labels)
-		if (!latestLabel.has(row.caseId)) latestLabel.set(row.caseId, row.label);
+		if (
+			(row.statistical as StatisticalAssessment | null)?.modelVersion ===
+				STATISTICAL_MODEL_CONFIG.modelVersion &&
+			!latestLabel.has(row.caseId)
+		)
+			latestLabel.set(row.caseId, row.label);
 	let confirmedAbuse = 0;
 	let falsePositive = 0;
 	for (const row of labels) {
@@ -66,6 +77,7 @@ export function summarizeCommitteeShadow(
 		latestLabel.delete(row.caseId);
 	}
 	return {
+		modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
 		counts,
 		models,
 		unknownReasons,

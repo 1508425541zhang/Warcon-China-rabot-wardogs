@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import {
 	integrityBaselines,
 	integrityCases,
@@ -104,11 +104,28 @@ describe.skipIf(!hasTestDb)('Statistical Shadow pipeline', () => {
 		expect(await acquireOrRenew(env, 'statistical shadow test')).toBe(true);
 		try {
 			expect((await loadBaselines(env, world.org.id, 'Kavkazi', null)).has('kpm180')).toBe(true);
+			// A single expert is not WATCH yet, but must survive storage for later persistence.
+			await processIntegrityBatch(env, world.server.id, batch.slice(0, 4));
+			const firstScores = await env.db
+				.select()
+				.from(integrityScores)
+				.where(eq(integrityScores.steamId, steamId));
+			expect(firstScores.length).toBeGreaterThan(0);
+			const first = firstScores.at(-1)!.statistical as StatisticalAssessment;
+			expect(first.committee?.decision).toBe('NORMAL');
+			expect(first.committee?.verdicts.find((v) => v.modelId === 'tempo')?.decision).toBe(
+				'CHEAT_LIKELY'
+			);
+			expect(
+				await env.db.select().from(integrityCases).where(eq(integrityCases.steamId, steamId))
+			).toHaveLength(0);
+			expect(await env.db.select().from(outbox).where(eq(outbox.steamId, steamId))).toHaveLength(0);
 			await processIntegrityBatch(env, world.server.id, batch);
 			const [saved] = await env.db
 				.select()
 				.from(integrityScores)
-				.where(eq(integrityScores.steamId, steamId));
+				.where(eq(integrityScores.steamId, steamId))
+				.orderBy(desc(integrityScores.id));
 			expect(saved.score).toBeLessThan(54);
 			expect(saved.level).toBe('NORMAL');
 			const assessment = saved.statistical as StatisticalAssessment;

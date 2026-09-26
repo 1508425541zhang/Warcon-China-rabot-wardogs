@@ -37,7 +37,7 @@ import {
 	STATISTICAL_MODEL_CONFIG,
 	actionBaselineEligible
 } from './statistical-config';
-import { assessCommittee, hasStatisticalAnomaly } from './committee';
+import { assessCommittee, hasStatisticalAnomaly, shouldSaveCommitteeAssessment } from './committee';
 import { loadCleanCareerContext } from './career-context';
 import { shouldRetryActionEligibility, canReuseStatisticalCase } from './action-retry';
 import type { KillView } from '$lib/types';
@@ -497,20 +497,7 @@ export async function processIntegrityBatch(
 				statistical?.level === 'KICK_CANDIDATE'
 			)
 				refreshSteam.add(finding.steamId);
-			if (
-				finding.snapshotOnly &&
-				(!statistical ||
-					statistical.status !== 'READY' ||
-					statistical.committee?.decision === 'NORMAL')
-			)
-				continue;
-			if (
-				!finding.reasons.length &&
-				(!statistical ||
-					statistical.level === 'NORMAL' ||
-					statistical.status === 'INSUFFICIENT_DATA')
-			)
-				continue;
+			if (!finding.reasons.length && !shouldSaveCommitteeAssessment(statistical)) continue;
 			const [previousAssessment] =
 				windowId === null
 					? []

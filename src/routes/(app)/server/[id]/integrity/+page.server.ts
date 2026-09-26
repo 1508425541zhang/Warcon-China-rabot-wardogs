@@ -24,6 +24,7 @@ import { weaponOverrides } from '$lib/server/integrity/weapon-map';
 import { liveInfantryMetrics } from '$lib/server/integrity/live';
 import { shadowComparison } from '$lib/server/integrity/baselines';
 import { summarizeCommitteeShadow } from '$lib/server/integrity/shadow-dashboard';
+import { STATISTICAL_MODEL_CONFIG } from '$lib/server/integrity/statistical-config';
 import type { Player, Status } from '$lib/types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -229,6 +230,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 					and(
 						eq(integrityScores.serverId, server.id),
 						eq(integrityScores.source, 'window'),
+						sql`${integrityScores.statistical}->>'modelVersion' = ${STATISTICAL_MODEL_CONFIG.modelVersion}`,
 						gte(integrityScores.scoredAt, new Date(now.getTime() - 30 * 86_400_000))
 					)
 				)
@@ -247,6 +249,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 				.where(
 					and(
 						eq(integrityCases.serverId, server.id),
+						sql`${integrityCases.statistical}->>'modelVersion' = ${STATISTICAL_MODEL_CONFIG.modelVersion}`,
 						gte(integrityLabels.createdAt, new Date(now.getTime() - 30 * 86_400_000))
 					)
 				)

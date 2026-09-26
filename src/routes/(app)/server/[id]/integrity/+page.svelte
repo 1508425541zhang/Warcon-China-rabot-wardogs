@@ -442,8 +442,8 @@
 	</h4>
 	<p class="mt-1 text-xs text-mist-400">
 		{lang === 'zh'
-			? '仅统计已保存的评估；数据不足时不会推断正常。只有统计模式且组织开启自动踢出，满足全部保护条件后才会执行。'
-			: 'Only saved assessments are counted. Automatic kicks require statistical mode, organization opt-in and all protection gates.'}
+			? `仅统计当前模型 ${data.committeeShadow.modelVersion} 已保存的评估；旧版本结论保留在历史案件，不混入本表。单票异常也会记录，但不等于案件或处罚。自动踢出仍需组织开启并通过全部保护条件。`
+			: `Saved assessments for ${data.committeeShadow.modelVersion} only; historical versions are excluded. A single abnormal ballot is recorded, not enforced. Automatic kicks require opt-in and all protection gates.`}
 	</p>
 	<div class="mt-3 flex flex-wrap gap-4 text-sm text-white">
 		<span>NORMAL：{data.committeeShadow.counts.NORMAL}</span>

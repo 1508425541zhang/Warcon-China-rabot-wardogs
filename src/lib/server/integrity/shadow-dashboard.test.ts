@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { summarizeCommitteeShadow } from './shadow-dashboard';
+import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
 
 describe('committee shadow calibration summary', () => {
 	test('counts one latest vote per episode and latest human label per candidate case', () => {
 		const watch = {
+			modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
 			committee: {
 				decision: 'WATCH',
 				verdicts: [
@@ -13,6 +15,7 @@ describe('committee shadow calibration summary', () => {
 			}
 		};
 		const kick = {
+			modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
 			committee: {
 				decision: 'KICK_CANDIDATE',
 				verdicts: [
@@ -47,6 +50,7 @@ test('unknown reasons remain visible and are deduplicated per episode', () => {
 	const row = {
 		windowId: 7,
 		statistical: {
+			modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
 			committee: {
 				decision: 'WATCH',
 				verdicts: [
@@ -58,4 +62,33 @@ test('unknown reasons remain visible and are deduplicated per episode', () => {
 	const result = summarizeCommitteeShadow([row, row], [], false);
 	expect(result.models.precision.UNKNOWN).toBe(1);
 	expect(result.unknownReasons.precision.NO_CLEAN_PRECISION_BASELINE).toBe(1);
+});
+
+test('old rule reasons cannot appear as current model votes or review outcomes', () => {
+	const old = {
+		modelVersion: 'ensemble-operational-v2',
+		committee: {
+			decision: 'KICK_CANDIDATE',
+			verdicts: [
+				{ modelId: 'tempo', decision: 'UNKNOWN', reasons: ['CONSECUTIVE_60S_KPM_NOT_MET'] }
+			]
+		}
+	};
+	const current = {
+		...old,
+		modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
+		committee: { decision: 'WATCH', verdicts: [{ modelId: 'tempo', decision: 'SUSPICIOUS' }] }
+	};
+	const result = summarizeCommitteeShadow(
+		[
+			{ windowId: 1, statistical: old },
+			{ windowId: 1, statistical: current }
+		],
+		[{ caseId: 'old-case', label: 'CONFIRMED_ABUSE', statistical: old }],
+		false
+	);
+	expect(result.assessed).toBe(1);
+	expect(result.counts.WATCH).toBe(1);
+	expect(result.unknownReasons).toEqual({});
+	expect(result.confirmedAbuse).toBe(0);
 });

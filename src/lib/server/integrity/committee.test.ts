@@ -5,6 +5,7 @@ import {
 	EXPERT_MODELS,
 	assessCommittee,
 	hasStatisticalAnomaly,
+	shouldSaveCommitteeAssessment,
 	voteCommittee,
 	type EvidenceFamily,
 	type ExpertDecision,
@@ -125,6 +126,24 @@ describe('independent expert committee', () => {
 		expect(hasStatisticalAnomaly(assessment('maxKillDistanceWeapon', 1))).toBe(false);
 		expect(hasStatisticalAnomaly(assessment('kpm180', 0.995))).toBe(true);
 	});
+});
+
+test('a single expert signal survives storage before it can support persistence; no automatic case', () => {
+	const assessment = {
+		status: 'READY',
+		modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
+		featureVersion: STATISTICAL_MODEL_CONFIG.featureVersion,
+		metrics: [],
+		committee: voteCommittee([v('TEMPO', 'SUSPICIOUS', 'tempo')])
+	} as unknown as StatisticalAssessment;
+	expect(assessment.committee!.decision).toBe('NORMAL');
+	expect(shouldSaveCommitteeAssessment(assessment)).toBe(true);
+	expect(hasStatisticalAnomaly(assessment)).toBe(true);
+	const normal = { ...assessment, committee: voteCommittee([v('TEMPO', 'NORMAL', 'tempo')]) };
+	expect(shouldSaveCommitteeAssessment(normal)).toBe(false);
+	expect(shouldSaveCommitteeAssessment({ ...assessment, status: 'INSUFFICIENT_DATA' })).toBe(false);
+	expect(shouldSaveCommitteeAssessment({ ...assessment, modelVersion: 'old-model' })).toBe(false);
+	expect(shouldSaveCommitteeAssessment(null)).toBe(false);
 });
 
 test('KPM bypass requires >4 and a non-tempo expert; absence of KPM never stops five ballots', () => {

@@ -77,6 +77,17 @@ export function hasStatisticalAnomaly(assessment: StatisticalAssessment | null):
 	);
 }
 
+/** Save independent signals even when one positive ballot cannot yet reach WATCH.
+ * Persistence must be able to find that episode later; saving is not enforcement. */
+export function shouldSaveCommitteeAssessment(assessment: StatisticalAssessment | null): boolean {
+	return (
+		!!assessment &&
+		assessment.status === 'READY' &&
+		(hasStatisticalAnomaly(assessment) ||
+			(!!assessment.committee && assessment.committee.decision !== 'NORMAL'))
+	);
+}
+
 const verdict = (
 	model: IntegrityExpertModel,
 	decision: ExpertDecision,
