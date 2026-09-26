@@ -1,3 +1,4 @@
+import { scanGroups } from './group-control';
 import { runNumericLimits } from './numeric-limits';
 import { runSkillBalance } from './skill-balance';
 import { runWeaponRestrictions } from './weapon-restrictions';
@@ -806,6 +807,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 				now: ts
 			})
 		);
+	if (players && saved && isOwner()) await stage('group-control', m, () => scanGroups(env, server));
 	if (isOwner()) await stage('lists', m, () => keepLists(env, m, client, started, ts));
 	// After the lists, so a ban just placed removes the player at this look, not the next.
 	const seen = players?.map((p) => p.steamId) ?? [];

@@ -1661,3 +1661,22 @@ export const numericLimitEvents = pgTable(
 	},
 	(t) => [index('numeric_limit_player_idx').on(t.serverId, t.matchId, t.steamId, t.createdAt)]
 );
+
+export const groupControlRules = pgTable('group_control_rules', {
+	serverId: text('server_id')
+		.primaryKey()
+		.references(() => servers.id, { onDelete: 'cascade' }),
+	config: jsonb('config').notNull(),
+	updatedAt: ts('updated_at').notNull().defaultNow()
+});
+export const groupControlScans = pgTable('group_control_scans', {
+	serverId: text('server_id')
+		.primaryKey()
+		.references(() => servers.id, { onDelete: 'cascade' }),
+	config: jsonb('config').notNull(),
+	groups: jsonb('groups').notNull(),
+	scannedAt: ts('scanned_at').notNull(),
+	aiStatus: text('ai_status').notNull().default('not_requested'),
+	aiResult: jsonb('ai_result'),
+	aiFingerprint: text('ai_fingerprint')
+});

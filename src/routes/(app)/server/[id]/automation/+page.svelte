@@ -1,4 +1,5 @@
 <script lang="ts">
+	import GroupControlSettings from '$lib/components/GroupControlSettings.svelte';
 	import NumericLimitSettings from '$lib/components/NumericLimitSettings.svelte';
 	import SkillBalanceSettings from '$lib/components/SkillBalanceSettings.svelte';
 	import FactionLockSettings from '$lib/components/FactionLockSettings.svelte';
@@ -773,6 +774,11 @@
 </script>
 
 <div class="mb-5 space-y-4">
+	<details class="panel p-4">
+		<summary class="cursor-pointer font-semibold">组队控制 · 疑似大队识别（点击设置）</summary
+		><GroupControlSettings data={data.groupControl} serverId={id} />
+	</details>
+
 	<details class="mb-4">
 		<summary class="cursor-pointer p-3"
 			>硬性数值限制 · {data.numericLimits.config.enabled ? '已启用' : '未启用'}（点击设置）</summary
