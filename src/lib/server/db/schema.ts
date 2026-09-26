@@ -1544,3 +1544,39 @@ export const integrityAiReviews = pgTable('integrity_ai_reviews', {
 	result: jsonb('result').notNull(),
 	createdAt: ts('created_at').notNull().defaultNow()
 });
+
+export const weaponRestrictionRules = pgTable('weapon_restriction_rules', {
+	serverId: text('server_id')
+		.primaryKey()
+		.references(() => servers.id, { onDelete: 'cascade' }),
+	enabled: boolean('enabled').notNull().default(false),
+	causes: jsonb('causes').notNull().default([]),
+	groups: jsonb('groups').notNull().default([]),
+	updatedAt: ts('updated_at').notNull().defaultNow()
+});
+export const weaponRestrictionEvents = pgTable(
+	'weapon_restriction_events',
+	{
+		id: text('id').primaryKey(),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		matchId: bigint('match_id', { mode: 'number' })
+			.notNull()
+			.references(() => matches.id, { onDelete: 'cascade' }),
+		ruleVersion: text('rule_version').notNull(),
+		steamId: text('steam_id').notNull(),
+		playerName: text('player_name').notNull(),
+		cause: text('cause').notNull(),
+		eventId: text('event_id').notNull(),
+		action: text('action').notNull(),
+		state: text('state').notNull(),
+		reason: text('reason').notNull(),
+		clock: real('clock').notNull(),
+		createdAt: ts('created_at').notNull(),
+		updatedAt: ts('updated_at').notNull()
+	},
+	(t) => [
+		index('weapon_restriction_player_idx').on(t.serverId, t.matchId, t.steamId, t.createdAt.desc())
+	]
+);
