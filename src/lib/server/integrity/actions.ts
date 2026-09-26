@@ -7,18 +7,20 @@ export type EffectiveAction = 'KICK' | 'QUARANTINE_24H' | 'QUARANTINE_7D';
 
 /** A high score or queued outbox row is not evidence of a completed player action. */
 export function effectiveActionKinds(
-	rows: readonly Pick<
+	rows: readonly (Pick<
 		typeof integrityActions.$inferSelect,
 		'action' | 'source' | 'effectiveAt' | 'revertedAt' | 'deliveryState'
-	>[]
+	> & { expiresAt?: Date | null })[],
+	now = new Date()
 ): EffectiveAction[] {
 	return rows
 		.filter(
 			(row) =>
 				row.source === 'RULE' &&
-				row.deliveryState === 'delivered' &&
+				(row.action !== 'KICK' || row.deliveryState === 'delivered') &&
 				row.effectiveAt !== null &&
-				row.revertedAt === null
+				row.revertedAt === null &&
+				(row.action === 'KICK' || (!!row.expiresAt && row.expiresAt > now))
 		)
 		.map((row) => row.action)
 		.filter(

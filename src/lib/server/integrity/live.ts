@@ -1,12 +1,14 @@
 import type { KillRow } from '../db/schema';
 import type { Status } from '$lib/types';
-import { countsAsInfantry, type WeaponCategory } from './weapons';
+import { classifyWeapon, countsAsInfantry, type WeaponCategory } from './weapons';
 
 export interface LiveInfantryMetrics {
 	infantryKills180: number;
 	kpm180: number;
 	peakKpm180: number;
 	uniqueVictims180: number;
+	/** A plausible infantry kill lacked a reliable weapon or faction classification. */
+	reliable: boolean;
 }
 
 /** Reconstruct current-match infantry figures from accepted feed rows. No KD risk is inferred. */
@@ -29,7 +31,30 @@ export function liveInfantryMetrics(
 		return new Map();
 	const clock = Math.max(latestClock, status?.matchSeconds ?? latestClock);
 	const byPlayer = new Map<string, KillRow[]>();
+	const uncertain = new Set<string>();
 	for (const row of matchRows) {
+		if (
+			row.killerSteamId &&
+			row.killerSteamId !== row.victimSteamId &&
+			!row.suicide &&
+			row.eventTime > clock - 600 &&
+			row.eventTime <= clock
+		) {
+			const category = classifyWeapon(
+				{
+					cause: row.cause,
+					tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
+					suicide: row.suicide
+				},
+				overrides
+			);
+			if (
+				category === 'UNKNOWN' ||
+				(category === 'INFANTRY' &&
+					(!row.killerFaction || !row.victimFaction || row.factionBracketed === false))
+			)
+				uncertain.add(row.killerSteamId);
+		}
 		if (
 			!countsAsInfantry(
 				{
@@ -40,7 +65,8 @@ export function liveInfantryMetrics(
 					killerSteamId: row.killerSteamId,
 					victimSteamId: row.victimSteamId,
 					killerFaction: row.killerFaction,
-					victimFaction: row.victimFaction
+					victimFaction: row.victimFaction,
+					factionBracketed: row.factionBracketed
 				},
 				overrides
 			)
@@ -51,7 +77,8 @@ export function liveInfantryMetrics(
 		byPlayer.set(row.killerSteamId!, player);
 	}
 	const result = new Map<string, LiveInfantryMetrics>();
-	for (const [steamId, playerRows] of byPlayer) {
+	for (const steamId of new Set([...byPlayer.keys(), ...uncertain])) {
+		const playerRows = byPlayer.get(steamId) ?? [];
 		playerRows.sort((a, b) => a.eventTime - b.eventTime);
 		let start = 0;
 		let peak = 0;
@@ -66,7 +93,8 @@ export function liveInfantryMetrics(
 			infantryKills180: current.length,
 			kpm180: current.length / 3,
 			peakKpm180: peak / 3,
-			uniqueVictims180: new Set(current.map((row) => row.victimSteamId)).size
+			uniqueVictims180: new Set(current.map((row) => row.victimSteamId)).size,
+			reliable: !uncertain.has(steamId)
 		});
 	}
 	return result;

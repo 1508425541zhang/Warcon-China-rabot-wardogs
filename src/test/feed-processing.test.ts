@@ -8,6 +8,7 @@ import {
 	integrityRules,
 	integrityScores,
 	integrityWindows,
+	kills,
 	organizations,
 	outbox,
 	playerSessions,
@@ -71,8 +72,30 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 					)
 				)
 		)[0];
-	const run = (job: Awaited<ReturnType<typeof jobOf>>) =>
-		processNextFeedJob(env, job.id, job.consumer as 'legacy' | 'integrity');
+	const run = async (job: Awaited<ReturnType<typeof jobOf>>) => {
+		if (job.consumer === 'integrity') {
+			const observedAt = new Date(job.killTs.getTime() + 1000);
+			await env.db
+				.update(playerSessions)
+				.set({
+					joinedAt: new Date(job.killTs.getTime() - 60_000),
+					lastSeen: observedAt
+				})
+				.where(eq(playerSessions.serverId, job.serverId));
+			await env.db
+				.insert(serverLive)
+				.values({
+					serverId: job.serverId,
+					playersAt: observedAt,
+					status: { map: 'Kavkazi' }
+				})
+				.onConflictDoUpdate({
+					target: serverLive.serverId,
+					set: { playersAt: observedAt, status: { map: 'Kavkazi' } }
+				});
+		}
+		return processNextFeedJob(env, job.id, job.consumer as 'legacy' | 'integrity');
+	};
 	beforeAll(async () => {
 		env = await testEnv();
 		world = await seedWorld(env);
@@ -517,5 +540,37 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 		expect((await jobOf(integrity.id)).state).toBe('pending');
 		expect(await run(legacy)).toBe(true);
 		expect((await jobOf(legacy.id)).state).toBe('done');
+	});
+	test('a faction change between feed receipt and the next player look cannot become infantry evidence', async () => {
+		const result = await ingestBatch(env, world.server.id, body('changed-faction'));
+		const event = result.kills[1];
+		await env.db
+			.update(playerSessions)
+			.set({ faction: 'Blue' })
+			.where(
+				and(
+					eq(playerSessions.serverId, world.server.id),
+					eq(playerSessions.steamId, event.victim.steamId)
+				)
+			);
+		try {
+			expect(await run(await jobAt(event.ts, 'integrity'))).toBe(true);
+			const [row] = await env.db
+				.select()
+				.from(kills)
+				.where(and(eq(kills.serverId, world.server.id), eq(kills.eventId, event.eventId)));
+			expect(row.factionBracketed).toBe(true);
+			expect(row.victimFaction).toBeNull();
+		} finally {
+			await env.db
+				.update(playerSessions)
+				.set({ faction: 'Red' })
+				.where(
+					and(
+						eq(playerSessions.serverId, world.server.id),
+						eq(playerSessions.steamId, event.victim.steamId)
+					)
+				);
+		}
 	});
 });

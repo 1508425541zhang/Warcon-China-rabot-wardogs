@@ -4,7 +4,6 @@ import {
 	integrityActionEligibility,
 	integrityActions,
 	integrityCases,
-	integrityModelState,
 	integrityPlayerCareers,
 	integrityReports,
 	integrityScores,
@@ -586,10 +585,9 @@ export async function processIntegrityBatch(
 							eq(integrityPlayerCareers.steamId, finding.steamId)
 						)
 					);
-				await tx
-					.update(integrityModelState)
-					.set({ baselineStatus: 'STALE', updatedAt: now })
-					.where(eq(integrityModelState.orgId, orgId));
+				// The active baseline is an immutable, versioned historical snapshot.
+				// A new case does not invalidate the entire organization's generation;
+				// the scheduled replay omits the affected episode from the next one.
 				if (legacyCase || (rules.assessmentMode === 'statistical' && statisticalCase))
 					alerts.push({
 						caseId,

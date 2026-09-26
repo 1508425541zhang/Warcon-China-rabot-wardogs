@@ -1,6 +1,13 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Env } from './env';
-import { feedProcessingJobs, kills, type FeedProcessingJob } from './db/schema';
+import {
+	feedProcessingJobs,
+	kills,
+	playerSessions,
+	serverLive,
+	type FeedProcessingJob,
+	type KillRow
+} from './db/schema';
 import { killView } from './feed';
 import { onKillsIngested } from './feed-events';
 import { processIntegrityBatch } from './integrity/pipeline';
@@ -63,6 +70,9 @@ export async function claimFeedJob(
 			WHERE id = (
 				SELECT j.id FROM feed_processing_jobs j
 				WHERE j.consumer = ${consumer}
+				  AND (j.consumer <> 'integrity' OR j.created_at <= now() - interval '60 seconds'
+				       OR EXISTS (SELECT 1 FROM server_live live WHERE live.server_id = j.server_id
+				           AND live.players_at > j.kill_ts))
 				  AND (${onlyId === undefined ? sql`TRUE` : sql`j.id = ${onlyId}`}) AND (
 				   (j.state = 'pending' AND (j.lease_until IS NULL OR j.lease_until <= now()))
 				   OR (j.state = 'processing' AND j.lease_until <= now()))
@@ -80,12 +90,95 @@ export async function claimFeedJob(
 	});
 }
 
+/** Trust a kill's session factions only when the next player look confirms both unchanged. */
+async function bracketFactions(
+	env: Env,
+	job: FeedProcessingJob,
+	rows: readonly KillRow[]
+): Promise<KillRow[]> {
+	const ids = [
+		...new Set(
+			rows.flatMap((row) =>
+				row.killerSteamId ? [row.killerSteamId, row.victimSteamId] : [row.victimSteamId]
+			)
+		)
+	];
+	const [[live], sessions] = await Promise.all([
+		env.db
+			.select({ playersAt: serverLive.playersAt, status: serverLive.status })
+			.from(serverLive)
+			.where(eq(serverLive.serverId, job.serverId))
+			.limit(1),
+		env.db
+			.select({
+				steamId: playerSessions.steamId,
+				faction: playerSessions.faction,
+				joinedAt: playerSessions.joinedAt,
+				lastSeen: playerSessions.lastSeen
+			})
+			.from(playerSessions)
+			.where(
+				and(
+					eq(playerSessions.serverId, job.serverId),
+					isNull(playerSessions.leftAt),
+					inArray(playerSessions.steamId, ids)
+				)
+			)
+	]);
+	const observedAt = live?.playersAt?.getTime() ?? 0;
+	const observedAfter =
+		observedAt > job.killTs.getTime() && observedAt <= job.killTs.getTime() + 60_000;
+	const map = (live?.status as { map?: unknown } | null)?.map;
+	const after = new Map(sessions.map((session) => [session.steamId, session]));
+	const out: KillRow[] = [];
+	for (const row of rows) {
+		if (row.factionBracketed) {
+			out.push(row);
+			continue;
+		}
+		const killer = row.killerSteamId ? after.get(row.killerSteamId) : null;
+		const victim = after.get(row.victimSteamId);
+		const same =
+			observedAfter &&
+			map === row.map &&
+			!!row.killerFaction &&
+			!!row.victimFaction &&
+			!!killer &&
+			!!victim &&
+			killer.joinedAt <= job.killTs &&
+			victim.joinedAt <= job.killTs &&
+			killer.lastSeen >= job.killTs &&
+			victim.lastSeen >= job.killTs &&
+			killer.lastSeen <= live!.playersAt! &&
+			victim.lastSeen <= live!.playersAt! &&
+			killer.faction === row.killerFaction &&
+			victim.faction === row.victimFaction;
+		const [updated] = await env.db
+			.update(kills)
+			.set({
+				factionBracketed: true,
+				...(!same ? { killerFaction: null, victimFaction: null, teamKill: false } : {})
+			})
+			.where(
+				and(
+					eq(kills.serverId, job.serverId),
+					eq(kills.ts, job.killTs),
+					eq(kills.eventId, row.eventId)
+				)
+			)
+			.returning();
+		if (!updated) throw new Error(`Feed job ${job.id} lost a kill during faction reconciliation`);
+		out.push(updated);
+	}
+	return out;
+}
+
 /** Run exactly the persisted batch. Missing source events keep the job retryable. */
 export async function processFeedJob(env: Env, job: FeedProcessingJob): Promise<void> {
 	const ids = job.eventIds;
 	if (!Array.isArray(ids) || !ids.length || ids.some((id) => typeof id !== 'string'))
 		throw new Error(`Feed job ${job.id} has invalid event IDs`);
-	const rows = await env.db
+	let rows = await env.db
 		.select()
 		.from(kills)
 		.where(
@@ -97,7 +190,9 @@ export async function processFeedJob(env: Env, job: FeedProcessingJob): Promise<
 		);
 	const byId = new Map(rows.map((row) => [row.eventId, row]));
 	if (byId.size !== ids.length) throw new Error(`Feed job ${job.id} is missing persisted kills`);
-	const batch = (ids as string[]).map((id) => killView(byId.get(id)!));
+	if (job.consumer === 'integrity') rows = await bracketFactions(env, job, rows);
+	const reconciled = new Map(rows.map((row) => [row.eventId, row]));
+	const batch = (ids as string[]).map((id) => killView(reconciled.get(id)!));
 	// A delayed replay still fills evidence, but cannot punish today's player for old kills.
 	const healthy = !feedBacklogUnsafe(await feedJobDepth(env, job.consumer as FeedConsumer));
 	const allowActions = healthy && Date.now() - job.createdAt.getTime() <= LIVE_MS;

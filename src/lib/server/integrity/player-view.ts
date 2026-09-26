@@ -84,6 +84,7 @@ export async function loadPlayerIntegrity(env: Env, server: ServerRow, steamId: 
 		recentKills.length <= 1000
 			? (liveInfantryMetrics(recentKills, status, mappings).get(steamId) ?? null)
 			: null;
+	const latestKill = recentKills[0];
 	return {
 		aliases: profile && Array.isArray(profile.aliases) ? (profile.aliases as string[]) : [],
 		firstSeen: profile?.firstSeen.toISOString() ?? null,
@@ -106,6 +107,10 @@ export async function loadPlayerIntegrity(env: Env, server: ServerRow, steamId: 
 			!!server.feedTokenHash &&
 			!!live?.feedAt &&
 			Date.now() - live.feedAt.getTime() < 5 * 60_000 &&
-			recentKills.length <= 1000
+			recentKills.length <= 1000 &&
+			!!latestKill &&
+			(!status?.map || status.map === latestKill.map) &&
+			(status?.matchSeconds == null || status.matchSeconds >= latestKill.eventTime - 5) &&
+			metrics?.reliable !== false
 	};
 }

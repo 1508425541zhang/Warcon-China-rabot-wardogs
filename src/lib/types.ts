@@ -168,6 +168,8 @@ export interface KillView {
 	/** null: the environment */
 	killer: { steamId: string; name: string; faction: string | null } | null;
 	victim: { steamId: string; name: string; faction: string | null };
+	/** False until both faction snapshots agree across this kill. */
+	factionBracketed?: boolean;
 	/** the raw weapon or vehicle tag; $lib/causes labels it */
 	cause: string | null;
 	distanceM: number | null;

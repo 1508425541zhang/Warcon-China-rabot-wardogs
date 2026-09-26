@@ -14,7 +14,7 @@ import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
 import { populationBucket, type MetricCode } from './statistics';
 
 const WINDOW_DAYS = 30;
-const MAX_SOURCE_EVENTS = 500_000;
+const REPLAY_PAGE_SIZE = 10_000;
 const MAX_PLAYER_DAY_CONTEXT = 20;
 const MAX_PLAYER_COHORT = 100;
 type Source = 'local' | 'external';
@@ -132,9 +132,17 @@ export function replayReferenceFeatures(
 	rows: readonly ReplayRow[],
 	overrides: ReadonlyMap<string, import('./weapons').WeaponCategory>
 ): ReferenceSample[] {
-	const windows = new InfantryWindows();
-	const samples: ReferenceSample[] = [];
-	for (const row of rows) {
+	const replay = new ReferenceReplay(overrides);
+	for (const row of rows) replay.add(row);
+	return replay.finish();
+}
+
+/** Carry rolling windows across database pages and cap each player's daily contribution in memory. */
+class ReferenceReplay {
+	private windows = new InfantryWindows();
+	private dayGroups = new Map<string, ReferenceSample[]>();
+	constructor(private overrides: ReadonlyMap<string, import('./weapons').WeaponCategory>) {}
+	add(row: ReplayRow): void {
 		const event: KillView = {
 			eventId: row.event_id,
 			ts: atDate(row.at).toISOString(),
@@ -153,15 +161,33 @@ export function replayReferenceFeatures(
 			teamKill: false
 		};
 		const feature = generateBatchFeatures(
-			windows,
+			this.windows,
 			`${row.source}:${row.server_id}`,
 			[event],
-			overrides,
+			this.overrides,
 			DEFAULT_INTEGRITY_RULES
 		).features[0];
-		if (feature) samples.push(...metricSamples(feature, row));
+		if (!feature) return;
+		for (const sample of metricSamples(feature, row)) {
+			const key = JSON.stringify([
+				sample.source,
+				sample.player,
+				sample.day,
+				sample.map,
+				sample.bucket,
+				sample.metric,
+				sample.weapon
+			]);
+			const group = this.dayGroups.get(key) ?? [];
+			group.push(sample);
+			group.sort((a, b) => rank(a.eventId) - rank(b.eventId));
+			if (group.length > MAX_PLAYER_DAY_CONTEXT) group.length = MAX_PLAYER_DAY_CONTEXT;
+			this.dayGroups.set(key, group);
+		}
 	}
-	return balancedSamples(samples);
+	finish(): ReferenceSample[] {
+		return balancedSamples([...this.dayGroups.values()].flat());
+	}
 }
 
 interface Cohort {
@@ -262,21 +288,25 @@ export async function refreshCleanIntegrityBaselines(env: Env, orgId: string): P
 	const started = Date.now();
 	const overrides = await weaponOverrides(env, orgId);
 	try {
-		return await env.db.transaction(async (tx) => {
-			const [locked] = await tx.execute(
-				sql`SELECT pg_try_advisory_xact_lock(hashtextextended(${'integrity-baseline:' + orgId}, 0)) AS locked`
-			);
-			if (!locked?.locked) return 0;
-			await tx.insert(integrityModelState).values({ orgId }).onConflictDoNothing();
-			const [state] = await tx
-				.select()
-				.from(integrityModelState)
-				.where(eq(integrityModelState.orgId, orgId))
-				.for('update');
-			const now = new Date();
-			const since = new Date(now.getTime() - WINDOW_DAYS * 86_400_000);
-			const until = new Date(now.getTime() - 10 * 60_000);
-			const rows = (await tx.execute(sql`
+		return await env.db.transaction(
+			async (tx) => {
+				const [locked] = await tx.execute(
+					sql`SELECT pg_try_advisory_xact_lock(hashtextextended(${'integrity-baseline:' + orgId}, 0)) AS locked`
+				);
+				if (!locked?.locked) return 0;
+				await tx.insert(integrityModelState).values({ orgId }).onConflictDoNothing();
+				const [state] = await tx
+					.select()
+					.from(integrityModelState)
+					.where(eq(integrityModelState.orgId, orgId))
+					.for('update');
+				const now = new Date();
+				const since = new Date(now.getTime() - WINDOW_DAYS * 86_400_000);
+				const until = new Date(now.getTime() - 10 * 60_000);
+				const replay = new ReferenceReplay(overrides);
+				let offset = 0;
+				for (;;) {
+					const page = (await tx.execute(sql`
 				SELECT 'local' AS source, k.server_id, k.event_id, k.ts AS at, k.instance_id,
 				k.match_id, k.match_row, k.event_time, k.map, k.killer_steam_id,
 				k.victim_steam_id, k.killer_faction, k.victim_faction, k.cause,
@@ -289,14 +319,23 @@ export async function refreshCleanIntegrityBaselines(env: Env, orgId: string): P
 				WHERE s.org_id = ${orgId} AND k.ts >= ${since} AND k.ts < ${until}
 				AND k.match_row IS NOT NULL
 				AND k.killer_steam_id IS NOT NULL AND k.killer_faction IS NOT NULL
-				AND k.victim_faction IS NOT NULL AND NOT k.team_kill AND NOT k.suicide
+				AND k.victim_faction IS NOT NULL AND k.faction_bracketed
+				AND NOT k.team_kill AND NOT k.suicide
 				AND EXISTS (SELECT 1 FROM feed_processing_jobs j WHERE j.server_id = k.server_id
 					AND j.consumer = 'integrity' AND j.kill_ts = k.ts AND j.event_ids ? k.event_id AND j.state = 'done'
-					AND j.attempts = 1 AND j.done_at <= j.created_at + interval '5 minutes')
-				AND NOT EXISTS (SELECT 1 FROM integrity_cases c WHERE c.org_id = ${orgId}
-					AND c.steam_id = k.killer_steam_id)
-				AND NOT EXISTS (SELECT 1 FROM integrity_actions a WHERE a.org_id = ${orgId}
-					AND a.steam_id = k.killer_steam_id AND a.created_at >= ${since})
+					AND j.attempts = 1 AND (
+						j.done_at <= j.created_at + interval '5 minutes'
+						OR EXISTS (SELECT 1 FROM feed_processing_jobs legacy
+							WHERE legacy.server_id = j.server_id AND legacy.kill_ts = j.kill_ts
+							AND legacy.event_ids ? k.event_id AND legacy.consumer = 'legacy'
+							AND legacy.state = 'done' AND legacy.attempts = 1
+							AND legacy.done_at <= legacy.created_at + interval '5 minutes')
+					))
+				AND NOT EXISTS (SELECT 1 FROM integrity_case_events ce
+					JOIN integrity_cases c ON c.id = ce.case_id
+					WHERE c.org_id = ${orgId} AND c.steam_id = k.killer_steam_id
+					AND c.server_id = k.server_id AND ce.instance_id = k.instance_id
+					AND ce.event_id = k.event_id)
 				UNION ALL
 				SELECT 'external' AS source, 'external:' || i.source_server AS server_id,
 				i.event_id, i.event_at AS at, i.instance_id, i.match_id, NULL::bigint AS match_row,
@@ -306,94 +345,108 @@ export async function refreshCleanIntegrityBaselines(env: Env, orgId: string): P
 				FROM integrity_import_kills i JOIN integrity_import_batches b ON b.id = i.batch_id
 				WHERE i.org_id = ${orgId} AND b.status = 'APPROVED'
 				AND i.event_at >= ${since} AND i.event_at < ${until}
-				AND NOT EXISTS (SELECT 1 FROM integrity_cases c WHERE c.org_id = ${orgId}
-					AND c.steam_id = i.killer_steam_id)
-				ORDER BY source, server_id, at, event_time, event_id
-				LIMIT ${MAX_SOURCE_EVENTS + 1}
+				ORDER BY source, server_id, at, event_time, event_id, match_id, victim_steam_id
+				LIMIT ${REPLAY_PAGE_SIZE} OFFSET ${offset}
 			`)) as ReplayRow[];
-			if (rows.length > MAX_SOURCE_EVENTS)
-				throw new Error('Baseline replay exceeds bounded event limit.');
-			const samples = replayReferenceFeatures(rows, overrides);
-			// The clean, case-excluded replay also feeds long-term personal references.
-			const byEvent = new Map<string, Map<MetricCode, ReferenceSample>>();
-			for (const sample of samples.filter((item) => item.source === 'local')) {
-				const key = `${sample.serverId}:${sample.eventId}`;
-				const metrics = byEvent.get(key) ?? new Map<MetricCode, ReferenceSample>();
-				metrics.set(sample.metric, sample);
-				byEvent.set(key, metrics);
-			}
-			const history = [...byEvent.values()].flatMap((metrics) => {
-				const kpm = metrics.get('kpm180');
-				if (!kpm || !metrics.has('maxKills15s')) return [];
-				return [
-					{
+					for (const row of page) replay.add(row);
+					offset += page.length;
+					if (page.length < REPLAY_PAGE_SIZE) break;
+				}
+				const samples = replay.finish();
+				// The clean replay excludes case episodes, while retaining the player's
+				// independent history on either side for personal references.
+				const byEvent = new Map<string, Map<MetricCode, ReferenceSample>>();
+				for (const sample of samples.filter((item) => item.source === 'local')) {
+					const key = `${sample.serverId}:${sample.eventId}`;
+					const metrics = byEvent.get(key) ?? new Map<MetricCode, ReferenceSample>();
+					metrics.set(sample.metric, sample);
+					byEvent.set(key, metrics);
+				}
+				const history = [...byEvent.values()].flatMap((metrics) => {
+					const kpm = metrics.get('kpm180');
+					if (!kpm || !metrics.has('maxKills15s')) return [];
+					return [
+						{
+							orgId,
+							steamId: kpm.player,
+							serverId: kpm.serverId,
+							roundId: kpm.roundId,
+							eventId: kpm.eventId,
+							observedAt: kpm.at,
+							kpm180: kpm.value,
+							headshotRate: metrics.get('headshotRate')?.value ?? null,
+							maxKills15s: Math.round(metrics.get('maxKills15s')!.value),
+							featureVersion: STATISTICAL_MODEL_CONFIG.featureVersion,
+							modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion
+						}
+					];
+				});
+				for (let i = 0; i < history.length; i += 1000)
+					await tx
+						.insert(integrityPlayerMetricHistory)
+						.values(history.slice(i, i + 1000))
+						.onConflictDoNothing();
+				const generation = crypto.randomUUID();
+				const newRows = cohorts(samples)
+					.filter((group) => group.samples.length >= 30)
+					.map((group) => ({
+						id: crypto.randomUUID(),
 						orgId,
-						steamId: kpm.player,
-						serverId: kpm.serverId,
-						roundId: kpm.roundId,
-						eventId: kpm.eventId,
-						observedAt: kpm.at,
-						kpm180: kpm.value,
-						headshotRate: metrics.get('headshotRate')?.value ?? null,
-						maxKills15s: Math.round(metrics.get('maxKills15s')!.value),
+						source: group.source,
+						metric: group.metric,
+						level: group.level,
+						map: group.map,
+						populationBucket: group.bucket,
+						weaponCategory: group.weapon,
+						...summarize(group),
+						windowDays: WINDOW_DAYS,
+						calculatedAt: now,
+						modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
 						featureVersion: STATISTICAL_MODEL_CONFIG.featureVersion,
-						modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion
-					}
-				];
-			});
-			for (let i = 0; i < history.length; i += 1000)
+						weaponMapVersion: state.weaponMapVersion,
+						generation
+					}));
+				if (!newRows.length) throw new Error('No eligible clean baseline cohorts.');
+				await tx.delete(integrityBaselines).where(eq(integrityBaselines.orgId, orgId));
+				await tx.insert(integrityBaselines).values(newRows);
 				await tx
-					.insert(integrityPlayerMetricHistory)
-					.values(history.slice(i, i + 1000))
-					.onConflictDoNothing();
-			const generation = crypto.randomUUID();
-			const newRows = cohorts(samples)
-				.filter((group) => group.samples.length >= 30)
-				.map((group) => ({
-					id: crypto.randomUUID(),
-					orgId,
-					source: group.source,
-					metric: group.metric,
-					level: group.level,
-					map: group.map,
-					populationBucket: group.bucket,
-					weaponCategory: group.weapon,
-					...summarize(group),
-					windowDays: WINDOW_DAYS,
-					calculatedAt: now,
-					modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
-					featureVersion: STATISTICAL_MODEL_CONFIG.featureVersion,
-					weaponMapVersion: state.weaponMapVersion,
-					generation
-				}));
-			if (!newRows.length) throw new Error('No eligible clean baseline cohorts.');
-			await tx.delete(integrityBaselines).where(eq(integrityBaselines.orgId, orgId));
-			await tx.insert(integrityBaselines).values(newRows);
-			await tx
-				.update(integrityModelState)
-				.set({
-					activeBaselineGeneration: generation,
-					baselineStatus: 'READY',
-					lastRefreshAt: now,
-					lastDurationMs: Date.now() - started,
-					updatedAt: now
-				})
-				.where(eq(integrityModelState.orgId, orgId));
-			return newRows.length;
-		});
+					.update(integrityModelState)
+					.set({
+						activeBaselineGeneration: generation,
+						baselineStatus: 'READY',
+						lastRefreshAt: now,
+						lastDurationMs: Date.now() - started,
+						updatedAt: now
+					})
+					.where(eq(integrityModelState.orgId, orgId));
+				return newRows.length;
+			},
+			{ isolationLevel: 'repeatable read' }
+		);
 	} catch (error) {
+		const [current] = await env.db
+			.select()
+			.from(integrityModelState)
+			.where(eq(integrityModelState.orgId, orgId))
+			.limit(1);
+		const keepReady =
+			current?.baselineStatus === 'READY' &&
+			!!current.activeBaselineGeneration &&
+			!!current.lastRefreshAt &&
+			Date.now() - current.lastRefreshAt.getTime() <=
+				STATISTICAL_MODEL_CONFIG.maximumBaselineAgeHours * 60 * 60_000;
 		await env.db
 			.insert(integrityModelState)
 			.values({
 				orgId,
-				baselineStatus: 'STALE',
+				baselineStatus: keepReady ? 'READY' : 'STALE',
 				lastFailureAt: new Date(),
 				lastDurationMs: Date.now() - started
 			})
 			.onConflictDoUpdate({
 				target: integrityModelState.orgId,
 				set: {
-					baselineStatus: 'STALE',
+					baselineStatus: keepReady ? 'READY' : 'STALE',
 					lastFailureAt: new Date(),
 					lastDurationMs: Date.now() - started
 				}

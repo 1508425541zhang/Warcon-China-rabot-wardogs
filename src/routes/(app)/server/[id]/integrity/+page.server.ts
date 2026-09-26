@@ -122,6 +122,11 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		for (const row of liveScores)
 			if (!recentScore.has(row.steamId)) recentScore.set(row.steamId, row);
 		const infantry = liveInfantryMetrics(recentKills.slice(0, 3000), status, mappings);
+		const latestKill = recentKills[0];
+		const feedMetricsAvailable =
+			!!latestKill &&
+			(!status?.map || status.map === latestKill.map) &&
+			(status?.matchSeconds == null || status.matchSeconds >= latestKill.eventTime - 5);
 		const onlinePlayers = roster
 			.filter((player) => /^\d{17}$/.test(player.steamId))
 			.map((player) => ({
@@ -228,6 +233,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			feedConfigured: !!server.feedTokenHash,
 			playersAt: live?.playersAt?.toISOString() ?? null,
 			feedRowsTruncated: recentKills.length > 3000,
+			feedMetricsAvailable,
 			onlinePlayers,
 			ruleVersion: rules.version,
 			assessmentMode: rules.assessmentMode,

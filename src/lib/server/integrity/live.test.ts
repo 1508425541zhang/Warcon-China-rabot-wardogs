@@ -32,6 +32,16 @@ describe('online infantry metrics', () => {
 		expect(result?.kpm180).toBe(4);
 		expect(result?.uniqueVictims180).toBe(12);
 		expect(result?.peakKpm180).toBe(4);
+		expect(result?.reliable).toBe(false); // An unclassified cause may have been infantry.
+	});
+	test('missing faction makes a plausible infantry KPM unavailable instead of zero', () => {
+		const result = liveInfantryMetrics(
+			[make(100, 'victim', { killerFaction: null })],
+			{ map: 'map-a', matchSeconds: 101 },
+			new Map()
+		).get('76561198000000101');
+		expect(result?.kpm180).toBe(0);
+		expect(result?.reliable).toBe(false);
 	});
 
 	test('old kills leave the rolling window and a new round clears the old map', () => {

@@ -418,7 +418,9 @@ export async function enforceIntegrityCase(
 			source: 'RULE',
 			listEntryId,
 			createdAt: now,
-			effectiveAt: null,
+			// The panel ban exists in this transaction. The outbox tracks the separate
+			// immediate kick; a failed kick does not undo the quarantine.
+			effectiveAt: decision === 'KICK' ? null : now,
 			deliveryState: 'pending',
 			expiresAt
 		});

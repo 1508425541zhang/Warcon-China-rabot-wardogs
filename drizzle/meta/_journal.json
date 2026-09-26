@@ -351,6 +351,20 @@
       "when": 1790350021169,
       "tag": "0049_daily_fallen_one",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1790350021170,
+      "tag": "0050_feed_integrity_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1790350021171,
+      "tag": "0051_kill_faction_bracket",
+      "breakpoints": true
     }
   ]
 }

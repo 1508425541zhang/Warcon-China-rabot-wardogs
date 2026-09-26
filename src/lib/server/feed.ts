@@ -162,6 +162,7 @@ export function killView(r: KillRow): KillView {
 			? { steamId: r.killerSteamId, name: r.killerName ?? '', faction: r.killerFaction }
 			: null,
 		victim: { steamId: r.victimSteamId, name: r.victimName, faction: r.victimFaction },
+		factionBracketed: r.factionBracketed,
 		cause: r.cause,
 		distanceM: r.distanceM,
 		distanceInvalid: r.distanceInvalid,

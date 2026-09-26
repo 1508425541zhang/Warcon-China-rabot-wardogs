@@ -46,6 +46,26 @@ describe.skipIf(!hasTestDb)('existing database upgrade', () => {
 					score, level, breakdown, current_behavior_anomaly, source)
 				VALUES ('legacy-org', 'legacy-server', '76561198000000001', now(), 1,
 					30, 'ACTIVE_WATCH', '[]'::jsonb, true, 'window')`);
+			const before47 = { ...journal, entries: journal.entries.filter((entry) => entry.idx <= 46) };
+			await writeFile(join(folder, 'meta', '_journal.json'), JSON.stringify(before47));
+			for (const entry of before47.entries.filter((entry) => entry.idx > 41))
+				await copyFile(join(full, `${entry.tag}.sql`), join(folder, `${entry.tag}.sql`));
+			await runMigrations(connection.db, folder);
+			await connection.db.execute(sql`
+				INSERT INTO organizations (id, name, slug) VALUES ('upgrade-org', 'Upgrade', 'upgrade')`);
+			await connection.db.execute(sql`
+				INSERT INTO servers (id, org_id, name, host, port, password_enc)
+				VALUES ('upgrade-server', 'upgrade-org', 'Upgrade', '127.0.0.1', 7776, 'fixture')`);
+			await connection.db.execute(sql`
+				INSERT INTO kills (ts, server_id, event_id, instance_id, match_id, event_time,
+					map, killer_steam_id, victim_steam_id, victim_name, cause, tags)
+				VALUES (now() - interval '1 hour', 'upgrade-server', 'old-kill', 'boot', 'match', 1,
+					'Kavkazi', '76561198000000001', '76561198000000002', 'Victim', 'Id.Item.AK74M', '[]'::jsonb)`);
+			await connection.db.execute(sql`
+				INSERT INTO feed_processing_jobs (server_id, kill_ts, event_ids, created_at, state,
+					attempts, done_at)
+				SELECT server_id, ts, '["old-kill"]'::jsonb, ts, 'done', 1, ts + interval '1 minute'
+				FROM kills WHERE server_id = 'upgrade-server'`);
 			await runMigrations(connection.db, full);
 			expect(await migrationStatus(connection.db, full)).toMatchObject({
 				pending: 0,
@@ -100,6 +120,14 @@ describe.skipIf(!hasTestDb)('existing database upgrade', () => {
 			const [archived] = await connection.db.execute(sql`
 				SELECT COUNT(*)::int AS n FROM integrity_scores_orphaned_0042`);
 			expect(archived.n).toBe(1);
+			const jobs = await connection.db.execute(sql`
+				SELECT consumer, state, attempts, created_at FROM feed_processing_jobs
+				WHERE server_id = 'upgrade-server' ORDER BY consumer`);
+			expect(jobs.map((job) => job.consumer)).toEqual(['integrity', 'legacy']);
+			expect(jobs[0]).toMatchObject({ state: 'pending', attempts: 0 });
+			expect(new Date(jobs[0].created_at as string).getTime()).toBeLessThan(
+				Date.now() - 5 * 60_000
+			);
 			await connection.db.execute(sql`
 				UPDATE drizzle.__drizzle_migrations SET created_at = created_at + 1
 				WHERE id = (SELECT MAX(id) FROM drizzle.__drizzle_migrations)`);
