@@ -1,3 +1,5 @@
+import { aiJobViews } from '$lib/server/integrity/ai-queue';
+import { SYSTEM, PROMPT_VERSION } from '$lib/server/integrity/ai-protocol';
 import { getEnv } from '$lib/server/env';
 import { requireServerCap, orgRoleFor } from '$lib/server/access';
 import { aiSettings } from '$lib/server/integrity/ai';
@@ -21,9 +23,19 @@ export const load = async ({ locals, params }: import('./$types').PageServerLoad
 		.orderBy(desc(integrityCases.createdAt))
 		.limit(100);
 	return {
+		jobs: await aiJobViews(
+			env,
+			cases.map((c) => c.id)
+		),
+		prompt: SYSTEM,
+		promptVersion: PROMPT_VERSION,
 		canConfigure: (await orgRoleFor(env, user, server.orgId)) === 'owner',
 		config: config
 			? {
+					autoEnabled: config.autoEnabled,
+					dailyLimit: config.dailyLimit,
+					dailyRequests:
+						config.budgetDay === new Date().toISOString().slice(0, 10) ? config.dailyRequests : 0,
 					baseUrl: config.baseUrl,
 					model: config.model,
 					maxTokens: config.maxTokens,
