@@ -1,4 +1,5 @@
 import type { KillRow } from '../db/schema';
+import { mapId } from '$lib/format';
 import type { Status } from '$lib/types';
 import { classifyWeapon, countsAsInfantry, type WeaponCategory } from './weapons';
 
@@ -18,7 +19,7 @@ export function liveInfantryMetrics(
 	overrides: ReadonlyMap<string, WeaponCategory>
 ): Map<string, LiveInfantryMetrics> {
 	const newest = rows[0];
-	if (!newest || (status?.map && status.map !== newest.map)) return new Map();
+	if (!newest || (status?.map && mapId(status.map) !== mapId(newest.map))) return new Map();
 	const matchRows = rows.filter(
 		(row) => row.instanceId === newest.instanceId && row.map === newest.map
 	);

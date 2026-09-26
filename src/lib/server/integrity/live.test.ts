@@ -19,6 +19,21 @@ const make = (clock: number, victim: string, changes: Partial<KillRow> = {}): Ki
 	}) as KillRow;
 
 describe('online infantry metrics', () => {
+	test('a live display name does not hide accepted kills with a catalog map ID', () => {
+		const result = liveInfantryMetrics(
+			[
+				make(100, 'victim', {
+					map: 'Europe',
+					factionBracketed: true,
+					factionObservedAt: new Date()
+				})
+			],
+			{ map: 'Ozeti', matchSeconds: 101 },
+			new Map()
+		).get('76561198000000101');
+		expect(result?.kpm180).toBeCloseTo(1 / 3);
+		expect(result?.reliable).toBe(true);
+	});
 	test('uses the match clock, distinct victims and exact infantry classification', () => {
 		const rows = Array.from({ length: 12 }, (_, i) => make(100 + i * 10, `victim-${i}`));
 		rows.push(make(215, 'vehicle-victim', { tags: ['VehicleExplosion'] }));

@@ -1,4 +1,5 @@
 import type { ServerLiveRow } from './db/schema';
+import { mapId } from '$lib/format';
 
 /** Read the actual player list, not player_sessions (whose faction is heartbeat-delayed). */
 export function rosterFactions(
@@ -14,7 +15,7 @@ export function rosterFactions(
 	)
 		return null;
 	const status = live.status as { map?: unknown; scores?: unknown } | null;
-	if (status?.map !== map) return null;
+	if (typeof status?.map !== 'string' || mapId(status.map) !== mapId(map)) return null;
 	const teams = Array.isArray(status.scores)
 		? new Set(
 				status.scores

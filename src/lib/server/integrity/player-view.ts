@@ -1,4 +1,5 @@
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { mapId } from '$lib/format';
 import type { Env } from '../env';
 import type { ServerRow } from '../db/schema';
 import {
@@ -109,8 +110,7 @@ export async function loadPlayerIntegrity(env: Env, server: ServerRow, steamId: 
 			Date.now() - live.feedAt.getTime() < 5 * 60_000 &&
 			recentKills.length <= 1000 &&
 			!!latestKill &&
-			(!status?.map || status.map === latestKill.map) &&
-			(status?.matchSeconds == null || status.matchSeconds >= latestKill.eventTime - 5) &&
-			metrics?.reliable !== false
+			(!status?.map || mapId(status.map) === mapId(latestKill.map)) &&
+			(status?.matchSeconds == null || status.matchSeconds >= latestKill.eventTime - 5)
 	};
 }

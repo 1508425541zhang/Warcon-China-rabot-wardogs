@@ -597,7 +597,11 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	const s = settings();
 	const heartbeatDue = started - m.presence.heartbeatAt >= s.sessionHeartbeatMs;
 	const liveKey = liveKeyOf(m);
-	const liveDue = liveKey !== m.liveKey || started - m.liveWrittenAt >= LIVE_HEARTBEAT_MS;
+	// Feed reconciliation needs each actual roster observation, including faction switches.
+	const liveDue =
+		(!!players && !!server.feedTokenHash) ||
+		liveKey !== m.liveKey ||
+		started - m.liveWrittenAt >= LIVE_HEARTBEAT_MS;
 	const sampleKey = sampleKeyOf(m);
 	const sampleDue =
 		!!m.status && (sampleKey !== m.sampleKey || started - m.sampleWrittenAt >= s.sampleMs);
