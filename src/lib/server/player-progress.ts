@@ -26,7 +26,7 @@ export async function recordPlayerProgress(
 			observedAt,
 			players: players
 				.filter((p) => /^\d{17}$/.test(p.steamId) && Number.isFinite(p.cash))
-				.map((p) => ({ steamId: p.steamId, cash: p.cash }))
+				.map((p) => ({ steamId: p.steamId, cash: p.cash, kills: p.kills, deaths: p.deaths }))
 		})
 		.onConflictDoNothing();
 }

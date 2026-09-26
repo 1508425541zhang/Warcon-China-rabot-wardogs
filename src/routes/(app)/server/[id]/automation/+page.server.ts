@@ -1,3 +1,4 @@
+import { numericLimitView } from '$lib/server/numeric-limits';
 import { skillBalanceView } from '$lib/server/skill-balance';
 import { factionLockView } from '$lib/server/faction-lock';
 import { weaponRestrictionView } from '$lib/server/weapon-restrictions';
@@ -21,17 +22,21 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
 	try {
 		const { server } = await requireServerCap(env, locals, params.id, 'automation.manage');
-		const [skillBalance, factionLock, weaponRestriction, [live]] = await Promise.all([
-			skillBalanceView(env, server.id),
-			factionLockView(env, server.id),
-			weaponRestrictionView(env, server.id),
-			env.db
-				.select({ status: serverLive.status })
-				.from(serverLive)
-				.where(eq(serverLive.serverId, server.id))
-		]);
+		const [numericLimits, skillBalance, factionLock, weaponRestriction, [live]] = await Promise.all(
+			[
+				numericLimitView(env, server.id),
+				skillBalanceView(env, server.id),
+				factionLockView(env, server.id),
+				weaponRestrictionView(env, server.id),
+				env.db
+					.select({ status: serverLive.status })
+					.from(serverLive)
+					.where(eq(serverLive.serverId, server.id))
+			]
+		);
 		// What the kinds need before they can run here, so the Add menu and the editor can say so.
 		return {
+			numericLimits,
 			skillBalance,
 			factionLock,
 			weaponRestriction,

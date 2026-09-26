@@ -11,7 +11,9 @@
 	let busy = $state(false),
 		message = $state('');
 	const states: Record<string, string> = {
-		waiting_safe: '等待安全调队接口',
+		waiting_safe: '等待刷新旧计划',
+		waiting_death: '逐人等待被击杀',
+		waiting: '等待下一次被击杀',
 		cancelled: '候选已作废',
 		done: '已完成',
 		executing: '执行中',
@@ -32,7 +34,7 @@
 				leadPoints: lead
 			});
 			await invalidateAll();
-			message = enabled ? '候选监测已启用／保存；自动交换因安全状态缺失而阻止' : '已关闭';
+			message = enabled ? '已启用／保存：选人后等待各自被击杀事件再调队' : '已关闭';
 		} catch (e) {
 			message = errorMessage(e);
 		} finally {
@@ -43,21 +45,20 @@
 
 <section class="space-y-4 panel p-5">
 	<h2 class="text-lg font-semibold">
-		强弱阵营平衡 · {data.rule.enabled ? '候选监测已开启' : '默认关闭'}
+		强弱阵营平衡 · {data.rule.enabled ? '已开启（死亡事件触发）' : '默认关闭'}
 	</h2>
 	<p class="text-sm text-mist-300">
 		仅三阵营对局：最高分阵营必须比另外两队各高出超过 {lead} 分。取领先方 KPM 最高的3人，与最低分方 KPM
-		最低的3人交换；KPM相同时按KD排序。中间阵营不动，每局维护一份候选计划。
+		最低的3人交换；KPM相同时按KD排序。中间阵营不动，每局最多一轮计划；选定名单后逐人等待死亡。
 	</p>
 	<p class="text-sm text-mist-400">
 		KPM使用最近180秒有效击杀数÷3（包括枪械、载具等；排除自杀和已知队杀）；KD使用本局已收到的击杀÷max(死亡,1)。只选连续在线满180秒且近期没有面板调队记录的玩家。没有可靠的当前对局Feed或阵营分数时不执行，不能用未知数据补零。两名次榜都没有改善时不调队。
 	</p>
-	<p class="rounded border border-amber-400/30 p-3 text-sm text-amber-300" role="status">
-		自动交换暂不可用：{data.executionBlock}
+	<p class="rounded border border-white/10 p-3 text-sm text-mist-300">
+		选中玩家被其他玩家击杀后，立即尝试修改阵营；没有新死亡事件就继续等待。只用选人之后、同一对局且接收不超过5秒的事件；自杀、已知队杀、旧记录和重复事件不触发。不会调用强制死亡接口。
 	</p>
 	<p class="text-sm text-mist-400">
-		必须在确认死亡或无装备的刚重生阶段才可交换。当前仅监测候选；死亡计数增加或收到Kill
-		Feed不能证明现在仍然死亡。
+		两边可以先后死亡、分批交换。每名玩家的执行状态会单独记录；满员等待下一次死亡，结果不明确则停止该对玩家的自动重试。死亡事件可能有网络延迟，本方式按事件触发，无法读取当前装备状态。
 	</p>
 	<div class="flex flex-wrap items-center gap-4">
 		<label
@@ -79,18 +80,14 @@
 			/></label
 		>
 		<button class="btn btn-primary" disabled={busy} onclick={() => save(!data.rule.enabled)}
-			>{busy
-				? '保存中…'
-				: data.rule.enabled
-					? '关闭候选监测'
-					: '开启候选监测（不自动调队）'}</button
+			>{busy ? '保存中…' : data.rule.enabled ? '关闭强弱阵营平衡' : '开启强弱阵营平衡'}</button
 		>
 		<button class="btn-secondary btn" disabled={busy} onclick={() => save(data.rule.enabled)}
 			>保存参数</button
 		>
 	</div>
 	{#if message}<p role="status">{message}</p>{/if}
-	<h3 class="font-semibold">最近20局候选计划</h3>
+	<h3 class="font-semibold">最近20局平衡计划与执行状态</h3>
 	{#each data.runs as run (run.id)}
 		<details class="rounded border border-white/10 p-3">
 			<summary>{fmtTime(run.createdAt)} · {states[run.state] ?? run.state} · {run.reason}</summary>
@@ -106,6 +103,6 @@
 				</p>{/each}
 		</details>
 	{:else}<p class="text-sm text-mist-400">
-			暂无候选计划。开启后会自动选人；只有接入可靠的死亡／重生条件调队接口后，才能实现自动交换。
+			暂无平衡计划。开启后满足条件即选人，再等待各自的新被击杀事件执行。
 		</p>{/each}
 </section>
