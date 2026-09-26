@@ -379,6 +379,13 @@
       "when": 1790350021173,
       "tag": "0053_player_progress_samples",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1790350021174,
+      "tag": "0054_faction_lock",
+      "breakpoints": true
     }
   ]
 }

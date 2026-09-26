@@ -1,3 +1,4 @@
+import { runFactionLock } from './faction-lock';
 import { recordPlayerProgress } from './player-progress';
 // One observation of one game server, and the worker's memory of every server it watches.
 //
@@ -482,6 +483,7 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	const wasOffline = m.failures >= OFFLINE_AFTER_FAILURES;
 	// Any failure may have been a restart onto a new build: re-read the identity on recovery.
 	const hadFailed = m.failures > 0;
+	const previousFactions = new Map(m.players.map((p) => [p.steamId, p.faction]));
 	const prevPlayersAt = m.playersAt;
 	const prevStatusAt = m.statusAt;
 	m.failures = 0;
@@ -752,6 +754,21 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	if (players && saved && m.status && started - m.statusAt < 30_000)
 		await stage('progress', m, () =>
 			withOwnedTransaction(env, (tx) => recordPlayerProgress(tx, server.id, players!, ts))
+		);
+	if (players && saved && m.status && isOwner())
+		await stage('faction-lock', m, () =>
+			runFactionLock(env, server, client, {
+				players: players!,
+				status: m.status!,
+				statusAt: m.statusAt,
+				trusted: joinsTrusted,
+				changes: players!
+					.filter((p) => previousFactions.get(p.steamId) !== p.faction)
+					.map((player) => ({ player, from: previousFactions.get(player.steamId) ?? null })),
+				startupAt: m.startedAt,
+				boundary: !!matchEnd,
+				now: ts
+			})
 		);
 	if (isOwner()) await stage('lists', m, () => keepLists(env, m, client, started, ts));
 	// After the lists, so a ban just placed removes the player at this look, not the next.
