@@ -774,7 +774,7 @@
 <div class="mb-5 space-y-4">
 	<details class="mb-4 panel p-4">
 		<summary class="cursor-pointer font-semibold"
-			>强弱阵营平衡 · {data.skillBalance.rule.enabled ? '已启用' : '未启用'}（点击设置）</summary
+			>强弱阵营平衡 · {data.skillBalance.rule.enabled ? '候选监测已启用' : '未启用'}（点击设置）</summary
 		>
 		<div class="mt-3">
 			<SkillBalanceSettings data={data.skillBalance} serverId={data.server.id} />
