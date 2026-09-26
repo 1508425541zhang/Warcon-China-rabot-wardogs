@@ -1,3 +1,4 @@
+import { STATISTICAL_MODEL_CONFIG, actionBaselineEligible } from './statistical-config';
 /** Empirical, server-history-based Integrity assessment. Values are never treated as normal data. */
 export type MetricTail = 'upper' | 'lower';
 export type MetricCode =
@@ -256,15 +257,14 @@ export function assessDistribution(
 		(tempo !== null && tempo >= 0.99 && precision !== null && precision >= 0.99);
 	// A second Tempo measurement from the same episode is not independent evidence.
 	// P99.95 needs enough observations to resolve the tail; low-sample baselines remain review-only.
-	const actionMetrics = metrics.filter(
-		(metric) => metric.sampleCount >= 5000 && metric.code !== 'maxKillDistanceWeapon'
-	);
+	const actionMetrics = metrics.filter((metric) => actionBaselineEligible(metric));
 	const actionTempo = maxFor('Tempo', actionMetrics);
 	const actionPrecision = maxFor('Precision', actionMetrics);
 	const kickCandidate =
 		actionTempo !== null &&
-		actionTempo >= 0.9995 &&
-		((actionPrecision !== null && actionPrecision >= 0.995) || independentEpisodes >= 2);
+		actionTempo >= STATISTICAL_MODEL_CONFIG.kickPercentile &&
+		((actionPrecision !== null && actionPrecision >= STATISTICAL_MODEL_CONFIG.watchPercentile) ||
+			independentEpisodes >= 2);
 	const level: StatisticalLevel | null = !ready
 		? null
 		: kickCandidate

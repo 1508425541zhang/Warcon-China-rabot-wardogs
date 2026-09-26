@@ -31,10 +31,14 @@ import { publicMessage } from '../http';
 import { evidenceIds, independentEpisode, overlapsEvidence } from './independence';
 import { loadBaselines, loadWeaponBaselines, populationAt } from './baselines';
 import { assessDistribution, type StatisticalAssessment } from './statistics';
-import { STATISTICAL_AUTO_ACTION_ENABLED, STATISTICAL_MODEL_CONFIG } from './statistical-config';
+import {
+	STATISTICAL_AUTO_ACTION_ENABLED,
+	STATISTICAL_MODEL_CONFIG,
+	actionBaselineEligible
+} from './statistical-config';
 import { assessCommittee, hasStatisticalAnomaly } from './committee';
 import { loadCleanCareerContext } from './career-context';
-import { shouldRetryActionEligibility } from './action-retry';
+import { shouldRetryActionEligibility, canReuseStatisticalCase } from './action-retry';
 import type { KillView } from '$lib/types';
 
 const infantry = new InfantryWindows();
@@ -330,8 +334,8 @@ export async function processIntegrityBatch(
 				statistical.baselineCalculatedAt = statistical.metrics.length
 					? statistical.metrics.map((metric) => metric.calculatedAt).sort()[0]
 					: null;
-				const localActionMetrics = statistical.metrics.filter(
-					(metric) => metric.source === 'local' && metric.code !== 'maxKillDistanceWeapon'
+				const localActionMetrics = statistical.metrics.filter((metric) =>
+					actionBaselineEligible(metric)
 				);
 				const nowMs = now.getTime();
 				statistical.committee = assessCommittee(
@@ -527,6 +531,7 @@ export async function processIntegrityBatch(
 				? await tx
 						.select({
 							id: integrityCases.id,
+							ruleVersion: integrityCases.ruleVersion,
 							status: integrityCases.status,
 							snapshot: integrityCases.snapshot,
 							statistical: integrityCases.statistical
@@ -549,6 +554,13 @@ export async function processIntegrityBatch(
 					snapshot.roundId === finding.roundId &&
 					Array.isArray(snapshot.eventIds) &&
 					snapshot.eventIds.some((id) => finding.eventIds.includes(id)) &&
+					(item.status !== 'OPEN' ||
+						(item.ruleVersion === rules.version &&
+							!!statistical &&
+							canReuseStatisticalCase(
+								item.statistical as StatisticalAssessment | null,
+								statistical
+							))) &&
 					(item.statistical as StatisticalAssessment | null)?.level === statistical?.level
 				);
 			});

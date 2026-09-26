@@ -23,6 +23,9 @@ const distribution = (
 	populationBucket: null,
 	weaponCategory: 'INFANTRY',
 	sampleCount: cdf.reduce((sum, [, n]) => sum + n, 0),
+	uniquePlayers: 100,
+	uniquePlayerDays: 100,
+	effectiveSampleSize: 1000,
 	median: 5,
 	mad: 2,
 	p90: 8,
@@ -240,9 +243,15 @@ test('statistical decision has independent evidence, live gates and a hard safet
 			settings: { ...input.settings, autoQuarantine7dEnabled: true }
 		})
 	).toBe('QUARANTINE_7D');
-	expect(decideStatisticalAction({ ...input, finding: { ...finding, kpm180: 7 } })).toBe('OBSERVE');
+	expect(
+		decideStatisticalAction({
+			...input,
+			finding: { ...finding, kpm180: DEFAULT_INTEGRITY_RULES.kpmBands[0].min }
+		})
+	).toBe('KICK');
+	expect(decideStatisticalAction({ ...input, finding: { ...finding, kpm180: 2 } })).toBe('OBSERVE');
 	expect(decideStatisticalAction({ ...input, feedHealthy: false })).toBe('OBSERVE');
 	expect(
-		decideStatisticalAction({ ...input, assessment: { ...assessment, sampleCount: 999 } })
+		decideStatisticalAction({ ...input, assessment: { ...assessment, sampleCount: 199 } })
 	).toBe('OBSERVE');
 });

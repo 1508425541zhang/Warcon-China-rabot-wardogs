@@ -458,8 +458,8 @@
 	</h4>
 	<p class="mt-1 text-xs text-mist-400">
 		{lang === 'zh'
-			? '仅统计已保存的评估；数据不足时不会推断正常。自动处罚仍关闭。'
-			: 'Only saved assessments are counted; missing data is not inferred as normal. Automatic action remains disabled.'}
+			? '仅统计已保存的评估；数据不足时不会推断正常。只有统计模式且组织开启自动踢出，满足全部保护条件后才会执行。'
+			: 'Only saved assessments are counted. Automatic kicks require statistical mode, organization opt-in and all protection gates.'}
 	</p>
 	<div class="mt-3 flex flex-wrap gap-4 text-sm text-white">
 		<span>NORMAL：{data.committeeShadow.counts.NORMAL}</span>

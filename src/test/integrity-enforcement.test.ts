@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
 import {
 	integrityActions,
+	integrityModelState,
 	integrityCases,
 	integrityRules,
 	integrityScores,
@@ -20,6 +21,7 @@ import { enforceIntegrityCase, integrityCapHit } from '$lib/server/integrity/enf
 import { effectiveActionKinds, recordIntegrityDelivery } from '$lib/server/integrity/actions';
 import type { BehaviorFinding } from '$lib/server/integrity/windows';
 import type { StatisticalAssessment } from '$lib/server/integrity/statistics';
+import { STATISTICAL_MODEL_CONFIG } from '$lib/server/integrity/statistical-config';
 import { acquireOrRenew, releaseOwnership } from '$lib/server/leadership';
 import { forgetMemory, memoryFor } from '$lib/server/observe';
 import { grantEntry, serverListOf } from '$lib/server/lists';
@@ -394,7 +396,7 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 			await env.db.select().from(integrityActions).where(eq(integrityActions.caseId, input.caseId))
 		).toHaveLength(0);
 	});
-	test('statistical mode remains release-gated despite a saved candidate', async () => {
+	test('statistical auto kick requires current provenance and queues exactly one action', async () => {
 		await setFlags({ autoKickEnabled: true });
 		const input = await candidate(sid(818), true);
 		const assessment = statistical('KICK_CANDIDATE');
@@ -418,6 +420,38 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 					.from(integrityActions)
 					.where(eq(integrityActions.caseId, input.caseId))
 			).toHaveLength(0);
+			assessment.modelVersion = STATISTICAL_MODEL_CONFIG.modelVersion;
+			assessment.featureVersion = STATISTICAL_MODEL_CONFIG.featureVersion;
+			assessment.weaponMapVersion = 1;
+			assessment.baselineGeneration = 'test-active-baseline';
+			assessment.committee!.generation = STATISTICAL_MODEL_CONFIG.modelVersion;
+			await env.db
+				.insert(integrityModelState)
+				.values({
+					orgId: world.org.id,
+					weaponMapVersion: 1,
+					activeBaselineGeneration: 'test-active-baseline',
+					baselineStatus: 'READY'
+				});
+			await env.db
+				.update(integrityScores)
+				.set({ statistical: assessment })
+				.where(eq(integrityScores.windowId, input.finding.windowId!));
+			await env.db
+				.update(integrityCases)
+				.set({ statistical: assessment, snapshot: input.finding })
+				.where(eq(integrityCases.id, input.caseId));
+			expect(await enforceIntegrityCase(env, input)).toBe('KICK');
+			await enforceIntegrityCase(env, input);
+			expect(
+				await env.db
+					.select()
+					.from(integrityActions)
+					.where(eq(integrityActions.caseId, input.caseId))
+			).toHaveLength(1);
+			expect(
+				await env.db.select().from(outbox).where(eq(outbox.steamId, input.steamId))
+			).toHaveLength(1);
 		} finally {
 			await env.db
 				.update(integrityRules)

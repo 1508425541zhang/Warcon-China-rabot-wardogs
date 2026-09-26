@@ -1,16 +1,38 @@
 /** Statistical mathematics is versioned in code and cannot be changed by org admins. */
 export const STATISTICAL_MODEL_CONFIG = Object.freeze({
-	modelVersion: 'ensemble-shadow-v1',
+	modelVersion: 'ensemble-operational-v2',
 	featureVersion: 'rolling-infantry-v2',
 	persistenceEpisodeHorizonHours: 24,
-	minimumEpisodeSeparationSeconds: 180,
+	minimumEpisodeSeparationSeconds: 60,
 	minimumIndependentEpisodes: 2,
-	minimumBaselineSamples: 5000,
-	minimumBaselinePlayers: 100,
-	minimumBaselinePlayerDays: 300,
-	minimumEffectiveSampleSize: 1000,
+	minimumBaselineSamples: 200,
+	minimumBaselinePlayers: 20,
+	minimumBaselinePlayerDays: 20,
+	// Player-balanced weights must still retain enough effective observations.
+	minimumEffectiveSampleSize: 100,
+	watchPercentile: 0.95,
+	kickPercentile: 0.99,
+	baselineRefreshMinutes: 5,
 	maximumBaselineAgeHours: 48
 });
 
-/** Release gate: unit tests and synthetic baselines are insufficient for real-server enforcement. */
-export const STATISTICAL_AUTO_ACTION_ENABLED = false;
+/** Capability gate; each organization must still opt into statistical mode and automatic kick. */
+export const STATISTICAL_AUTO_ACTION_ENABLED = true;
+
+export function actionBaselineEligible(metric: {
+	source: string;
+	code?: string;
+	sampleCount: number;
+	uniquePlayers?: number;
+	uniquePlayerDays?: number;
+	effectiveSampleSize?: number;
+}): boolean {
+	return (
+		metric.source === 'local' &&
+		metric.code !== 'maxKillDistanceWeapon' &&
+		metric.sampleCount >= STATISTICAL_MODEL_CONFIG.minimumBaselineSamples &&
+		(metric.uniquePlayers ?? 0) >= STATISTICAL_MODEL_CONFIG.minimumBaselinePlayers &&
+		(metric.uniquePlayerDays ?? 0) >= STATISTICAL_MODEL_CONFIG.minimumBaselinePlayerDays &&
+		(metric.effectiveSampleSize ?? 0) >= STATISTICAL_MODEL_CONFIG.minimumEffectiveSampleSize
+	);
+}
