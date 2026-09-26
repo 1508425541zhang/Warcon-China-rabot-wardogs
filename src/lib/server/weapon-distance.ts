@@ -1,3 +1,4 @@
+import { weaponDistanceDistribution } from '$lib/weapon-distance-distribution';
 import { sql } from 'drizzle-orm';
 import type { Env } from './env';
 import { MAX_KILL_DISTANCE_M } from './feed-core';
@@ -34,6 +35,15 @@ export async function loadWeaponDistances(env: Env, serverId: string, steamId: s
 		refreshedAt: new Date(hit.until - 60000).toISOString(),
 		rows: rows
 			.filter((row) => row.steamId === steamId)
+			.map((row) => ({
+				...row,
+				distribution: weaponDistanceDistribution(
+					rows
+						.filter((peer) => peer.cause === row.cause && peer.samples >= 10)
+						.map((peer) => peer.average),
+					row.average
+				)
+			}))
 			.sort((a, b) => b.samples - a.samples || a.cause.localeCompare(b.cause))
 	};
 }
