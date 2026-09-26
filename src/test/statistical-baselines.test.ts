@@ -49,6 +49,7 @@ describe.skipIf(!hasTestDb)('PostgreSQL empirical baselines', () => {
 					killerName: 'Test',
 					killerFaction: 'Blue',
 					factionBracketed: true,
+					factionObservedAt: at,
 					victimSteamId: String(76561198100000000n + BigInt(group * 400 + player * 2 + n)),
 					victimName: 'Victim',
 					victimFaction: 'Red',

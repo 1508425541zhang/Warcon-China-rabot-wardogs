@@ -266,7 +266,8 @@ export class InfantryWindows {
 						victimSteamId: kill.victim.steamId,
 						killerFaction: kill.killer?.faction ?? null,
 						victimFaction: kill.victim.faction,
-						factionBracketed: kill.factionBracketed
+						factionBracketed: kill.factionBracketed,
+						factionObservedAt: kill.factionObservedAt
 					},
 					overrides
 				)

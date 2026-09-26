@@ -932,6 +932,8 @@ export const kills = pgTable(
 		killerSteamId: text('killer_steam_id'),
 		killerName: text('killer_name'),
 		killerFaction: text('killer_faction'),
+		/** Time of the fresh player-list look used for both factions; null on older/session-derived rows. */
+		factionObservedAt: ts('faction_observed_at'),
 		/** Both sides were unchanged across feed receipt and the next player observation. */
 		factionBracketed: boolean('faction_bracketed').notNull().default(false),
 		victimSteamId: text('victim_steam_id').notNull(),

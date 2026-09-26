@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { and, eq } from 'drizzle-orm';
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
 import {
 	feedProcessingJobs,
@@ -72,26 +72,36 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 					)
 				)
 		)[0];
+	const roster = async () =>
+		(
+			await env.db
+				.select()
+				.from(playerSessions)
+				.where(and(eq(playerSessions.serverId, world.server.id), isNull(playerSessions.leftAt)))
+		).map((session) => ({
+			steamId: session.steamId,
+			name: session.name,
+			faction: session.faction,
+			kills: 0,
+			deaths: 0,
+			cash: 0,
+			ping: 20
+		}));
 	const run = async (job: Awaited<ReturnType<typeof jobOf>>) => {
 		if (job.consumer === 'integrity') {
 			const observedAt = new Date(job.killTs.getTime() + 1000);
-			await env.db
-				.update(playerSessions)
-				.set({
-					joinedAt: new Date(job.killTs.getTime() - 60_000),
-					lastSeen: observedAt
-				})
-				.where(eq(playerSessions.serverId, job.serverId));
 			await env.db
 				.insert(serverLive)
 				.values({
 					serverId: job.serverId,
 					playersAt: observedAt,
-					status: { map: 'Kavkazi' }
+					statusAt: observedAt,
+					status: { map: 'Kavkazi' },
+					players: job.serverId === world.server.id ? await roster() : []
 				})
 				.onConflictDoUpdate({
 					target: serverLive.serverId,
-					set: { playersAt: observedAt, status: { map: 'Kavkazi' } }
+					set: { playersAt: observedAt, statusAt: observedAt, status: { map: 'Kavkazi' } }
 				});
 		}
 		return processNextFeedJob(env, job.id, job.consumer as 'legacy' | 'integrity');
@@ -154,6 +164,22 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 		resetIntegrityServer(world.server.id);
 		forgetMemory(world.server.id);
 		await releaseOwnership(env);
+	});
+	beforeEach(async () => {
+		const now = new Date();
+		await env.db
+			.insert(serverLive)
+			.values({
+				serverId: world.server.id,
+				playersAt: now,
+				statusAt: now,
+				status: { map: 'Kavkazi' },
+				players: await roster()
+			})
+			.onConflictDoUpdate({
+				target: serverLive.serverId,
+				set: { playersAt: now, statusAt: now, status: { map: 'Kavkazi' }, players: await roster() }
+			});
 	});
 
 	test('ingest commits kills and a pending job; duplicate batch adds neither', async () => {
@@ -329,6 +355,10 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 			.update(playerSessions)
 			.set({ faction: 'Blue' })
 			.where(eq(playerSessions.steamId, victim(0)));
+		await env.db
+			.update(serverLive)
+			.set({ players: await roster() })
+			.where(eq(serverLive.serverId, world.server.id));
 		const posted = {
 			serverId: 'boot-teamkill',
 			serverName: 'Test',
@@ -370,11 +400,11 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 		const roster = [
 			liveKiller,
 			staleKiller,
-			...Array.from({ length: 18 }, (_, i) => victim(i))
+			...Array.from({ length: 24 }, (_, i) => victim(i))
 		].map((steamId) => ({
 			steamId,
 			name: steamId,
-			faction: 'Blue',
+			faction: steamId === liveKiller || steamId === staleKiller ? 'Blue' : 'Red',
 			kills: 0,
 			deaths: 0,
 			cash: 0,
@@ -433,7 +463,12 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 			await env.db.select().from(integrityActions).where(eq(integrityActions.steamId, liveKiller))
 		).toHaveLength(1);
 		resetIntegrityServer(world.server.id);
-		const result = await ingestBatch(env, world.server.id, body('stale', staleKiller, true));
+		const result = await ingestBatch(
+			env,
+			world.server.id,
+			body('stale', staleKiller, true),
+			new Date(liveJob.killTs.getTime() + 2000)
+		);
 		const job = await jobAt(result.kills[0].ts, 'integrity');
 		await env.db
 			.update(feedProcessingJobs)
@@ -544,33 +579,76 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 	test('a faction change between feed receipt and the next player look cannot become infantry evidence', async () => {
 		const result = await ingestBatch(env, world.server.id, body('changed-faction'));
 		const event = result.kills[1];
+		const [live] = await env.db
+			.select({ players: serverLive.players })
+			.from(serverLive)
+			.where(eq(serverLive.serverId, world.server.id));
+		await env.db
+			.update(serverLive)
+			.set({
+				players: (live.players as { steamId: string; faction: string | null }[]).map((player) =>
+					player.steamId === event.victim.steamId ? { ...player, faction: 'Blue' } : player
+				)
+			})
+			.where(eq(serverLive.serverId, world.server.id));
+		expect(await run(await jobAt(event.ts, 'integrity'))).toBe(true);
+		const [row] = await env.db
+			.select()
+			.from(kills)
+			.where(and(eq(kills.serverId, world.server.id), eq(kills.eventId, event.eventId)));
+		expect(row.factionBracketed).toBe(true);
+		expect(row.victimFaction).toBeNull();
+	});
+
+	test('the live player list wins over a stale session faction', async () => {
 		await env.db
 			.update(playerSessions)
 			.set({ faction: 'Blue' })
 			.where(
-				and(
-					eq(playerSessions.serverId, world.server.id),
-					eq(playerSessions.steamId, event.victim.steamId)
-				)
+				and(eq(playerSessions.serverId, world.server.id), eq(playerSessions.steamId, victim(1)))
 			);
 		try {
-			expect(await run(await jobAt(event.ts, 'integrity'))).toBe(true);
+			const batch = body('roster-over-session');
+			const result = await ingestBatch(env, world.server.id, {
+				...batch,
+				events: batch.events.slice(1, 2)
+			});
+			expect(result.kills[0].victim.faction).toBe('Red');
+			expect(await run(await jobAt(result.kills[0].ts, 'integrity'))).toBe(true);
 			const [row] = await env.db
 				.select()
 				.from(kills)
-				.where(and(eq(kills.serverId, world.server.id), eq(kills.eventId, event.eventId)));
+				.where(eq(kills.eventId, result.kills[0].eventId));
 			expect(row.factionBracketed).toBe(true);
-			expect(row.victimFaction).toBeNull();
+			expect(row.victimFaction).toBe('Red');
 		} finally {
 			await env.db
 				.update(playerSessions)
 				.set({ faction: 'Red' })
 				.where(
-					and(
-						eq(playerSessions.serverId, world.server.id),
-						eq(playerSessions.steamId, event.victim.steamId)
-					)
+					and(eq(playerSessions.serverId, world.server.id), eq(playerSessions.steamId, victim(1)))
 				);
 		}
+	});
+
+	test('an old player list cannot be repaired with a later look or session data', async () => {
+		await env.db
+			.update(serverLive)
+			.set({ playersAt: new Date(Date.now() - 20_000) })
+			.where(eq(serverLive.serverId, world.server.id));
+		const batch = body('stale-roster');
+		const result = await ingestBatch(env, world.server.id, {
+			...batch,
+			events: batch.events.slice(1, 2)
+		});
+		expect(result.kills[0].victim.faction).toBeNull();
+		expect(await run(await jobAt(result.kills[0].ts, 'integrity'))).toBe(true);
+		const [row] = await env.db
+			.select()
+			.from(kills)
+			.where(eq(kills.eventId, result.kills[0].eventId));
+		expect(row.factionObservedAt).toBeNull();
+		expect(row.factionBracketed).toBe(true);
+		expect(row.victimFaction).toBeNull();
 	});
 });

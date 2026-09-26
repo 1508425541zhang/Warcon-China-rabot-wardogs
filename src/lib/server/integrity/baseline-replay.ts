@@ -320,6 +320,7 @@ export async function refreshCleanIntegrityBaselines(env: Env, orgId: string): P
 				AND k.match_row IS NOT NULL
 				AND k.killer_steam_id IS NOT NULL AND k.killer_faction IS NOT NULL
 				AND k.victim_faction IS NOT NULL AND k.faction_bracketed
+				AND k.faction_observed_at IS NOT NULL
 				AND NOT k.team_kill AND NOT k.suicide
 				AND EXISTS (SELECT 1 FROM feed_processing_jobs j WHERE j.server_id = k.server_id
 					AND j.consumer = 'integrity' AND j.kill_ts = k.ts AND j.event_ids ? k.event_id AND j.state = 'done'

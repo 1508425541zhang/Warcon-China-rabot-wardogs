@@ -1,14 +1,14 @@
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Env } from './env';
 import {
 	feedProcessingJobs,
 	kills,
-	playerSessions,
 	serverLive,
 	type FeedProcessingJob,
 	type KillRow
 } from './db/schema';
 import { killView } from './feed';
+import { rosterFactions } from './roster-factions';
 import { onKillsIngested } from './feed-events';
 import { processIntegrityBatch } from './integrity/pipeline';
 import { isOwner, LostOwnership, withOwnedTransaction } from './leadership';
@@ -90,69 +90,43 @@ export async function claimFeedJob(
 	});
 }
 
-/** Trust a kill's session factions only when the next player look confirms both unchanged. */
+/** Verify the fresh pre-feed player list against a later player-list observation. */
 async function bracketFactions(
 	env: Env,
 	job: FeedProcessingJob,
 	rows: readonly KillRow[]
 ): Promise<KillRow[]> {
-	const ids = [
-		...new Set(
-			rows.flatMap((row) =>
-				row.killerSteamId ? [row.killerSteamId, row.victimSteamId] : [row.victimSteamId]
-			)
-		)
-	];
-	const [[live], sessions] = await Promise.all([
-		env.db
-			.select({ playersAt: serverLive.playersAt, status: serverLive.status })
-			.from(serverLive)
-			.where(eq(serverLive.serverId, job.serverId))
-			.limit(1),
-		env.db
-			.select({
-				steamId: playerSessions.steamId,
-				faction: playerSessions.faction,
-				joinedAt: playerSessions.joinedAt,
-				lastSeen: playerSessions.lastSeen
-			})
-			.from(playerSessions)
-			.where(
-				and(
-					eq(playerSessions.serverId, job.serverId),
-					isNull(playerSessions.leftAt),
-					inArray(playerSessions.steamId, ids)
-				)
-			)
-	]);
+	const [live] = await env.db
+		.select({
+			players: serverLive.players,
+			playersAt: serverLive.playersAt,
+			status: serverLive.status,
+			statusAt: serverLive.statusAt
+		})
+		.from(serverLive)
+		.where(eq(serverLive.serverId, job.serverId))
+		.limit(1);
 	const observedAt = live?.playersAt?.getTime() ?? 0;
 	const observedAfter =
 		observedAt > job.killTs.getTime() && observedAt <= job.killTs.getTime() + 60_000;
-	const map = (live?.status as { map?: unknown } | null)?.map;
-	const after = new Map(sessions.map((session) => [session.steamId, session]));
+	const byMap = new Map(rows.map((row) => [row.map, rosterFactions(live, row.map)]));
 	const out: KillRow[] = [];
 	for (const row of rows) {
 		if (row.factionBracketed) {
 			out.push(row);
 			continue;
 		}
-		const killer = row.killerSteamId ? after.get(row.killerSteamId) : null;
-		const victim = after.get(row.victimSteamId);
+		const after = byMap.get(row.map);
 		const same =
 			observedAfter &&
-			map === row.map &&
+			!!row.factionObservedAt &&
+			row.factionObservedAt <= job.killTs &&
+			job.killTs.getTime() - row.factionObservedAt.getTime() <= 10_000 &&
 			!!row.killerFaction &&
 			!!row.victimFaction &&
-			!!killer &&
-			!!victim &&
-			killer.joinedAt <= job.killTs &&
-			victim.joinedAt <= job.killTs &&
-			killer.lastSeen >= job.killTs &&
-			victim.lastSeen >= job.killTs &&
-			killer.lastSeen <= live!.playersAt! &&
-			victim.lastSeen <= live!.playersAt! &&
-			killer.faction === row.killerFaction &&
-			victim.faction === row.victimFaction;
+			!!after &&
+			after.get(row.killerSteamId!) === row.killerFaction &&
+			after.get(row.victimSteamId) === row.victimFaction;
 		const [updated] = await env.db
 			.update(kills)
 			.set({

@@ -19,6 +19,17 @@ describe('exact weapon classification', () => {
 		expect(countsAsInfantry({ ...smallArm, victimFaction: 'Blue' })).toBe(false);
 	});
 
+	test('old session-derived faction labels do not become verified infantry evidence', () => {
+		expect(countsAsInfantry({ ...smallArm, factionBracketed: true })).toBe(false);
+		expect(
+			countsAsInfantry({
+				...smallArm,
+				factionBracketed: true,
+				factionObservedAt: '2026-09-26T00:00:00.000Z'
+			})
+		).toBe(true);
+	});
+
 	test('unmapped item stays UNKNOWN and cannot inflate infantry KPM', () => {
 		const unknown = { ...smallArm, cause: 'Id.Item.NotObserved' };
 		expect(classifyWeapon(unknown)).toBe('UNKNOWN');
