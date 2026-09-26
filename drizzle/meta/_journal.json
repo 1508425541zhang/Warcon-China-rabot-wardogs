@@ -365,6 +365,13 @@
       "when": 1790350021171,
       "tag": "0051_kill_faction_bracket",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1790350021172,
+      "tag": "0052_kill_roster_provenance",
+      "breakpoints": true
     }
   ]
 }

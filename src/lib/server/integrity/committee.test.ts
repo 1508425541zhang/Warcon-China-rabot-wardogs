@@ -9,6 +9,7 @@ import {
 	type ExpertVerdict
 } from './committee';
 import type { StatisticalAssessment } from './statistics';
+import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
 
 const v = (
 	family: EvidenceFamily,
@@ -124,8 +125,8 @@ describe('independent expert committee', () => {
 		const assessment = (code: string, percentile: number) =>
 			({
 				status: 'READY',
-				modelVersion: 'ensemble-shadow-v1',
-				featureVersion: 'rolling-infantry-v1',
+				modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
+				featureVersion: STATISTICAL_MODEL_CONFIG.featureVersion,
 				metrics: [{ code, extremenessPercentile: percentile }]
 			}) as StatisticalAssessment;
 		expect(hasStatisticalAnomaly(null)).toBe(false);

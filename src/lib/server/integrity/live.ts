@@ -51,7 +51,10 @@ export function liveInfantryMetrics(
 			if (
 				category === 'UNKNOWN' ||
 				(category === 'INFANTRY' &&
-					(!row.killerFaction || !row.victimFaction || row.factionBracketed === false))
+					(!row.killerFaction ||
+						!row.victimFaction ||
+						row.factionBracketed === false ||
+						(row.factionBracketed && !row.factionObservedAt)))
 			)
 				uncertain.add(row.killerSteamId);
 		}
@@ -66,7 +69,8 @@ export function liveInfantryMetrics(
 					victimSteamId: row.victimSteamId,
 					killerFaction: row.killerFaction,
 					victimFaction: row.victimFaction,
-					factionBracketed: row.factionBracketed
+					factionBracketed: row.factionBracketed,
+					factionObservedAt: row.factionObservedAt
 				},
 				overrides
 			)

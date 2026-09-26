@@ -27,7 +27,6 @@ import {
 	kills,
 	feedProcessingJobs,
 	matches,
-	playerSessions,
 	serverLive,
 	servers,
 	type KillRow,
@@ -37,6 +36,7 @@ import type { KillView } from '$lib/types';
 import { VEHICLE_TAGS, type KillFilter } from '$lib/kills';
 import type { SessionUser } from './access';
 import { FEED_TOKEN_PREFIX, isTeamKill, parseBatch, type ParsedKill } from './feed-core';
+import { rosterFactions } from './roster-factions';
 
 const hashToken = (token: string): string =>
 	createHash('sha256').update(token, 'utf8').digest('hex');
@@ -163,6 +163,7 @@ export function killView(r: KillRow): KillView {
 			: null,
 		victim: { steamId: r.victimSteamId, name: r.victimName, faction: r.victimFaction },
 		factionBracketed: r.factionBracketed,
+		factionObservedAt: r.factionObservedAt?.toISOString() ?? null,
 		cause: r.cause,
 		distanceM: r.distanceM,
 		distanceInvalid: r.distanceInvalid,
@@ -175,8 +176,7 @@ export function killView(r: KillRow): KillView {
 }
 
 /**
- * Writes one batch: parse, drop what is already stored, add the open match and both factions
- * from the sessions the worker keeps, insert. `now` is the receipt time.
+ * Writes one batch using a fresh, map-matched player list for factions. `now` is receipt time.
  */
 export async function ingestBatch(
 	env: Env,
@@ -224,25 +224,17 @@ export async function ingestBatch(
 			});
 			duplicates = batch.kills.length - fresh.length;
 			if (!fresh.length) return;
-			const steamIds = [
-				...new Set(
-					fresh.flatMap((k) =>
-						k.killerSteamId ? [k.killerSteamId, k.victimSteamId] : [k.victimSteamId]
-					)
-				)
-			];
-			const [open, [match]] = await Promise.all([
+			const [[live], [match]] = await Promise.all([
 				db
-					.select({ steamId: playerSessions.steamId, faction: playerSessions.faction })
-					.from(playerSessions)
-					.where(
-						and(
-							eq(playerSessions.serverId, serverId),
-							isNull(playerSessions.leftAt),
-							inArray(playerSessions.steamId, steamIds)
-						)
-					)
-					.orderBy(playerSessions.id),
+					.select({
+						players: serverLive.players,
+						playersAt: serverLive.playersAt,
+						status: serverLive.status,
+						statusAt: serverLive.statusAt
+					})
+					.from(serverLive)
+					.where(eq(serverLive.serverId, serverId))
+					.limit(1),
 				db
 					.select({ id: matches.id })
 					.from(matches)
@@ -250,15 +242,20 @@ export async function ingestBatch(
 					.orderBy(sql`${matches.id} DESC`)
 					.limit(1)
 			]);
-			// Newest open session wins when a player somehow has two.
-			const faction = new Map<string, string | null>();
-			for (const s of open) faction.set(s.steamId, s.faction);
+			const rosterFresh =
+				!!live?.playersAt &&
+				live.playersAt <= now &&
+				now.getTime() - live.playersAt.getTime() <= 10_000;
+			const factionByMap = new Map(
+				fresh.map((kill) => [kill.map, rosterFresh ? rosterFactions(live, kill.map) : null])
+			);
 			const rows = await db
 				.insert(kills)
 				.values(
 					fresh.map((k) => {
-						const kf = k.killerSteamId ? (faction.get(k.killerSteamId) ?? null) : null;
-						const vf = faction.get(k.victimSteamId) ?? null;
+						const faction = factionByMap.get(k.map);
+						const kf = k.killerSteamId ? (faction?.get(k.killerSteamId) ?? null) : null;
+						const vf = faction?.get(k.victimSteamId) ?? null;
 						return {
 							ts: now,
 							serverId,
@@ -271,6 +268,7 @@ export async function ingestBatch(
 							killerSteamId: k.killerSteamId,
 							killerName: k.killerName,
 							killerFaction: kf,
+							factionObservedAt: faction && kf && vf ? live!.playersAt : null,
 							victimSteamId: k.victimSteamId,
 							victimName: k.victimName,
 							victimFaction: vf,

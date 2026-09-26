@@ -170,6 +170,8 @@ export interface KillView {
 	victim: { steamId: string; name: string; faction: string | null };
 	/** False until both faction snapshots agree across this kill. */
 	factionBracketed?: boolean;
+	/** Observation time for the pre-feed live roster; absent on session-derived history. */
+	factionObservedAt?: string | null;
 	/** the raw weapon or vehicle tag; $lib/causes labels it */
 	cause: string | null;
 	distanceM: number | null;

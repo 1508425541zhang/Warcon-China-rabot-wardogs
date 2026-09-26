@@ -1,7 +1,7 @@
 /** Statistical mathematics is versioned in code and cannot be changed by org admins. */
 export const STATISTICAL_MODEL_CONFIG = Object.freeze({
 	modelVersion: 'ensemble-shadow-v1',
-	featureVersion: 'rolling-infantry-v1',
+	featureVersion: 'rolling-infantry-v2',
 	persistenceEpisodeHorizonHours: 24,
 	minimumEpisodeSeparationSeconds: 180,
 	minimumIndependentEpisodes: 2,

@@ -45,6 +45,7 @@ describe.skipIf(!hasTestDb)('weapon baseline refresh', () => {
 						killerSteamId: String(76561198000000000n + BigInt(player)),
 						killerFaction: 'Blue',
 						factionBracketed: true,
+						factionObservedAt: at,
 						victimSteamId: String(76561198100000000n + BigInt(n)),
 						victimName: 'Target',
 						victimFaction: 'Red',
