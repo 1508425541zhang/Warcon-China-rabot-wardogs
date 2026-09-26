@@ -20,6 +20,7 @@ export function summarizeCommitteeShadow(
 		number
 	>;
 	const models: Record<string, Record<ExpertDecision, number>> = {};
+	const unknownReasons: Record<string, Record<string, number>> = {};
 	const seen = new Set<number>();
 	let disagreement = 0;
 	let assessed = 0;
@@ -38,6 +39,14 @@ export function summarizeCommitteeShadow(
 				verdicts.map((decision) => [decision, 0])
 			) as Record<ExpertDecision, number>;
 			models[item.modelId][item.decision]++;
+			if (item.decision === 'UNKNOWN') {
+				const reasons = Array.isArray(item.reasons)
+					? item.reasons.filter((r) => typeof r === 'string')
+					: [];
+				const counts = (unknownReasons[item.modelId] ??= {});
+				for (const reason of new Set(reasons.length ? reasons : ['UNKNOWN_REASON']))
+					counts[reason] = (counts[reason] ?? 0) + 1;
+			}
 			if (item.decision !== 'UNKNOWN') active.add(item.decision);
 		}
 		if (active.size > 1) disagreement++;
@@ -58,6 +67,7 @@ export function summarizeCommitteeShadow(
 	return {
 		counts,
 		models,
+		unknownReasons,
 		assessed,
 		disagreement,
 		disagreementRate: assessed ? disagreement / assessed : null,
