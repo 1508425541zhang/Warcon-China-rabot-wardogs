@@ -30,6 +30,7 @@ export interface MatchTally {
 	/** the cash at the first look of this run of the counters, and at the last */
 	cashFirst: number;
 	cashLast: number;
+	cashBeforeReset?: number;
 	/** when the counters last dropped; 0 never */
 	droppedAt: number;
 	/** time on during the match: the gaps between trusted looks the player was on for */
@@ -84,6 +85,7 @@ export function tallyLook(
 			continue;
 		}
 		if (p.kills < t.last.kills || p.deaths < t.last.deaths) {
+			t.cashBeforeReset = t.cashLast;
 			t.banked.kills += t.last.kills;
 			t.banked.deaths += t.last.deaths;
 			t.banked.cash += t.cashLast - t.cashFirst;

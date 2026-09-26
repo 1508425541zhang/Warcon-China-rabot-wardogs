@@ -1,4 +1,6 @@
 <script lang="ts">
+	import MatchAwardEditor from '$lib/components/MatchAwardEditor.svelte';
+	import { defaultAwards, type AwardsConfig } from '$lib/match-awards-policy';
 	import GroupControlSettings from '$lib/components/GroupControlSettings.svelte';
 	import NumericLimitSettings from '$lib/components/NumericLimitSettings.svelte';
 	import SkillBalanceSettings from '$lib/components/SkillBalanceSettings.svelte';
@@ -342,6 +344,7 @@
 		leadMinutes: number;
 		leadMessage: string;
 		repeatMinutes: number;
+		awards: AwardsConfig;
 		endMessage: string;
 		startMessage: string;
 		warnAt: number;
@@ -471,6 +474,7 @@
 			leadMinutes: n('leadMinutes', 30),
 			leadMessage: s('leadMessage', '服务器将在约 {minutes} 分钟后于本局结束时重启。'),
 			repeatMinutes: n('repeatMinutes', 0),
+			awards: structuredClone((c.awards ?? defaultAwards) as AwardsConfig),
 			endMessage: s('endMessage', '对局结束：{faction} 在 {previous} 获胜 · {scores}'),
 			startMessage: s('startMessage', '新对局地图：{map}。祝大家玩得开心！'),
 			warnAt: n('warnAt', 2),
@@ -589,6 +593,7 @@
 				};
 			case 'match_broadcast':
 				return {
+					awards: f.awards,
 					endMessage: f.endMessage,
 					startMessage: f.startMessage,
 					minPlayers: Number(f.minPlayers)
@@ -774,6 +779,18 @@
 </script>
 
 <div class="mb-5 space-y-4">
+	<div class="mb-4 panel p-4">
+		<h2 class="font-semibold">赛后自动发布 · 荣誉公告</h2>
+		<p class="note">最高KD、单次多杀、一命连杀、金钱净增、最富与在线最久；每项一位获奖者。</p>
+		<button
+			class="btn"
+			onclick={() =>
+				open(
+					'match_broadcast',
+					data.triggers.find((t) => t.kind === 'match_broadcast')
+				)}>设置赛后公告与模板</button
+		>
+	</div>
 	<details class="panel p-4">
 		<summary class="cursor-pointer font-semibold">组队控制 · 疑似大队识别（点击设置）</summary
 		><GroupControlSettings data={data.groupControl} serverId={id} />
@@ -1289,6 +1306,7 @@
 					{@render placeholders(['minutes', 'uptime', 'server', 'map', 'players', 'max'])}
 					<p class="note">游戏服务器启动满 24 小时后，会在当时正在进行的回合结束时重启。</p>
 				{:else if f.kind === 'match_broadcast'}
+					<MatchAwardEditor bind:awards={f.awards} bind:endMessage={f.endMessage} />
 					<fieldset class="space-y-2">
 						<legend class="field-label">比赛结束时</legend>
 						<input

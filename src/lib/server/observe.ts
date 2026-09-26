@@ -654,7 +654,18 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 						startedAt: m.startedAt,
 						matchEnd,
 						// the lines the match stage will write, for the broadcast's {mvp} and {top}
-						matchLines: matchEnd ? closeTallies(m.tallies, prevStatusAt).rows : [],
+						matchLines: matchEnd
+							? closeTallies(m.tallies, prevStatusAt).rows.map((row) => {
+									const tally = m.tallies.get(row.steamId)!;
+									return {
+										...row,
+										cashHeld:
+											tally.droppedAt > 0 && tally.droppedAt >= prevStatusAt
+												? tally.cashBeforeReset
+												: tally.cashLast
+									};
+								})
+							: [],
 						ts
 					},
 					rows

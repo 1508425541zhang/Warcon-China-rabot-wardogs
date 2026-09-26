@@ -906,6 +906,7 @@ export const matches = pgTable(
 		peakPlayers: integer('peak_players').notNull().default(0),
 		/** [{ name, score }] */
 		finalScores: jsonb('final_scores'),
+		awardSnapshot: jsonb('award_snapshot'),
 		winner: text('winner')
 	},
 	(t) => [index('matches_server_idx').on(t.serverId, t.startedAt)]
