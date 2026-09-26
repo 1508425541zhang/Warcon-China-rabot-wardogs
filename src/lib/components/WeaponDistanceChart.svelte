@@ -11,6 +11,10 @@
 	}: {
 		data: { days: number; minimumSamples: number; refreshedAt: string; rows: ChartRow[] };
 	} = $props();
+	let selectedWeapon = $state('');
+	let activeWeapon = $derived(
+		data.rows.some((r) => r.cause === selectedWeapon) ? selectedWeapon : data.rows[0]?.cause
+	);
 	const x = (value: number, row: ChartRow) => 48 + (420 * value) / row.distribution.upper;
 	const y = (count: number, row: ChartRow) => 190 - (140 * count) / row.distribution.peak;
 	const points = (row: ChartRow) =>
@@ -32,8 +36,20 @@
 		仅使用已回传的武器距离，排除异常距离、自杀和已标记的友军击杀。不同地图与玩法会影响距离，排名不代表作弊概率。数据每分钟更新。
 	</p>
 	{#if data.rows.length}
-		<div class="mt-4 grid gap-4 lg:grid-cols-2">
-			{#each data.rows as row (row.cause)}
+		<label class="mt-4 flex items-center gap-3 text-sm"
+			><span aria-hidden="true">⇄</span>切换武器
+			<select
+				class="rounded border border-white/20 bg-ink-900 px-3 py-2"
+				value={activeWeapon}
+				onchange={(event) => (selectedWeapon = event.currentTarget.value)}
+			>
+				{#each data.rows as weapon (weapon.cause)}<option value={weapon.cause}
+						>{causeLabel(weapon.cause)} · {weapon.samples} 次有效击杀</option
+					>{/each}
+			</select></label
+		>
+		<div class="mt-4">
+			{#each data.rows.filter((row) => row.cause === activeWeapon) as row (row.cause)}
 				<div class="rounded-ctl border border-white/10 p-3">
 					<div class="flex items-center justify-between gap-3">
 						<h4 class="font-semibold text-white" title={row.cause}>{causeLabel(row.cause)}</h4>

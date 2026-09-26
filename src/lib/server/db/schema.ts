@@ -1464,3 +1464,21 @@ export type ServerListStateRow = typeof serverListState.$inferSelect;
 export type ServerListSyncRow = typeof serverListSync.$inferSelect;
 export type ServerLiveRow = typeof serverLive.$inferSelect;
 export type OutboxRow = typeof outbox.$inferSelect;
+
+/** Read-only administrator graphs; recorded once per 30 second bucket, scoped to one match. */
+export const playerProgressSamples = pgTable(
+	'player_progress_samples',
+	{
+		serverId: text('server_id').notNull(),
+		matchId: bigint('match_id', { mode: 'number' })
+			.notNull()
+			.references(() => matches.id, { onDelete: 'cascade' }),
+		bucket: bigint('bucket', { mode: 'number' }).notNull(),
+		observedAt: ts('observed_at').notNull(),
+		players: jsonb('players').notNull()
+	},
+	(t) => [
+		primaryKey({ columns: [t.serverId, t.matchId, t.bucket] }),
+		index('player_progress_match_idx').on(t.matchId, t.observedAt)
+	]
+);
