@@ -6,6 +6,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import PopulationChart from '$lib/components/PopulationChart.svelte';
 	import CashChart from '$lib/components/CashChart.svelte';
+	import PlaytimeDistribution from '$lib/components/PlaytimeDistribution.svelte';
 	import RetentionChart from '$lib/components/RetentionChart.svelte';
 	import SortHeader from '$lib/components/SortHeader.svelte';
 	import { TableSort } from '$lib/table.svelte';
@@ -195,6 +196,7 @@
 	</div>
 
 	<RetentionChart points={a.retention ?? []} />
+	{#if a.playtime}<PlaytimeDistribution data={a.playtime} />{/if}
 
 	<div class="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
 		<div class="panel">

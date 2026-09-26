@@ -1,3 +1,5 @@
+import { loadPlaytimeDistribution } from './steam-playtime';
+import type { PlaytimeDistribution } from './playtime-distribution';
 // Read side of the analytics tables: one query bundle per server and time range.
 //
 // Samples are written when something changed and at a heartbeat, not on a fixed clock, so every
@@ -106,6 +108,7 @@ export interface Combat {
 }
 export interface Analytics {
 	retention: MatchRetention[];
+	playtime: PlaytimeDistribution;
 	range: Range;
 	from: string;
 	to: string;
@@ -323,6 +326,7 @@ export async function loadAnalytics(env: Env, serverId: string, range: Range): P
 	return {
 		range,
 		retention: await loadMatchRetention(env, serverId, from),
+		playtime: await loadPlaytimeDistribution(env, serverId, from),
 		from: from.toISOString(),
 		to: to.toISOString(),
 		sampleSeconds: Math.round(settings().sampleMs / 1000),

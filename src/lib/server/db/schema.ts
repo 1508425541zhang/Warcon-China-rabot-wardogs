@@ -1681,3 +1681,20 @@ export const groupControlScans = pgTable('group_control_scans', {
 	aiResult: jsonb('ai_result'),
 	aiFingerprint: text('ai_fingerprint')
 });
+
+// WARDOGS (1867240) public lifetime playtime, analytics only.
+export const steamGamePlaytime = pgTable(
+	'steam_game_playtime',
+	{
+		steamId: text('steam_id').primaryKey(),
+		minutes: integer('minutes'),
+		state: text('state').notNull().default('pending'),
+		checkedAt: ts('checked_at'),
+		nextAt: ts('next_at').notNull().defaultNow(),
+		leaseUntil: ts('lease_until')
+	},
+	(t) => [
+		index('steam_game_playtime_next_idx').on(t.nextAt),
+		check('steam_game_playtime_minutes_check', sql`${t.minutes} >= 0`)
+	]
+);

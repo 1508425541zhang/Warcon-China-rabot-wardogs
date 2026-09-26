@@ -1,3 +1,4 @@
+import { startSteamPlaytime, stopSteamPlaytime } from '$lib/server/steam-playtime';
 import { startIntegrityAi, stopIntegrityAi } from '$lib/server/integrity/ai-queue';
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 import { building } from '$app/environment';
@@ -79,6 +80,7 @@ export const init: ServerInit = async () => {
 		startFeedProcessing(env);
 		startIntegrityBaselines(env);
 		startIntegrityProfileRefresh(env);
+		startSteamPlaytime(env);
 		startIntegrityAi(env);
 	}
 	registerFleetCollector(env);
@@ -107,6 +109,7 @@ function installShutdown(env: Awaited<ReturnType<typeof initEnv>>): void {
 			if (env.WARCON_ROLE !== 'web') {
 				stopIntegrityBaselines();
 				await stopIntegrityAi().catch(() => {});
+				await stopSteamPlaytime();
 				await stopIntegrityProfileRefresh().catch(() => {});
 				await stopFeedProcessing().catch(() => {});
 				await stopPoller().catch(() => {});

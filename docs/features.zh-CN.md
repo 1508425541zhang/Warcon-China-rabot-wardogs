@@ -77,3 +77,12 @@
 ## 阅读顺序
 
 [从零安装](install.zh-CN.md) → [中文操作入口](../README.zh-CN.md) → [委员会规则](committee-v3.zh-CN.md) → [AI 设置](integrity-ai.zh-CN.md) → [技术架构](architecture.zh-CN.md)。早期[实施计划](wardogs-community-integrity-plan.zh-CN.md)保留作设计历史，以当前功能文档与代码为准。
+
+
+## Steam 生涯时长分布
+
+数据分析页按所选范围（24 小时／7 天／30 天）内到访本服的 SteamID 去重，展示 WARDOGS 累计游戏时长。人数折线按自适应等宽小时区间合并，最多 20 个区间；可切换累计占比，查看 80% 分位数（按原始分钟加权排序、最近秩计算）。表格从未知开始，随后按小时区间递增。
+
+配置 `STEAM_API_KEY` 并重启服务后，Worker 会逐步查询最近 30 天出现过的玩家，每 5 秒最多 2 个请求，结果缓存 24 小时。首次覆盖全部玩家需要时间；页面每分钟刷新。未公开／未返回、待查询、失败及过期数据都不作为 0 小时，不进入百分位分母。80% 只描述公开样本，不保证代表全部玩家。该数据不参与风控或自动处罚。
+
+来源为 Steam 官方 [GetOwnedGames](https://partner.steamgames.com/doc/webapi/iplayerservice)，只查询 [WARDOGS（1867240）](https://store.steampowered.com/app/1867240/WARDOGS/)。这属于 Steam 累计游戏时间，包含菜单和挂机时间，并非纯战斗时长。API Key 只存服务端，页面仅接收聚合结果。
