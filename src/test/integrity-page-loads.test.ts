@@ -6,11 +6,15 @@ import {
 	integrityCases,
 	integrityReports,
 	integrityScores,
-	integrityWindows
+	integrityWindows,
+	kills,
+	serverLive,
+	servers
 } from '$lib/server/db/schema';
 import { hasTestDb, testEnv } from './db';
 import { callLoad, stubGateway } from './call';
 import { seedWorld, type World } from './world';
+import { loadPlayerIntegrity } from '$lib/server/integrity/player-view';
 
 const ROUTES = join(import.meta.dir, '..', 'routes', '(app)', 'server', '[id]');
 const PLAYER = '76561198000000421';
@@ -128,5 +132,60 @@ describe.skipIf(!hasTestDb)('Integrity and Player Dossier page loads', () => {
 		expect(
 			result.integrity.dryRun.every((period: { windows: number }) => period.windows === 1)
 		).toBe(true);
+	});
+	test('player with no kills uses the server feed; another player advances the rolling clock', async () => {
+		const now = new Date();
+		const [server] = await env.db
+			.update(servers)
+			.set({ feedTokenHash: 'test-feed' })
+			.where(eq(servers.id, world.server.id))
+			.returning();
+		await env.db
+			.insert(serverLive)
+			.values({
+				serverId: server.id,
+				feedAt: now,
+				status: { map: 'Ozeti' },
+				players: [{ steamId: PLAYER, kills: 0, deaths: 0 }]
+			});
+		const event = {
+			serverId: server.id,
+			ts: now,
+			instanceId: 'clock',
+			matchId: 'clock',
+			map: 'Europe',
+			victimSteamId: '76561198000000422',
+			victimName: 'Target',
+			killerFaction: 'A',
+			victimFaction: 'B',
+			factionObservedAt: now,
+			factionBracketed: true,
+			cause: 'Id.Item.AK74M',
+			tags: []
+		};
+		await env.db
+			.insert(kills)
+			.values({
+				...event,
+				eventId: 'other-kill',
+				eventTime: 400,
+				killerSteamId: '76561198000000423'
+			});
+		const empty = await loadPlayerIntegrity(env, server, PLAYER);
+		expect(empty.metricsAvailable).toBe(true);
+		expect(empty.metrics).toBeNull();
+		await env.db
+			.insert(kills)
+			.values({
+				...event,
+				ts: new Date(now.getTime() - 240_000),
+				eventId: 'old-own-kill',
+				eventTime: 160,
+				killerSteamId: PLAYER
+			});
+		const old = await loadPlayerIntegrity(env, server, PLAYER);
+		expect(old.metricsAvailable).toBe(true);
+		expect(old.metrics?.kpm180).toBe(0);
+		expect(old.metrics?.peakKpm180).toBeCloseTo(1 / 3);
 	});
 });
