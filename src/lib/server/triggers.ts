@@ -1,3 +1,4 @@
+import { loadAwardLines } from './match-awards';
 // Automation: per-server triggers the worker evaluates on every observation, all
 // built on what the worker already sees (joins, player counts, empty stretches) plus the Steam cache:
 //   welcome      whisper a message to players as they join (or once they have picked a faction)
@@ -464,7 +465,7 @@ export async function evaluateTriggers(
 					await evalSeedReward(env, ctx, row, row.config as SeedRewardConfig, out);
 					break;
 				case 'match_broadcast':
-					evalMatchBroadcast(ctx, row, row.config as MatchBroadcastConfig, out);
+					await evalMatchBroadcast(env, ctx, row, row.config as MatchBroadcastConfig, out);
 					break;
 				case 'name_filter':
 					evalNameFilter(ctx, row, row.config as NameFilterConfig, out);
@@ -804,16 +805,21 @@ export function forgetRuleMemory(): void {
 	seedState.clear();
 }
 
-function evalMatchBroadcast(
+async function evalMatchBroadcast(
+	env: Env,
 	ctx: TickContext,
 	row: TriggerRow,
 	cfg: MatchBroadcastConfig,
 	out: Evaluation
 ) {
+	const lines =
+		cfg.awards?.enabled && ctx.matchEnd
+			? await loadAwardLines(env, ctx.server.id, ctx.matchEnd.map, ctx.matchLines)
+			: ctx.matchLines;
 	const step = matchBroadcastStep(
 		matchHeld.get(row.id) ?? null,
 		ctx.matchEnd,
-		ctx.matchLines,
+		lines,
 		ctx.status.playerCount,
 		ctx.ts.getTime(),
 		cfg.minPlayers

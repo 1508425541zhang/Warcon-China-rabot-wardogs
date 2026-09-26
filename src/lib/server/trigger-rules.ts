@@ -1,3 +1,10 @@
+import {
+	awardsSchema,
+	defaultAwards,
+	awardWinners,
+	type AwardsConfig,
+	type AwardLine
+} from '$lib/match-awards-policy';
 // The pure part of automation: trigger settings, their validation, message templates and the
 // kick-on-connect verdict. No database, no game server, so it is unit-testable on its own;
 // triggers.ts holds the engine that runs these against live ticks.
@@ -167,6 +174,7 @@ export interface SeedRewardConfig {
  * builds send no score cap, so the winner is whoever led when the scores reset.
  */
 export interface MatchBroadcastConfig {
+	awards?: AwardsConfig;
 	/** sent for the match that ended; '' for none */
 	endMessage: string;
 	/** sent for the match now starting; '' for none */
@@ -354,12 +362,19 @@ export function validateConfig(kind: TriggerKind, raw: unknown): TriggerConfig {
 		case 'match_broadcast': {
 			const endMessage = str(c.endMessage, MAX_MESSAGE);
 			const startMessage = str(c.startMessage, MAX_MESSAGE);
-			if (!endMessage && !startMessage)
+			const awards = awardsSchema.safeParse(c.awards ?? defaultAwards);
+			if (!awards.success) throw new ApiError(400, '赛后奖项模板格式无效，每条最多200字符。');
+			if (!endMessage && !startMessage && !awards.data.enabled)
 				throw new ApiError(
 					400,
 					'Add a message for the match ending, the next one starting, or both.'
 				);
-			return { endMessage, startMessage, minPlayers: int(c.minPlayers, 1, 0, 1000) };
+			return {
+				endMessage,
+				startMessage,
+				minPlayers: int(c.minPlayers, 1, 0, 1000),
+				...(c.awards ? { awards: awards.data } : {})
+			};
 		}
 		case 'name_filter':
 			return validateNameFilter(c);
@@ -612,7 +627,7 @@ export function matchBoundary(prev: MatchLook | null, next: MatchLook): MatchEnd
 }
 
 /** A player's line of the match that ended, as far as the placeholders need it. */
-export interface MatchLineVars {
+export interface MatchLineVars extends AwardLine {
 	name: string;
 	kills: number;
 }
@@ -655,12 +670,27 @@ export function matchBroadcastMessages(
 	playerCount: number,
 	vars: Record<string, string | number>,
 	lines: MatchLineVars[] = []
-): { stage: 'end' | 'start'; message: string }[] {
+): { stage: string; message: string }[] {
 	if (playerCount < cfg.minPlayers) return [];
 	const all = { ...vars, ...matchVars(end, lines) };
-	const out: { stage: 'end' | 'start'; message: string }[] = [];
+	const out: { stage: string; message: string }[] = [];
 	if (cfg.endMessage && end.leaders.length)
 		out.push({ stage: 'end', message: renderTemplate(cfg.endMessage, all) });
+	if (cfg.awards?.enabled)
+		for (const award of awardWinners(lines)) {
+			const template = cfg.awards.templates[award.key];
+			if (template.trim())
+				out.push({
+					stage: `award_${award.key}`,
+					message: renderTemplate(template, {
+						...all,
+						name: award.player.name,
+						value: award.value,
+						kills: award.player.kills,
+						deaths: award.player.deaths ?? '—'
+					})
+				});
+		}
 	if (cfg.startMessage)
 		out.push({ stage: 'start', message: renderTemplate(cfg.startMessage, all) });
 	return out;
