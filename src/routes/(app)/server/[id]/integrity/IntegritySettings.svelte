@@ -512,8 +512,8 @@
 			</h3>
 			<p class="mt-2 text-sm text-warn">
 				{lang === 'zh'
-					? '统计自动处罚尚未完成实服校准，程序级开关保持关闭。管理员只能调整处置策略，不能修改模型门槛和票权。'
-					: 'Statistical automatic actions remain disabled pending real-server calibration. Model thresholds and votes are code controlled.'}
+					? '统计模式可自动踢出，须开启组织自动踢出开关。门槛：200 个本服样本、20 名玩家、20 玩家日、100 有效样本；P95 观察、P99 强异常，仍需独立佐证及数据质量校验。基线每 5 分钟更新。'
+					: 'Statistical mode supports opt-in automatic kicks: 200 local samples, 20 players, 20 player-days and 100 effective samples. P95 watch / P99 strong anomaly; independent corroboration and quality gates still apply. Baselines refresh every 5 minutes.'}
 			</p>
 			<ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-mist-300">
 				<li>Tempo：180 秒 KPM、15 秒爆发、击杀间隔、独立受害者</li>

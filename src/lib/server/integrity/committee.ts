@@ -1,5 +1,9 @@
 import type { StatisticalAssessment } from './statistics';
-import { STATISTICAL_AUTO_ACTION_ENABLED, STATISTICAL_MODEL_CONFIG } from './statistical-config';
+import {
+	STATISTICAL_AUTO_ACTION_ENABLED,
+	STATISTICAL_MODEL_CONFIG,
+	actionBaselineEligible
+} from './statistical-config';
 
 export type ExpertDecision = 'NORMAL' | 'SUSPICIOUS' | 'CHEAT_LIKELY' | 'UNKNOWN';
 export type EvidenceFamily =
@@ -105,11 +109,7 @@ const strongest = (input: ModelInput, family: 'Tempo' | 'Precision') =>
 				? ['kpm180', 'uniqueVictims', 'maxKills15s', 'medianKillInterval'].includes(metric.code)
 				: ['headshotRate', 'penetrationRate', 'headshotRateWeapon'].includes(metric.code)
 		)
-		.filter(
-			(metric) =>
-				metric.source === 'local' &&
-				metric.sampleCount >= STATISTICAL_MODEL_CONFIG.minimumBaselineSamples
-		)
+		.filter((metric) => actionBaselineEligible(metric))
 		.sort((a, b) => b.extremenessPercentile - a.extremenessPercentile)[0];
 
 export const EXPERT_MODELS: readonly IntegrityExpertModel[] = [
@@ -118,9 +118,9 @@ export const EXPERT_MODELS: readonly IntegrityExpertModel[] = [
 		if (!metric) return verdict(self, 'UNKNOWN', ['NO_CLEAN_TEMPO_BASELINE'], input.eventIds, 0);
 		const result = verdict(
 			self,
-			metric.extremenessPercentile >= 0.9995
+			metric.extremenessPercentile >= STATISTICAL_MODEL_CONFIG.kickPercentile
 				? 'CHEAT_LIKELY'
-				: metric.extremenessPercentile >= 0.99
+				: metric.extremenessPercentile >= STATISTICAL_MODEL_CONFIG.watchPercentile
 					? 'SUSPICIOUS'
 					: 'NORMAL',
 			[metric.code],
@@ -132,6 +132,7 @@ export const EXPERT_MODELS: readonly IntegrityExpertModel[] = [
 			...result,
 			hardEvidence:
 				metric.code === 'kpm180' &&
+				metric.sampleCount >= 10_000 &&
 				metric.value >= 8 &&
 				metric.extremenessPercentile >= 0.9999 &&
 				input.eventIds.length >= 24
@@ -143,9 +144,9 @@ export const EXPERT_MODELS: readonly IntegrityExpertModel[] = [
 			return verdict(self, 'UNKNOWN', ['NO_CLEAN_PRECISION_BASELINE'], input.eventIds, 0);
 		return verdict(
 			self,
-			metric.extremenessPercentile >= 0.9995
+			metric.extremenessPercentile >= STATISTICAL_MODEL_CONFIG.kickPercentile
 				? 'CHEAT_LIKELY'
-				: metric.extremenessPercentile >= 0.99
+				: metric.extremenessPercentile >= STATISTICAL_MODEL_CONFIG.watchPercentile
 					? 'SUSPICIOUS'
 					: 'NORMAL',
 			[metric.code],
@@ -234,7 +235,11 @@ export function voteCommittee(
 	};
 	const byFamily = new Map<EvidenceFamily, ExpertVerdict>();
 	for (const item of verdicts) {
-		const current = byFamily.get(item.evidenceFamily);
+		// Career and change-point models both reuse KPM: they cannot manufacture independent votes.
+		const family = ['CAREER', 'CHANGE_POINT'].includes(item.evidenceFamily)
+			? 'TEMPO'
+			: item.evidenceFamily;
+		const current = byFamily.get(family);
 		if (
 			!current ||
 			rank[item.decision] > rank[current.decision] ||
@@ -242,7 +247,7 @@ export function voteCommittee(
 				item.hardEvidence === true &&
 				current.hardEvidence !== true)
 		)
-			byFamily.set(item.evidenceFamily, item);
+			byFamily.set(family, item);
 	}
 	const votes = [...byFamily.values()];
 	const count = (decision: ExpertDecision) => votes.filter((v) => v.decision === decision).length;
@@ -260,7 +265,7 @@ export function voteCommittee(
 	const kick =
 		exceptionalEvidence ||
 		cheatVotes >= 2 ||
-		(cheatVotes >= 1 && suspiciousVotes >= 2) ||
+		(cheatVotes >= 1 && suspiciousVotes >= 1) ||
 		suspiciousVotes >= 3;
 	return {
 		generation: STATISTICAL_MODEL_CONFIG.modelVersion,
@@ -274,7 +279,7 @@ export function voteCommittee(
 		independentSuspiciousFamilies: suspiciousVotes,
 		decision: kick
 			? 'KICK_CANDIDATE'
-			: cheatVotes || suspiciousVotes >= 2 || unknownVotes
+			: cheatVotes || suspiciousVotes >= 1 || unknownVotes
 				? 'WATCH'
 				: 'NORMAL',
 		autoActionBlocked: vetoReasons.length > 0 || !STATISTICAL_AUTO_ACTION_ENABLED,

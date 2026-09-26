@@ -23,7 +23,12 @@ import {
 import { startPoller, stopPoller } from '$lib/server/poller';
 import { setGateway } from '$lib/server/gateway';
 import { localGateway } from '$lib/server/gateway-local';
-import { startFeedProcessing } from '$lib/server/feed-processing';
+import { startFeedProcessing, stopFeedProcessing } from '$lib/server/feed-processing';
+import { startIntegrityBaselines, stopIntegrityBaselines } from '$lib/server/integrity/baselines';
+import {
+	startIntegrityProfileRefresh,
+	stopIntegrityProfileRefresh
+} from '$lib/server/integrity/profile-refresh';
 import { connectRemoteGateway } from '$lib/server/gateway-remote';
 import { loadSettings } from '$lib/server/settings';
 import { beginShutdown } from '$lib/server/shutdown';
@@ -71,6 +76,8 @@ export const init: ServerInit = async () => {
 		setGateway(localGateway);
 		startPoller(env, 'all');
 		startFeedProcessing(env);
+		startIntegrityBaselines(env);
+		startIntegrityProfileRefresh(env);
 	}
 	registerFleetCollector(env);
 	installShutdown(env);
@@ -95,7 +102,12 @@ function installShutdown(env: Awaited<ReturnType<typeof initEnv>>): void {
 		if (exiting) return;
 		exiting = true;
 		void (async () => {
-			if (env.WARCON_ROLE !== 'web') await stopPoller().catch(() => {});
+			if (env.WARCON_ROLE !== 'web') {
+				stopIntegrityBaselines();
+				await stopIntegrityProfileRefresh().catch(() => {});
+				await stopFeedProcessing().catch(() => {});
+				await stopPoller().catch(() => {});
+			}
 			await env.sql.end().catch(() => {});
 			console.log('[warcon] web stopped');
 			process.exit(0);

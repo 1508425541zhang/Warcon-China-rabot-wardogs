@@ -250,8 +250,8 @@
 		</p>{/if}
 	<p class="mt-2 text-xs text-mist-400">
 		{lang === 'zh'
-			? '同枪械爆头率与距离按具体武器 cause 分组；距离是历史异常，不代表武器物理射程。本服至少 200 个可比样本，审核后的外服样本至少 30 个可参与实验性统计；自动处置仍要求至少 5000 个可比样本。'
-			: 'Weapon cohorts use exact causes. Local baselines need 200 samples; approved external baselines need 30 for experimental review. Automatic action still requires 5000 comparable samples.'}
+			? '同枪械数据按具体武器分组；距离仅供复核。自动踢出至少需要 200 个本服可比样本、20 名玩家、20 玩家日及 100 有效样本，满足独立佐证、人数和健康保护。外服样本用于实验性复核。'
+			: 'Exact weapon cohorts; distance is review-only. Auto kick requires 200 local samples, 20 players, 20 player-days and 100 effective samples plus corroboration, population and health gates. External samples remain experimental review evidence.'}
 	</p>
 </section>
 <section class="mb-6 panel p-4">

@@ -41,14 +41,14 @@ describe('independent expert committee', () => {
 			]).decision
 		).toBe('KICK_CANDIDATE');
 	});
-	test('three independent SUSPICIOUS votes qualify', () => {
+	test('career does not create an independent third vote from the same tempo', () => {
 		expect(
 			voteCommittee([
 				v('TEMPO', 'SUSPICIOUS'),
 				v('PRECISION', 'SUSPICIOUS'),
 				v('CAREER', 'SUSPICIOUS')
 			]).decision
-		).toBe('KICK_CANDIDATE');
+		).toBe('WATCH');
 	});
 	test('three correlated tempo models count as one vote', () => {
 		const result = voteCommittee([
@@ -56,7 +56,7 @@ describe('independent expert committee', () => {
 			v('TEMPO', 'SUSPICIOUS', 'burst'),
 			v('TEMPO', 'SUSPICIOUS', 'interval')
 		]);
-		expect(result.decision).toBe('NORMAL');
+		expect(result.decision).toBe('WATCH');
 		expect(result.independentSuspiciousFamilies).toBe(1);
 	});
 	test('one ordinary CHEAT vote does not qualify', () => {
@@ -76,7 +76,10 @@ describe('independent expert committee', () => {
 					{
 						code: 'kpm180',
 						source: 'local',
-						sampleCount: 5000,
+						sampleCount: 10_000,
+						uniquePlayers: 100,
+						uniquePlayerDays: 100,
+						effectiveSampleSize: 1000,
 						value,
 						extremenessPercentile: percentile
 					}

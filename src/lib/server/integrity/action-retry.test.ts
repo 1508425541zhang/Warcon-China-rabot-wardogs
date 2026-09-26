@@ -1,5 +1,24 @@
 import { expect, test } from 'bun:test';
-import { shouldRetryActionEligibility } from './action-retry';
+import { shouldRetryActionEligibility, canReuseStatisticalCase } from './action-retry';
+import type { StatisticalAssessment } from './statistics';
+
+test('a refreshed candidate cannot reuse a stale generation or frozen quality veto', () => {
+	const current = {
+		modelVersion: 'v2',
+		featureVersion: 'f2',
+		weaponMapVersion: 1,
+		baselineGeneration: 'g2',
+		committee: { autoActionBlocked: false }
+	} as StatisticalAssessment;
+	expect(canReuseStatisticalCase(current, current)).toBe(true);
+	expect(canReuseStatisticalCase({ ...current, baselineGeneration: 'g1' }, current)).toBe(false);
+	expect(
+		canReuseStatisticalCase(
+			{ ...current, committee: { ...current.committee!, autoActionBlocked: true } },
+			current
+		)
+	).toBe(false);
+});
 
 test('offline candidate can retry on same case after eligibility cooldown', () => {
 	const now = new Date('2026-01-01T00:01:00Z');

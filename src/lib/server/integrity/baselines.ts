@@ -275,19 +275,26 @@ export async function shadowComparison(env: Env, orgId: string, koThreshold: num
 }
 
 export function startIntegrityBaselines(env: Env): void {
+	let running = false;
 	const run = async () => {
-		const orgs = await env.db.select({ id: organizations.id }).from(organizations);
-		for (const org of orgs) {
-			try {
-				await refreshIntegrityBaselines(env, org.id);
-			} catch (error) {
-				console.error(`[warcon] Integrity baseline ${org.id}:`, error);
+		if (running) return;
+		running = true;
+		try {
+			const orgs = await env.db.select({ id: organizations.id }).from(organizations);
+			for (const org of orgs) {
+				try {
+					await refreshIntegrityBaselines(env, org.id);
+				} catch (error) {
+					console.error(`[warcon] Integrity baseline ${org.id}:`, error);
+				}
 			}
+		} finally {
+			running = false;
 		}
 	};
 	timer = setInterval(
 		() => void run().catch((error) => console.error('[warcon] Integrity baselines:', error)),
-		60 * 60_000
+		STATISTICAL_MODEL_CONFIG.baselineRefreshMinutes * 60_000
 	);
 	initial = setTimeout(
 		() => void run().catch((error) => console.error('[warcon] Integrity baselines:', error)),
