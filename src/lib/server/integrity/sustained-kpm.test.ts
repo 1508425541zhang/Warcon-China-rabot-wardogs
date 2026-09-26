@@ -30,7 +30,7 @@ test('completed, adjacent minutes only; half-open boundaries and two minute opti
 	]);
 	expect(consecutiveMinutes(steady, 240, 3, 4).passed).toBe(false);
 });
-test('career, tempo and change point cannot bypass missing sustained minutes, even hard evidence', () => {
+test('all experts still vote without consecutive-minute KPM; three high votes only create a case', () => {
 	const models = ['TEMPO', 'CAREER', 'CHANGE_POINT'].map((family) => ({
 		id: family,
 		version: 'test',
@@ -65,6 +65,6 @@ test('career, tempo and change point cannot bypass missing sustained minutes, ev
 		independentEpisodes: 3
 	};
 	const result = assessCommittee(input, quality, models);
-	expect(result.verdicts.every((v) => v.decision === 'UNKNOWN' && !v.hardEvidence)).toBe(true);
-	expect(result.decision).toBe('WATCH');
+	expect(result.verdicts.every((v) => v.decision === 'CHEAT_LIKELY')).toBe(true);
+	expect(result.decision).toBe('CASE');
 });

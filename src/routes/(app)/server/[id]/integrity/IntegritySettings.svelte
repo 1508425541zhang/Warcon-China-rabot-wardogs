@@ -130,7 +130,7 @@
 			entries: [
 				{
 					key: 'committeeKpmMinutes',
-					zh: '委员会 KPM 连续完整分钟数（2或3）',
+					zh: '旧版连续分钟参数（新委员会不使用）',
 					en: 'Consecutive complete KPM minutes (2 or 3)',
 					min: 2,
 					max: 3
@@ -360,19 +360,18 @@
 
 <section id="integrity-settings" class="mt-6 space-y-5">
 	<div class="panel p-5">
-		<h3 class="font-semibold">委员会连续分钟规则</h3>
+		<h3 class="font-semibold">委员会五专家规则</h3>
 		<p class="text-sm">
-			当前每分钟步兵 KPM 阈值：{config.kpmBands[0]
-				.min}。连续完整分钟全部达到阈值才具备统计自动处罚资格；不是180秒总击杀的平均值。其他数据和人数保护仍然生效。
+			可疑为P90，高度异常为P95。五票中两票可疑或更高进入观察；三票高度异常或四票可疑及以上生成待审核案件。专家评估不要求连续KPM达标。
 		</p>
-		<label
-			>连续分钟数<select class="ml-2 input" bind:value={draft.committeeKpmMinutes}
-				><option value={2}>2个60秒窗口</option><option value={3}>3个60秒窗口（180秒）</option
-				></select
-			></label
-		><button class="ml-3 btn" disabled={busy} onclick={saveMinutes}>保存连续分钟规则</button
-		>{#if notice}<p role="status">{notice}</p>{/if}{#if problem}<p role="alert">{problem}</p>{/if}
+		<p class="mt-2 text-sm">
+			180秒步兵KPM＞2加6分；唯一直接踢出通道是KPM＞4且另一位专家（不含击杀节奏）至少可疑，无需等待人工审核。人数、数据健康和频率保护仍生效。
+		</p>
+		<p class="mt-2 text-xs text-mist-400">
+			精准度对比本服务器群体分布；变化点仅看本局所有武器的击杀；持续异常统计本局及过去24小时跨局的独立异常。
+		</p>
 	</div>
+
 	{#if assessmentMode === 'legacy'}
 		<div class="panel p-5">
 			<h3 class="text-lg font-semibold text-white">
@@ -548,14 +547,14 @@
 			</h3>
 			<p class="mt-2 text-sm text-warn">
 				{lang === 'zh'
-					? '统计模式可自动踢出，须开启组织自动踢出开关。门槛：200 个本服样本、20 名玩家、20 玩家日、100 有效样本；P95 观察、P99 强异常，仍需独立佐证及数据质量校验。基线每 5 分钟更新。'
-					: 'Statistical mode supports opt-in automatic kicks: 200 local samples, 20 players, 20 player-days and 100 effective samples. P95 watch / P99 strong anomaly; independent corroboration and quality gates still apply. Baselines refresh every 5 minutes.'}
+					? '统计模式可自动踢出，须开启组织自动踢出开关。门槛：200 个本服样本、20 名玩家、20 玩家日、100 有效样本；P90 可疑、P95 高度异常。投票仅建待审案件；KPM＞4且另一专家至少可疑才直接踢出，仍须通过数据质量校验。基线每 5 分钟更新。'
+					: 'Statistical mode supports opt-in automatic kicks: 200 local samples, 20 players, 20 player-days and 100 effective samples. P90 suspicious / P95 highly abnormal. Votes create review cases only; direct kicks require KPM > 4 plus another positive expert and quality gates. Baselines refresh every 5 minutes.'}
 			</p>
 			<ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-mist-300">
 				<li>Tempo：180 秒 KPM、15 秒爆发、击杀间隔、独立受害者</li>
 				<li>Precision：爆头、穿透、同枪械精度；单次最大距离仅供人工复核</li>
 				<li>Career Deviation：玩家长期正常表现偏离</li>
-				<li>Change Point：持续变化点</li>
+				<li>Change Point：本局全部武器变化点</li>
 				<li>Persistence：真正独立片段的重复异常</li>
 			</ul>
 		</div>

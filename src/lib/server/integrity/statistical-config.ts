@@ -1,6 +1,6 @@
 /** Statistical mathematics is versioned in code and cannot be changed by org admins. */
 export const STATISTICAL_MODEL_CONFIG = Object.freeze({
-	modelVersion: 'ensemble-operational-v2',
+	modelVersion: 'ensemble-server-round-v3',
 	featureVersion: 'rolling-infantry-v2',
 	persistenceEpisodeHorizonHours: 24,
 	minimumEpisodeSeparationSeconds: 60,
@@ -11,8 +11,8 @@ export const STATISTICAL_MODEL_CONFIG = Object.freeze({
 	minimumBaselinePlayerDays: 20,
 	// Player-balanced weights must still retain enough effective observations.
 	minimumEffectiveSampleSize: 100,
-	watchPercentile: 0.95,
-	kickPercentile: 0.99,
+	watchPercentile: 0.9,
+	kickPercentile: 0.95,
 	baselineRefreshMinutes: 5,
 	maximumBaselineAgeHours: 48
 });

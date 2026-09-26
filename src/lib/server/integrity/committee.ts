@@ -1,10 +1,5 @@
-import { SUSTAINED_KPM_POLICY } from './sustained-kpm';
 import type { StatisticalAssessment } from './statistics';
-import {
-	STATISTICAL_AUTO_ACTION_ENABLED,
-	STATISTICAL_MODEL_CONFIG,
-	actionBaselineEligible
-} from './statistical-config';
+import { STATISTICAL_AUTO_ACTION_ENABLED, STATISTICAL_MODEL_CONFIG } from './statistical-config';
 
 export type ExpertDecision = 'NORMAL' | 'SUSPICIOUS' | 'CHEAT_LIKELY' | 'UNKNOWN';
 export type EvidenceFamily =
@@ -31,7 +26,7 @@ export interface ModelInput {
 		kpmMad: number | null;
 		recentKpm: number[];
 	};
-	/** Ordered, non-overlapping clean historical windows followed by current performance. */
+	/** Completed all-weapon kill-rate buckets from this round only. */
 	changeSeries?: number[];
 	currentKpm: number;
 	eventIds: string[];
@@ -42,7 +37,8 @@ export interface IntegrityExpertModel {
 	evidenceFamily: EvidenceFamily;
 	assess(input: ModelInput): ExpertVerdict;
 }
-export type CommitteeDecision = 'NORMAL' | 'WATCH' | 'KICK_CANDIDATE' | 'ESCALATION_CANDIDATE';
+export type CommitteeDecision =
+	'NORMAL' | 'WATCH' | 'CASE' | 'KICK_CANDIDATE' | 'ESCALATION_CANDIDATE';
 export interface CommitteeResult {
 	generation: string;
 	verdicts: ExpertVerdict[];
@@ -67,13 +63,17 @@ export function hasStatisticalAnomaly(assessment: StatisticalAssessment | null):
 		assessment.featureVersion !== STATISTICAL_MODEL_CONFIG.featureVersion
 	)
 		return false;
-	return assessment.metrics.some(
-		(metric) =>
-			metric.code !== 'maxKillDistanceWeapon' &&
-			metric.extremenessPercentile >= 0.99 &&
-			(!['kpm180', 'uniqueVictims', 'maxKills15s', 'medianKillInterval'].includes(metric.code) ||
-				(assessment.sustainedKpm?.policyVersion === SUSTAINED_KPM_POLICY &&
-					assessment.sustainedKpm.passed))
+	return (
+		assessment.metrics.some(
+			(metric) =>
+				metric.code !== 'maxKillDistanceWeapon' &&
+				metric.extremenessPercentile >= STATISTICAL_MODEL_CONFIG.watchPercentile
+		) ||
+		!!assessment.committee?.verdicts.some(
+			(v) =>
+				v.modelId !== 'persistence' &&
+				(v.decision === 'SUSPICIOUS' || v.decision === 'CHEAT_LIKELY')
+		)
 	);
 }
 
@@ -144,18 +144,7 @@ export const EXPERT_MODELS: readonly IntegrityExpertModel[] = [
 			[metric.code],
 			input.eventIds
 		);
-		// One extraordinary, well-sampled rolling infantry tempo observation may
-		// stand alone. The shared data-quality veto and release gate still apply.
-		return {
-			...result,
-			hardEvidence:
-				metric.code === 'kpm180' &&
-				actionBaselineEligible(metric) &&
-				metric.sampleCount >= 10_000 &&
-				metric.value >= 8 &&
-				metric.extremenessPercentile >= 0.9999 &&
-				input.eventIds.length >= 24
-		};
+		return result;
 	}),
 	model('precision', 'PRECISION', (input, self) => {
 		const metric = strongest(input, 'Precision');
@@ -241,7 +230,7 @@ export function dataQualityVeto(input: DataQualityInput): string[] {
 		.map(([key]) => key.toUpperCase());
 }
 
-/** One main vote per independent evidence family. UNKNOWN is kept separate from NORMAL. */
+/** Five expert ballots. Three high or four positive ballots create a review case only. */
 export function voteCommittee(
 	verdicts: readonly ExpertVerdict[],
 	vetoReasons: readonly string[] = []
@@ -252,40 +241,19 @@ export function voteCommittee(
 		SUSPICIOUS: 2,
 		CHEAT_LIKELY: 3
 	};
-	const byFamily = new Map<EvidenceFamily, ExpertVerdict>();
+	// One ballot per named expert. Unknowns never count as positive ballots.
+	const byModel = new Map<string, ExpertVerdict>();
 	for (const item of verdicts) {
-		// Career and change-point models both reuse KPM: they cannot manufacture independent votes.
-		const family = ['CAREER', 'CHANGE_POINT'].includes(item.evidenceFamily)
-			? 'TEMPO'
-			: item.evidenceFamily;
-		const current = byFamily.get(family);
-		if (
-			!current ||
-			rank[item.decision] > rank[current.decision] ||
-			(rank[item.decision] === rank[current.decision] &&
-				item.hardEvidence === true &&
-				current.hardEvidence !== true)
-		)
-			byFamily.set(family, item);
+		const current = byModel.get(item.modelId);
+		if (!current || rank[item.decision] > rank[current.decision]) byModel.set(item.modelId, item);
 	}
-	const votes = [...byFamily.values()];
+	const votes = [...byModel.values()];
 	const count = (decision: ExpertDecision) => votes.filter((v) => v.decision === decision).length;
-	const cheatVotes = count('CHEAT_LIKELY');
-	const suspiciousVotes = count('SUSPICIOUS');
-	const unknownVotes = count('UNKNOWN');
-	const exceptionalEvidence = votes.some(
-		(v) =>
-			v.decision === 'CHEAT_LIKELY' &&
-			v.hardEvidence === true &&
-			v.confidence >= 0.995 &&
-			v.evidenceQuality >= 0.995 &&
-			v.evidenceRefs.length > 0
-	);
-	const kick =
-		exceptionalEvidence ||
-		cheatVotes >= 2 ||
-		(cheatVotes >= 1 && suspiciousVotes >= 1) ||
-		suspiciousVotes >= 3;
+	const cheatVotes = count('CHEAT_LIKELY'),
+		suspiciousVotes = count('SUSPICIOUS'),
+		unknownVotes = count('UNKNOWN');
+	const kick = cheatVotes >= 3 || cheatVotes + suspiciousVotes >= 4;
+
 	return {
 		generation: STATISTICAL_MODEL_CONFIG.modelVersion,
 		verdicts: [...verdicts],
@@ -296,11 +264,7 @@ export function voteCommittee(
 		participatingModels: votes.length - unknownVotes,
 		independentCheatFamilies: cheatVotes,
 		independentSuspiciousFamilies: suspiciousVotes,
-		decision: kick
-			? 'KICK_CANDIDATE'
-			: cheatVotes || suspiciousVotes >= 1 || unknownVotes
-				? 'WATCH'
-				: 'NORMAL',
+		decision: kick ? 'CASE' : cheatVotes + suspiciousVotes >= 2 ? 'WATCH' : 'NORMAL',
 		autoActionBlocked: vetoReasons.length > 0 || !STATISTICAL_AUTO_ACTION_ENABLED,
 		vetoReasons: [
 			...vetoReasons,
@@ -314,25 +278,21 @@ export function assessCommittee(
 	quality: DataQualityInput,
 	models: readonly IntegrityExpertModel[] = EXPERT_MODELS
 ): CommitteeResult {
-	return voteCommittee(
-		models.map((expert) => {
-			const result = expert.assess(input);
-			if (
-				['TEMPO', 'CAREER', 'CHANGE_POINT'].includes(result.evidenceFamily) &&
-				!(
-					input.statistical.sustainedKpm?.policyVersion === SUSTAINED_KPM_POLICY &&
-					input.statistical.sustainedKpm.passed
-				)
-			)
-				return {
-					...result,
-					decision: 'UNKNOWN' as const,
-					hardEvidence: false,
-					reasons: [...result.reasons, 'CONSECUTIVE_60S_KPM_NOT_MET'],
-					confidence: 0
-				};
-			return result;
-		}),
+	const result = voteCommittee(
+		models.map((expert) => expert.assess(input)),
 		dataQualityVeto(quality)
 	);
+	const kpmSupport =
+		input.currentKpm > 4 &&
+		result.verdicts.some(
+			(v) => v.modelId !== 'tempo' && (v.decision === 'SUSPICIOUS' || v.decision === 'CHEAT_LIKELY')
+		);
+	return {
+		...result,
+		decision: kpmSupport
+			? 'KICK_CANDIDATE'
+			: result.decision === 'NORMAL' && input.currentKpm > 2
+				? 'WATCH'
+				: result.decision
+	};
 }

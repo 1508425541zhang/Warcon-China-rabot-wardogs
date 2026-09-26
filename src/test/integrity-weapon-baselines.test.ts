@@ -74,10 +74,23 @@ describe.skipIf(!hasTestDb)('weapon baseline refresh', () => {
 			.select()
 			.from(integrityBaselines)
 			.where(eq(integrityBaselines.orgId, world.org.id));
-		const selected = selectWeaponBaselines(rows, 'Kavkazi', null);
+		const selected = selectWeaponBaselines(
+			rows,
+			'Kavkazi',
+			null,
+			new Date(),
+			undefined,
+			world.server.id
+		);
 		expect(selected.get('headshotRateWeapon:Id.Item.AK74M')?.sampleCount).toBe(200);
 		expect(selected.get('maxKillDistanceWeapon:Id.Item.AK74M')?.sampleCount).toBeGreaterThan(200);
 		expect(selected.has('headshotRateWeapon:Id.Item.SVDM')).toBe(false);
+		expect(
+			selectWeaponBaselines(rows, 'Kavkazi', null, new Date(), undefined, world.otherServer.id).has(
+				'headshotRateWeapon:Id.Item.AK74M'
+			)
+		).toBe(false);
+		expect(selected.get('headshotRateWeapon:Id.Item.AK74M')?.serverId).toBe(world.server.id);
 		const [before] = await env.db
 			.select()
 			.from(integrityModelState)

@@ -75,7 +75,8 @@ const statistical = (level: StatisticalAssessment['level']): StatisticalAssessme
 	metrics: [],
 	committee: {
 		decision: level === 'KICK_CANDIDATE' ? 'KICK_CANDIDATE' : 'NORMAL',
-		autoActionBlocked: false
+		autoActionBlocked: false,
+		verdicts: [{ modelId: 'precision', decision: 'SUSPICIOUS' }]
 	} as NonNullable<StatisticalAssessment['committee']>
 });
 
@@ -156,7 +157,7 @@ describe('Integrity decision gate', () => {
 			decideIntegrityAction({ ...base, finding: solo, settings, priorIndependentWindow: true })
 		).toBe('QUARANTINE_24H');
 	});
-	test('statistical escalation requires a fresh candidate and an effective prior action', () => {
+	test('statistical direct kick never escalates to a ban and still respects vetoes', () => {
 		const candidate = statistical('KICK_CANDIDATE');
 		const current = {
 			...base,
@@ -177,7 +178,7 @@ describe('Integrity decision gate', () => {
 				priorIndependentWindow: true,
 				previousActions: ['KICK']
 			})
-		).toBe('QUARANTINE_24H');
+		).toBe('KICK');
 		expect(
 			decideStatisticalAction({
 				...current,
@@ -185,7 +186,7 @@ describe('Integrity decision gate', () => {
 				priorIndependentWindow: true,
 				previousActions: ['QUARANTINE_24H']
 			})
-		).toBe('QUARANTINE_7D');
+		).toBe('KICK');
 		expect(
 			decideStatisticalAction({
 				...current,

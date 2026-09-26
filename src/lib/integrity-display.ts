@@ -1,5 +1,6 @@
 /** Human-readable labels for stored Integrity evidence, including older English snapshots. */
 const RISK_LABELS: Record<string, string> = {
+	committee_kpm_watch: '步兵KPM＞2警惕',
 	infantry_kpm_180: '180 秒步兵 KPM',
 	unique_victims: '独立受害者',
 	repeat_window: '独立异常窗口',
@@ -30,10 +31,13 @@ export function integrityPartText(code: string, detail: string, lang: 'zh' | 'en
 
 export const integrityCaseStatus = (value: string) =>
 	(
-		({ OPEN: '待审核', REVIEWED: '已审核', REVIEWING: '审核中', CLOSED: '已结案' }) as Record<
-			string,
-			string
-		>
+		({
+			OPEN: '待审核',
+			AUTO_ACTION: '自动处置记录（无需待审）',
+			REVIEWED: '已审核',
+			REVIEWING: '审核中',
+			CLOSED: '已结案'
+		}) as Record<string, string>
 	)[value] ?? value;
 
 /** Render legacy advisory risk reasons without changing stored evidence or scoring. */

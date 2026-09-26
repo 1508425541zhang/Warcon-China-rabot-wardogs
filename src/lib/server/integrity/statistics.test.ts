@@ -10,6 +10,7 @@ import {
 	populationBucket,
 	robustZ,
 	sampleQuality,
+	type StatisticalAssessment,
 	type DistributionStats
 } from './statistics';
 
@@ -193,32 +194,16 @@ const finding: BehaviorFinding = {
 	reasons: ['kpm', 'burst', 'headshot'],
 	eventIds: ['e1']
 };
-test('statistical decision has independent evidence, live gates and a hard safety floor', () => {
-	const enoughHistory = Array.from({ length: 5000 }, (_, i) => [i + 1, 1] as [number, number]);
-	const assessment = assessDistribution(
-		{ kpm180: 5000, headshotRate: 0.9998 },
-		new Map([
-			['kpm180', distribution('kpm180', enoughHistory)],
-			[
-				'headshotRate',
-				distribution(
-					'headshotRate',
-					Array.from({ length: 5000 }, (_, i) => [i / 5000, 1])
-				)
-			]
-		]),
-		24,
-		1
-	);
-	assessment.sustainedKpm = consecutiveMinutes(
-		[1, 2, 3, 4, 61, 62, 63, 64, 121, 122, 123, 124],
-		180,
-		3,
-		4
-	);
-	assessment.committee = { decision: 'KICK_CANDIDATE', autoActionBlocked: false } as NonNullable<
-		typeof assessment.committee
-	>;
+test('only KPM strictly above four plus another expert can kick; voting cases cannot', () => {
+	const assessment = {
+		status: 'READY',
+		level: 'KICK_CANDIDATE',
+		committee: {
+			decision: 'KICK_CANDIDATE',
+			autoActionBlocked: false,
+			verdicts: [{ modelId: 'precision', decision: 'SUSPICIOUS' }]
+		}
+	} as StatisticalAssessment;
 	const input = {
 		assessment,
 		finding,
@@ -232,42 +217,47 @@ test('statistical decision has independent evidence, live gates and a hard safet
 		priorIndependentWindow: false,
 		previousActions: [] as const
 	};
-	expect(assessment.level).toBe('KICK_CANDIDATE');
 	expect(decideStatisticalAction(input)).toBe('KICK');
+	for (const kpm of [0, 2, 4])
+		expect(decideStatisticalAction({ ...input, finding: { ...finding, kpm180: kpm } })).toBe(
+			'OBSERVE'
+		);
+	expect(decideStatisticalAction({ ...input, finding: { ...finding, kpm180: 4.01 } })).toBe('KICK');
 	expect(decideStatisticalAction({ ...input, onlinePlayers: 19 })).toBe('OBSERVE');
+	expect(decideStatisticalAction({ ...input, feedHealthy: false })).toBe('OBSERVE');
+	expect(decideStatisticalAction({ ...input, playerOnline: false })).toBe('OBSERVE');
 	expect(
 		decideStatisticalAction({
 			...input,
-			assessment: { ...assessment, independentEpisodes: 2 },
-			previousActions: ['KICK'],
-			settings: { ...input.settings, autoQuarantine24hEnabled: true }
+			assessment: { ...assessment, committee: { ...assessment.committee!, decision: 'CASE' } }
 		})
-	).toBe('QUARANTINE_24H');
-	expect(
-		decideStatisticalAction({
-			...input,
-			assessment: { ...assessment, independentEpisodes: 3 },
-			previousActions: ['QUARANTINE_24H'],
-			settings: { ...input.settings, autoQuarantine7dEnabled: true }
-		})
-	).toBe('QUARANTINE_7D');
-	expect(
-		decideStatisticalAction({
-			...input,
-			finding: { ...finding, kpm180: DEFAULT_INTEGRITY_RULES.kpmBands[0].min }
-		})
-	).toBe('KICK');
+	).toBe('OBSERVE');
 	expect(
 		decideStatisticalAction({
 			...input,
 			assessment: {
 				...assessment,
-				sustainedKpm: consecutiveMinutes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 180, 3, 4)
+				committee: {
+					...assessment.committee!,
+					verdicts: [{ modelId: 'tempo', decision: 'CHEAT_LIKELY' } as never]
+				}
 			}
 		})
 	).toBe('OBSERVE');
-	expect(decideStatisticalAction({ ...input, feedHealthy: false })).toBe('OBSERVE');
 	expect(
-		decideStatisticalAction({ ...input, assessment: { ...assessment, sampleCount: 199 } })
+		decideStatisticalAction({
+			...input,
+			assessment: {
+				...assessment,
+				committee: { ...assessment.committee!, autoActionBlocked: true }
+			}
+		})
 	).toBe('OBSERVE');
+	expect(
+		decideStatisticalAction({
+			...input,
+			previousActions: ['KICK'],
+			settings: { ...input.settings, autoQuarantine24hEnabled: true }
+		})
+	).toBe('KICK');
 });
