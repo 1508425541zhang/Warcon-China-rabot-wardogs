@@ -94,6 +94,10 @@ export interface MetricAssessment {
 }
 
 export interface StatisticalAssessment {
+	precisionContext?: {
+		scope: 'current_round_weapon_class';
+		rows: import('./precision-round').PrecisionComparison[];
+	};
 	changePointContext?: {
 		scope: 'current_round_all_weapons';
 		bucketSeconds: number;

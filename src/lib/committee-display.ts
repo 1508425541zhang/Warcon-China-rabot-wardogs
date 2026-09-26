@@ -7,8 +7,8 @@ export const committeeModelName: Record<string, string> = {
 };
 export const committeeUnknownReason: Record<string, string> = {
 	NO_CLEAN_TEMPO_BASELINE: '没有可用的击杀节奏基线（至少 50 个参考样本）',
-	NO_CLEAN_PRECISION_BASELINE:
-		'当前窗口不足 10 次有效步兵击杀，或缺少至少 50 个样本的本服务器群体爆头率／穿透率基线',
+	NO_CLEAN_PRECISION_BASELINE: '历史版本精准度参考不足（旧记录）',
+	ROUND_PRECISION_FEWER_THAN_FIVE: '本局可识别枪械类别尚未累计 5 次有效击杀',
 	INSUFFICIENT_CLEAN_CAREER: '个人独立历史窗口不足 100 个、活跃天数不足 10 天，或历史波动无法估计',
 	INSUFFICIENT_ORDERED_HISTORY: '本局完整15秒窗口不足20个，或当前对局记录不可靠',
 	CAREER_VARIANCE_UNRESOLVED: '本局此前波动太小，暂时无法估计变化幅度',

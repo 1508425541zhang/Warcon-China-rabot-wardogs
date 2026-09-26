@@ -1,3 +1,4 @@
+import { loadRoundPrecision } from './precision-round-data';
 import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import type { Env } from '../env';
 import {
@@ -397,7 +398,23 @@ export async function processIntegrityBatch(
 							at: currentEvent ? new Date(currentEvent.ts) : now
 						})
 					: [];
-				if (changeSeries.length >= 20) statistical.status = 'READY';
+				const precision = Number.isSafeInteger(matchRow)
+					? await loadRoundPrecision(
+							tx,
+							{
+								serverId,
+								steamId: finding.steamId,
+								instanceId: finding.instanceId,
+								matchRow,
+								clock: finding.clockTo,
+								at: currentEvent ? new Date(currentEvent.ts) : now
+							},
+							overrides
+						)
+					: [];
+				statistical.precisionContext = { scope: 'current_round_weapon_class', rows: precision };
+				if (changeSeries.length >= 20 || precision.some((row) => row.kills >= 5))
+					statistical.status = 'READY';
 				const recentKpm = [...recentStatistical]
 					.reverse()
 					.map((row) => row.kpm180)
@@ -444,6 +461,7 @@ export async function processIntegrityBatch(
 								}
 							: undefined,
 						changeSeries,
+						precision,
 						currentKpm: finding.kpm180,
 						eventIds: finding.eventIds
 					},

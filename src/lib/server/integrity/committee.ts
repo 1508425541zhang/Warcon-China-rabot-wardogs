@@ -1,3 +1,9 @@
+import {
+	precisionDecision,
+	PRECISION_THRESHOLDS,
+	type PrecisionClass,
+	type PrecisionComparison
+} from './precision-round';
 import type { StatisticalAssessment } from './statistics';
 import { STATISTICAL_AUTO_ACTION_ENABLED, STATISTICAL_MODEL_CONFIG } from './statistical-config';
 
@@ -17,6 +23,7 @@ export interface ExpertVerdict {
 }
 export interface ModelInput {
 	statistical: StatisticalAssessment;
+	precision?: PrecisionComparison[];
 	independentEpisodes: number;
 	/** Clean, normal career windows only. Missing history yields UNKNOWN. */
 	career?: {
@@ -111,7 +118,7 @@ const model = (
 ): IntegrityExpertModel => {
 	const self: IntegrityExpertModel = {
 		id,
-		version: '1',
+		version: id === 'precision' ? '2-round-class' : '1',
 		evidenceFamily: family,
 		assess(input) {
 			return assess(input, self);
@@ -158,17 +165,24 @@ export const EXPERT_MODELS: readonly IntegrityExpertModel[] = [
 		return result;
 	}),
 	model('precision', 'PRECISION', (input, self) => {
-		const metric = strongest(input, 'Precision');
-		if (!metric)
-			return verdict(self, 'UNKNOWN', ['NO_CLEAN_PRECISION_BASELINE'], input.eventIds, 0);
+		const priorities = { UNKNOWN: 0, NORMAL: 1, SUSPICIOUS: 2, CHEAT_LIKELY: 3 };
+		const rows = (input.precision ?? [])
+			.map((row) => ({ row, decision: precisionDecision(row) }))
+			.sort((a, b) => priorities[b.decision] - priorities[a.decision]);
+		const chosen = rows[0];
+		if (!chosen || chosen.decision === 'UNKNOWN')
+			return verdict(self, 'UNKNOWN', ['ROUND_PRECISION_FEWER_THAN_FIVE'], input.eventIds, 0);
+		const r = chosen.row;
+		const label = PRECISION_THRESHOLDS[r.category as PrecisionClass].label;
 		return verdict(
 			self,
-			metric.extremenessPercentile >= STATISTICAL_MODEL_CONFIG.kickPercentile
-				? 'CHEAT_LIKELY'
-				: metric.extremenessPercentile >= STATISTICAL_MODEL_CONFIG.watchPercentile
-					? 'SUSPICIOUS'
-					: 'NORMAL',
-			[metric.code],
+			chosen.decision,
+			[
+				`${label}：本局 ${r.kills} 杀／${r.headshots} 次爆头，爆头率 ${(r.rate * 100).toFixed(1)}%`,
+				r.serverRate === null
+					? '本服同类武器暂无其他玩家参考，按分类阈值判断'
+					: `本服同类武器其他玩家平均 ${(r.serverRate * 100).toFixed(1)}%，差值 ${((r.difference ?? 0) * 100).toFixed(1)} 个百分点，分位 ${((r.percentile ?? 0) * 100).toFixed(1)}%，参考 ${r.peerPlayers} 人／${r.peerKills} 杀`
+			],
 			input.eventIds
 		);
 	}),
