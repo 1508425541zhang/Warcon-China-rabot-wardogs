@@ -17,6 +17,7 @@ export async function aiRequest(
 			url,
 			{
 				method: body === undefined ? 'GET' : 'POST',
+				autoSelectFamily: false,
 				headers: {
 					authorization: `Bearer ${key}`,
 					'content-type': 'application/json',
