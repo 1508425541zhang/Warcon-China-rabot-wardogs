@@ -1,3 +1,4 @@
+import { COMMITTEE_VOTING_VERSION } from '$lib/server/integrity/committee';
 import { aiJobViews } from '$lib/server/integrity/ai-queue';
 import { aiSettings } from '$lib/server/integrity/ai';
 import { loadCurrentRisks } from '$lib/server/integrity/current-risk';
@@ -231,6 +232,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 						eq(integrityScores.serverId, server.id),
 						eq(integrityScores.source, 'window'),
 						sql`${integrityScores.statistical}->>'modelVersion' = ${STATISTICAL_MODEL_CONFIG.modelVersion}`,
+						sql`${integrityScores.statistical}->'committee'->>'votingVersion' = ${COMMITTEE_VOTING_VERSION}`,
 						gte(integrityScores.scoredAt, new Date(now.getTime() - 30 * 86_400_000))
 					)
 				)
@@ -250,6 +252,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 					and(
 						eq(integrityCases.serverId, server.id),
 						sql`${integrityCases.statistical}->>'modelVersion' = ${STATISTICAL_MODEL_CONFIG.modelVersion}`,
+						sql`${integrityCases.statistical}->'committee'->>'votingVersion' = ${COMMITTEE_VOTING_VERSION}`,
 						gte(integrityLabels.createdAt, new Date(now.getTime() - 30 * 86_400_000))
 					)
 				)

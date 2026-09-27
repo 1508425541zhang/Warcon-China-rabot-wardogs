@@ -1,3 +1,4 @@
+import { COMMITTEE_VOTING_VERSION } from './committee';
 import { describe, expect, test } from 'bun:test';
 import { summarizeCommitteeShadow } from './shadow-dashboard';
 import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
@@ -7,6 +8,7 @@ describe('committee shadow calibration summary', () => {
 		const watch = {
 			modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
 			committee: {
+				votingVersion: COMMITTEE_VOTING_VERSION,
 				decision: 'WATCH',
 				verdicts: [
 					{ modelId: 'tempo', decision: 'SUSPICIOUS' },
@@ -17,6 +19,7 @@ describe('committee shadow calibration summary', () => {
 		const kick = {
 			modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
 			committee: {
+				votingVersion: COMMITTEE_VOTING_VERSION,
 				decision: 'KICK_CANDIDATE',
 				verdicts: [
 					{ modelId: 'tempo', decision: 'CHEAT_LIKELY' },
@@ -52,6 +55,7 @@ test('unknown reasons remain visible and are deduplicated per episode', () => {
 		statistical: {
 			modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
 			committee: {
+				votingVersion: COMMITTEE_VOTING_VERSION,
 				decision: 'WATCH',
 				verdicts: [
 					{ modelId: 'precision', decision: 'UNKNOWN', reasons: ['NO_CLEAN_PRECISION_BASELINE'] }
@@ -68,6 +72,7 @@ test('old rule reasons cannot appear as current model votes or review outcomes',
 	const old = {
 		modelVersion: 'ensemble-operational-v2',
 		committee: {
+			votingVersion: COMMITTEE_VOTING_VERSION,
 			decision: 'KICK_CANDIDATE',
 			verdicts: [
 				{ modelId: 'tempo', decision: 'UNKNOWN', reasons: ['CONSECUTIVE_60S_KPM_NOT_MET'] }
@@ -77,7 +82,11 @@ test('old rule reasons cannot appear as current model votes or review outcomes',
 	const current = {
 		...old,
 		modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
-		committee: { decision: 'WATCH', verdicts: [{ modelId: 'tempo', decision: 'SUSPICIOUS' }] }
+		committee: {
+			votingVersion: COMMITTEE_VOTING_VERSION,
+			decision: 'WATCH',
+			verdicts: [{ modelId: 'tempo', decision: 'SUSPICIOUS' }]
+		}
 	};
 	const result = summarizeCommitteeShadow(
 		[
@@ -91,4 +100,14 @@ test('old rule reasons cannot appear as current model votes or review outcomes',
 	expect(result.counts.WATCH).toBe(1);
 	expect(result.unknownReasons).toEqual({});
 	expect(result.confirmedAbuse).toBe(0);
+});
+
+test('previous voting policy is excluded even when the statistical model is unchanged', () => {
+	const old = {
+		modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
+		committee: { decision: 'WATCH', verdicts: [{ modelId: 'tempo', decision: 'CHEAT_LIKELY' }] }
+	};
+	const result = summarizeCommitteeShadow([{ windowId: 99, statistical: old }], [], false);
+	expect(result.assessed).toBe(0);
+	expect(result.models).toEqual({});
 });

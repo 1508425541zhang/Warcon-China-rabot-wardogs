@@ -349,6 +349,35 @@
 	{#if selectedAssessment}
 		<div class="mt-3 panel p-3 text-sm">
 			<strong>委员会：五专家独立投票</strong>
+			{#if selectedAssessment.committee}
+				<p class="mt-2">
+					本次评估：{selectedScore ? when(selectedScore.scoredAt) : '—'} · 极可能作弊 {selectedAssessment
+						.committee.cheatVotes} 票 · 可疑 {selectedAssessment.committee.suspiciousVotes} 票 · 未知
+					{selectedAssessment.committee.unknownVotes} 票 · 结果 {selectedAssessment.committee
+						.decision}
+				</p>
+				<div class="mt-2 table-wrap">
+					<table>
+						<thead><tr><th>专家</th><th>本次投票</th><th>依据</th></tr></thead><tbody>
+							{#each selectedAssessment.committee.verdicts as ballot}<tr
+									><td>{committeeModelName[ballot.modelId] ?? ballot.modelId}</td><td
+										>{{
+											NORMAL: '正常',
+											SUSPICIOUS: '可疑',
+											CHEAT_LIKELY: '极可能作弊',
+											UNKNOWN: '未知'
+										}[ballot.decision]}</td
+									><td
+										>{ballot.reasons
+											.map((reason) => committeeUnknownReason[reason] ?? reason)
+											.join('；')}</td
+									></tr
+								>{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+
 			<p>
 				两票可疑：观察；三票可疑及以上或两票极可能作弊：进入案件审核；三票极可能作弊：自动踢出候选。KPM＞4且另一专家至少可疑也可踢出，均受执行保护约束。
 			</p>
@@ -437,18 +466,18 @@
 	</div>
 	<h4 class="mt-6 text-sm font-semibold text-white">
 		{lang === 'zh'
-			? '委员会 Shadow 汇总（按案件窗口去重）'
+			? '委员会汇总（当前投票版本，按评估事件去重）'
 			: 'Committee shadow summary (distinct episodes)'}
 	</h4>
 	<p class="mt-1 text-xs text-mist-400">
 		{lang === 'zh'
-			? `仅统计当前模型 ${data.committeeShadow.modelVersion} 已保存的评估；旧版本结论保留在历史案件，不混入本表。单票异常也会记录，但不等于案件或处罚。自动踢出仍需组织开启并通过全部保护条件。`
-			: `Saved assessments for ${data.committeeShadow.modelVersion} only; historical versions are excluded. A single abnormal ballot is recorded, not enforced. Automatic kicks require opt-in and all protection gates.`}
+			? `仅统计当前模型 ${data.committeeShadow.modelVersion} 及当前投票规则已保存的评估；旧版本结论保留在历史案件，不混入本表。单票异常也会记录，但不等于案件或处罚。自动踢出仍需组织开启并通过全部保护条件。`
+			: `Saved assessments for ${data.committeeShadow.modelVersion} and the current voting policy only; historical versions are excluded. A single abnormal ballot is recorded, not enforced. Automatic kicks require opt-in and all protection gates.`}
 	</p>
 	<div class="mt-3 flex flex-wrap gap-4 text-sm text-white">
 		<span>NORMAL：{data.committeeShadow.counts.NORMAL}</span>
 		<span>WATCH：{data.committeeShadow.counts.WATCH}</span>
-		<span>待审核案件：{data.committeeShadow.counts.CASE}</span>
+		<span>达到审核门槛的评估：{data.committeeShadow.counts.CASE}</span>
 		<span>直接踢出候选：{data.committeeShadow.counts.KICK_CANDIDATE}</span>
 		<span
 			>{lang === 'zh' ? '意见分歧率' : 'Disagreement'}：{data.committeeShadow.disagreementRate ===

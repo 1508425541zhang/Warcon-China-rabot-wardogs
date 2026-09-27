@@ -516,15 +516,6 @@ export async function processIntegrityBatch(
 			)
 				refreshSteam.add(finding.steamId);
 			if (!finding.reasons.length && !shouldSaveCommitteeAssessment(statistical)) continue;
-			const [previousAssessment] =
-				windowId === null
-					? []
-					: await tx
-							.select({ statistical: integrityScores.statistical })
-							.from(integrityScores)
-							.where(eq(integrityScores.windowId, windowId))
-							.orderBy(desc(integrityScores.id))
-							.limit(1);
 			if (windowId === null) {
 				const [window] = await tx
 					.insert(integrityWindows)
@@ -624,11 +615,7 @@ export async function processIntegrityBatch(
 			const legacyCase = score.score >= rules.config.koThreshold;
 			const statisticalCase =
 				statistical?.level === 'CASE' || statistical?.level === 'KICK_CANDIDATE';
-			const newStatisticalLevel =
-				statisticalCase &&
-				(previousAssessment?.statistical as StatisticalAssessment | null)?.level !==
-					statistical?.level;
-			// Persist the assessment transition once. Eligibility retries reuse that frozen case.
+			// Case existence is independent from assessment-level transitions.
 			const priorCases = statisticalCase
 				? await tx
 						.select({
@@ -669,10 +656,8 @@ export async function processIntegrityBatch(
 			let caseId = sameEpisodeCase?.id ?? null;
 			const createCase =
 				rules.assessmentMode === 'statistical'
-					? statisticalCase &&
-						!sameEpisodeCase &&
-						(newStatisticalLevel || statistical?.level === 'KICK_CANDIDATE')
-					: legacyCase || newStatisticalLevel;
+					? statisticalCase && !sameEpisodeCase
+					: legacyCase || (statisticalCase && !sameEpisodeCase);
 			if (createCase) {
 				caseId = await freezeFindingEvidence(tx, {
 					orgId,

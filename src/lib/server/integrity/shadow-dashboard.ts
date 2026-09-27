@@ -1,3 +1,4 @@
+import { COMMITTEE_VOTING_VERSION } from './committee';
 import type { StatisticalAssessment } from './statistics';
 import type { CommitteeDecision, ExpertDecision } from './committee';
 import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
@@ -35,7 +36,12 @@ export function summarizeCommitteeShadow(
 		if (row.windowId === null || seen.has(row.windowId)) continue;
 		seen.add(row.windowId);
 		const committee = (row.statistical as StatisticalAssessment | null)?.committee;
-		if (!committee || !decisions.includes(committee.decision) || !Array.isArray(committee.verdicts))
+		if (
+			!committee ||
+			committee.votingVersion !== COMMITTEE_VOTING_VERSION ||
+			!decisions.includes(committee.decision) ||
+			!Array.isArray(committee.verdicts)
+		)
 			continue;
 		counts[committee.decision]++;
 		assessed++;
@@ -63,6 +69,8 @@ export function summarizeCommitteeShadow(
 		if (
 			(row.statistical as StatisticalAssessment | null)?.modelVersion ===
 				STATISTICAL_MODEL_CONFIG.modelVersion &&
+			(row.statistical as StatisticalAssessment | null)?.committee?.votingVersion ===
+				COMMITTEE_VOTING_VERSION &&
 			!latestLabel.has(row.caseId)
 		)
 			latestLabel.set(row.caseId, row.label);
@@ -78,6 +86,7 @@ export function summarizeCommitteeShadow(
 	}
 	return {
 		modelVersion: STATISTICAL_MODEL_CONFIG.modelVersion,
+		votingVersion: COMMITTEE_VOTING_VERSION,
 		counts,
 		models,
 		unknownReasons,
