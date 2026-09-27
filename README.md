@@ -81,5 +81,5 @@ KD 会在玩家档案中显示供参考，**不单独加风险分**。以上是 
 顶部“个人插件”支持按账号导入／导出 JSON 卡片、调整强调色与布局、关联服务器及启停插件；开发者可使用同版本 Svelte＋TypeScript 注册代码组件。数据接口沿用服务器查看权限。
 
 - [逐步安装、开发与 API 文档](docs/personal-plugins.zh-CN.md)
-- 面板在线说明：`/docs/plugins`
+- 完整开发规范、请求头与接口示例以仓库中的上述文档为准；面板内 `/docs/plugins` 仍是原有简版
 - [JSON 示例](static/examples/plugins/server-cards.json) · [代码示例](src/lib/plugins/extensions/round-summary/Plugin.svelte)
