@@ -34,7 +34,7 @@ const view = (r: ReplayRow): KillView => ({
 	eventId: r.event_id,
 	instanceId: r.instance_id,
 	matchId: r.match_id,
-	matchRow: r.match_row,
+	matchRow: r.match_row === null ? null : Number(r.match_row),
 	ts: (r.at as Date).toISOString(),
 	map: r.map,
 	eventTime: r.event_time,
@@ -49,6 +49,28 @@ const view = (r: ReplayRow): KillView => ({
 });
 
 describe('clean rolling baseline replay', () => {
+	test('Postgres bigint string rounds 9 to 10 and 99 to 100 keep producing samples', () => {
+		const rows: ReplayRow[] = ['9', '10', '11', '99', '100'].map((match, i) => ({
+			...row(i * 300, `round-${match}`),
+			match_row: match,
+			event_time: 5
+		}));
+		const values = replayReferenceFeatures(rows, new Map()).filter((s) => s.metric === 'kpm180');
+		expect(values.map((s) => s.eventId).sort()).toEqual(rows.map((r) => r.event_id).sort());
+		expect(values.every((s) => s.value === 1 / 3)).toBe(true);
+		const numeric = replayReferenceFeatures(
+			rows.map((r) => ({ ...r, match_row: Number(r.match_row) })),
+			new Map()
+		);
+		expect(replayReferenceFeatures(rows, new Map())).toEqual(numeric);
+	});
+	test('invalid or unsafe round IDs cannot reset a reference window', () => {
+		const rows: ReplayRow[] = ['not-a-round', '9007199254740993', '0', '-1'].map((match, i) => ({
+			...row(i, `invalid-${i}`),
+			match_row: match
+		}));
+		expect(replayReferenceFeatures(rows, new Map())).toEqual([]);
+	});
 	test('historical replay and live use identical feature values at every kill', () => {
 		const rows = Array.from({ length: 12 }, (_, i) => row(i, `e-${i}`));
 		const live = generateBatchFeatures(

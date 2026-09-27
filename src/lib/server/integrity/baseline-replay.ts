@@ -25,7 +25,8 @@ export interface ReplayRow {
 	at: Date | string;
 	instance_id: string;
 	match_id: string;
-	match_row: number | null;
+	/** Raw SQL returns PostgreSQL bigint as a string; Drizzle's schema mapper is bypassed. */
+	match_row: number | string | null;
 	event_time: number;
 	map: string;
 	killer_steam_id: string;
@@ -145,12 +146,16 @@ class ReferenceReplay {
 	private dayGroups = new Map<string, ReferenceSample[]>();
 	constructor(private overrides: ReadonlyMap<string, import('./weapons').WeaponCategory>) {}
 	add(row: ReplayRow): void {
+		// Compare round IDs numerically: raw SQL bigint strings make "10" < "9",
+		// causing all later rounds to be silently treated as old events during replay.
+		const matchRow = row.match_row === null ? null : Number(row.match_row);
+		if (matchRow !== null && (!Number.isSafeInteger(matchRow) || matchRow < 1)) return;
 		const event: KillView = {
 			eventId: row.event_id,
 			ts: atDate(row.at).toISOString(),
 			instanceId: row.instance_id,
 			matchId: row.match_id,
-			matchRow: row.match_row,
+			matchRow,
 			map: row.map,
 			eventTime: Number(row.event_time),
 			killer: { steamId: row.killer_steam_id, name: '', faction: row.killer_faction },
