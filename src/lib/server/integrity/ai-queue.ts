@@ -5,6 +5,7 @@ import { isOwner, withOwnedTransaction } from '../leadership';
 import { ApiError } from '../http';
 import { aiBundle, aiCall } from './ai';
 import { reviewOutput, PROMPT_VERSION } from './ai-protocol';
+import { AI_PRESCREEN_TRIGGER } from './ai-prescreen';
 let timer: ReturnType<typeof setInterval> | null = null;
 let running: Promise<void> | null = null;
 export async function discoverAiJobs(env: Env) {
@@ -20,7 +21,7 @@ export async function discoverAiJobs(env: Env) {
  WHERE o.suspended_at IS NULL AND s.auto_enabled AND s.model <> '' AND c.reviewed_at IS NULL AND c.status='OPEN'
  AND c.created_at >= now()-interval '7 days'
  AND NOT EXISTS(SELECT 1 FROM integrity_ai_jobs j WHERE j.case_id=c.id)
- ORDER BY c.created_at,c.id LIMIT 100 ON CONFLICT DO NOTHING`);
+ ORDER BY (c.trigger=${AI_PRESCREEN_TRIGGER}),c.created_at,c.id LIMIT 100 ON CONFLICT DO NOTHING`);
 		await tx.execute(sql`UPDATE integrity_ai_jobs j SET state='skipped', last_error='案件已人工审核或关闭',updated_at=now()
  FROM integrity_cases c WHERE j.case_id=c.id AND j.state='pending' AND (c.reviewed_at IS NOT NULL OR c.status<>'OPEN')`);
 		await tx.execute(sql`UPDATE integrity_ai_jobs SET state='error',last_error='多次执行中断；停止自动重试',updated_at=now()
@@ -41,7 +42,7 @@ export async function processNextAiJob(env: Env, reviewer: typeof aiCall = aiCal
  AND (s.last_request_at IS NULL OR s.last_request_at<now()-interval '65 seconds')
  AND (s.budget_day<>${new Date().toISOString().slice(0, 10)} OR s.daily_requests<s.daily_limit)
  AND q.attempts<3 AND ((q.state='pending' AND q.next_at<=now()) OR (q.state='running' AND q.lease_until<now()))
- ORDER BY q.next_at,c.created_at,q.case_id LIMIT 1 FOR UPDATE OF q SKIP LOCKED)
+ ORDER BY (c.trigger=${AI_PRESCREEN_TRIGGER}),q.next_at,c.created_at,q.case_id LIMIT 1 FOR UPDATE OF q SKIP LOCKED)
  RETURNING j.case_id AS "caseId", j.attempts`);
 		return (rows as unknown as { caseId: string; attempts: number }[])[0];
 	});

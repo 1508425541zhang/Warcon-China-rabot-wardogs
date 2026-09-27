@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { desc, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import {
 	integrityBaselines,
 	integrityCases,
@@ -19,6 +19,7 @@ import type { KillView } from '$lib/types';
 import { hasTestDb, testEnv } from './db';
 import { seedWorld } from './world';
 import { DEFAULT_INTEGRITY_RULES } from '$lib/server/integrity/score';
+import { saveAiSettings } from '$lib/server/integrity/ai';
 
 describe.skipIf(!hasTestDb)('Statistical case recovery', () => {
 	test('two simultaneous high votes create a case, repair a missing case and do not duplicate it', async () => {
@@ -26,13 +27,11 @@ describe.skipIf(!hasTestDb)('Statistical case recovery', () => {
 		const world = await seedWorld(env);
 		const steamId = '76561198000007889';
 		const received = new Date();
-		await env.db
-			.insert(integrityRules)
-			.values({
-				orgId: world.org.id,
-				config: DEFAULT_INTEGRITY_RULES,
-				assessmentMode: 'statistical'
-			});
+		await env.db.insert(integrityRules).values({
+			orgId: world.org.id,
+			config: DEFAULT_INTEGRITY_RULES,
+			assessmentMode: 'statistical'
+		});
 		const [round] = await env.db
 			.insert(matches)
 			.values({
@@ -124,10 +123,28 @@ describe.skipIf(!hasTestDb)('Statistical case recovery', () => {
 		expect(await acquireOrRenew(env, 'case recovery test')).toBe(true);
 		try {
 			expect((await loadBaselines(env, world.org.id, 'Kavkazi', null)).has('kpm180')).toBe(true);
-
-			await processIntegrityBatch(env, world.server.id, batch.slice(0, 5), false);
+			await saveAiSettings(env, world.org.id, {
+				baseUrl: 'https://example.com/v1',
+				apiKey: 'test-secret',
+				model: 'test-model'
+			});
+			await processIntegrityBatch(env, world.server.id, batch.slice(0, 4), false);
+			const [prescreen] = await env.db
+				.select()
+				.from(integrityCases)
+				.where(eq(integrityCases.serverId, world.server.id));
+			expect(prescreen.trigger).toBe('AI_SINGLE_SIGNAL');
+			await processIntegrityBatch(env, world.server.id, batch.slice(4, 5), false);
 			const caseRows = () =>
-				env.db.select().from(integrityCases).where(eq(integrityCases.serverId, world.server.id));
+				env.db
+					.select()
+					.from(integrityCases)
+					.where(
+						and(
+							eq(integrityCases.serverId, world.server.id),
+							ne(integrityCases.trigger, 'AI_SINGLE_SIGNAL')
+						)
+					);
 			const [first] = await caseRows();
 			expect(first).toBeDefined();
 			expect((first.statistical as StatisticalAssessment).committee?.cheatVotes).toBe(2);

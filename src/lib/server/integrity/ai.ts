@@ -22,6 +22,7 @@ import {
 } from './ai-protocol';
 import { aiRequest } from './ai-client';
 import { expandedAiEvidence } from './ai-evidence';
+import { AI_PRESCREEN_TRIGGER } from './ai-prescreen';
 export async function aiSettings(env: Env, orgId: string) {
 	const [row] = await env.db
 		.select()
@@ -117,6 +118,10 @@ export async function aiBundle(env: Env, orgId: string, serverId: string, caseId
 		scope:
 			'案件冻结资料＋玩家整局击杀死亡＋案件180秒全服交战背景；无法定位轮次时为案件前24小时玩家记录。逐条完整、无抽样；数据库记录完整不代表游戏回传无缺失。历史索引仍最多20条。',
 		case: c,
+		reviewPurpose:
+			c.trigger === AI_PRESCREEN_TRIGGER
+				? '低信号AI预筛：至少一位专家可疑或极可能作弊，但未达到委员会正式建案门槛。请核对异常是否有数据支撑、是否有正常解释；生成预筛记录不代表确认违规，不得因为存在案件编号就提高可疑度。'
+				: '正式案件初审：核对原始证据、数值与正常解释，提供管理员参考。',
 		evidence: await expandedAiEvidence(env, c, events),
 		reviews,
 		actions,

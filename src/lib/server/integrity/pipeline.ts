@@ -4,6 +4,7 @@ import type { Env } from '../env';
 import {
 	integrityActionEligibility,
 	integrityActions,
+	integrityAiSettings,
 	integrityCases,
 	integrityPlayerCareers,
 	integrityReports,
@@ -41,6 +42,7 @@ import {
 import { assessCommittee, hasStatisticalAnomaly, shouldSaveCommitteeAssessment } from './committee';
 import { loadCleanCareerContext } from './career-context';
 import { shouldRetryActionEligibility, canReuseStatisticalCase } from './action-retry';
+import { AI_PRESCREEN_TRIGGER, needsAiPrescreen } from './ai-prescreen';
 import type { KillView } from '$lib/types';
 
 const infantry = new InfantryWindows();
@@ -201,6 +203,17 @@ export async function processIntegrityBatch(
 	const alerts: IntegrityCaseAlert[] = [];
 	const candidates: Parameters<typeof enforceIntegrityCase>[1][] = [];
 	await withOwnedTransaction(env, async (tx) => {
+		const [aiConfig] =
+			rules.assessmentMode === 'legacy'
+				? []
+				: await tx
+						.select({
+							autoEnabled: integrityAiSettings.autoEnabled,
+							model: integrityAiSettings.model
+						})
+						.from(integrityAiSettings)
+						.where(eq(integrityAiSettings.orgId, orgId))
+						.limit(1);
 		for (const finding of latest) {
 			const now = new Date();
 			const selected = byFinding.get(finding);
@@ -615,49 +628,60 @@ export async function processIntegrityBatch(
 			const legacyCase = score.score >= rules.config.koThreshold;
 			const statisticalCase =
 				statistical?.level === 'CASE' || statistical?.level === 'KICK_CANDIDATE';
+			const aiPrescreen =
+				!!aiConfig?.autoEnabled &&
+				!!aiConfig.model.trim() &&
+				(rules.assessmentMode === 'statistical' || !legacyCase) &&
+				needsAiPrescreen(statistical);
 			// Case existence is independent from assessment-level transitions.
-			const priorCases = statisticalCase
-				? await tx
-						.select({
-							id: integrityCases.id,
-							ruleVersion: integrityCases.ruleVersion,
-							status: integrityCases.status,
-							snapshot: integrityCases.snapshot,
-							statistical: integrityCases.statistical
-						})
-						.from(integrityCases)
-						.where(
-							and(
-								eq(integrityCases.orgId, orgId),
-								eq(integrityCases.serverId, serverId),
-								eq(integrityCases.steamId, finding.steamId),
-								isNotNull(integrityCases.statistical)
+			const priorCases =
+				statisticalCase || aiPrescreen
+					? await tx
+							.select({
+								id: integrityCases.id,
+								ruleVersion: integrityCases.ruleVersion,
+								status: integrityCases.status,
+								trigger: integrityCases.trigger,
+								snapshot: integrityCases.snapshot,
+								statistical: integrityCases.statistical
+							})
+							.from(integrityCases)
+							.where(
+								and(
+									eq(integrityCases.orgId, orgId),
+									eq(integrityCases.serverId, serverId),
+									eq(integrityCases.steamId, finding.steamId),
+									isNotNull(integrityCases.statistical)
+								)
 							)
-						)
-						.orderBy(desc(integrityCases.createdAt))
-						.limit(20)
-				: [];
+							.orderBy(desc(integrityCases.createdAt))
+							.limit(20)
+					: [];
 			const sameEpisodeCase = priorCases.find((item) => {
 				const snapshot = item.snapshot as { roundId?: string; eventIds?: string[] };
 				return (
 					snapshot.roundId === finding.roundId &&
 					Array.isArray(snapshot.eventIds) &&
 					snapshot.eventIds.some((id) => finding.eventIds.includes(id)) &&
-					(item.status !== 'OPEN' ||
-						(item.ruleVersion === rules.version &&
-							!!statistical &&
-							canReuseStatisticalCase(
-								item.statistical as StatisticalAssessment | null,
-								statistical
-							))) &&
-					(item.statistical as StatisticalAssessment | null)?.level === statistical?.level
+					// Low-signal AI screening is once per overlapping episode, even if NORMAL
+					// becomes WATCH or a baseline refreshes. Formal escalation gets its own case.
+					(aiPrescreen ||
+						((item.status !== 'OPEN' ||
+							(item.ruleVersion === rules.version &&
+								!!statistical &&
+								canReuseStatisticalCase(
+									item.statistical as StatisticalAssessment | null,
+									statistical
+								))) &&
+							item.trigger !== AI_PRESCREEN_TRIGGER &&
+							(item.statistical as StatisticalAssessment | null)?.level === statistical?.level))
 				);
 			});
 			let caseId = sameEpisodeCase?.id ?? null;
 			const createCase =
 				rules.assessmentMode === 'statistical'
-					? statisticalCase && !sameEpisodeCase
-					: legacyCase || (statisticalCase && !sameEpisodeCase);
+					? (statisticalCase || aiPrescreen) && !sameEpisodeCase
+					: legacyCase || ((statisticalCase || aiPrescreen) && !sameEpisodeCase);
 			if (createCase) {
 				caseId = await freezeFindingEvidence(tx, {
 					orgId,
@@ -672,18 +696,22 @@ export async function processIntegrityBatch(
 					createdAt: now,
 					scoreId: savedScore.id,
 					statistical,
-					trigger:
-						!legacyCase && statisticalCase ? 'STATISTICAL_WINDOW' : 'ABNORMAL_INFANTRY_WINDOW'
+					trigger: aiPrescreen
+						? AI_PRESCREEN_TRIGGER
+						: !legacyCase && statisticalCase
+							? 'STATISTICAL_WINDOW'
+							: 'ABNORMAL_INFANTRY_WINDOW'
 				});
-				await tx
-					.update(integrityPlayerCareers)
-					.set({ status: 'FROZEN', updatedAt: now })
-					.where(
-						and(
-							eq(integrityPlayerCareers.orgId, orgId),
-							eq(integrityPlayerCareers.steamId, finding.steamId)
-						)
-					);
+				if (!aiPrescreen)
+					await tx
+						.update(integrityPlayerCareers)
+						.set({ status: 'FROZEN', updatedAt: now })
+						.where(
+							and(
+								eq(integrityPlayerCareers.orgId, orgId),
+								eq(integrityPlayerCareers.steamId, finding.steamId)
+							)
+						);
 				// The active baseline is an immutable, versioned historical snapshot.
 				// A new case does not invalidate the entire organization's generation;
 				// the scheduled replay omits the affected episode from the next one.

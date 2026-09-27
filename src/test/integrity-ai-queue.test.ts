@@ -63,6 +63,10 @@ describe.skipIf(!hasTestDb)('automatic AI initial review', () => {
 			});
 			return id;
 		};
+		const prescreen = await add({
+			trigger: 'AI_SINGLE_SIGNAL',
+			createdAt: new Date(Date.now() - 60000)
+		});
 		const first = await add();
 		await add({ reviewedAt: new Date() });
 		await add({ createdAt: new Date(Date.now() - 8 * 86400000) });
@@ -90,6 +94,10 @@ describe.skipIf(!hasTestDb)('automatic AI initial review', () => {
 			.from(integrityAiJobs)
 			.where(eq(integrityAiJobs.caseId, first));
 		expect(done.state).toBe('done');
+		expect(
+			(await env.db.select().from(integrityAiJobs).where(eq(integrityAiJobs.caseId, prescreen)))[0]
+				.state
+		).toBe('pending');
 		expect(done.result).toMatchObject(result);
 		const [unchanged] = await env.db
 			.select()

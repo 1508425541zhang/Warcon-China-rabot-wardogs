@@ -96,7 +96,9 @@
 <a class="text-sm text-mist-400" href={`/server/${page.params.id}/integrity`}>← 返回社区风控</a>
 <h2 class="my-4 text-xl font-semibold">AI 辅助审核</h2>
 <p class="mb-4 text-sm text-mist-400">
-	新案件后台自动初审，无需逐案选择；关闭网页仍继续。案件资料以 JSON 文本发送，不传图片。AI
+	新案件后台自动初审；未达到委员会正式建案门槛时，只要一位专家可疑或极可能作弊，也会自动生成 AI
+	预筛记录并排队。无需逐案选择，关闭网页仍继续。正式案件优先，同一异常事件去重。案件资料以 JSON
+	文本发送，不传图片。AI
 	给出可疑度、理由和数字核对，不执行处罚，也不改变人工审核状态。配置由同一组织共用。
 </p>
 {#if notice}<p role="status" class="mb-3 panel p-3">{notice}</p>{/if}

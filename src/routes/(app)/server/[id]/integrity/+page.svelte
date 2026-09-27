@@ -380,6 +380,8 @@
 
 			<p>
 				两票可疑：观察；三票可疑及以上或两票极可能作弊：进入案件审核；三票极可能作弊：自动踢出候选。KPM＞4且另一专家至少可疑也可踢出，均受执行保护约束。
+				启用 AI 自动初审后，单票可疑或极可能作弊也会生成 AI
+				预筛记录，自动核对证据；预筛不改变委员会结论或执行处罚。
 			</p>
 			{#if selectedAssessment.kpmRule}<p>
 					180秒步兵KPM：{selectedAssessment.kpmRule.value.toFixed(2)} · 警惕加分：{selectedAssessment
@@ -471,7 +473,7 @@
 	</h4>
 	<p class="mt-1 text-xs text-mist-400">
 		{lang === 'zh'
-			? `仅统计当前模型 ${data.committeeShadow.modelVersion} 及当前投票规则已保存的评估；旧版本结论保留在历史案件，不混入本表。单票异常也会记录，但不等于案件或处罚。自动踢出仍需组织开启并通过全部保护条件。`
+			? `仅统计当前模型 ${data.committeeShadow.modelVersion} 及当前投票规则已保存的评估；旧版本结论保留在历史案件，不混入本表。单票异常可进入 AI 预筛，预筛记录不计入正式审核门槛。自动踢出仍需组织开启并通过全部保护条件。`
 			: `Saved assessments for ${data.committeeShadow.modelVersion} and the current voting policy only; historical versions are excluded. A single abnormal ballot is recorded, not enforced. Automatic kicks require opt-in and all protection gates.`}
 	</p>
 	<div class="mt-3 flex flex-wrap gap-4 text-sm text-white">
