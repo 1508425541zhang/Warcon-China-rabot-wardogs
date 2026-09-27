@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { MetricAssessment } from '$lib/server/integrity/statistics';
-	let { metric, lang }: { metric: MetricAssessment; lang: 'zh' | 'en' } = $props();
+	import type { DistributionChartMetric } from '$lib/integrity-distribution';
+	let { metric, lang }: { metric: DistributionChartMetric; lang: 'zh' | 'en' } = $props();
 	const labels: Record<string, [string, string]> = {
 		kpm180: ['180 秒步兵 KPM', '180s infantry KPM'],
 		uniqueVictims: ['独立受害者', 'Unique victims'],
@@ -45,7 +45,9 @@
 			})
 			.join(' ')
 	);
-	let marker = $derived(Math.max(12, Math.min(348, 12 + ((metric.value - minimum) * 336) / span)));
+	let marker = $derived(
+		Math.max(12, Math.min(348, 12 + (((metric.value ?? minimum) - minimum) * 336) / span))
+	);
 	let spread = $derived(Math.max(metric.mad ?? 0, (metric.p95 - metric.median) / 1.645, span / 30));
 	let reference = $derived(
 		Array.from({ length: 61 }, (_, i) => {
@@ -63,7 +65,11 @@
 			{labels[metric.code]?.[lang === 'zh' ? 0 : 1] ?? metric.code}
 		</h4>
 		<span class="font-mono text-sm text-accent"
-			>P{(metric.extremenessPercentile * 100).toFixed(2)}</span
+			>{metric.extremenessPercentile === null
+				? lang === 'zh'
+					? '最新参考分布'
+					: 'Latest reference'
+				: `P${(metric.extremenessPercentile * 100).toFixed(2)}`}</span
 		>
 	</div>
 	<svg
@@ -71,7 +77,7 @@
 		viewBox="0 0 360 132"
 		role="img"
 		aria-label={lang === 'zh'
-			? '历史分布实线、参考钟形虚线及当前玩家位置'
+			? '历史分布实线、参考钟形虚线；有玩家观测时标出位置'
 			: 'Actual distribution, reference bell and player position'}
 	>
 		<line x1="12" y1="104" x2="348" y2="104" stroke="currentColor" opacity="0.3" />
@@ -84,15 +90,23 @@
 			opacity="0.65"
 		/>
 		<path d={actual} fill="none" stroke="#69d6e3" stroke-width="2.5" />
-		<line x1={marker} y1="12" x2={marker} y2="104" stroke="#f8b95f" stroke-width="2" />
-		<circle cx={marker} cy="12" r="4" fill="#f8b95f" />
-		<text
-			x={Math.max(48, Math.min(312, marker))}
-			y="126"
-			text-anchor="middle"
-			fill="#f8b95f"
-			font-size="11">▲ {lang === 'zh' ? '当前玩家' : 'Player'}</text
-		>
+		{#if metric.value !== null}<line
+				x1={marker}
+				y1="12"
+				x2={marker}
+				y2="104"
+				stroke="#f8b95f"
+				stroke-width="2"
+			/>
+			<circle cx={marker} cy="12" r="4" fill="#f8b95f" />
+			<text
+				x={Math.max(48, Math.min(312, marker))}
+				y="126"
+				text-anchor="middle"
+				fill="#f8b95f"
+				font-size="11">▲ {lang === 'zh' ? '评估时玩家' : 'Assessed player'}</text
+			>
+		{/if}
 	</svg>
 	<p class="text-xs text-mist-400">
 		{lang === 'zh'
@@ -100,9 +114,10 @@
 			: 'Solid: actual history. Dashed: visual bell reference only; never used for decisions.'}
 	</p>
 	<div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4">
-		<div>
-			{lang === 'zh' ? '当前' : 'Current'} <strong class="text-white">{fmt(metric.value)}</strong>
-		</div>
+		{#if metric.value !== null}<div>
+				{lang === 'zh' ? '评估时数值' : 'Assessed value'}
+				<strong class="text-white">{fmt(metric.value)}</strong>
+			</div>{/if}
 		<div>
 			{lang === 'zh' ? '中位数' : 'Median'} <strong class="text-white">{fmt(metric.median)}</strong>
 		</div>
@@ -110,7 +125,7 @@
 		<div>P99 <strong class="text-white">{fmt(metric.p99)}</strong></div>
 		<div>P99.9 <strong class="text-white">{fmt(metric.p999)}</strong></div>
 		<div>
-			{lang === 'zh' ? '样本' : 'Samples'}
+			{lang === 'zh' ? '均衡抽样数' : 'Balanced samples'}
 			<strong class="text-white">{metric.sampleCount.toLocaleString()}</strong>
 			· {quality(metric.sampleCount)}
 		</div>
@@ -122,8 +137,12 @@
 						? '审核通过的外服历史'
 						: 'Approved external history'
 					: lang === 'zh'
-						? '本服历史'
-						: 'Local history'}</strong
+						? metric.serverId
+							? '本服务器历史'
+							: '本组织服务器历史'
+						: metric.serverId
+							? 'Server history'
+							: 'Organization server history'}</strong
 			>
 		</div>
 		<div>
@@ -143,6 +162,12 @@
 			>
 		</div>
 	</div>
+	<p class="mt-2 text-xs text-mist-400">
+		{lang === 'zh' ? '生成时间' : 'Calculated'}：{new Date(metric.calculatedAt).toLocaleString(
+			lang === 'zh' ? 'zh-CN' : 'en-GB'
+		)} ·
+		{lang === 'zh' ? '独立玩家' : 'Unique players'}：{metric.uniquePlayers ?? '—'}
+	</p>
 	<p class="mt-2 text-xs text-mist-400">
 		{metric.populationBucket ?? (lang === 'zh' ? '全人口' : 'All populations')} · {lang === 'zh' &&
 		metric.weaponCategory === 'INFANTRY'

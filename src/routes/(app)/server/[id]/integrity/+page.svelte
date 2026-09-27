@@ -20,6 +20,25 @@
 	let selectedAssessment = $derived(
 		(selectedScore?.statistical ?? null) as StatisticalAssessment | null
 	);
+	let distributionView = $state<'latest' | 'snapshot'>('latest');
+	let distributionWeapon = $state('');
+	let distributionWeapons = $derived([
+		...new Set(
+			data.distributions.metrics
+				.filter((m) => m.weaponCategory !== 'INFANTRY')
+				.map((m) => m.weaponCategory)
+		)
+	]);
+	let activeDistributionWeapon = $derived(
+		distributionWeapons.includes(distributionWeapon)
+			? distributionWeapon
+			: (distributionWeapons[0] ?? '')
+	);
+	let latestDistributions = $derived(
+		data.distributions.metrics.filter(
+			(m) => m.weaponCategory === 'INFANTRY' || m.weaponCategory === activeDistributionWeapon
+		)
+	);
 	let lang = $state<'zh' | 'en'>('zh');
 
 	function switchLanguage() {
@@ -425,21 +444,83 @@
 				</div>
 			</div>
 		</div>
-		{#if selectedAssessment.status === 'READY'}<div class="mt-4 grid gap-3 lg:grid-cols-2">
-				{#each selectedAssessment.metrics as metric (`${metric.code}:${metric.weaponCategory}`)}<DistributionChart
+	{/if}
+	<div class="mt-5 flex flex-wrap items-center gap-3">
+		<label class="text-sm text-mist-300"
+			>{lang === 'zh' ? '分布图' : 'Distributions'}
+			<select class="ml-2 input" bind:value={distributionView}>
+				<option value="latest"
+					>{lang === 'zh' ? '最新分布（自动更新）' : 'Latest distributions (live)'}</option
+				>
+				<option value="snapshot"
+					>{lang === 'zh' ? '所选玩家评估时快照' : 'Selected assessment snapshot'}</option
+				>
+			</select>
+		</label>
+		{#if distributionView === 'latest' && distributionWeapons.length}
+			<label class="text-sm text-mist-300"
+				>{lang === 'zh' ? '同枪械指标' : 'Weapon metrics'}
+				<select
+					class="ml-2 input"
+					value={activeDistributionWeapon}
+					onchange={(event) => (distributionWeapon = event.currentTarget.value)}
+				>
+					{#each distributionWeapons as weapon}<option value={weapon}>{weapon}</option>{/each}
+				</select>
+			</label>
+		{/if}
+	</div>
+	{#if distributionView === 'latest'}
+		<p class="mt-3 text-sm text-mist-300">
+			{lang === 'zh' ? '最近生成' : 'Last built'}：{data.distributions.updatedAt
+				? when(data.distributions.updatedAt)
+				: '—'} ·
+			{lang === 'zh' ? '数据纳入截止' : 'Data cutoff'}：{data.distributions.dataBefore
+				? when(data.distributions.dataBefore)
+				: '—'}
+		</p>
+		<p class="mt-2 text-xs text-mist-400">
+			{lang === 'zh'
+				? `每 ${data.distributions.refreshMinutes} 分钟重建，页面每 10 秒读取。汇总所有地图和人数分组的近 30 天有效参考数据，最近 10 分钟暂缓纳入。均衡抽样数不是累计击杀数：同一玩家、地图、人数分组、武器及指标每天最多纳入 20 条、周期内最多 100 条；重复观测不会无限增加权重。新玩家和新日期持续补入，过期数据移出，因此样本数可能持平或减少，曲线仍会更新。`
+				: `Rebuilt every ${data.distributions.refreshMinutes} minutes; refreshed every 10 seconds. All-map, all-population references cover 30 days, excluding the latest 10 minutes. Player/context sampling caps are 20 per day and 100 per period. New data enters and expired data leaves; counts need not increase monotonically.`}
+		</p>
+		{#if data.distributions.status !== 'READY'}
+			<p class="mt-2 text-sm text-warn">
+				{lang === 'zh'
+					? '基线尚未就绪或已过期；下面如有曲线，为最后保存的数据。'
+					: 'Baseline unavailable or stale; any curves below are the last saved data.'}
+			</p>
+		{/if}
+		{#if data.distributions.lastFailureAt && (!data.distributions.updatedAt || data.distributions.lastFailureAt > data.distributions.updatedAt)}
+			<p class="mt-2 text-sm text-warn">
+				最近一次基线重建失败：{when(data.distributions.lastFailureAt)}，等待 Worker 重试。
+			</p>
+		{/if}
+		{#if latestDistributions.length}<div class="mt-4 grid gap-3 lg:grid-cols-2">
+				{#each latestDistributions as metric (`${metric.code}:${metric.weaponCategory}:${metric.source}`)}<DistributionChart
 						{metric}
 						{lang}
 					/>{/each}
 			</div>{:else}<p class="mt-4 text-sm text-warn">
 				{lang === 'zh'
-					? '数据不足：尚无达到 50 个本服可比历史样本的分组。'
-					: 'Insufficient data: no local comparable group has 50 historical samples.'}
+					? '尚无最新参考分布。请检查击杀事件接收及基线重建状态。'
+					: 'No reference distributions available yet.'}
 			</p>{/if}
-	{:else}<p class="mt-4 text-sm text-mist-400">
+	{:else}
+		<p class="mt-3 text-xs text-mist-400">
 			{lang === 'zh'
-				? '尚无统计评估。历史基线由 Worker 定期计算。'
-				: 'No statistical assessment yet. The worker builds historical baselines periodically.'}
-		</p>{/if}
+				? '这是该玩家评估当时的证据快照，样本和分位数按原样保存，不随新数据变化。最新分布仅供分析，不追溯修改历史投票或处罚。'
+				: 'Frozen evidence at assessment time. New distributions do not rewrite past votes or actions.'}
+		</p>
+		{#if selectedAssessment?.metrics.length}<div class="mt-4 grid gap-3 lg:grid-cols-2">
+				{#each selectedAssessment.metrics as metric (`${metric.code}:${metric.weaponCategory}`)}<DistributionChart
+						{metric}
+						{lang}
+					/>{/each}
+			</div>{:else}<p class="mt-4 text-sm text-mist-400">
+				{lang === 'zh' ? '所选玩家暂无可用分布快照。' : 'No saved distributions for this player.'}
+			</p>{/if}
+	{/if}
 	<h4 class="mt-6 text-sm font-semibold text-white">
 		{lang === 'zh'
 			? '过去 30 天：旧系统与统计系统对照'

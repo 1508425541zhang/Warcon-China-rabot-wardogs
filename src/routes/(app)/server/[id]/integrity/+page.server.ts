@@ -1,3 +1,4 @@
+import { loadDistributionDashboard } from '$lib/server/integrity/distribution-dashboard';
 import { COMMITTEE_VOTING_VERSION } from '$lib/server/integrity/committee';
 import { aiJobViews } from '$lib/server/integrity/ai-queue';
 import { aiSettings } from '$lib/server/integrity/ai';
@@ -285,6 +286,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			shadowRows.length > 5000 || labelRows.length > 5000
 		);
 		return {
+			distributions: await loadDistributionDashboard(env, server.orgId, server.id),
 			aiJobs: await aiJobViews(
 				env,
 				cases.map((c) => c.id)
