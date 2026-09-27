@@ -21,8 +21,8 @@ git --version
 在终端依次执行：
 
 ```text
-git clone https://github.com/1508425541zhang/Warcon-China-rabot-wardogs.git
-cd Warcon-China-rabot-wardogs
+git clone https://github.com/1508425541zhang/warcon-cn.git
+cd warcon-cn
 ```
 
 运行 `ls`，确认当前目录里有 `docker-compose.yml` 和 `.env.example`。**从现在起，本文后面的命令都在这个目录执行。**不想装 Git 时，也可以在 GitHub 仓库首页点 **Code → Download ZIP**，解压后在解压出的项目目录打开终端。
