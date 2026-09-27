@@ -25,6 +25,7 @@ import {
 } from '$lib/server/feed-processing';
 import { resetIntegrityServer } from '$lib/server/integrity/pipeline';
 import { DEFAULT_INTEGRITY_RULES } from '$lib/server/integrity/score';
+import { invalidateIntegrityRules } from '$lib/server/integrity/rules';
 import { invalidateTriggers } from '$lib/server/triggers';
 import { acquireOrRenew, releaseOwnership } from '$lib/server/leadership';
 import { forgetMemory, memoryFor } from '$lib/server/observe';
@@ -443,6 +444,7 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 			.values({
 				orgId: world.org.id,
 				config: DEFAULT_INTEGRITY_RULES,
+				assessmentMode: 'legacy',
 				autoKickEnabled: true,
 				autoActionMaxPerHour: 100,
 				autoActionMaxPercentOnline: 100
@@ -450,11 +452,15 @@ describe.skipIf(!hasTestDb)('durable feed processing', () => {
 			.onConflictDoUpdate({
 				target: integrityRules.orgId,
 				set: {
+					assessmentMode: 'legacy',
 					autoKickEnabled: true,
 					autoActionMaxPerHour: 100,
 					autoActionMaxPercentOnline: 100
 				}
 			});
+		// This control exercises legacy punishment. The default Shadow mode now uses
+		// committee KPM points, so relying on that default no longer reaches the old threshold.
+		invalidateIntegrityRules(world.org.id);
 		const live = await ingestBatch(env, world.server.id, body('live-control', liveKiller, true));
 		const liveJob = await jobAt(live.kills[0].ts, 'integrity');
 		expect(await run(liveJob)).toBe(true);
