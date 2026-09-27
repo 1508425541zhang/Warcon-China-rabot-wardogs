@@ -20,7 +20,8 @@
 		"lint": "prettier --check . --end-of-line auto",
 		"format": "prettier --write . --end-of-line auto",
 		"db:generate": "drizzle-kit generate",
-		"db:studio": "drizzle-kit studio"
+		"db:studio": "drizzle-kit studio",
+		"docs:plugins": "bun scripts/build-plugin-docs.ts"
 	},
 	"devDependencies": {
 		"@fontsource-variable/jetbrains-mono": "^5.3.0",

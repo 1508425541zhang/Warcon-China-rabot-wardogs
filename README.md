@@ -74,3 +74,12 @@ KD 会在玩家档案中显示供参考，**不单独加风险分**。以上是 
 ## 技术与来源
 
 项目以 [Warcon](https://github.com/warcon-app/warcon) 为基础，沿用上游协议实现；当前仓库许可见 [AGPL-3.0 许可证](LICENSE)，WARDOGS RCON 边界见[现有 API 研究文档](docs/wardogs-api.md)。本仓库的中文说明和社区风控扩展用于服务器侧管理，不代表 WARDOGS、BULKHEAD 或 Team17 官方产品。
+
+
+### 个人插件与扩展 API
+
+顶部“个人插件”支持按账号导入／导出 JSON 卡片、调整强调色与布局、关联服务器及启停插件；开发者可使用同版本 Svelte＋TypeScript 注册代码组件。数据接口沿用服务器查看权限。
+
+- [逐步安装、开发与 API 文档](docs/personal-plugins.zh-CN.md)
+- 面板在线说明：`/docs/plugins`
+- [JSON 示例](static/examples/plugins/server-cards.json) · [代码示例](src/lib/plugins/extensions/round-summary/Plugin.svelte)

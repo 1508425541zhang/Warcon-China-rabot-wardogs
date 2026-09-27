@@ -1698,3 +1698,19 @@ export const steamGamePlaytime = pgTable(
 		check('steam_game_playtime_minutes_check', sql`${t.minutes} >= 0`)
 	]
 );
+
+/** Per-account plugin manifests. Code is compiled into the application, never uploaded here. */
+export const personalPlugins = pgTable(
+	'personal_plugins',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		pluginId: text('plugin_id').notNull(),
+		manifest: jsonb('manifest').notNull(),
+		serverId: text('server_id').references(() => servers.id, { onDelete: 'set null' }),
+		enabled: boolean('enabled').notNull().default(true),
+		updatedAt: ts('updated_at').notNull().defaultNow()
+	},
+	(t) => [primaryKey({ columns: [t.userId, t.pluginId] })]
+);

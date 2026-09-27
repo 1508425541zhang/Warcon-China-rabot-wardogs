@@ -241,6 +241,9 @@
 					>服务器</a
 				>
 			{/if}
+			<a href="/plugins" class="nav-pill {isActive('/plugins') ? 'nav-pill-active' : ''}"
+				>个人插件</a
+			>
 			<a href="/orgs" class="nav-pill {isActive('/orgs') ? 'nav-pill-active' : ''}">组织</a>
 			{#if data.user.role === 'owner'}
 				<a href="/admin" class="nav-pill {isActive('/admin') ? 'nav-pill-active' : ''}">站点管理</a>
@@ -298,6 +301,7 @@
 						{/if}
 						<div class="my-1.5 border-t border-white/8"></div>
 					</nav>
+					<a href="/plugins" class="menu-item" role="menuitem">个人插件</a>
 					<a href="/account" class="menu-item" role="menuitem">账号与会话</a>
 					<form method="post" action="/sign-out">
 						<button type="submit" class="menu-item text-mist-400" role="menuitem">退出登录</button>

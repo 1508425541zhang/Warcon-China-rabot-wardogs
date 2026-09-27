@@ -1,0 +1,25 @@
+{
+	"apiVersion": 1,
+	"id": "my-server-cards",
+	"name": "我的服务器卡片",
+	"description": "可导入、编辑和分享的个人插件示例。",
+	"version": "1.0.0",
+	"renderer": "cards",
+	"style": { "accent": "#69d6e3", "columns": 2, "density": "comfortable" },
+	"widgets": [
+		{ "type": "metric", "title": "当前在线", "metric": "online" },
+		{ "type": "metric", "title": "平均延迟", "metric": "averagePing" },
+		{
+			"type": "players",
+			"title": "在线玩家击杀榜",
+			"columns": ["name", "faction", "kills", "deaths"],
+			"limit": 10,
+			"sortBy": "kills"
+		},
+		{
+			"type": "text",
+			"title": "管理员备注",
+			"text": "显示的是最近一次玩家列表快照；离线玩家不包含在榜单中。"
+		}
+	]
+}
