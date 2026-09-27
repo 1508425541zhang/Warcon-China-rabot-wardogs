@@ -42,7 +42,7 @@ test('balanced triage boundaries, missing data and conflicts do not become low r
 		{ contradictions: ['计数不符'] },
 		{ reasons: [] }
 	])
-		expect(triageDecision({ ...review, ...extra }, true)).toBe('NEEDS_DATA');
+		expect(triageDecision({ ...review, ...extra }, true)).toBe('AI_ARCHIVED_UNRESOLVED');
 	expect(triageDecision({ ...review, missingEvidence: ['关键证据'] }, true)).toBe('AI_ARCHIVED');
 	expect(triageDecision(review, false)).toBe('AI_ARCHIVED');
 });
@@ -59,50 +59,44 @@ describe.skipIf(!hasTestDb)('AI automatic case lifecycle', () => {
 		const config = (await aiSettings(env, w.org.id))!;
 		const id = crypto.randomUUID(),
 			token = crypto.randomUUID();
-		await env.db
-			.insert(integrityCases)
-			.values({
-				id,
-				orgId: w.org.id,
-				serverId: w.server.id,
-				steamId: '76561198000000001',
-				createdAt: new Date(Date.now() - 10 * 86400000),
-				status: 'OPEN',
-				confidence: 'B',
-				trigger: 'AI_SINGLE_SIGNAL',
-				ruleVersion: 1,
-				riskScore: 35,
-				riskBreakdown: [],
-				statistical: { level: 'WATCH', committee: { votes: [] } },
-				snapshot: {
-					roundId: 'round',
-					eventIds: ['event'],
-					infantryKills: 6,
-					kpm180: 2,
-					rules: { large: 'payload' }
-				}
-			});
-		await env.db
-			.insert(integrityCaseEvents)
-			.values({
-				caseId: id,
-				instanceId: 'instance',
-				eventId: 'event',
-				event: {
-					killerSteamId: '76561198000000001',
-					ts: new Date().toISOString(),
-					victimName: 'large evidence',
-					cause: 'rifle'
-				}
-			});
-		await env.db
-			.insert(integrityAiJobs)
-			.values({
-				caseId: id,
-				state: 'running',
-				claimToken: token,
-				leaseUntil: new Date(Date.now() + 60000)
-			});
+		await env.db.insert(integrityCases).values({
+			id,
+			orgId: w.org.id,
+			serverId: w.server.id,
+			steamId: '76561198000000001',
+			createdAt: new Date(Date.now() - 10 * 86400000),
+			status: 'OPEN',
+			confidence: 'B',
+			trigger: 'AI_SINGLE_SIGNAL',
+			ruleVersion: 1,
+			riskScore: 35,
+			riskBreakdown: [],
+			statistical: { level: 'WATCH', committee: { votes: [] } },
+			snapshot: {
+				roundId: 'round',
+				eventIds: ['event'],
+				infantryKills: 6,
+				kpm180: 2,
+				rules: { large: 'payload' }
+			}
+		});
+		await env.db.insert(integrityCaseEvents).values({
+			caseId: id,
+			instanceId: 'instance',
+			eventId: 'event',
+			event: {
+				killerSteamId: '76561198000000001',
+				ts: new Date().toISOString(),
+				victimName: 'large evidence',
+				cause: 'rifle'
+			}
+		});
+		await env.db.insert(integrityAiJobs).values({
+			caseId: id,
+			state: 'running',
+			claimToken: token,
+			leaseUntil: new Date(Date.now() + 60000)
+		});
 		await env.db.insert(integrityAiReviews).values({ caseId: id, fingerprint: id, result: review });
 		const finish = (input: unknown = review, claim: string = token) =>
 			env.db.transaction((tx) => finishAiReview(tx, id, claim, input, config.updatedAt));
@@ -147,11 +141,11 @@ describe.skipIf(!hasTestDb)('AI automatic case lifecycle', () => {
 		await f.finish(); // idempotent after state becomes done
 		expect((await f.read()).status).toBe('AI_CLEARED');
 	});
-	test('medium closes without penalty; high and unknown stay open', async () => {
+	test('medium and insufficient evidence close without penalty; high stays open', async () => {
 		for (const [n, status] of [
 			[45, 'AI_ARCHIVED'],
 			[80, 'OPEN'],
-			[null, 'OPEN']
+			[null, 'AI_ARCHIVED']
 		] as const) {
 			const f = await fixture();
 			await f.finish({
@@ -191,24 +185,24 @@ describe.skipIf(!hasTestDb)('AI automatic case lifecycle', () => {
 					.set({ autoCloseEnabled: false })
 					.where(eq(integrityAiSettings.orgId, f.w.org.id));
 			if (guard === 'action')
-				await f.env.db
-					.insert(integrityActions)
-					.values({
-						id: crypto.randomUUID(),
-						caseId: f.id,
-						orgId: f.w.org.id,
-						serverId: f.w.server.id,
-						steamId: '76561198000000001',
-						action: 'KICK',
-						source: 'RULE'
-					});
+				await f.env.db.insert(integrityActions).values({
+					id: crypto.randomUUID(),
+					caseId: f.id,
+					orgId: f.w.org.id,
+					serverId: f.w.server.id,
+					steamId: '76561198000000001',
+					action: 'KICK',
+					source: 'RULE'
+				});
 			if (guard === 'arithmetic')
 				await f.env.db
 					.update(integrityCases)
 					.set({ snapshot: { infantryKills: 6, kpm180: 9 } })
 					.where(eq(integrityCases.id, f.id));
 			await f.finish(review, guard === 'claim' ? 'wrong-claim' : f.token);
-			expect((await f.read()).status).toBe(guard === 'human' ? 'REVIEWED' : 'OPEN');
+			expect((await f.read()).status).toBe(
+				guard === 'human' ? 'REVIEWED' : guard === 'arithmetic' ? 'AI_ARCHIVED' : 'OPEN'
+			);
 		}
 	});
 	test('old unreviewed cases enter discovery', async () => {

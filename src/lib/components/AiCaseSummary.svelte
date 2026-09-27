@@ -8,7 +8,8 @@
 		AI_CLEARED: '低风险：AI已审核并清理详细证据副本',
 		AI_ARCHIVED: 'AI已完成审核并结案归档，无需逐案点击',
 		ADMIN_REVIEW: '转交管理员：高风险或存在关联处置／举报',
-		NEEDS_DATA: '异常待核查：关键证据不足或数字冲突',
+		NEEDS_DATA: '旧版待核查：等待重新分流',
+		AI_ARCHIVED_UNRESOLVED: 'AI已按证据不足结案归档，完整保留资料供追查；不表示确认正常',
 		SKIPPED_REVIEWED: '案件已由其他审核流程处理，AI未覆盖结论',
 		ADVISORY: '仅建议：自动结案开关未启用'
 	};

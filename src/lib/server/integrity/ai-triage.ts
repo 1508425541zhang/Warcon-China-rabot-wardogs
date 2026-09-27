@@ -12,6 +12,7 @@ import { PROMPT_VERSION, reviewOutput, numericChecks } from './ai-protocol';
 /** Model recommendations never call the human label/ban path. */
 export function triageDecision(input: unknown, deleteLowRisk: boolean) {
 	const r = reviewOutput.parse(input);
+	if (r.suspicionPercent !== null && r.suspicionPercent >= 65) return 'ADMIN_REVIEW' as const;
 	if (
 		r.suspicionPercent === null ||
 		r.verdict === '证据不足' ||
@@ -20,8 +21,7 @@ export function triageDecision(input: unknown, deleteLowRisk: boolean) {
 		!r.reasons.length ||
 		r.reasons.some((r) => !r.evidence.trim())
 	)
-		return 'NEEDS_DATA' as const;
-	if (r.suspicionPercent >= 65) return 'ADMIN_REVIEW' as const;
+		return 'AI_ARCHIVED_UNRESOLVED' as const;
 	if (
 		deleteLowRisk &&
 		r.suspicionPercent <= 25 &&
@@ -86,7 +86,9 @@ export async function finishAiReview(
 	else if (settings.autoCloseEnabled) {
 		disposition =
 			numericChecks(c.snapshot).kpm180.matches === false
-				? 'NEEDS_DATA'
+				? parsed.suspicionPercent !== null && parsed.suspicionPercent >= 65
+					? 'ADMIN_REVIEW'
+					: 'AI_ARCHIVED_UNRESOLVED'
 				: triageDecision(parsed, settings.deleteLowRisk);
 		// These records remain available for appeals and pending/previous actions.
 		const [protectedCase] = (await tx.execute(sql`SELECT EXISTS (
@@ -96,10 +98,18 @@ export async function finishAiReview(
 		 UNION ALL SELECT 1 FROM integrity_action_eligibility WHERE case_id=${caseId}
 		) AS protected`)) as unknown as { protected: boolean }[];
 		if (protectedCase.protected) disposition = 'ADMIN_REVIEW';
-		if (disposition === 'AI_ARCHIVED' || disposition === 'AI_CLEARED') {
+		if (
+			disposition === 'AI_ARCHIVED' ||
+			disposition === 'AI_CLEARED' ||
+			disposition === 'AI_ARCHIVED_UNRESOLVED'
+		) {
 			await tx
 				.update(integrityCases)
-				.set({ status: disposition, reviewedAt: new Date(), reviewedBy: null })
+				.set({
+					status: disposition === 'AI_CLEARED' ? 'AI_CLEARED' : 'AI_ARCHIVED',
+					reviewedAt: new Date(),
+					reviewedBy: null
+				})
 				.where(eq(integrityCases.id, caseId));
 		}
 		if (disposition === 'AI_CLEARED') {
