@@ -8,6 +8,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { PageProps } from './$types';
 	import { integrityCaseStatus, integrityPartText } from '$lib/integrity-display';
+	import { integrityDeliveryReason } from '$lib/integrity-delivery-display';
 	import type { StatisticalAssessment } from '$lib/server/integrity/statistics';
 	import DistributionChart from './DistributionChart.svelte';
 
@@ -168,7 +169,7 @@
 					pending: '待发送',
 					delivered: '已送达',
 					failed: '发送失败',
-					skipped: '已跳过',
+					skipped: '未执行（已跳过）',
 					unknown: '结果未知'
 				}
 			: {
@@ -760,10 +761,12 @@
 				<thead
 					><tr
 						><th>{t.time}</th><th>{t.player}</th><th>{t.caseId}</th><th
-							>{lang === 'zh' ? '处置' : 'Action'}</th
+							>{lang === 'zh' ? '处置指令（不代表已执行）' : 'Requested action'}</th
 						><th>{lang === 'zh' ? '执行状态' : 'Delivery'}</th><th
-							>{lang === 'zh' ? '生效时间' : 'Effective at'}</th
-						><th>{lang === 'zh' ? '到期' : 'Expires'}</th></tr
+							>{lang === 'zh' ? '执行说明' : 'Delivery detail'}</th
+						><th>{lang === 'zh' ? '生效时间' : 'Effective at'}</th><th
+							>{lang === 'zh' ? '到期' : 'Expires'}</th
+						></tr
 					></thead
 				>
 				<tbody
@@ -773,9 +776,14 @@
 							><td
 								>{item.source === 'REVIEW'
 									? '人工确认违规（7天；保留更长期封禁）'
-									: item.action}</td
-							><td>{actionState(item)}</td><td>{item.effectiveAt ? when(item.effectiveAt) : '—'}</td
-							><td>{item.expiresAt ? when(item.expiresAt) : '—'}</td></tr
+									: item.action === 'KICK' && lang === 'zh'
+										? '踢出指令'
+										: item.action}</td
+							><td>{actionState(item)}</td><td class="max-w-md whitespace-normal"
+								>{integrityDeliveryReason(item.deliveryReason, lang)}</td
+							><td>{item.effectiveAt ? when(item.effectiveAt) : '—'}</td><td
+								>{item.expiresAt ? when(item.expiresAt) : '—'}</td
+							></tr
 						>{/each}</tbody
 				>
 			</table>

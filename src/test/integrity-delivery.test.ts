@@ -209,6 +209,31 @@ describe.skipIf(!hasTestDb)('Integrity delivery guard', () => {
 		expect(clientSpy).not.toHaveBeenCalled();
 	});
 
+	test('AUTO_ACTION allows delivery; review, closed cases and disabled rules still block', async () => {
+		await rule({});
+		const { row, caseId } = await created(826);
+		await env.db
+			.update(integrityCases)
+			.set({ status: 'AUTO_ACTION' })
+			.where(eq(integrityCases.id, caseId));
+		expect(await integrityDeliverySkipReason(env, row)).toBeNull();
+		await rule({ autoKickEnabled: false });
+		expect(await integrityDeliverySkipReason(env, row)).toContain('disabled');
+		await rule({});
+		await env.db
+			.update(integrityCases)
+			.set({ reviewedAt: new Date() })
+			.where(eq(integrityCases.id, caseId));
+		expect(await integrityDeliverySkipReason(env, row)).toContain('changed');
+		for (const status of ['REVIEWED', 'CLOSED', 'AI_ARCHIVED', 'AI_CLEARED']) {
+			await env.db
+				.update(integrityCases)
+				.set({ status, reviewedAt: null })
+				.where(eq(integrityCases.id, caseId));
+			expect(await integrityDeliverySkipReason(env, row)).toContain('changed');
+		}
+	});
+
 	test('mismatched case identity and reverted actions fail closed', async () => {
 		await rule({});
 		const { row, actionId } = await created(824);

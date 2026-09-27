@@ -15,6 +15,7 @@ import {
 	steamProfiles,
 	integrityLabels,
 	integrityActions,
+	outbox,
 	listEntries,
 	integrityReports,
 	integrityScores,
@@ -132,6 +133,28 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 					.limit(1000),
 				weaponOverrides(env, server.orgId)
 			]);
+		const deliveries = actions.length
+			? await env.db
+					.select({
+						actionId: sql<string>`${outbox.detail}->>'actionId'`,
+						outcome: outbox.outcome
+					})
+					.from(outbox)
+					.where(
+						and(
+							eq(outbox.serverId, server.id),
+							eq(outbox.triggerKind, 'integrity'),
+							inArray(
+								sql<string>`${outbox.detail}->>'actionId'`,
+								actions.map((a) => a.id)
+							)
+						)
+					)
+					.orderBy(desc(outbox.createdAt), desc(outbox.id))
+			: [];
+		const deliveryReasons = new Map<string, string>();
+		for (const item of deliveries)
+			if (!deliveryReasons.has(item.actionId)) deliveryReasons.set(item.actionId, item.outcome);
 		const status = live?.status && typeof live.status === 'object' ? (live.status as Status) : null;
 		const roster = Array.isArray(live?.players) ? (live.players as Player[]) : [];
 		const recentScore = new Map<string, (typeof liveScores)[number]>();
@@ -313,6 +336,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			reports: reports.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
 			actions: actions.map((item) => ({
 				...item,
+				deliveryReason: deliveryReasons.get(item.id) ?? '',
 				createdAt: item.createdAt.toISOString(),
 				effectiveAt: item.effectiveAt?.toISOString() ?? null,
 				expiresAt: item.expiresAt?.toISOString() ?? null,

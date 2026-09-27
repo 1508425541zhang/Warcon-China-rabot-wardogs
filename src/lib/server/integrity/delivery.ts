@@ -49,7 +49,9 @@ export async function integrityDeliverySkipReason(
 		match.caseRow.serverId !== row.serverId ||
 		match.caseRow.steamId !== row.steamId ||
 		match.server.orgId !== match.action.orgId ||
-		(match.action.source === 'RULE' && match.caseRow.status !== 'OPEN')
+		// AUTO_ACTION marks a queued action, not a human cancellation.
+		(match.action.source === 'RULE' &&
+			(!['OPEN', 'AUTO_ACTION'].includes(match.caseRow.status) || !!match.caseRow.reviewedAt))
 	)
 		return 'Integrity action or case changed before delivery';
 	if (match.action.source === 'REVIEW') {
