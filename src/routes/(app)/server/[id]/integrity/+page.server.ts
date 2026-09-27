@@ -52,7 +52,12 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 					})
 					.from(integrityCases)
 					.leftJoin(steamProfiles, eq(steamProfiles.steamId, integrityCases.steamId))
-					.where(eq(integrityCases.serverId, server.id))
+					.where(
+						and(
+							eq(integrityCases.serverId, server.id),
+							sql`${integrityCases.status} NOT IN ('AI_ARCHIVED', 'AI_CLEARED')`
+						)
+					)
 					.orderBy(desc(integrityCases.createdAt), desc(integrityCases.id))
 					.limit(5),
 				env.db

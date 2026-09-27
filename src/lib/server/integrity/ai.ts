@@ -43,6 +43,8 @@ export async function saveAiSettings(env: Env, orgId: string, input: unknown) {
 	const row = {
 		orgId,
 		autoEnabled: value.autoEnabled,
+		autoCloseEnabled: value.autoCloseEnabled,
+		deleteLowRisk: value.deleteLowRisk,
 		dailyLimit: value.dailyLimit,
 		baseUrl,
 		model: value.model,
@@ -68,6 +70,8 @@ export async function aiBundle(env: Env, orgId: string, serverId: string, caseId
 			)
 		);
 	if (!c) throw new ApiError(404, '案件不存在或无权查看。');
+	if (c.status === 'AI_CLEARED')
+		throw new ApiError(410, '低风险案件已清理，仅保留审核回执，不再发送不完整证据。');
 	const [events, reviews, actions, history] = await Promise.all([
 		env.db
 			.select({
@@ -246,9 +250,18 @@ export async function aiCall(
 		usage: response.usage ?? null,
 		advisoryOnly: true
 	};
-	await env.db
-		.insert(integrityAiReviews)
-		.values({ fingerprint, caseId: bundle!.case.id, result })
-		.onConflictDoNothing();
+	await env.db.transaction(async (tx) => {
+		const [current] = await tx
+			.select({ status: integrityCases.status })
+			.from(integrityCases)
+			.where(eq(integrityCases.id, bundle!.case.id))
+			.for('share');
+		if (!current || current.status === 'AI_CLEARED')
+			throw new ApiError(410, '案件已清理，未重新保存详细模型结果。');
+		await tx
+			.insert(integrityAiReviews)
+			.values({ fingerprint, caseId: bundle!.case.id, result })
+			.onConflictDoNothing();
+	});
 	return { result, cached: false, createdAt: new Date() };
 }

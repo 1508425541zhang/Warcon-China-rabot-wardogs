@@ -3,7 +3,8 @@
 	import type { PageProps } from './$types';
 	let { data }: PageProps = $props();
 	let base = $derived(`/server/${data.server.id}/integrity/cases`);
-	const href = (page: number) => `${base}?page=${page}&before=${encodeURIComponent(data.before)}`;
+	const href = (page: number) =>
+		`${base}?view=${data.view}&page=${page}&before=${encodeURIComponent(data.before)}`;
 	let numbers = $derived(
 		Array.from(
 			{ length: Math.min(7, data.pages) },
@@ -17,8 +18,15 @@
 	<a class="text-accent" href={`/server/${data.server.id}/integrity`}>← 返回风控总览</a>
 	<h1 class="text-2xl font-semibold">证据案件 · 查看与归档</h1>
 	<p class="text-sm text-mist-300">
-		所有案件按时间倒序保留，每页20条。归档只收纳历史记录，不改变审核结论或处罚。点击“证据与审核”展开详情。
+		默认展示待审核案件，每页20条。AI自动结案进入归档；低风险清理后仅保留精简审核回执与去重标识，详细证据副本已删除。
 	</p>
+	<nav class="flex flex-wrap gap-2" aria-label="案件分类">
+		{#each [['pending', '待审核'], ['archived', '已结案／归档'], ['all', '全部保留案件'], ['cleared', '低风险清理回执']] as item}<a
+				class="btn"
+				aria-current={data.view === item[0] ? 'page' : undefined}
+				href={`${base}?view=${item[0]}`}>{item[1]}</a
+			>{/each}
+	</nav>
 	<div class="flex flex-wrap gap-4">
 		<span>共 {data.total} 条 · 第 {data.page} / {data.pages} 页</span><a
 			class="text-accent"

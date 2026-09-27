@@ -43,6 +43,7 @@ describe.skipIf(!hasTestDb)('automatic AI initial review', () => {
 			baseUrl: 'https://example.com/v1',
 			apiKey: 'test-secret',
 			model: 'test-model',
+			autoCloseEnabled: false,
 			dailyLimit: 1
 		});
 		const add = async (extra: Record<string, unknown> = {}) => {
@@ -69,7 +70,7 @@ describe.skipIf(!hasTestDb)('automatic AI initial review', () => {
 		});
 		const first = await add();
 		await add({ reviewedAt: new Date() });
-		await add({ createdAt: new Date(Date.now() - 8 * 86400000) });
+		await add({ status: 'CLOSED', createdAt: new Date(Date.now() - 8 * 86400000) });
 		await add({ status: 'CLOSED' });
 		await discoverAiJobs(env);
 		await discoverAiJobs(env);

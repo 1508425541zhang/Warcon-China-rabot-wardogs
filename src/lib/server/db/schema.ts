@@ -1530,6 +1530,8 @@ export const factionLockEvents = pgTable(
 
 /** Per-organisation OpenAI-compatible assistant, isolated from enforcement. */
 export const integrityAiSettings = pgTable('integrity_ai_settings', {
+	autoCloseEnabled: boolean('auto_close_enabled').notNull().default(true),
+	deleteLowRisk: boolean('delete_low_risk').notNull().default(true),
 	autoEnabled: boolean('auto_enabled').notNull().default(true),
 	dailyLimit: integer('daily_limit').notNull().default(100),
 	budgetDay: text('budget_day').notNull().default(''),

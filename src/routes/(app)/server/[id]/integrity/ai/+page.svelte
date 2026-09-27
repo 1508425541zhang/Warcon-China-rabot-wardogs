@@ -10,6 +10,8 @@
 	let { data }: PageProps = $props();
 	let loadedServer = $state(''),
 		autoEnabled = $state(true),
+		autoCloseEnabled = $state(true),
+		deleteLowRisk = $state(true),
 		dailyLimit = $state(100);
 	onMount(() => refreshVisible(invalidateAll));
 	let baseUrl = $state(''),
@@ -36,6 +38,8 @@
 		if (data.config && loadedServer !== data.server.id) {
 			loadedServer = data.server.id;
 			autoEnabled = data.config.autoEnabled;
+			autoCloseEnabled = data.config.autoCloseEnabled;
+			deleteLowRisk = data.config.deleteLowRisk;
 			dailyLimit = data.config.dailyLimit;
 			baseUrl = data.config.baseUrl;
 			model = data.config.model;
@@ -54,7 +58,17 @@
 				caseId,
 				settings:
 					operation === 'save'
-						? { baseUrl, model, apiKey, maxTokens, tokenParameter, autoEnabled, dailyLimit }
+						? {
+								baseUrl,
+								model,
+								apiKey,
+								maxTokens,
+								tokenParameter,
+								autoEnabled,
+								autoCloseEnabled,
+								deleteLowRisk,
+								dailyLimit
+							}
 						: undefined
 			});
 			if (operation === 'save') {
@@ -99,7 +113,7 @@
 	新案件后台自动初审；未达到委员会正式建案门槛时，只要一位专家可疑或极可能作弊，也会自动生成 AI
 	预筛记录并排队。无需逐案选择，关闭网页仍继续。正式案件优先，同一异常事件去重。案件资料以 JSON
 	文本发送，不传图片。AI
-	给出可疑度、理由和数字核对，不执行处罚，也不改变人工审核状态。配置由同一组织共用。
+	自动审核低、中风险并结案归档；通过的低风险案件清理证据副本，仅留精简回执。高风险交管理员，证据不足／矛盾单独待核查。AI不执行封禁，不覆盖人工审核。配置由同一组织共用。
 </p>
 {#if notice}<p role="status" class="mb-3 panel p-3">{notice}</p>{/if}
 {#if failure}<p role="alert" class="mb-3 panel p-3 text-red-400">{failure}</p>{/if}
@@ -107,8 +121,27 @@
 	<section class="mb-5 space-y-4 panel p-5">
 		<h3 class="font-semibold">模型接口设置</h3>
 		<label class="flex gap-2"
-			><input type="checkbox" bind:checked={autoEnabled} />启用后台自动初审（新案件自动分析）</label
+			><input
+				type="checkbox"
+				bind:checked={autoEnabled}
+			/>启用后台自动审核（包含历史未审核案件）</label
 		>
+		<label class="flex gap-2"
+			><input
+				type="checkbox"
+				bind:checked={autoCloseEnabled}
+			/>自动完成低、中风险审核并结案归档</label
+		>
+		<label class="flex gap-2"
+			><input
+				type="checkbox"
+				bind:checked={deleteLowRisk}
+				disabled={!autoCloseEnabled}
+			/>低风险通过后清理详细证据副本（保留精简审核回执）</label
+		>
+		<p class="text-sm text-mist-400">
+			0–25且建议通过、无关键缺失：清理；其他0–60：自动结案；65–100：管理员审核。关键证据不足或冲突不会自动通过。已有处罚、举报、人工结论或处置重试记录会保留供核查。原始击杀统计不删除。
+		</p>
 		<label class="block"
 			>每天自动请求上限<input
 				class="ml-2 input"
@@ -185,7 +218,7 @@
 <section class="mb-5 space-y-4 panel p-5">
 	<h3 class="font-semibold">自动初审队列与结果</h3>
 	<p class="text-sm text-mist-400">
-		自动处理近 7 天未审核的新案件，每案一次；达到每日上限后次日继续。
+		自动处理所有未审核案件，包括历史积压；新提示词会重新审核尚未结案的旧建议。达到每日上限后次日继续。
 	</p>
 	{#each data.cases as c}
 		<div class="border-b border-white/10 pb-3">
@@ -221,7 +254,8 @@
 					result = '';
 					review = null;
 				}}
-				><option value="">请选择案件</option>{#each data.cases as c}<option value={c.id}
+				><option value="">请选择案件</option
+				>{#each data.cases.filter((c) => c.status !== 'AI_CLEARED') as c}<option value={c.id}
 						>{c.name || '未知昵称'} · SteamID 尾号 {c.steamId.slice(-6)} · {new Date(
 							c.createdAt
 						).toLocaleString()} · {c.status} · {c.id.slice(0, 8)}</option
@@ -254,7 +288,7 @@
 			{#each review.missingEvidence as item}<p>{item}</p>{:else}<p>
 					模型未列出缺失项。
 				</p>{/each}{/if}
-		{#if result}<h4 class="font-semibold">AI 建议（须人工复核）</h4>
+		{#if result}<h4 class="font-semibold">手动预览结果（此按钮不执行自动结案）</h4>
 			<pre
 				class="max-h-[36rem] overflow-auto text-sm break-all whitespace-pre-wrap">{result}</pre>{/if}
 		{#if preview}<details open>

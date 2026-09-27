@@ -35,6 +35,8 @@ export const integrityCaseStatus = (value: string) =>
 			OPEN: '待审核',
 			AUTO_ACTION: '自动处置记录（无需待审）',
 			REVIEWED: '已审核',
+			AI_ARCHIVED: 'AI已审核 · 已结案归档',
+			AI_CLEARED: 'AI已审核 · 低风险已清理',
 			REVIEWING: '审核中',
 			CLOSED: '已结案'
 		}) as Record<string, string>

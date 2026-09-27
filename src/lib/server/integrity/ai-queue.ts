@@ -3,7 +3,8 @@ import type { Env } from '../env';
 import { integrityAiJobs } from '../db/schema';
 import { isOwner, withOwnedTransaction } from '../leadership';
 import { ApiError } from '../http';
-import { aiBundle, aiCall } from './ai';
+import { finishAiReview } from './ai-triage';
+import { aiBundle, aiCall, aiSettings } from './ai';
 import { reviewOutput, PROMPT_VERSION } from './ai-protocol';
 import { AI_PRESCREEN_TRIGGER } from './ai-prescreen';
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -13,13 +14,13 @@ export async function discoverAiJobs(env: Env) {
 	await withOwnedTransaction(env, async (tx) => {
 		await tx.execute(sql`UPDATE integrity_ai_jobs j SET state='pending',attempts=0,next_at=now(),result=NULL,last_error=NULL,updated_at=now()
  FROM integrity_cases c JOIN integrity_ai_settings s ON s.org_id=c.org_id
- WHERE j.case_id=c.id AND j.state='done' AND j.result->>'promptVersion' IS DISTINCT FROM ${PROMPT_VERSION}
- AND s.auto_enabled AND c.status='OPEN' AND c.reviewed_at IS NULL AND c.created_at>=now()-interval '7 days'`);
+ WHERE j.case_id=c.id AND j.state='done' AND (j.result->>'promptVersion' IS DISTINCT FROM ${PROMPT_VERSION} OR (s.auto_close_enabled AND j.result->>'disposition' = 'ADVISORY'))
+ AND s.auto_enabled AND c.status='OPEN' AND c.reviewed_at IS NULL `);
 		await tx.execute(sql`INSERT INTO integrity_ai_jobs(case_id)
  SELECT c.id FROM integrity_cases c JOIN integrity_ai_settings s ON s.org_id=c.org_id
  JOIN organizations o ON o.id=c.org_id
  WHERE o.suspended_at IS NULL AND s.auto_enabled AND s.model <> '' AND c.reviewed_at IS NULL AND c.status='OPEN'
- AND c.created_at >= now()-interval '7 days'
+
  AND NOT EXISTS(SELECT 1 FROM integrity_ai_jobs j WHERE j.case_id=c.id)
  ORDER BY (c.trigger=${AI_PRESCREEN_TRIGGER}),c.created_at,c.id LIMIT 100 ON CONFLICT DO NOTHING`);
 		await tx.execute(sql`UPDATE integrity_ai_jobs j SET state='skipped', last_error='案件已人工审核或关闭',updated_at=now()
@@ -52,6 +53,8 @@ export async function processNextAiJob(env: Env, reviewer: typeof aiCall = aiCal
 		const [c] = await env.db.select().from(integrityCases).where(eq(integrityCases.id, job.caseId));
 		if (!c) return true;
 		if (!isOwner()) return false;
+		const settings = await aiSettings(env, c.orgId);
+		if (!settings) return true;
 		const response = await reviewer(
 			env,
 			c.orgId,
@@ -60,18 +63,9 @@ export async function processNextAiJob(env: Env, reviewer: typeof aiCall = aiCal
 			true
 		);
 		if (!('result' in response)) throw new Error('missing review');
-		await withOwnedTransaction(env, async (tx) => {
-			await tx
-				.update(integrityAiJobs)
-				.set({
-					state: 'done',
-					result: response.result,
-					lastError: null,
-					leaseUntil: null,
-					updatedAt: new Date()
-				})
-				.where(and(eq(integrityAiJobs.caseId, c.id), eq(integrityAiJobs.claimToken, token)));
-		});
+		await withOwnedTransaction(env, (tx) =>
+			finishAiReview(tx, c.id, token, response.result, settings.updatedAt)
+		);
 	} catch (error) {
 		if (!isOwner()) return false;
 		const deferred = error instanceof ApiError && [409, 429].includes(error.status);
@@ -108,6 +102,10 @@ export async function aiJobViews(env: Env, caseIds: string[]) {
 			lastError: row.lastError,
 			updatedAt: row.updatedAt.toISOString(),
 			result: parsed.success ? parsed.data : null,
+			disposition:
+				typeof (row.result as { disposition?: unknown })?.disposition === 'string'
+					? (row.result as { disposition: string }).disposition
+					: null,
 			promptVersion: PROMPT_VERSION
 		};
 	});

@@ -130,8 +130,9 @@
 <section class="mb-6 panel p-4">
 	<h3 class="mb-3 text-base font-semibold text-white">{t.cases}</h3>
 	{#if archiveUrl}<p class="mb-3 text-sm text-mist-300">
-			仅展示最近5条，更多案件自动收进历史列表。<a class="ml-3 btn" href={archiveUrl}
-				>查看全部／归档 →</a
+			仅展示最近5条待关注案件，AI已结案与清理回执在归档分类查看。<a
+				class="ml-3 btn"
+				href={archiveUrl}>查看全部／归档 →</a
 			>
 		</p>{/if}
 	{#if labelNotice}<p class="mb-2 text-sm text-accent" role="status">{labelNotice}</p>{/if}
@@ -205,15 +206,15 @@
 												: '永久（沿用已有封禁）'} · 即时踢出：{deliveryLabel(penalty.deliveryState)}
 										</p>
 									{/each}
-									{#if data.canConfigure && latest && !editingReview[item.id]}<button
+									{#if data.canConfigure && (latest || item.status === 'AI_ARCHIVED') && !editingReview[item.id]}<button
 											class="btn-secondary mt-2 btn text-xs"
 											onclick={() => {
 												editingReview[item.id] = true;
-												pendingLabel[item.id] = latest.label;
-												pendingReason[item.id] = latest.reason;
+												pendingLabel[item.id] = latest?.label ?? '';
+												pendingReason[item.id] = latest?.reason ?? '';
 											}}>修改审核结论</button
 										>{/if}
-									{#if data.canConfigure && (!latest || editingReview[item.id])}<div
+									{#if data.canConfigure && item.status !== 'AI_CLEARED' && ((!latest && item.status !== 'AI_ARCHIVED') || editingReview[item.id])}<div
 											class="mt-3 flex flex-wrap items-center gap-2"
 										>
 											<p class="w-full text-xs text-mist-300">

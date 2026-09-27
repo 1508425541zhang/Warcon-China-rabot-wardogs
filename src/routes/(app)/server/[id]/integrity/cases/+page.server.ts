@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, lte } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, lte, sql } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getEnv } from '$lib/server/env';
@@ -22,9 +22,21 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			raw = url.searchParams.get('before');
 		const parsed = raw ? Date.parse(raw) : NaN;
 		const before = Number.isFinite(parsed) && parsed <= now.getTime() ? new Date(parsed) : now;
+		const view = ['pending', 'archived', 'cleared', 'all'].includes(
+			url.searchParams.get('view') ?? ''
+		)
+			? url.searchParams.get('view')!
+			: 'pending';
 		const scope = and(
 			eq(integrityCases.serverId, server.id),
-			lte(integrityCases.createdAt, before)
+			lte(integrityCases.createdAt, before),
+			view === 'pending'
+				? eq(integrityCases.status, 'OPEN')
+				: view === 'archived'
+					? sql`${integrityCases.status} NOT IN ('OPEN', 'AI_CLEARED')`
+					: view === 'cleared'
+						? eq(integrityCases.status, 'AI_CLEARED')
+						: sql`${integrityCases.status} <> 'AI_CLEARED'`
 		);
 		const [totalRow] = await env.db.select({ total: count() }).from(integrityCases).where(scope);
 		const total = Number(totalRow.total),
@@ -79,6 +91,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			orgRoleFor(env, user, server.orgId)
 		]);
 		return {
+			view,
 			page,
 			pages,
 			pageSize,

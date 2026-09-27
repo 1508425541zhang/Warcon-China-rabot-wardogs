@@ -37,6 +37,8 @@ export async function labelIntegrityCase(
 			.for('update')
 			.limit(1);
 		if (!caseRow) throw new ApiError(404, '案件不存在。');
+		if (caseRow.status === 'AI_CLEARED')
+			throw new ApiError(409, '案件证据已清理，不能据此执行人工处罚。');
 		const statistical = caseRow.statistical as { modelVersion?: unknown } | null;
 		const modelVersion =
 			typeof statistical?.modelVersion === 'string'

@@ -33,6 +33,8 @@ export const load = async ({ locals, params }: import('./$types').PageServerLoad
 		config: config
 			? {
 					autoEnabled: config.autoEnabled,
+					autoCloseEnabled: config.autoCloseEnabled,
+					deleteLowRisk: config.deleteLowRisk,
 					dailyLimit: config.dailyLimit,
 					dailyRequests:
 						config.budgetDay === new Date().toISOString().slice(0, 10) ? config.dailyRequests : 0,

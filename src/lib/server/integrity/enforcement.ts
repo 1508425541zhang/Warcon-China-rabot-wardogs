@@ -131,7 +131,12 @@ export async function enforceIntegrityCase(
 		};
 		const now = new Date();
 		const [[caseRow], savedScores, [live], prior, previous] = await Promise.all([
-			tx.select().from(integrityCases).where(eq(integrityCases.id, input.caseId)).limit(1),
+			tx
+				.select()
+				.from(integrityCases)
+				.where(eq(integrityCases.id, input.caseId))
+				.for('update')
+				.limit(1),
 			tx
 				.select()
 				.from(integrityScores)
