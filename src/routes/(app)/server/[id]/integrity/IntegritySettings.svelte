@@ -362,10 +362,10 @@
 	<div class="panel p-5">
 		<h3 class="font-semibold">委员会五专家规则</h3>
 		<p class="text-sm">
-			可疑为P90，高度异常为P95。五票中两票可疑或更高进入观察；三票高度异常或四票可疑及以上生成待审核案件。专家评估不要求连续KPM达标。
+			可疑为P90，高度异常为P95。五票中两票可疑或更高进入观察；三票可疑及以上或两票极可能作弊生成待审核案件；三票极可能作弊进入自动踢出通道。专家评估不要求连续KPM达标。
 		</p>
 		<p class="mt-2 text-sm">
-			180秒步兵KPM＞2加6分；唯一直接踢出通道是KPM＞4且另一位专家（不含击杀节奏）至少可疑，无需等待人工审核。人数、数据健康和频率保护仍生效。
+			180秒步兵KPM＞2加6分；直接踢出条件为三票极可能作弊，或KPM＞4且另一位专家（不含击杀节奏）至少可疑，无需等待人工审核。人数、数据健康和频率保护仍生效。
 		</p>
 		<p class="mt-2 text-xs text-mist-400">
 			精准度对比本服务器群体分布；变化点仅看本局所有武器的击杀；持续异常统计本局及过去24小时跨局的独立异常。
@@ -547,8 +547,8 @@
 			</h3>
 			<p class="mt-2 text-sm text-warn">
 				{lang === 'zh'
-					? '统计模式可自动踢出，须开启组织自动踢出开关。门槛：200 个本服样本、20 名玩家、20 玩家日、100 有效样本；P90 可疑、P95 高度异常。投票仅建待审案件；KPM＞4且另一专家至少可疑才直接踢出，仍须通过数据质量校验。基线每 5 分钟更新。'
-					: 'Statistical mode supports opt-in automatic kicks: 200 local samples, 20 players, 20 player-days and 100 effective samples. P90 suspicious / P95 highly abnormal. Votes create review cases only; direct kicks require KPM > 4 plus another positive expert and quality gates. Baselines refresh every 5 minutes.'}
+					? '统计模式可自动踢出，须开启组织自动踢出开关。门槛：200 个本服样本、20 名玩家、20 玩家日、100 有效样本；P90 可疑、P95 高度异常。三票可疑及以上或两票极可能作弊建待审案件；三票极可能作弊，或KPM＞4且另一专家至少可疑可直接踢出，仍须通过数据质量校验。基线每 5 分钟更新。'
+					: 'Statistical mode supports opt-in automatic kicks: 200 local samples, 20 players, 20 player-days and 100 effective samples. P90 suspicious / P95 highly abnormal. Three positive or two high votes create review cases; three high votes or KPM > 4 plus another positive expert can kick after quality gates. Baselines refresh every 5 minutes.'}
 			</p>
 			<ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-mist-300">
 				<li>Tempo：180 秒 KPM、15 秒爆发、击杀间隔、独立受害者</li>

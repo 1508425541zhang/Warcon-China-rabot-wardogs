@@ -350,7 +350,7 @@
 		<div class="mt-3 panel p-3 text-sm">
 			<strong>委员会：五专家独立投票</strong>
 			<p>
-				两票可疑：观察；三票高度异常或四票可疑及以上：生成案件，不自动踢出。KPM＞4且另一专家至少可疑：直接踢出通道。
+				两票可疑：观察；三票可疑及以上或两票极可能作弊：进入案件审核；三票极可能作弊：自动踢出候选。KPM＞4且另一专家至少可疑也可踢出，均受执行保护约束。
 			</p>
 			{#if selectedAssessment.kpmRule}<p>
 					180秒步兵KPM：{selectedAssessment.kpmRule.value.toFixed(2)} · 警惕加分：{selectedAssessment

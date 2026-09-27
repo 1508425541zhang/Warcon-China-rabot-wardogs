@@ -30,7 +30,7 @@ test('completed, adjacent minutes only; half-open boundaries and two minute opti
 	]);
 	expect(consecutiveMinutes(steady, 240, 3, 4).passed).toBe(false);
 });
-test('all experts still vote without consecutive-minute KPM; three high votes only create a case', () => {
+test('all experts still vote without consecutive-minute KPM; three high votes create a kick candidate', () => {
 	const models = ['TEMPO', 'CAREER', 'CHANGE_POINT'].map((family) => ({
 		id: family,
 		version: 'test',
@@ -66,5 +66,5 @@ test('all experts still vote without consecutive-minute KPM; three high votes on
 	};
 	const result = assessCommittee(input, quality, models);
 	expect(result.verdicts.every((v) => v.decision === 'CHEAT_LIKELY')).toBe(true);
-	expect(result.decision).toBe('CASE');
+	expect(result.decision).toBe('KICK_CANDIDATE');
 });

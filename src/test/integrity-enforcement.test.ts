@@ -399,10 +399,14 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 			await env.db.select().from(integrityActions).where(eq(integrityActions.caseId, input.caseId))
 		).toHaveLength(0);
 	});
-	test('statistical auto kick requires current provenance and queues exactly one action', async () => {
+	test('three-high low-KPM kick requires current provenance and queues exactly one action', async () => {
 		await setFlags({ autoKickEnabled: true });
 		const input = await candidate(sid(818), true);
 		const assessment = statistical('KICK_CANDIDATE');
+		input.finding.kpm180 = 1;
+		assessment.committee!.verdicts = ['precision', 'career_deviation', 'change_point'].map(
+			(modelId) => ({ modelId, decision: 'CHEAT_LIKELY' })
+		) as NonNullable<StatisticalAssessment['committee']>['verdicts'];
 		await env.db
 			.update(integrityRules)
 			.set({ assessmentMode: 'statistical', version: 2 })

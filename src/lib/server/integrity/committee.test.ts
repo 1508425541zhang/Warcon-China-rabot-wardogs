@@ -50,7 +50,7 @@ describe('independent expert committee', () => {
 			expect(result.hardEvidence).not.toBe(true);
 		}
 	});
-	test('five ballots: two positive watch, three high or four positive create review cases only', () => {
+	test('five ballots: two high or three positive review, three high kick', () => {
 		expect(voteCommittee([v('TEMPO', 'SUSPICIOUS'), v('CAREER', 'SUSPICIOUS')]).decision).toBe(
 			'WATCH'
 		);
@@ -60,7 +60,7 @@ describe('independent expert committee', () => {
 				v('CAREER', 'CHEAT_LIKELY'),
 				v('CHANGE_POINT', 'CHEAT_LIKELY')
 			]).decision
-		).toBe('CASE');
+		).toBe('KICK_CANDIDATE');
 		expect(
 			voteCommittee([
 				v('TEMPO', 'SUSPICIOUS'),
@@ -70,7 +70,7 @@ describe('independent expert committee', () => {
 			]).decision
 		).toBe('CASE');
 		expect(voteCommittee([v('TEMPO', 'CHEAT_LIKELY'), v('CAREER', 'CHEAT_LIKELY')]).decision).toBe(
-			'WATCH'
+			'CASE'
 		);
 		expect(voteCommittee([v('TEMPO', 'CHEAT_LIKELY'), v('TEMPO', 'CHEAT_LIKELY')]).cheatVotes).toBe(
 			1
@@ -86,12 +86,12 @@ describe('independent expert committee', () => {
 		expect(r.unknownVotes).toBe(2);
 		expect(r.cheatVotes + r.suspiciousVotes + r.normalVotes).toBe(0);
 	});
-	test('data quality veto is retained for review cases', () => {
+	test('data quality veto blocks a three-high kick candidate', () => {
 		const r = voteCommittee(
 			[v('TEMPO', 'CHEAT_LIKELY'), v('CAREER', 'CHEAT_LIKELY'), v('CHANGE_POINT', 'CHEAT_LIKELY')],
 			['FEED_STALE']
 		);
-		expect(r.decision).toBe('CASE');
+		expect(r.decision).toBe('KICK_CANDIDATE');
 		expect(r.autoActionBlocked).toBe(true);
 	});
 	test('missing identity and stale baseline are separate veto reasons', () => {
@@ -177,9 +177,32 @@ test('KPM bypass requires >4 and a non-tempo expert; absence of KPM never stops 
 		...m,
 		assess: () => v('TEMPO', i < 3 ? 'CHEAT_LIKELY' : 'NORMAL', m.id)
 	}));
-	expect(assessCommittee({ ...input, currentKpm: 1 }, quality, three).decision).toBe('CASE');
+	expect(assessCommittee({ ...input, currentKpm: 1 }, quality, three).decision).toBe(
+		'KICK_CANDIDATE'
+	);
 	expect(
 		assessCommittee({ ...input, currentKpm: 4.01 }, { ...quality, feedHealthy: false }, models)
 			.autoActionBlocked
 	).toBe(true);
+});
+
+test('all five-ballot combinations follow the new review and kick thresholds', () => {
+	const states = ['UNKNOWN', 'NORMAL', 'SUSPICIOUS', 'CHEAT_LIKELY'] as const;
+	const ids = ['tempo', 'precision', 'career_deviation', 'change_point', 'persistence'];
+	for (let n = 0; n < 1024; n++) {
+		const ballots = ids.map((id, i) => v('TEMPO', states[(n >> (2 * i)) & 3], id));
+		const high = ballots.filter((b) => b.decision === 'CHEAT_LIKELY').length;
+		const positive = ballots.filter(
+			(b) => b.decision === 'CHEAT_LIKELY' || b.decision === 'SUSPICIOUS'
+		).length;
+		const expected =
+			high >= 3
+				? 'KICK_CANDIDATE'
+				: high >= 2 || positive >= 3
+					? 'CASE'
+					: positive >= 2
+						? 'WATCH'
+						: 'NORMAL';
+		expect(voteCommittee(ballots).decision).toBe(expected);
+	}
 });

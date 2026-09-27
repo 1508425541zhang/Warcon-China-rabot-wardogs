@@ -1,3 +1,4 @@
+import { hasDirectKickSupport } from './committee';
 import type { BehaviorFinding } from './windows';
 import type { IntegrityScore, IntegrityRuleConfig } from './score';
 import type { StatisticalAssessment } from './statistics';
@@ -73,7 +74,7 @@ export function decideIntegrityAction(input: DecisionInput): IntegrityDecision {
 	return settings.autoKickEnabled ? 'KICK' : 'OBSERVE';
 }
 
-/** Only high KPM plus another expert can directly kick; votes alone create review cases. */
+/** Three high ballots or high KPM with another expert may kick after all execution gates. */
 export function decideStatisticalAction(
 	input: Omit<DecisionInput, 'score'> & { assessment: StatisticalAssessment }
 ): IntegrityDecision {
@@ -94,12 +95,6 @@ export function decideStatisticalAction(
 	)
 		return 'OBSERVE';
 
-	if (
-		!(finding.kpm180 > 4) ||
-		!assessment.committee.verdicts?.some(
-			(v) => v.modelId !== 'tempo' && (v.decision === 'SUSPICIOUS' || v.decision === 'CHEAT_LIKELY')
-		)
-	)
-		return 'OBSERVE';
+	if (!hasDirectKickSupport(assessment.committee.verdicts ?? [], finding.kpm180)) return 'OBSERVE';
 	return 'KICK';
 }

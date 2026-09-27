@@ -194,7 +194,7 @@ const finding: BehaviorFinding = {
 	reasons: ['kpm', 'burst', 'headshot'],
 	eventIds: ['e1']
 };
-test('only KPM strictly above four plus another expert can kick; voting cases cannot', () => {
+test('KPM strictly above four plus another expert can kick; review cases cannot', () => {
 	const assessment = {
 		status: 'READY',
 		level: 'KICK_CANDIDATE',
@@ -260,4 +260,59 @@ test('only KPM strictly above four plus another expert can kick; voting cases ca
 			settings: { ...input.settings, autoQuarantine24hEnabled: true }
 		})
 	).toBe('KICK');
+});
+
+test('three separate high experts kick at low KPM and every execution protection remains effective', () => {
+	const verdicts = ['precision', 'change_point', 'career_deviation'].map((modelId) => ({
+		modelId,
+		decision: 'CHEAT_LIKELY'
+	}));
+	const assessment = {
+		status: 'READY',
+		level: 'KICK_CANDIDATE',
+		committee: { decision: 'KICK_CANDIDATE', autoActionBlocked: false, verdicts }
+	} as StatisticalAssessment;
+	const input = {
+		assessment,
+		finding: { ...finding, kpm180: 1 },
+		settings: { ...DEFAULT_ENFORCEMENT, autoKickEnabled: true },
+		confidence: 'B' as const,
+		feedHealthy: true,
+		playerOnline: true,
+		onlinePlayers: 20,
+		rules: DEFAULT_INTEGRITY_RULES,
+		identityReliable: true,
+		priorIndependentWindow: false,
+		previousActions: [] as const
+	};
+	expect(decideStatisticalAction(input)).toBe('KICK');
+	for (const patch of [
+		{ feedHealthy: false },
+		{ playerOnline: false },
+		{ onlinePlayers: 19 },
+		{ identityReliable: false },
+		{ confidence: 'C' as const },
+		{ settings: { ...input.settings, autoKickEnabled: false } },
+		{ settings: { ...input.settings, autoSuspendedAt: new Date() } }
+	])
+		expect(decideStatisticalAction({ ...input, ...patch })).toBe('OBSERVE');
+	expect(
+		decideStatisticalAction({
+			...input,
+			assessment: {
+				...assessment,
+				committee: { ...assessment.committee!, autoActionBlocked: true }
+			}
+		})
+	).toBe('OBSERVE');
+	for (const ballots of [verdicts.slice(0, 2), [verdicts[0], verdicts[0], verdicts[1]]])
+		expect(
+			decideStatisticalAction({
+				...input,
+				assessment: {
+					...assessment,
+					committee: { ...assessment.committee!, verdicts: ballots as never }
+				}
+			})
+		).toBe('OBSERVE');
 });

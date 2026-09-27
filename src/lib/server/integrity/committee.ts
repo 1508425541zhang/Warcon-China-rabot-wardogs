@@ -46,7 +46,9 @@ export interface IntegrityExpertModel {
 }
 export type CommitteeDecision =
 	'NORMAL' | 'WATCH' | 'CASE' | 'KICK_CANDIDATE' | 'ESCALATION_CANDIDATE';
+export const COMMITTEE_VOTING_VERSION = 'five-vote-3s-2c-review-3c-kick';
 export interface CommitteeResult {
+	votingVersion?: string;
 	generation: string;
 	verdicts: ExpertVerdict[];
 	cheatVotes: number;
@@ -255,7 +257,7 @@ export function dataQualityVeto(input: DataQualityInput): string[] {
 		.map(([key]) => key.toUpperCase());
 }
 
-/** Five expert ballots. Three high or four positive ballots create a review case only. */
+/** Five expert ballots: three positive or two high create a case; three high can kick. */
 export function voteCommittee(
 	verdicts: readonly ExpertVerdict[],
 	vetoReasons: readonly string[] = []
@@ -277,10 +279,12 @@ export function voteCommittee(
 	const cheatVotes = count('CHEAT_LIKELY'),
 		suspiciousVotes = count('SUSPICIOUS'),
 		unknownVotes = count('UNKNOWN');
-	const kick = cheatVotes >= 3 || cheatVotes + suspiciousVotes >= 4;
+	const kick = cheatVotes >= 3;
+	const review = cheatVotes >= 2 || cheatVotes + suspiciousVotes >= 3;
 
 	return {
 		generation: STATISTICAL_MODEL_CONFIG.modelVersion,
+		votingVersion: COMMITTEE_VOTING_VERSION,
 		verdicts: [...verdicts],
 		cheatVotes,
 		suspiciousVotes,
@@ -289,7 +293,13 @@ export function voteCommittee(
 		participatingModels: votes.length - unknownVotes,
 		independentCheatFamilies: cheatVotes,
 		independentSuspiciousFamilies: suspiciousVotes,
-		decision: kick ? 'CASE' : cheatVotes + suspiciousVotes >= 2 ? 'WATCH' : 'NORMAL',
+		decision: kick
+			? 'KICK_CANDIDATE'
+			: review
+				? 'CASE'
+				: cheatVotes + suspiciousVotes >= 2
+					? 'WATCH'
+					: 'NORMAL',
 		autoActionBlocked: vetoReasons.length > 0 || !STATISTICAL_AUTO_ACTION_ENABLED,
 		vetoReasons: [
 			...vetoReasons,
@@ -307,17 +317,27 @@ export function assessCommittee(
 		models.map((expert) => expert.assess(input)),
 		dataQualityVeto(quality)
 	);
-	const kpmSupport =
-		input.currentKpm > 4 &&
-		result.verdicts.some(
-			(v) => v.modelId !== 'tempo' && (v.decision === 'SUSPICIOUS' || v.decision === 'CHEAT_LIKELY')
-		);
+	const kickSupported = hasDirectKickSupport(result.verdicts, input.currentKpm);
 	return {
 		...result,
-		decision: kpmSupport
+		decision: kickSupported
 			? 'KICK_CANDIDATE'
 			: result.decision === 'NORMAL' && input.currentKpm > 2
 				? 'WATCH'
 				: result.decision
 	};
+}
+
+/** Recheck original ballots at execution; stored counts alone must not authorize a kick. */
+export function hasDirectKickSupport(verdicts: readonly ExpertVerdict[], kpm: number): boolean {
+	const high = new Set(verdicts.filter((v) => v.decision === 'CHEAT_LIKELY').map((v) => v.modelId));
+	return (
+		high.size >= 3 ||
+		(Number.isFinite(kpm) &&
+			kpm > 4 &&
+			verdicts.some(
+				(v) =>
+					v.modelId !== 'tempo' && (v.decision === 'SUSPICIOUS' || v.decision === 'CHEAT_LIKELY')
+			))
+	);
 }
