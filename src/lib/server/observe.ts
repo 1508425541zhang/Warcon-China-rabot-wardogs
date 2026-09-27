@@ -16,10 +16,10 @@ import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Env } from './env';
 import { publicMessage } from './http';
 import type { OrgRow, ServerRow } from './access';
-import { ACTIONS, readConfig } from './actions';
+import { ACTIONS, readConfig, readPlayersForObservation } from './actions';
 import { reservedSlotsHeld } from '../reserved-doc';
 import { GameError, WardogsClient } from './rcon';
-import { matches, samples, serverLive } from './db/schema';
+import { matches, samples, serverLive, trainingObservations } from './db/schema';
 import type { DbOrTx } from './db';
 import { getProfiles, steamEnabled } from './steam';
 import { recordProfiles } from './integrity/profile';
@@ -469,18 +469,50 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	let client: WardogsClient;
 	let status: Status | null = null;
 	let players: Player[] | null = null;
+	const rawObservations: (typeof trainingObservations.$inferInsert)[] = [];
+	const archiveObservations = async () => {
+		if (rawObservations.length)
+			await withOwnedTransaction(env, (tx) =>
+				tx.insert(trainingObservations).values(rawObservations)
+			);
+	};
 	await hydrateIdentity(env, m);
 	try {
 		client = await WardogsClient.forServer(env, server);
-		if (kinds.status || !m.status) status = (await ACTIONS.status.run(client, {})) as Status;
-		if (kinds.players)
-			players = ((await ACTIONS.players.run(client, {})) as { players: Player[] }).players;
+		if (kinds.status || !m.status) {
+			const { raw, ...normalized } = (await ACTIONS.status.run(client, { raw: true })) as Status & {
+				raw: unknown;
+			};
+			rawObservations.push({
+				serverId: server.id,
+				pollStartedAt: ts,
+				receivedAt: new Date(),
+				endpoint: '/v1/status',
+				payload: raw
+			});
+			status = normalized;
+		}
+		if (kinds.players) {
+			const response = await readPlayersForObservation(client);
+			rawObservations.push({
+				serverId: server.id,
+				pollStartedAt: ts,
+				receivedAt: new Date(),
+				endpoint: '/v1/players',
+				payload: response.raw
+			});
+			players = response.players;
+		}
 	} catch (err) {
+		// Keep a successful status reply even when the following player request fails.
+		await archiveObservations();
 		await observationFailed(env, m, ts, started, err);
 		observations.inc({ outcome: 'failed' });
 		observationSeconds.observe((Date.now() - started) / 1000);
 		return;
 	}
+	// Database errors propagate to the worker; they must not mark the game as unreachable.
+	await archiveObservations();
 	const latencyMs = Date.now() - started;
 	observations.inc({ outcome: 'ok' });
 	observationSeconds.observe(latencyMs / 1000);

@@ -967,6 +967,34 @@ export const kills = pgTable(
 );
 export type KillRow = typeof kills.$inferSelect;
 
+/** Authenticated feed bodies, including unsupported events and retries. Never pruned. */
+export const trainingFeedBatches = pgTable(
+	'training_feed_batches',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		serverId: text('server_id').notNull(),
+		receivedAt: ts('received_at').notNull(),
+		instanceId: text('instance_id').notNull(),
+		parserVersion: integer('parser_version').notNull().default(1),
+		payload: jsonb('payload').notNull()
+	},
+	(t) => [index('training_feed_batches_server_time_idx').on(t.serverId, t.receivedAt, t.id)]
+);
+
+/** Complete successful /v1/players and /v1/status responses, before normalization. */
+export const trainingObservations = pgTable(
+	'training_observations',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		serverId: text('server_id').notNull(),
+		pollStartedAt: ts('poll_started_at').notNull(),
+		receivedAt: ts('received_at').notNull(),
+		endpoint: text('endpoint').notNull(),
+		payload: jsonb('payload').notNull()
+	},
+	(t) => [index('training_observations_server_time_idx').on(t.serverId, t.receivedAt, t.id)]
+);
+
 /** Durable handoff from feed ingestion to the worker; unrelated to RCON outbox. */
 export const feedProcessingJobs = pgTable(
 	'feed_processing_jobs',
