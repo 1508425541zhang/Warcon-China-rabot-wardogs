@@ -1716,3 +1716,142 @@ export const personalPlugins = pgTable(
 	},
 	(t) => [primaryKey({ columns: [t.userId, t.pluginId] })]
 );
+
+// Official QQ community integration. Identities are verified against the Steam auth account.
+export const qqLinks = pgTable(
+	'qq_links',
+	{
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		memberId: text('member_id').notNull(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		steamId: text('steam_id').notNull()
+	},
+	(t) => [
+		primaryKey({ columns: [t.serverId, t.memberId] }),
+		uniqueIndex('qq_links_server_id_steam_id_key').on(t.serverId, t.steamId)
+	]
+);
+export const qqLinkCodes = pgTable('qq_link_codes', {
+	codeHash: text('code_hash').primaryKey(),
+	serverId: text('server_id')
+		.notNull()
+		.references(() => servers.id, { onDelete: 'cascade' }),
+	memberId: text('member_id').notNull(),
+	expiresAt: ts('expires_at').notNull()
+});
+export const qqWallets = pgTable(
+	'qq_wallets',
+	{
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		steamId: text('steam_id').notNull(),
+		balance: bigint('balance', { mode: 'number' }).notNull().default(0),
+		warmMs: bigint('warm_ms', { mode: 'number' }).notNull().default(0)
+	},
+	(t) => [
+		primaryKey({ columns: [t.serverId, t.steamId] }),
+		check('qq_wallets_balance_check', sql`${t.balance} >= 0`)
+	]
+);
+export const qqLedger = pgTable(
+	'qq_ledger',
+	{
+		id: text('id').primaryKey(),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		steamId: text('steam_id').notNull(),
+		delta: bigint('delta', { mode: 'number' }).notNull(),
+		reason: text('reason').notNull(),
+		createdAt: ts('created_at').notNull().defaultNow()
+	},
+	(t) => [index('qq_ledger_player_idx').on(t.serverId, t.steamId, t.createdAt)]
+);
+export const qqWarmTicks = pgTable('qq_warm_ticks', {
+	serverId: text('server_id')
+		.primaryKey()
+		.references(() => servers.id, { onDelete: 'cascade' }),
+	observedAt: ts('observed_at').notNull()
+});
+export const qqInbox = pgTable(
+	'qq_inbox',
+	{
+		id: text('id').primaryKey(),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		groupId: text('group_id').notNull(),
+		memberId: text('member_id').notNull(),
+		content: text('content').notNull(),
+		state: text('state').notNull().default('pending'),
+		reply: text('reply'),
+		replyState: text('reply_state').notNull().default('pending'),
+		createdAt: ts('created_at').notNull().defaultNow(),
+		startedAt: ts('started_at')
+	},
+	(t) => [index('qq_inbox_pending_idx').on(t.state, t.createdAt)]
+);
+export const qqOrders = pgTable(
+	'qq_orders',
+	{
+		id: text('id').primaryKey(),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		steamId: text('steam_id').notNull(),
+		kind: text('kind').notNull(),
+		params: jsonb('params').notNull(),
+		cost: bigint('cost', { mode: 'number' }).notNull(),
+		state: text('state').notNull().default('pending'),
+		outcome: text('outcome'),
+		createdAt: ts('created_at').notNull().defaultNow(),
+		startedAt: ts('started_at')
+	},
+	(t) => [index('qq_orders_pending_idx').on(t.state, t.createdAt)]
+);
+export const qqDeliveries = pgTable(
+	'qq_deliveries',
+	{
+		orderId: text('order_id')
+			.notNull()
+			.references(() => qqOrders.id, { onDelete: 'cascade' }),
+		steamId: text('steam_id').notNull(),
+		state: text('state').notNull().default('pending'),
+		outcome: text('outcome')
+	},
+	(t) => [primaryKey({ columns: [t.orderId, t.steamId] })]
+);
+export const qqVotes = pgTable(
+	'qq_votes',
+	{
+		id: text('id').primaryKey(),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		maps: jsonb('maps').notNull(),
+		endsAt: ts('ends_at').notNull(),
+		state: text('state').notNull().default('open'),
+		winner: text('winner')
+	},
+	(t) => [
+		uniqueIndex('qq_votes_open_idx')
+			.on(t.serverId)
+			.where(sql`${t.state} = 'open'`)
+	]
+);
+export const qqBallots = pgTable(
+	'qq_ballots',
+	{
+		voteId: text('vote_id')
+			.notNull()
+			.references(() => qqVotes.id, { onDelete: 'cascade' }),
+		steamId: text('steam_id').notNull(),
+		map: text('map').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.voteId, t.steamId] })]
+);

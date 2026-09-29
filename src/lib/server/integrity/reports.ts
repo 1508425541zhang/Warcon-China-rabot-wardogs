@@ -132,7 +132,9 @@ export async function submitReport(
 	env: Env,
 	req: Request,
 	actor: SessionUser,
-	input: { serverId: unknown; target: unknown; reason: unknown }
+	input: { serverId: unknown; target: unknown; reason: unknown },
+	/** Internal adapter authorization, never read from an HTTP body. QQ group/server mapping is operator configured. */
+	qqServerId?: string
 ): Promise<{ id: number; targetSteamId: string }> {
 	const serverId = str(input.serverId, 100);
 	const reason = str(input.reason, 300);
@@ -156,7 +158,7 @@ export async function submitReport(
 	const { server, org } = visible;
 	// The public status switch is the same one used by public routes. Private servers need
 	// an actual server grant; knowing an ID does not grant the right to create reports.
-	if (!effectiveFeatures(org, server).status) {
+	if (!effectiveFeatures(org, server).status && qqServerId !== server.id) {
 		const access = await serverAccessFor(env, actor, serverId);
 		if (!access?.caps.has('integrity.view'))
 			throw new ApiError(404, 'Server not found.', 'not_found');
@@ -218,7 +220,7 @@ export async function submitReport(
 				targetSteamId: target.steamId,
 				reporterSteamId: verified.steamId,
 				reason,
-				source: 'panel',
+				source: qqServerId === server.id ? 'qq' : 'panel',
 				createdAt: now,
 				evidenceFrom: new Date(now.getTime() - 180_000),
 				evidenceUntil: new Date(now.getTime() + 180_000)
