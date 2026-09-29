@@ -11,6 +11,7 @@
 // one process from interleaving.
 import { and, eq, gt, inArray, isNotNull, isNull, lte, notInArray, or, sql } from 'drizzle-orm';
 import type { Env } from './env';
+import { serverVips, vipAutomaticBanExempt } from './qq/vip';
 import { banUid, renderBanMessage } from '$lib/ban-message';
 import { publicMessage } from './http';
 import { writeAudit } from './audit';
@@ -118,7 +119,11 @@ export async function desiredFor(
 		rows.map((r) => ({ ...r.e, kind: r.kind, serverId: r.listServerId })),
 		now
 	);
-	const { bans, reserved } = desiredOf(active);
+	const eligible = [];
+	for (const entry of active)
+		if (entry.kind !== 'ban' || !(await vipAutomaticBanExempt(env, server.id, entry)))
+			eligible.push(entry);
+	const { bans, reserved } = desiredOf(eligible);
 	if (org.membersReserved) {
 		// Members who set a SteamID get a slot from the org's reserve list, unless the org has
 		// banned them.
@@ -137,6 +142,20 @@ export async function desiredFor(
 				if (!banned.has(m.steamId) && !have.has(m.steamId))
 					reserved.push({ steamId: m.steamId, listId: reserveList.id, member: true });
 		}
+	}
+	const vips = (await serverVips(env, server.id)).filter((v) => v.reserve);
+	if (vips.length) {
+		const [list] = await env.db
+			.select({ id: lists.id })
+			.from(lists)
+			.where(and(eq(lists.serverId, server.id), eq(lists.kind, 'reserve')));
+		if (list)
+			for (const vip of vips)
+				if (
+					!bans.some((b) => b.steamId === vip.steamId) &&
+					!reserved.some((r) => r.steamId === vip.steamId)
+				)
+					reserved.push({ steamId: vip.steamId, listId: list.id, member: false });
 	}
 	return { bans, reserved };
 }
@@ -749,6 +768,7 @@ export async function kickBanned(
 			bans.delete(steamId);
 			continue;
 		}
+		if (await vipAutomaticBanExempt(env, server.id, entry)) continue;
 		let error = '';
 		try {
 			await ACTIONS.kick.run(client, {

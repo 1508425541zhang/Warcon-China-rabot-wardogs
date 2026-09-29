@@ -26,6 +26,22 @@ WARCON 通过 OneBot 11 的 HTTP 上报接收群指令，通过 HTTP API 回复�
 
 配置存入现有 `site_settings` 的 `qqCommunity` 项，无需新增迁移。环境文件和数据库备份都要保留 `ENCRYPTION_KEY` 才能解密。
 
+## VIP 设置
+
+同一 `/admin/qq` 页面下方新增独立的 VIP 区域。站点所有者选择游戏服务器，输入 **17 位 SteamID64**，勾选一个或多个权益并点击“保存 VIP 名单”。支持启用、停用、移除与备注；同服同 SteamID 不可重复，不需要该玩家注册网页或绑定 QQ。VIP 独立于 QQ 机器人总开关，默认不会自动创建任何 VIP。
+
+| 权益 | 实际效果 |
+| --- | --- |
+| 预留位 | 加入该服预留位的期望名单，由现有 Worker 同步；停用或删除后只撤回不再被其他来源授予的席位。游戏版本可能要重启才能加载预留位配置 |
+| 允许超杀 | 豁免数值限制的 KD、KPM（击杀/分钟）；单独勾选时，金钱增长限制仍有效 |
+| 白名单 | 豁免数值限制、自动风险踢人和 Integrity 自动处罚；现有自动隔离在白名单有效期间不再阻止进服。数据记录、风险展示和人工审核保留 |
+
+白名单不删除历史处罚，也不自动解除人工封禁、人工审核处罚或游戏原生封禁；这些仍由管理员单独处理。移除白名单后，尚未到期的自动隔离恢复执行。它不是管理员权限，也不替代预留位：满服排队优先权需单独勾选“预留位”。
+
+- 管理：`GET /api/admin/qq/vips` 返回 `{ok,vips:{revision,entries}}`；`PUT` 提交 `{revision,entries}`，仅站点所有者会话，写请求带 `X-Requested-With: warcon`。条目字段为 `serverId, steamId, enabled, reserve, allowOverkill, whitelist, note`。版本冲突返回 409。
+- 查询：`GET /api/servers/{serverId}/community?view=vip&steamId=...`，要求对应服务器 `server.view` 权限；返回有效 VIP 与三个权益，不公开管理员备注。
+- 独立存储于 `site_settings.qqVip`，无需新增迁移。保存与名单/处罚执行分离，API 保存成功不代表游戏已确认预留位生效。所有修改写入审计记录。
+
 ## 配置并启动
 
 1. 按 [NapCat 安装文档](https://napneko.github.io/guide/boot/Shell)安装并启动 NapCat，用手机 QQ 扫码登录要作为机器人的账号。WARCON 不接收 QQ 密码。NapCat 账号必须已加入授权群。
