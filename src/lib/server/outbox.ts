@@ -9,6 +9,7 @@ import type { Env } from './env';
 import type { DbOrTx } from './db';
 import { outbox, triggers, type OutboxRow } from './db/schema';
 import { ACTIONS } from './actions';
+import { vipRiskKickExempt } from './qq/vip';
 import { GameError, WardogsClient } from './rcon';
 import { ApiError } from './http';
 import { LaneFull, LaneTimeout, PRIORITY, withServer } from './dispatcher';
@@ -238,6 +239,7 @@ export async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 				if (!isOwner()) throw new LostOwnership();
 				const integrityLate = await integrityDeliverySkipReason(env, row);
 				if (integrityLate) throw new Skipped(integrityLate);
+				if (await vipRiskKickExempt(env, row)) throw new Skipped('VIP 白名单：跳过自动风险踢人');
 				const client = await WardogsClient.forServer(env, m!.server);
 				return execute(client, row);
 			},

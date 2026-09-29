@@ -3,6 +3,7 @@ import { error } from '@sveltejs/kit';
 import { getEnv } from '$lib/server/env';
 import { servers, organizations } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { vipSettings } from '$lib/server/qq/vip';
 import { qqSettingsView } from '$lib/server/qq/settings';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -15,5 +16,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.from(servers)
 			.innerJoin(organizations, eq(servers.orgId, organizations.id))
 	]);
-	return { config, servers: choices, callback: `${env.ORIGIN}/api/qq/webhook` };
+	return {
+		config,
+		vips: await vipSettings(env),
+		servers: choices,
+		callback: `${env.ORIGIN}/api/qq/webhook`
+	};
 };
