@@ -300,14 +300,15 @@ describe.skipIf(!hasTestDb)('QQ community database invariants', () => {
 			query: 'view=players&page=2'
 		});
 		expect(result.status).toBe(200);
-		expect(result.body.players).toHaveLength(3);
-		expect(result.body.players[0]).toEqual({ steamId: '20', name: 'Player 20', faction: 'red' });
+		const body = result.body as { players: unknown[] };
+		expect(body.players).toHaveLength(3);
+		expect(body.players[0]).toEqual({ steamId: '20', name: 'Player 20', faction: 'red' });
 		const status = await callApi(communityGet, world.users.keyView, {
 			params: { id: world.server.id },
 			query: 'view=status'
 		});
 		expect(status.status).toBe(200);
-		expect(status.body.password).toBeUndefined();
+		expect(status.body).not.toHaveProperty('password');
 		for (const query of ['view=players&page=0', 'view=unknown'])
 			expect(
 				(
