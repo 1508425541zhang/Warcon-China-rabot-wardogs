@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
 	friendlyTargets,
 	parseCommand,
+	oneBotMessage,
 	qqSignature,
 	verifyQq,
 	warmAward,
@@ -9,19 +10,50 @@ import {
 } from './protocol';
 import { parsePolicies } from './config';
 
-describe('QQ official protocol and routing', () => {
-	test('signed raw body, stale timestamps and tampering', () => {
-		const now = Date.now();
-		const ts = String(Math.floor(now / 1000));
-		const body = Buffer.from('{"op":0,"中文":"战绩"}');
-		const headers = new Headers({
-			'x-signature-timestamp': ts,
-			'x-signature-ed25519': qqSignature('test-secret', ts, body)
+describe('NapCat OneBot 11 protocol and routing', () => {
+	test('HMAC checks raw bytes and rejects tampering and missing signatures', () => {
+		const body = Buffer.from('{"中文":"战绩"}');
+		const headers = new Headers({ 'x-signature': qqSignature('secret', body) });
+		expect(verifyQq('secret', headers, body)).toBe(true);
+		expect(verifyQq('secret', headers, Buffer.from('{}'))).toBe(false);
+		expect(verifyQq('wrong', headers, body)).toBe(false);
+		expect(verifyQq('secret', new Headers(), body)).toBe(false);
+	});
+	test('normalizes array and CQ messages; rejects stale, anonymous, self and ordinary chat', () => {
+		const event = {
+			time: Math.floor(Date.now() / 1000),
+			self_id: 12345,
+			post_type: 'message',
+			message_type: 'group',
+			sub_type: 'normal',
+			group_id: 23456,
+			user_id: 34567,
+			message_id: -123,
+			message: [
+				{ type: 'at', data: { qq: '12345' } },
+				{ type: 'text', data: { text: ' /战绩 玩家' } }
+			]
+		};
+		expect(oneBotMessage(event, '12345')).toEqual({
+			id: 'ob11:12345:23456:-123',
+			groupId: '23456',
+			memberId: 'ob11:34567',
+			content: '/战绩 玩家'
 		});
-		expect(verifyQq('test-secret', headers, body, now)).toBe(true);
-		expect(verifyQq('test-secret', headers, Buffer.from('{}'), now)).toBe(false);
-		expect(verifyQq('wrong-secret', headers, body, now)).toBe(false);
-		expect(verifyQq('test-secret', headers, body, now + 301000)).toBe(false);
+		expect(oneBotMessage({ ...event, message: '[CQ:at,qq=12345] /积分' }, '12345')?.content).toBe(
+			'/积分'
+		);
+		for (const change of [
+			{ time: 1 },
+			{ self_id: 98765 },
+			{ user_id: 12345 },
+			{ anonymous: {} },
+			{ message: '你好' },
+			{ message_type: 'private' },
+			{ message: [{ type: 'image', data: { file: 'x' } }] },
+			{ message: '[CQ:at,qq=55555] /积分' }
+		])
+			expect(oneBotMessage({ ...event, ...change }, '12345')).toBeNull();
 	});
 	test('command retains message text; recipients exclude enemies and unknown factions', () => {
 		expect(parseCommand('<@123> /友方广播 守住 A 点')).toEqual({
@@ -46,28 +78,36 @@ describe('QQ official protocol and routing', () => {
 		expect(warmAward(60500, 1000, 2).points).toBe(0);
 	});
 	test('rejects group overlap and invalid economics', () => {
-		const p = { serverId: 's', groups: ['g'], maps: ['a', 'b'] };
+		const p = { serverId: 's', groups: ['12345'], maps: ['a', 'b'] };
 		expect(() => parsePolicies(JSON.stringify([p, { ...p, serverId: 't' }]))).toThrow();
 		expect(() => parsePolicies(JSON.stringify([{ ...p, voteCost: -1 }]))).toThrow();
 	});
-	test('official token authorization and passive reply message sequence', async () => {
+	test('sends text segments using Bearer and checks OneBot retcode, not only HTTP', async () => {
 		const calls: { url: string; init?: RequestInit }[] = [];
 		const fetcher = (async (url: unknown, init?: RequestInit) => {
 			calls.push({ url: String(url), init });
-			return Response.json(
-				calls.length === 1 ? { access_token: 'token', expires_in: 7200 } : { id: 'reply' }
-			);
+			return Response.json({ status: 'ok', retcode: 0, data: { message_id: 42 } });
 		}) as typeof fetch;
-		const client = new QqClient('app', 'secret', fetcher);
-		await client.reply('group', 'message', '战绩');
-		await client.reply('group', 'message2', '积分');
-		expect(calls).toHaveLength(3);
-		expect(new Headers(calls[1].init?.headers).get('authorization')).toBe('QQBot token');
-		expect(JSON.parse(String(calls[1].init?.body))).toEqual({
-			content: '战绩',
-			msg_type: 0,
-			msg_id: 'message',
-			msg_seq: 1
+		await new QqClient('http://127.0.0.1:3001', 'token', fetcher).reply(
+			'12345',
+			'request',
+			'[CQ:at,qq=all]'
+		);
+		expect(calls[0].url).toBe('http://127.0.0.1:3001/send_group_msg');
+		expect(new Headers(calls[0].init?.headers).get('authorization')).toBe('Bearer token');
+		expect(JSON.parse(String(calls[0].init?.body))).toEqual({
+			group_id: '12345',
+			message: [{ type: 'text', data: { text: '[CQ:at,qq=all]' } }]
 		});
+		for (const data of [
+			{ status: 'failed', retcode: 100 },
+			{ status: 'async', retcode: 1 },
+			{ status: 'ok', retcode: 0, data: {} }
+		]) {
+			const bad = (async () => Response.json(data)) as unknown as typeof fetch;
+			await expect(
+				new QqClient('http://127.0.0.1:3001', 'token', bad).reply('12345', 'id', 'text')
+			).rejects.toThrow();
+		}
 	});
 });

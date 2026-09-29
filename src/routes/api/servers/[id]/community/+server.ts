@@ -5,6 +5,7 @@ import { requireServerCap } from '$lib/server/access';
 import { requireSteamId } from '$lib/server/steam';
 import { qqPolicy } from '$lib/server/qq/config';
 import {
+	communityQuery,
 	createPurchase,
 	playerSummary,
 	castVote,
@@ -18,12 +19,19 @@ export const GET = route(async (event) => {
 	const env = getEnv();
 	const id = param(event, 'id');
 	const mode = event.url.searchParams.get('view') || 'player';
+	if (!['player', 'vote', 'economy', 'status', 'players', 'maps'].includes(mode))
+		throw new ApiError(400, 'Unknown query view.');
 	const { server } = await requireServerCap(
 		env,
 		event.locals,
 		id,
-		mode === 'player' ? 'server.view' : 'automation.manage'
+		['player', 'status', 'players', 'maps'].includes(mode) ? 'server.view' : 'automation.manage'
 	);
+	if (['status', 'players', 'maps'].includes(mode)) {
+		const page = event.url.searchParams.get('page') || '1';
+		if (!/^[1-9]\d{0,2}$/.test(page)) throw new ApiError(400, 'page must be 1–999.');
+		return apiJson({ ok: true, ...(await communityQuery(env, server, mode, Number(page))) });
+	}
 	if (mode === 'vote') return apiJson({ ok: true, text: await voteStatus(env, id) });
 	if (mode === 'player')
 		return apiJson({

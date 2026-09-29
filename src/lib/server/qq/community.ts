@@ -76,6 +76,47 @@ export async function playerSummary(env: Env, server: ServerRow, target: string)
 	};
 }
 
+/** Narrow, read-only projections shared by QQ commands and authenticated integrations. */
+export async function communityQuery(env: Env, server: ServerRow, view: string, page = 1) {
+	if (view === 'status') {
+		const data = (await gateway().run(env, server, 'status', {})) as {
+			serverName: string;
+			map: string;
+			playerCount: number;
+			maxPlayers: number;
+			matchSeconds: number | null;
+		};
+		return {
+			serverId: server.id,
+			name: data.serverName || server.name,
+			map: data.map,
+			players: data.playerCount,
+			capacity: data.maxPlayers,
+			matchSeconds: data.matchSeconds
+		};
+	}
+	if (view === 'players') {
+		const data = (await gateway().run(env, server, 'players', {})) as { players: RosterPlayer[] };
+		return {
+			page,
+			pageSize: 20,
+			total: data.players.length,
+			players: data.players
+				.slice((page - 1) * 20, page * 20)
+				.map((p) => ({ steamId: p.steamId, name: p.name, faction: p.faction }))
+		};
+	}
+	if (view === 'maps') {
+		const policy = qqPolicy(server.id);
+		return {
+			maps: policy?.maps || [],
+			voteCost: policy?.voteCost,
+			voteSeconds: policy?.voteSeconds
+		};
+	}
+	throw new ApiError(400, 'Unknown query view.');
+}
+
 export async function openVote(env: Env, policy: QqPolicy, server: ServerRow) {
 	const caps = (await gateway().run(env, server, 'capabilities', {})) as {
 		features: { rotationEdit: boolean };
@@ -232,9 +273,29 @@ export async function command(
 	const { server } = await communityServer(env, policy.serverId);
 	const { name, arg } = parseCommand(message.content);
 	if (name === '帮助')
-		return `/绑定：验证 Steam\n/战绩 [玩家名或SteamID]，/总结 [玩家]，/举报 SteamID 原因\n/积分：余额；暖服人数≤${policy.lowAt}，每分钟${policy.pointsPerMinute}积分\n/发起投票，/投票 [编号]（${policy.voteCost}积分/票）\n/友方广播 正文（${policy.broadcastCost}积分，按同阵营逐人发送）\n/优先队列（${policy.reserveCost}积分兑换${policy.reserveHours}小时预留位）\n/订单：发送与兑换结果；/解绑：打开网页解绑`;
+		return `/服务器，/在线 [页码]，/地图，/流水\n/绑定：验证 Steam\n/战绩 [玩家名或SteamID]，/总结 [玩家]，/举报 SteamID 原因\n/积分：余额；暖服人数≤${policy.lowAt}，每分钟${policy.pointsPerMinute}积分\n/发起投票，/投票 [编号]（${policy.voteCost}积分/票）\n/友方广播 正文（${policy.broadcastCost}积分，按同阵营逐人发送）\n/优先队列（${policy.reserveCost}积分兑换${policy.reserveHours}小时预留位）\n/订单：发送与兑换结果；/解绑：打开网页解绑`;
+	if (name === '服务器') {
+		const data = (await communityQuery(env, server, 'status')) as {
+			name: string;
+			map: string;
+			players: number;
+			capacity: number;
+		};
+		return `${data.name}\n地图 ${data.map}；在线 ${data.players}/${data.capacity}`;
+	}
+	if (name === '在线') {
+		if (arg && !/^[1-9]\d{0,2}$/.test(arg)) throw new ApiError(400, '格式：/在线 [1–999页码]');
+		const data = (await communityQuery(env, server, 'players', Number(arg || 1))) as {
+			total: number;
+			page: number;
+			players: RosterPlayer[];
+		};
+		return `在线 ${data.total} 人，第 ${data.page} 页（20人/页）\n${data.players.map((p) => `${p.name} · ${p.steamId} · ${p.faction || '未入阵营'}`).join('\n') || '本页无人'}`;
+	}
+	if (name === '地图')
+		return `候选地图（每票 ${policy.voteCost} 积分）：\n${policy.maps.map((m, i) => `${i + 1}. ${m}`).join('\n')}`;
 	if (name === '绑定')
-		return `请先复制此绑定码：${await createLinkCode(env, server.id, message.member_id)}\n在 WARCON 网页的 /qq-link 页面输入，五分钟有效。仅在你本人触发绑定后操作。`;
+		return `请先复制此绑定码：${await createLinkCode(env, server.id, message.member_id)}\n在 ${env.ORIGIN}/qq-link 输入，五分钟有效。仅在你本人触发绑定后操作。`;
 	if (name === '解绑')
 		return '请登录 WARCON 网页 /qq-link，解绑当前账号。积分保留在 Steam 账号下。';
 	if (name === '投票' && !arg) return voteStatus(env, server.id);
@@ -246,6 +307,19 @@ export async function command(
 	if (name === '积分') {
 		const w = await wallet(env, server.id, linked.steamId);
 		return `积分 ${w.balance}；累计有效暖服 ${w.warmMinutes} 分钟。`;
+	}
+	if (name === '流水') {
+		const rows = await env.db.execute<{ delta: number; reason: string; created_at: Date }>(
+			sql`SELECT delta,reason,created_at FROM qq_ledger WHERE server_id=${server.id} AND steam_id=${linked.steamId} ORDER BY created_at DESC LIMIT 10`
+		);
+		return (
+			rows
+				.map(
+					(r) =>
+						`${new Date(r.created_at).toISOString()} ${r.delta > 0 ? '+' : ''}${r.delta} ${r.reason}`
+				)
+				.join('\n') || '暂无积分流水。'
+		);
 	}
 	if (name === '举报') {
 		const match = /^(\d{17})\s+(.{3,300})$/s.exec(arg);

@@ -121,6 +121,8 @@ export async function processMessage(env: Env, client: QqClient) {
 	 WHERE id=(SELECT id FROM qq_inbox WHERE state='pending' ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING *`);
 	if (!message) return;
 	if (
+		!message.id.startsWith('ob11:') ||
+		!/^ob11:[1-9]\d+$/.test(message.member_id) ||
 		Date.now() - new Date(message.created_at).getTime() > 240000 ||
 		!qqPolicy(message.server_id)?.groups.includes(message.group_id)
 	) {
@@ -138,7 +140,7 @@ export async function processMessage(env: Env, client: QqClient) {
 	await env.db.execute(
 		sql`UPDATE qq_inbox SET state='done',reply=${reply},reply_state='sending' WHERE id=${message.id}`
 	);
-	// The official platform permits group replies for five minutes. Never use an unsolicited push.
+	// Do not deliver stale command results after a long outage.
 	if (Date.now() - new Date(message.created_at).getTime() > 240000) {
 		await env.db.execute(sql`UPDATE qq_inbox SET reply_state='expired' WHERE id=${message.id}`);
 		return;
@@ -160,7 +162,7 @@ export function startQq(env: Env) {
 	const credentials = qqCredentials();
 	if (!credentials) return;
 	if (globalThis.__warconQq) clearInterval(globalThis.__warconQq);
-	const client = new QqClient(credentials.appId, credentials.secret);
+	const client = new QqClient(credentials.url, credentials.token);
 	globalThis.__warconQq = setInterval(() => {
 		if (active) return;
 		active = pass(env, client)

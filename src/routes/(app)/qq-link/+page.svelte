@@ -4,7 +4,11 @@
 
 <svelte:head><title>QQ 与 Steam 绑定</title></svelte:head>
 <main class="mx-auto max-w-xl space-y-6 p-6">
-	<h1 class="text-2xl font-bold">QQ 与 Steam 绑定</h1>
+	<h1 class="text-2xl font-bold">QQ 机器人 · NapCat</h1>
+	<p>
+		群指令：/帮助、/服务器、/在线、/地图、/战绩、/总结。绑定后可使用
+		/举报、/积分、/流水、/投票、/友方广播、/优先队列、/订单。
+	</p>
 	<p>
 		先在<a href="/account" class="underline">账号设置</a>中验证 Steam，再在 QQ 群 @机器人发送
 		/绑定，将五分钟有效的绑定码填在这里。仅填写你本人触发的绑定码。
