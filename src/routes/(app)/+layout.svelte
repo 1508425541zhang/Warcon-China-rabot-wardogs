@@ -303,6 +303,7 @@
 					</nav>
 					<a href="/plugins" class="menu-item" role="menuitem">个人插件</a>
 					<a href="/account" class="menu-item" role="menuitem">账号与会话</a>
+					<a href="/qq-link" class="menu-item" role="menuitem">QQ 机器人</a>
 					<form method="post" action="/sign-out">
 						<button type="submit" class="menu-item text-mist-400" role="menuitem">退出登录</button>
 					</form>

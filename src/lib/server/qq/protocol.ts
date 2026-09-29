@@ -1,43 +1,81 @@
-import { createPrivateKey, createPublicKey, sign, verify } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { z } from 'zod';
 
-function privateKey(secret: string) {
-	if (!secret) throw new Error('QQ secret is required.');
-	const source = Buffer.from(secret);
-	const seed = Buffer.alloc(32);
-	for (let i = 0; i < 32; i++) seed[i] = source[i % source.length];
-	return createPrivateKey({
-		key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), seed]),
-		format: 'der',
-		type: 'pkcs8'
-	});
+export function qqSignature(secret: string, body: string | Uint8Array): string {
+	return 'sha1=' + createHmac('sha1', secret).update(body).digest('hex');
 }
-export function qqSignature(secret: string, timestamp: string, body: string | Uint8Array): string {
-	return sign(
-		null,
-		Buffer.concat([Buffer.from(timestamp), Buffer.from(body)]),
-		privateKey(secret)
-	).toString('hex');
-}
-export function verifyQq(
-	secret: string,
-	headers: Headers,
-	body: Uint8Array,
-	now = Date.now()
-): boolean {
-	const timestamp = headers.get('x-signature-timestamp') || '';
-	const signature = headers.get('x-signature-ed25519') || '';
-	if (
-		!/^\d{10}$/.test(timestamp) ||
-		!/^[a-f0-9]{128}$/i.test(signature) ||
-		Math.abs(now / 1000 - Number(timestamp)) > 300
-	)
-		return false;
-	return verify(
-		null,
-		Buffer.concat([Buffer.from(timestamp), Buffer.from(body)]),
-		createPublicKey(privateKey(secret)),
-		Buffer.from(signature, 'hex')
+export function verifyQq(secret: string, headers: Headers, body: Uint8Array): boolean {
+	const signature = headers.get('x-signature') || '';
+	return (
+		/^sha1=[a-f0-9]{40}$/.test(signature) &&
+		timingSafeEqual(Buffer.from(signature), Buffer.from(qqSignature(secret, body)))
 	);
+}
+const id = z
+	.union([z.number().int().safe().positive(), z.string().regex(/^[1-9]\d{0,15}$/)])
+	.transform(String);
+const eventSchema = z.object({
+	time: z.number().int(),
+	self_id: id,
+	post_type: z.literal('message'),
+	message_type: z.literal('group'),
+	sub_type: z.literal('normal'),
+	group_id: id,
+	user_id: id,
+	message_id: z
+		.union([z.number().int().safe(), z.string().regex(/^-?\d{1,20}$/)])
+		.transform(String),
+	anonymous: z.unknown().optional(),
+	message: z.union([
+		z.string().max(4000),
+		z.array(z.object({ type: z.string(), data: z.record(z.string(), z.unknown()) })).max(100)
+	])
+});
+/** Ignore non-commands, self messages and anonymous senders. Never interpret CQ in replies. */
+export function oneBotMessage(payload: unknown, selfId: string, now = Date.now()) {
+	const parsed = eventSchema.safeParse(payload);
+	if (!parsed.success) return null;
+	const e = parsed.data;
+	if (
+		e.self_id !== selfId ||
+		e.user_id === selfId ||
+		e.anonymous ||
+		Math.abs(now / 1000 - e.time) > 300
+	)
+		return null;
+	let text = '';
+	if (typeof e.message === 'string') {
+		text = e.message.replace(new RegExp('^\\s*\\[CQ:at,qq=' + selfId + '\\]\\s*'), '');
+		if (/\[CQ:/.test(text)) return null;
+		text = text
+			.replace(/&#91;/g, '[')
+			.replace(/&#93;/g, ']')
+			.replace(/&#44;/g, ',')
+			.replace(/&amp;/g, '&');
+	} else {
+		let mentioned = false;
+		for (const segment of e.message) {
+			if (
+				segment.type === 'at' &&
+				String(segment.data.qq) === selfId &&
+				!text.trim() &&
+				!mentioned
+			) {
+				mentioned = true;
+				continue;
+			}
+			if (segment.type !== 'text' || typeof segment.data.text !== 'string') return null;
+			text += segment.data.text;
+		}
+	}
+	text = text.trim();
+	if (!/^[/!！]\S/.test(text) || text.length > 2000) return null;
+	return {
+		id: `ob11:${selfId}:${e.group_id}:${e.message_id}`,
+		groupId: e.group_id,
+		memberId: `ob11:${e.user_id}`,
+		content: text
+	};
 }
 export function parseCommand(content: string): { name: string; arg: string } {
 	const text = content
@@ -69,49 +107,25 @@ export function warmAward(oldMs: number, gapMs: number, rate: number) {
 }
 
 export class QqClient {
-	private token = '';
-	private until = 0;
 	constructor(
-		private appId: string,
-		private secret: string,
+		private url: string,
+		private token: string,
 		private fetcher: typeof fetch = fetch
 	) {}
-	async reply(group: string, messageId: string, content: string) {
-		if (Date.now() >= this.until) {
-			const response = await this.fetcher('https://bots.qq.com/app/getAppAccessToken', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ appId: this.appId, clientSecret: this.secret }),
-				signal: AbortSignal.timeout(10000)
-			});
-			if (!response.ok) throw new Error(`QQ token HTTP ${response.status}`);
-			const data = await response.json();
-			if (!data.access_token || !Number.isFinite(Number(data.expires_in)))
-				throw new Error('Invalid QQ token response.');
-			this.token = data.access_token;
-			this.until = Date.now() + Math.max(1, Number(data.expires_in) - 60) * 1000;
-		}
-		const response = await this.fetcher(
-			`https://api.sgroup.qq.com/v2/groups/${encodeURIComponent(group)}/messages`,
-			{
-				method: 'POST',
-				headers: {
-					'content-type': 'application/json',
-					authorization: `QQBot ${this.token}`,
-					'X-Union-Appid': this.appId
-				},
-				body: JSON.stringify({
-					content: content.slice(0, 3500),
-					msg_type: 0,
-					msg_id: messageId,
-					msg_seq: 1
-				}),
-				signal: AbortSignal.timeout(10000)
-			}
-		);
-		if (!response.ok) {
-			if (response.status === 401) this.until = 0;
-			throw new Error(`QQ reply HTTP ${response.status}`);
-		}
+	async reply(group: string, _messageId: string, content: string) {
+		const response = await this.fetcher(`${this.url}/send_group_msg`, {
+			method: 'POST',
+			redirect: 'error',
+			headers: { 'content-type': 'application/json', authorization: `Bearer ${this.token}` },
+			body: JSON.stringify({
+				group_id: group,
+				message: [{ type: 'text', data: { text: content.slice(0, 3500) } }]
+			}),
+			signal: AbortSignal.timeout(10000)
+		});
+		if (!response.ok) throw new Error(`OneBot HTTP ${response.status}`);
+		const data = await response.json();
+		if (data.status !== 'ok' || data.retcode !== 0 || data.data?.message_id === undefined)
+			throw new Error('OneBot did not confirm delivery.');
 	}
 }

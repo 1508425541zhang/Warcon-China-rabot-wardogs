@@ -1,0 +1,29 @@
+{
+  "network": {
+    "httpServers": [
+      {
+        "name": "warcon-api",
+        "enable": true,
+        "host": "127.0.0.1",
+        "port": 3001,
+        "token": "REPLACE_WITH_ONEBOT_ACCESS_TOKEN",
+        "messagePostFormat": "array",
+        "enableCors": false,
+        "debug": false
+      }
+    ],
+    "httpClients": [
+      {
+        "name": "warcon-events",
+        "enable": true,
+        "url": "http://127.0.0.1:3000/api/qq/webhook",
+        "token": "REPLACE_WITH_ONEBOT_EVENT_SECRET",
+        "messagePostFormat": "array",
+        "reportSelfMessage": false,
+        "debug": false
+      }
+    ],
+    "websocketServers": [],
+    "websocketClients": []
+  }
+}

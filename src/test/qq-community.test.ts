@@ -25,19 +25,23 @@ describe.skipIf(!hasTestDb)('QQ community database invariants', () => {
 	const other = '76561198000000002';
 	const policy = parsePolicies(
 		JSON.stringify([
-			{ serverId: 'qq-test', groups: ['group'], maps: ['mapA', 'mapB'], pointsPerMinute: 10 }
+			{ serverId: 'qq-test', groups: ['23456'], maps: ['mapA', 'mapB'], pointsPerMinute: 10 }
 		])
 	)[0];
 	const saved = {
 		policy: process.env.QQ_BOT_POLICIES,
-		app: process.env.QQ_BOT_APP_ID,
-		secret: process.env.QQ_BOT_SECRET
+		url: process.env.ONEBOT_HTTP_URL,
+		token: process.env.ONEBOT_ACCESS_TOKEN,
+		self: process.env.ONEBOT_SELF_ID,
+		secret: process.env.ONEBOT_EVENT_SECRET
 	};
 	beforeAll(async () => {
 		env = await testEnv();
 		process.env.QQ_BOT_POLICIES = JSON.stringify([policy]);
-		process.env.QQ_BOT_APP_ID = 'app';
-		process.env.QQ_BOT_SECRET = 'secret';
+		process.env.ONEBOT_HTTP_URL = 'http://127.0.0.1:3001';
+		process.env.ONEBOT_ACCESS_TOKEN = 'test';
+		process.env.ONEBOT_SELF_ID = '12345';
+		process.env.ONEBOT_EVENT_SECRET = 'secret';
 		await env.db.execute(
 			sql`INSERT INTO organizations(id,name,slug) VALUES('qq-org','QQ test','qq-test')`
 		);
@@ -62,8 +66,10 @@ describe.skipIf(!hasTestDb)('QQ community database invariants', () => {
 		setGateway(localGateway);
 		for (const [key, value] of Object.entries({
 			QQ_BOT_POLICIES: saved.policy,
-			QQ_BOT_APP_ID: saved.app,
-			QQ_BOT_SECRET: saved.secret
+			ONEBOT_HTTP_URL: saved.url,
+			ONEBOT_ACCESS_TOKEN: saved.token,
+			ONEBOT_SELF_ID: saved.self,
+			ONEBOT_EVENT_SECRET: saved.secret
 		})) {
 			if (value === undefined) delete process.env[key];
 			else process.env[key] = value;
@@ -152,34 +158,51 @@ describe.skipIf(!hasTestDb)('QQ community database invariants', () => {
 		expect((await wallet(env, 'qq-test', steam)).balance).toBe(20);
 	});
 	test('webhook authenticates and persists one event before acknowledging', async () => {
-		const timestamp = String(Math.floor(Date.now() / 1000));
 		const raw = JSON.stringify({
-			op: 0,
-			t: 'GROUP_AT_MESSAGE_CREATE',
-			d: {
-				id: 'message',
-				group_openid: 'group',
-				author: { member_openid: 'member' },
-				content: '/积分'
-			}
+			time: Math.floor(Date.now() / 1000),
+			self_id: 12345,
+			post_type: 'message',
+			message_type: 'group',
+			sub_type: 'normal',
+			message_id: 123,
+			group_id: 23456,
+			user_id: 34567,
+			message: '/帮助'
 		});
 		const make = (signature: string) =>
 			({
 				request: new Request('http://localhost/api/qq/webhook', {
 					method: 'POST',
 					headers: {
-						'x-bot-appid': 'app',
-						'x-signature-timestamp': timestamp,
-						'x-signature-ed25519': signature
+						'x-self-id': '12345',
+						'x-signature': signature
 					},
 					body: raw
 				})
 			}) as Parameters<typeof webhook>[0];
 		expect((await webhook(make('bad'))).status).toBe(401);
-		const signature = qqSignature('secret', timestamp, raw);
-		expect(await (await webhook(make(signature))).json()).toEqual({ op: 12, d: 0 });
+		const signature = qqSignature('secret', raw);
+		expect((await webhook(make(signature))).status).toBe(204);
 		await webhook(make(signature));
-		expect(await env.db.execute(sql`SELECT id FROM qq_inbox WHERE id='message'`)).toHaveLength(1);
+		expect(
+			await env.db.execute(sql`SELECT id FROM qq_inbox WHERE id='ob11:12345:23456:123'`)
+		).toHaveLength(1);
+		let sent = false;
+		await processMessage(
+			env,
+			new QqClient('http://127.0.0.1:3001', 'test', (async (_url: unknown, init?: RequestInit) => {
+				const body = JSON.parse(String(init?.body));
+				expect(body.group_id).toBe('23456');
+				expect(body.message[0].data.text).toContain('/服务器');
+				sent = true;
+				return Response.json({ status: 'ok', retcode: 0, data: { message_id: 900 } });
+			}) as typeof fetch)
+		);
+		expect(sent).toBe(true);
+		const [done] = await env.db.execute(
+			sql`SELECT reply_state FROM qq_inbox WHERE id='ob11:12345:23456:123'`
+		);
+		expect(done.reply_state).toBe('done');
 	});
 	test('broadcast delivery rechecks changing factions and never repeats an uncertain send', async () => {
 		let reads = 0;
@@ -243,10 +266,62 @@ describe.skipIf(!hasTestDb)('QQ community database invariants', () => {
 		});
 		expect(result.status).toBe(404);
 	});
+	test('query API enforces scope, paginates and excludes unlisted upstream fields', async () => {
+		const world = await seedWorld(env);
+		setGateway({
+			...localGateway,
+			run: async (_env, _server, action) =>
+				action === 'players'
+					? {
+							players: Array.from({ length: 23 }, (_, i) => ({
+								steamId: String(i),
+								name: `Player ${i}`,
+								faction: 'red',
+								ip: 'private-ip'
+							}))
+						}
+					: {
+							serverName: 'Test',
+							map: 'MapA',
+							playerCount: 23,
+							maxPlayers: 100,
+							password: 'secret'
+						}
+		} as Gateway);
+		for (const view of ['status', 'players', 'maps']) {
+			const denied = await callApi(communityGet, world.users.outsider, {
+				params: { id: world.server.id },
+				query: `view=${view}`
+			});
+			expect(denied.status).toBe(404);
+		}
+		const result = await callApi(communityGet, world.users.keyView, {
+			params: { id: world.server.id },
+			query: 'view=players&page=2'
+		});
+		expect(result.status).toBe(200);
+		expect(result.body.players).toHaveLength(3);
+		expect(result.body.players[0]).toEqual({ steamId: '20', name: 'Player 20', faction: 'red' });
+		const status = await callApi(communityGet, world.users.keyView, {
+			params: { id: world.server.id },
+			query: 'view=status'
+		});
+		expect(status.status).toBe(200);
+		expect(status.body.password).toBeUndefined();
+		for (const query of ['view=players&page=0', 'view=unknown'])
+			expect(
+				(
+					await callApi(communityGet, world.users.keyView, {
+						params: { id: world.server.id },
+						query
+					})
+				).status
+			).toBe(400);
+	});
 	test('expired queued commands do not spend or call QQ', async () => {
 		await env.db.execute(sql`UPDATE qq_inbox SET state='done'`);
 		await env.db.execute(
-			sql`INSERT INTO qq_inbox(id,server_id,group_id,member_id,content,created_at) VALUES('old-message','qq-test','group','member','/优先队列',now()-interval '10 minutes')`
+			sql`INSERT INTO qq_inbox(id,server_id,group_id,member_id,content,created_at) VALUES('old-message','qq-test','23456','member','/优先队列',now()-interval '10 minutes')`
 		);
 		let fetched = false;
 		const client = new QqClient('app', 'secret', (async () => {
