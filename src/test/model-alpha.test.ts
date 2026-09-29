@@ -130,7 +130,10 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 			sql`SELECT count(*) AS n FROM integrity_model_runs WHERE server_id=${w.server.id}`
 		);
 		expect(Number(count[0].n)).toBe(1);
-		const mocked = spyOn(globalThis, 'fetch').mockImplementation((async (_url: RequestInfo | URL, init?: RequestInit) => {
+		const mocked = spyOn(globalThis, 'fetch').mockImplementation((async (
+			_url: RequestInfo | URL,
+			init?: RequestInit
+		) => {
 			const body = JSON.parse(String(init?.body));
 			return new Response(
 				JSON.stringify({

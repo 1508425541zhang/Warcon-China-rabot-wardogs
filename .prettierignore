@@ -10,3 +10,5 @@ pnpm-lock.yaml
 renovate.json
 /.*/worktrees/
 .playwright-mcp
+# Immutable model artifacts: exact bytes are verified by SHA-256.
+services/integrity-model/artifacts/

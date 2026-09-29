@@ -118,30 +118,26 @@ export async function enforceModelRun(env: Env, id: string) {
 		const entryId = expires ? randomUUID() : null;
 		const reason = `模型 A测：异常分数达到 ${expires ? 'P99，临时隔离24小时' : 'P95，自动踢出'}。记录 ${id}，可联系管理员复核。`;
 		if (entryId)
-			await tx
-				.insert(listEntries)
-				.values({
-					id: entryId,
-					listId: banList.id,
-					steamId: run.steam_id,
-					reason,
-					expiresAt: expires,
-					addedByName: 'Model A-test rule'
-				});
-		await tx
-			.insert(outbox)
-			.values({
-				serverId: run.server_id,
-				triggerName: '模型 A测 P95/P99',
-				triggerKind: 'model_integrity',
-				action: 'kick',
-				params: { steamId: run.steam_id, reason },
-				target: run.steam_id,
+			await tx.insert(listEntries).values({
+				id: entryId,
+				listId: banList.id,
 				steamId: run.steam_id,
-				okMessage: `模型 ${action}: ${run.steam_id}`,
-				detail: { runId: id },
-				dedupeKey: `model:${id}:kick`
+				reason,
+				expiresAt: expires,
+				addedByName: 'Model A-test rule'
 			});
+		await tx.insert(outbox).values({
+			serverId: run.server_id,
+			triggerName: '模型 A测 P95/P99',
+			triggerKind: 'model_integrity',
+			action: 'kick',
+			params: { steamId: run.steam_id, reason },
+			target: run.steam_id,
+			steamId: run.steam_id,
+			okMessage: `模型 ${action}: ${run.steam_id}`,
+			detail: { runId: id },
+			dedupeKey: `model:${id}:kick`
+		});
 		await tx.execute(
 			sql`UPDATE integrity_model_runs SET action=${action},action_state='pending',action_reason=${reason},punished_at=now(),expires_at=${expires},list_entry_id=${entryId} WHERE id=${id}`
 		);
