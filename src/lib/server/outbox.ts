@@ -26,6 +26,7 @@ import { NAME_FLAG } from './name-filter';
 import { KILL_RATE_FLAG } from './kill-rate';
 import { recordIntegrityDelivery } from './integrity/actions';
 import { integrityDeliverySkipReason } from './integrity/delivery';
+import { modelDeliverySkipReason } from './integrity/model-enforcement';
 import type { OutboxView } from '$lib/types';
 
 const CLAIM_LIMIT = 50;
@@ -218,7 +219,8 @@ export async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 	if (early) return finish(env, row, 'skipped', early);
 	let integrityEarly: string | null;
 	try {
-		integrityEarly = await integrityDeliverySkipReason(env, row);
+		integrityEarly =
+			(await integrityDeliverySkipReason(env, row)) || (await modelDeliverySkipReason(env, row));
 	} catch (err) {
 		console.error('[warcon] Integrity delivery preflight', err);
 		return finish(env, row, 'failed', 'Integrity delivery validation failed');
@@ -237,7 +239,9 @@ export async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 				if (late) throw new Skipped(late);
 				if (mustWait(row, m)) throw new Waiting();
 				if (!isOwner()) throw new LostOwnership();
-				const integrityLate = await integrityDeliverySkipReason(env, row);
+				const integrityLate =
+					(await integrityDeliverySkipReason(env, row)) ||
+					(await modelDeliverySkipReason(env, row));
 				if (integrityLate) throw new Skipped(integrityLate);
 				if (await vipRiskKickExempt(env, row)) throw new Skipped('VIP 白名单：跳过自动风险踢人');
 				const client = await WardogsClient.forServer(env, m!.server);

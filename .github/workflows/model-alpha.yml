@@ -1,0 +1,22 @@
+name: A测 model HTTP build
+on:
+  push:
+    branches: [codex/model-http-alpha]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==1.26.4 && pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+      - run: python -m unittest discover -s services/integrity-model -p 'test_*.py'
+      - run: docker build -t warcon-model-alpha services/integrity-model
+      - uses: actions/upload-artifact@v6
+        with:
+          name: warcon-model-A-test
+          path: services/integrity-model

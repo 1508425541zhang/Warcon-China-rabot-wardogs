@@ -20,3 +20,5 @@ vite.config.ts.timestamp-*
 
 # Playwright MCP output
 .playwright-mcp
+__pycache__/
+*.pyc

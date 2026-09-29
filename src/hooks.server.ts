@@ -1,5 +1,6 @@
 import { startSteamPlaytime, stopSteamPlaytime } from '$lib/server/steam-playtime';
 import { startQq, stopQq } from '$lib/server/qq/runtime';
+import { startModelQueue, stopModelQueue } from '$lib/server/integrity/model-runtime';
 import { qqPolicies } from '$lib/server/qq/config';
 import { startIntegrityAi, stopIntegrityAi } from '$lib/server/integrity/ai-queue';
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
@@ -84,6 +85,7 @@ export const init: ServerInit = async () => {
 		startIntegrityProfileRefresh(env);
 		startSteamPlaytime(env);
 		startIntegrityAi(env);
+		startModelQueue(env);
 	}
 	registerFleetCollector(env);
 	qqPolicies();
@@ -111,6 +113,7 @@ function installShutdown(env: Awaited<ReturnType<typeof initEnv>>): void {
 		exiting = true;
 		void (async () => {
 			await stopQq();
+			await stopModelQueue();
 			if (env.WARCON_ROLE !== 'web') {
 				stopIntegrityBaselines();
 				await stopIntegrityAi().catch(() => {});

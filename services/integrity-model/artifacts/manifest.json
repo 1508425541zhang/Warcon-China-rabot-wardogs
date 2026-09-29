@@ -1,0 +1,15 @@
+{
+  "stage": "A测",
+  "model_id": "warcon-at-epoch58",
+  "epoch": 58,
+  "checkpoint": "epoch58.pth",
+  "checkpoint_sha256": "ea3bc3f168e7ca8e329e85736d74c59019d6392cbded31bc63bee41ad7378da7",
+  "scaler_sha256": "332b23ad8904d23d9bea57eec78f753063a117bf4fb545e933223ef44b2aefb2",
+  "feature_schema": "warcon-raw-30s-v1",
+  "window_steps": 200,
+  "bucket_seconds": 30,
+  "selection": "Last explicitly selected checkpoint in the training conversation; epoch 128 was rolled back.",
+  "heldout_match": 27,
+  "limitations": "Unsupervised reconstruction scores, not cheating probabilities. No weapon, distance or hit location input. No independently calibrated enforcement threshold.",
+  "calibration_sha256": "d713efa0556d3f99897684e814570b0555a493d40caf1ba96936170e28eb02a9"
+}
