@@ -1,3 +1,4 @@
+import { vipFor } from '$lib/server/qq/vip';
 import { sql } from 'drizzle-orm';
 import { getEnv } from '$lib/server/env';
 import { ApiError, apiJson, param, readJson, route } from '$lib/server/http';
@@ -19,18 +20,32 @@ export const GET = route(async (event) => {
 	const env = getEnv();
 	const id = param(event, 'id');
 	const mode = event.url.searchParams.get('view') || 'player';
-	if (!['player', 'vote', 'economy', 'status', 'players', 'maps'].includes(mode))
+	if (!['player', 'vote', 'economy', 'status', 'players', 'maps', 'vip'].includes(mode))
 		throw new ApiError(400, 'Unknown query view.');
 	const { server } = await requireServerCap(
 		env,
 		event.locals,
 		id,
-		['player', 'status', 'players', 'maps'].includes(mode) ? 'server.view' : 'automation.manage'
+		['player', 'status', 'players', 'maps', 'vip'].includes(mode)
+			? 'server.view'
+			: 'automation.manage'
 	);
 	if (['status', 'players', 'maps'].includes(mode)) {
 		const page = event.url.searchParams.get('page') || '1';
 		if (!/^[1-9]\d{0,2}$/.test(page)) throw new ApiError(400, 'page must be 1–999.');
 		return apiJson({ ok: true, ...(await communityQuery(env, server, mode, Number(page))) });
+	}
+	if (mode === 'vip') {
+		const steamId = requireSteamId(event.url.searchParams.get('steamId'));
+		const vip = await vipFor(env, id, steamId);
+		return apiJson({
+			ok: true,
+			steamId,
+			vip: !!vip,
+			reserve: vip?.reserve || false,
+			allowOverkill: vip?.allowOverkill || false,
+			whitelist: vip?.whitelist || false
+		});
 	}
 	if (mode === 'vote') return apiJson({ ok: true, text: await voteStatus(env, id) });
 	if (mode === 'player')

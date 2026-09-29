@@ -1,4 +1,5 @@
 <script lang="ts">
+	import VipSettings from '$lib/components/VipSettings.svelte';
 	import { untrack } from 'svelte';
 	import { api, errorMessage, rconGet } from '$lib/api';
 	import type { PageProps } from './$types';
@@ -358,3 +359,5 @@
 	</p>
 	<p class="mt-2">友方广播按当前阵营逐人发送游戏消息；优先队列兑换的是游戏支持的预留位。</p>
 </section>
+
+<VipSettings initial={data.vips} servers={data.servers} />

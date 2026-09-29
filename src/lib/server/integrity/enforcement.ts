@@ -1,5 +1,6 @@
 import { and, eq, gte, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Env } from '../env';
+import { vipFor } from '../qq/vip';
 import {
 	integrityActions,
 	integrityCases,
@@ -91,6 +92,7 @@ export async function enforceIntegrityCase(
 		score: IntegrityScore;
 	}
 ): Promise<IntegrityDecision> {
+	if ((await vipFor(env, input.serverId, input.steamId))?.whitelist) return 'OBSERVE';
 	const memory = memoryOf(input.serverId);
 	if (!memory || memory.server.orgId !== input.orgId || !/^\d{17}$/.test(input.steamId))
 		return 'OBSERVE';
@@ -109,6 +111,9 @@ export async function enforceIntegrityCase(
 	// Ensure the server's own ban list exists before the action transaction starts.
 	const banList = await serverListOf(env, memory.server, 'ban');
 	const result = await withOwnedTransaction(env, async (tx) => {
+		await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended('qq-vip-settings',0))`);
+		if ((await vipFor({ db: tx }, input.serverId, input.steamId))?.whitelist)
+			return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };
 		const [row] = await tx
 			.select()
 			.from(integrityRules)
