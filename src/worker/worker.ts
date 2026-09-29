@@ -5,8 +5,8 @@ import { qqPolicies } from '$lib/server/qq/config';
 import { startWorker, stopWorker } from './runtime';
 
 const env = await initEnv({ role: 'worker' });
-qqPolicies();
 await loadSettings(env);
+qqPolicies();
 const server = startWorker(env, `worker@${process.env.HOSTNAME || 'local'}`);
 
 let stopping = false;

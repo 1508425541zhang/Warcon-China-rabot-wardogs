@@ -4,6 +4,7 @@ import { ApiError, publicMessage } from '../http';
 import { gateway } from '../gateway';
 import { addServerEntry } from '../lists';
 import { qqCredentials, qqPolicy } from './config';
+import { loadQqSettings } from './settings';
 import { closeVotes, command, communityServer } from './community';
 import { QqClient, type RosterPlayer } from './protocol';
 
@@ -159,13 +160,14 @@ declare global {
 let active: Promise<void> | null = null;
 
 export function startQq(env: Env) {
-	const credentials = qqCredentials();
-	if (!credentials) return;
 	if (globalThis.__warconQq) clearInterval(globalThis.__warconQq);
-	const client = new QqClient(credentials.url, credentials.token);
 	globalThis.__warconQq = setInterval(() => {
 		if (active) return;
-		active = pass(env, client)
+		active = (async () => {
+			await loadQqSettings(env);
+			const credentials = qqCredentials();
+			if (credentials) await pass(env, new QqClient(credentials.url, credentials.token));
+		})()
 			.catch((error) => {
 				console.error('[qq]', publicMessage(error));
 			})

@@ -1,7 +1,8 @@
 import { env } from '$env/dynamic/private';
 import { z } from 'zod';
 
-const policySchema = z.object({
+export const policySchema = z.object({
+	enabled: z.boolean().default(true),
 	serverId: z.string().min(1).max(100),
 	groups: z.array(z.string().regex(/^[1-9]\d{4,15}$/)).min(1),
 	lowAt: z.number().int().min(1).max(200).default(20),
@@ -24,18 +25,65 @@ export function parsePolicies(raw: string): QqPolicy[] {
 		if (new Set(p.maps).size !== p.maps.length) throw new Error('Duplicate QQ map.');
 	return policies;
 }
+export interface QqConfiguration {
+	enabled: boolean;
+	url: string;
+	selfId: string;
+	token: string;
+	secret: string;
+	policies: QqPolicy[];
+}
+let stored: QqConfiguration | null = null;
+export function applyQqConfiguration(value: QqConfiguration | null) {
+	stored = value;
+}
+export function environmentQqConfiguration(): QqConfiguration {
+	return {
+		enabled: !!env.ONEBOT_HTTP_URL,
+		url: env.ONEBOT_HTTP_URL || '',
+		selfId: env.ONEBOT_SELF_ID || '',
+		token: env.ONEBOT_ACCESS_TOKEN || '',
+		secret: env.ONEBOT_EVENT_SECRET || '',
+		policies: parsePolicies(env.QQ_BOT_POLICIES || '[]')
+	};
+}
+export function validateQqConnection(urlValue: string, selfId: string) {
+	let url: URL;
+	try {
+		url = new URL(urlValue);
+	} catch {
+		throw new Error('请输入完整的 NapCat HTTP 接口地址。');
+	}
+	if (
+		!['http:', 'https:'].includes(url.protocol) ||
+		url.username ||
+		url.password ||
+		url.search ||
+		url.hash
+	)
+		throw new Error('接口地址只支持 HTTP/HTTPS，不能带账号、密码、查询参数或片段。');
+	if (url.protocol === 'http:' && !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))
+		throw new Error('远程 NapCat 连接必须使用 HTTPS；同机可使用回环 HTTP。');
+	if (!/^[1-9]\d{4,15}$/.test(selfId)) throw new Error('请输入有效的机器人 QQ 号。');
+	return url.toString().replace(/\/$/, '');
+}
 let cached = '';
 let parsed: QqPolicy[] = [];
 export function qqPolicies(): QqPolicy[] {
+	if (stored) return stored.enabled ? stored.policies.filter((p) => p.enabled) : [];
 	const raw = env.QQ_BOT_POLICIES || '[]';
 	if (raw !== cached) {
 		parsed = parsePolicies(raw);
 		cached = raw;
 	}
-	return parsed;
+	return parsed.filter((p) => p.enabled);
 }
 export const qqPolicy = (serverId: string) => qqPolicies().find((p) => p.serverId === serverId);
 export function qqCredentials() {
+	if (stored)
+		return stored.enabled
+			? { url: stored.url, selfId: stored.selfId, token: stored.token, secret: stored.secret }
+			: null;
 	const values = [
 		env.ONEBOT_HTTP_URL,
 		env.ONEBOT_ACCESS_TOKEN,
@@ -44,20 +92,8 @@ export function qqCredentials() {
 	];
 	if (!values.some(Boolean)) return null;
 	if (!values.every(Boolean)) throw new Error('Complete all four ONEBOT settings.');
-	const url = new URL(env.ONEBOT_HTTP_URL!);
-	if (
-		!['http:', 'https:'].includes(url.protocol) ||
-		url.username ||
-		url.password ||
-		url.search ||
-		url.hash
-	)
-		throw new Error('Invalid ONEBOT_HTTP_URL.');
-	if (url.protocol === 'http:' && !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))
-		throw new Error('Remote OneBot connections require HTTPS.');
-	if (!/^[1-9]\d{4,15}$/.test(env.ONEBOT_SELF_ID!)) throw new Error('Invalid ONEBOT_SELF_ID.');
 	return {
-		url: url.toString().replace(/\/$/, ''),
+		url: validateQqConnection(env.ONEBOT_HTTP_URL!, env.ONEBOT_SELF_ID!),
 		token: env.ONEBOT_ACCESS_TOKEN!,
 		secret: env.ONEBOT_EVENT_SECRET!,
 		selfId: env.ONEBOT_SELF_ID!

@@ -2,11 +2,35 @@
 
 WARCON 通过 OneBot 11 的 HTTP 上报接收群指令，通过 HTTP API 回复。推荐 NapCatQQ；无需官方 QQ 开放平台 AppID 或群 openid。业务逻辑、积分账本和游戏 RCON 仍在 WARCON 内，NapCat 独立运行并登录机器人 QQ。
 
+## 网页配置（推荐）
+
+以站点所有者身份打开 **站点管理 → QQ 机器人**（`/admin/qq`）。此页独立检查权限，组织管理员和组织 API 密钥不能修改站点机器人设置。
+
+- “机器人连接”：设置总开关、NapCat HTTP 地址、机器人 QQ 号、API 访问密钥及事件签名密钥。
+- “服务器与积分规则”：选择现有服务器，设置授权数字群号、单服开关、暖服人数阈值与每分钟积分、投票价格和时长、友方广播价格、预留位价格与小时数。
+- 候选地图可以手填真实 ID，也可点击“读取游戏地图目录”后勾选 2–10 张。
+- 点击“保存配置”后写入数据库，无需改源码或重启。机器人在下一轮读取，Worker 通常十秒内读取。已开始的操作可能完成，未来购买使用新的规则。
+- 密钥使用站点 `ENCRYPTION_KEY` 加密保存；网页和 API 只返回是否已设置。留空保留，勾选清除才删除。总开关停用时仍可保存配置，积分和历史订单保留。
+- “检测已保存的连接”只调用 `get_login_info` 并核对 QQ 号，不向群发消息。还需群内 `/帮助` 验证事件上报。
+- 同时编辑会返回版本冲突；重新加载后再修改，避免覆盖别人刚保存的配置。
+
+未在网页保存前使用环境变量作为兼容默认值；首次网页保存后数据库配置优先。修改环境变量不会覆盖已保存的网页配置。
+
+管理接口（仅站点所有者网页会话，写请求携带 `X-Requested-With: warcon`）：
+
+| 请求 | 用途 |
+| --- | --- |
+| `GET /api/admin/qq` | 返回脱敏配置、`revision` 和密钥是否已设置 |
+| `PUT /api/admin/qq` | 保存完整配置：`revision, enabled, url, selfId, policies`；`token`、`secret` 留空保留；`clearToken`、`clearSecret` 明确清除 |
+| `POST /api/admin/qq` | 检测已保存连接与登录账号 |
+
+配置存入现有 `site_settings` 的 `qqCommunity` 项，无需新增迁移。环境文件和数据库备份都要保留 `ENCRYPTION_KEY` 才能解密。
+
 ## 配置并启动
 
 1. 按 [NapCat 安装文档](https://napneko.github.io/guide/boot/Shell)安装并启动 NapCat，用手机 QQ 扫码登录要作为机器人的账号。WARCON 不接收 QQ 密码。NapCat 账号必须已加入授权群。
 2. 部署 WARCON 分支并运行现有数据库迁移。账本仍用 `0068_qq_community`，本次协议切换没有新增迁移。
-3. 设置 WARCON 服务环境变量。Web 和 Worker 的 `QQ_BOT_POLICIES` 必须相同；`groups` 改为数字群号字符串，地图为实际游戏地图 ID。
+3. 推荐使用上述网页配置。若暂不使用管理页，也可设置 WARCON 服务环境变量。Web 和 Worker 的 `QQ_BOT_POLICIES` 必须相同；`groups` 改为数字群号字符串，地图为实际游戏地图 ID。
 
 ```dotenv
 ONEBOT_HTTP_URL=http://127.0.0.1:3001
