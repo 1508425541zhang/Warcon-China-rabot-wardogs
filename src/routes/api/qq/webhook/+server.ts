@@ -2,9 +2,11 @@ import { sql } from 'drizzle-orm';
 import { getEnv } from '$lib/server/env';
 import { ApiError, route } from '$lib/server/http';
 import { qqCredentials, qqPolicies } from '$lib/server/qq/config';
+import { loadQqSettings } from '$lib/server/qq/settings';
 import { oneBotMessage, verifyQq } from '$lib/server/qq/protocol';
 
 export const POST = route(async ({ request }) => {
+	await loadQqSettings(getEnv());
 	const credentials = qqCredentials();
 	if (!credentials) throw new ApiError(404, 'QQ 机器人未启用。');
 	if (request.headers.get('x-self-id') !== credentials.selfId)

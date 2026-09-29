@@ -2,6 +2,7 @@
 // sign-in rules. Stored in site_settings (key + JSON), bounds enforced here, audited by the caller,
 // re-read by the worker every few seconds. Env vars only seed the defaults on a fresh install.
 import { eq } from 'drizzle-orm';
+import { loadQqSettings } from './qq/settings';
 import type { Env } from './env';
 import { ApiError } from './http';
 import { siteSettings } from './db/schema';
@@ -219,6 +220,7 @@ export const settingsVersion = (): number => version;
 
 /** Reads the table over the defaults. Called at startup and by the worker every few seconds. */
 export async function loadSettings(env: Env): Promise<Settings> {
+	await loadQqSettings(env);
 	const rows = await env.db.select().from(siteSettings);
 	const next = defaults(env);
 	for (const r of rows) {
