@@ -1,4 +1,6 @@
 import { scanGroups } from './group-control';
+import { creditWarmth } from './qq/economy';
+import { qqPolicy } from './qq/config';
 import { runNumericLimits } from './numeric-limits';
 import { runSkillBalance } from './skill-balance';
 import { runWeaponRestrictions } from './weapon-restrictions';
@@ -726,12 +728,27 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 		(heartbeatDue && diff.stayed.length > 0);
 	if (riskWaitNote.length) ev.updates.push(...riskWaitNote);
 	const needWrite =
-		presenceDue || ev.intents.length > 0 || ev.updates.length > 0 || liveDue || sampleDue;
+		presenceDue ||
+		ev.intents.length > 0 ||
+		ev.updates.length > 0 ||
+		liveDue ||
+		sampleDue ||
+		(!!players && joinsTrusted && diff.stayed.length > 0 && !!qqPolicy(server.id));
 	let intents = 0;
 	let saved = false;
 	try {
 		if (needWrite)
 			await withOwnedTransaction(env, async (tx) => {
+				if (players)
+					await creditWarmth(
+						tx,
+						server.id,
+						ts,
+						diff.stayed.map((item) => item.player.steamId),
+						gapMs,
+						players.length,
+						joinsTrusted
+					);
 				if (players && presenceDue)
 					await persistPresence(
 						tx,

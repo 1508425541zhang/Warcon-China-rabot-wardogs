@@ -107,6 +107,7 @@
 <svelte:head><title>账号 · {data.appName}</title></svelte:head>
 
 <h1 class="mb-5 text-xl font-semibold tracking-tight">账号</h1>
+<p class="mb-5"><a href="/qq-link" class="underline">QQ 机器人 · 绑定或解绑 Steam 身份</a></p>
 
 {#if forced}
 	<div class="callout">使用面板前必须设置新密码。</div>
