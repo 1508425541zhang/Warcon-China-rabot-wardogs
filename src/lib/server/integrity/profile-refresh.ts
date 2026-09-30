@@ -37,6 +37,7 @@ export async function processNextIntegrityProfileRefresh(env: Env): Promise<bool
 		lease_until = now() + interval '2 minutes'
 		WHERE steam_id = (SELECT steam_id FROM integrity_profile_refresh_jobs
 			WHERE next_at <= now() AND (state = 'pending' OR (state = 'processing' AND lease_until <= now()))
+			AND EXISTS(SELECT 1 FROM integrity_scores s JOIN integrity_rules r ON r.org_id=s.org_id WHERE s.steam_id=integrity_profile_refresh_jobs.steam_id AND r.assessment_mode IN ('legacy','statistical','statistical_shadow'))
 			ORDER BY next_at LIMIT 1 FOR UPDATE SKIP LOCKED)
 		RETURNING steam_id AS "steamId", attempts
 	`);

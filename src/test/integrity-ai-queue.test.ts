@@ -1,6 +1,8 @@
 import { describe, test, expect } from 'bun:test';
 import { hasTestDb, testEnv } from './db';
 import { seedWorld } from './world';
+import { stubGateway } from './call';
+import { saveAssessmentMode } from '$lib/server/integrity/rules';
 import { acquireOrRenew } from '$lib/server/leadership';
 import { aiCall, saveAiSettings } from '$lib/server/integrity/ai';
 import { discoverAiJobs, processNextAiJob } from '$lib/server/integrity/ai-queue';
@@ -39,6 +41,15 @@ describe.skipIf(!hasTestDb)('automatic AI initial review', () => {
 		const env = await testEnv(),
 			w = await seedWorld(env);
 		await acquireOrRenew(env, 'ai-queue-tests');
+		stubGateway();
+		await saveAssessmentMode(
+			env,
+			new Request('http://localhost/test'),
+			w.users.owner!,
+			w.org.id,
+			'statistical_shadow',
+			''
+		);
 		await saveAiSettings(env, w.org.id, {
 			baseUrl: 'https://example.com/v1',
 			apiKey: 'test-secret',
@@ -172,6 +183,15 @@ describe.skipIf(!hasTestDb)('automatic AI initial review', () => {
 		const env = await testEnv(),
 			w = await seedWorld(env);
 		await acquireOrRenew(env, 'ai-queue-tests');
+		stubGateway();
+		await saveAssessmentMode(
+			env,
+			new Request('http://localhost/test'),
+			w.users.owner!,
+			w.org.id,
+			'statistical_shadow',
+			''
+		);
 		await saveAiSettings(env, w.org.id, {
 			baseUrl: 'https://example.com/v1',
 			apiKey: 'test-secret',

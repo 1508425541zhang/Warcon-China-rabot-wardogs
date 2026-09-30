@@ -10,6 +10,7 @@ import { DEFAULT_INTEGRITY_RULES, type IntegrityRuleConfig } from './score';
 import { DEFAULT_ENFORCEMENT, type EnforcementSettings } from './decisions';
 import type { AssessmentMode } from './statistics';
 import { modelConfig } from './model-http';
+import { longModelEnabled } from '$lib/integrity-engines';
 
 export interface RuleSet {
 	version: number;
@@ -222,9 +223,19 @@ export async function saveAssessmentMode(
 	mode: AssessmentMode,
 	confirmation: string
 ): Promise<RuleSet> {
-	if (!['legacy', 'statistical_shadow', 'statistical', 'model_only'].includes(mode))
+	if (
+		![
+			'disabled',
+			'legacy',
+			'statistical_shadow',
+			'statistical',
+			'model_only',
+			'long_only',
+			'short_only'
+		].includes(mode)
+	)
 		throw new ApiError(400, 'Unknown Integrity assessment mode.');
-	if (mode === 'model_only' && !(await modelConfig(env, orgId)).developerEnabled)
+	if (longModelEnabled(mode) && !(await modelConfig(env, orgId)).developerEnabled)
 		throw new ApiError(409, '请先配置模型 HTTP API 并启用开发者状态。');
 	if (mode === 'statistical' && confirmation !== 'ENABLE_STATISTICAL_INTEGRITY')
 		throw new ApiError(400, 'Explicit statistical enforcement confirmation is required.');

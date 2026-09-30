@@ -1,0 +1,4 @@
+xgboost-cpu==3.4.1
+numpy>=1.26,<3
+scikit-learn>=1.4,<2
+psycopg[binary]>=3.2,<4

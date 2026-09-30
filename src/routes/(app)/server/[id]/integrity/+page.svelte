@@ -1,5 +1,13 @@
 <script lang="ts">
+	import {
+		committeeEnabled,
+		legacyEnabled,
+		longModelEnabled,
+		shortModelEnabled,
+		engineNames
+	} from '$lib/integrity-engines';
 	import IntegrityCaseList from '$lib/components/IntegrityCaseList.svelte';
+	import ShortRiskPanel from '$lib/components/ShortRiskPanel.svelte';
 	import { committeeModelName, committeeUnknownReason } from '$lib/committee-display';
 	import { onMount } from 'svelte';
 	import { refreshVisible } from '$lib/refresh-visible';
@@ -186,6 +194,7 @@
 			const active = linked?.active ?? (!item.expiresAt || new Date(item.expiresAt) > new Date());
 			return `${active ? '人工封禁有效' : '人工封禁已到期或已撤销'}；即时踢出：${deliveryLabel(item.deliveryState)}`;
 		}
+		if (item.action === 'WARNING') return '警惕';
 		if (item.action === 'KICK') return deliveryLabel(item.deliveryState);
 		return `${lang === 'zh' ? '隔离已生效；即时踢出' : 'Quarantine active; immediate kick'}：${deliveryLabel(item.deliveryState)}`;
 	};
@@ -334,422 +343,427 @@
 			: 'Automatic actions run only when enabled by an organization owner; permanent bans are never automatic.'}
 </p>
 
-<section class="mb-6 panel p-4">
-	<h3 class="text-base font-semibold text-white">
-		{lang === 'zh'
-			? '真实历史分布与 Shadow 对照'
-			: 'Historical distributions and shadow comparison'}
-	</h3>
-	<p class="mt-1 text-sm text-mist-400">
-		{lang === 'zh'
-			? '统计依据过去 30 天真实有效步兵事件；50 个本服样本开始初评，自动踢出仍需 200 个样本及完整保护条件。钟形参考曲线不参与计算。'
-			: 'Statistics use 30 days of accepted infantry events. Preliminary review starts at 50 local samples; auto kick requires 200 and all protection gates. The visual bell never drives decisions.'}
-	</p>
-	<div class="mt-3 flex flex-wrap items-center gap-3">
-		<span class="text-sm text-white"
-			>{lang === 'zh'
-				? '当前评估模式'
-				: 'Assessment mode'}：{data.assessmentMode.toUpperCase()}</span
-		>
-		{#if data.assessmentMode === 'statistical_shadow'}<span class="text-xs text-warn"
-				>{lang === 'zh'
-					? '实际自动处置仍由旧评分决定'
-					: 'Actual enforcement still follows the legacy score'}</span
-			>{/if}
-		<label class="text-xs text-mist-300"
-			>{lang === 'zh' ? '玩家' : 'Player'}
-			<select class="ml-2 input" bind:value={selectedSteamId}>
-				{#each [...new Set(data.scores
-							.filter((score) => score.statistical)
-							.map((score) => score.steamId))] as steamId}<option value={steamId}>{steamId}</option
-					>{/each}
-			</select>
-		</label>
-	</div>
-	{#if selectedAssessment}
-		<div class="mt-3 panel p-3 text-sm">
-			<strong>委员会：五专家独立投票</strong>
-			{#if selectedAssessment.committee}
-				<p class="mt-2">
-					本次评估：{selectedScore ? when(selectedScore.scoredAt) : '—'} · 极可能作弊 {selectedAssessment
-						.committee.cheatVotes} 票 · 可疑 {selectedAssessment.committee.suspiciousVotes} 票 · 未知
-					{selectedAssessment.committee.unknownVotes} 票 · 结果 {selectedAssessment.committee
-						.decision}
-				</p>
+<p class="mb-4 text-sm text-mist-300">
+	当前引擎：{engineNames[data.assessmentMode]} · 未选择的引擎暂停评估
+</p>
+{#if shortModelEnabled(data.assessmentMode) && data.shortRisk}<ShortRiskPanel
+		view={data.shortRisk}
+		serverId={data.server.id}
+	/>{/if}
+{#if longModelEnabled(data.assessmentMode)}
+	<section class="mb-6 panel p-4">
+		<h3 class="font-semibold">长时序模型 · 30 分钟窗口</h3>
+		<p class="mt-2 text-sm text-mist-300">
+			30 秒采样 · P98 自动踢出 · P99 隔离 24 小时。实际处罚及执行结果见下方统一记录。
+		</p>
+		{#if data.longModelResults.length}<details class="mt-3">
+				<summary class="cursor-pointer text-sm">最近评估状态</summary>
 				<div class="mt-2 table-wrap">
 					<table>
-						<thead><tr><th>专家</th><th>本次投票</th><th>依据</th></tr></thead><tbody>
-							{#each selectedAssessment.committee.verdicts as ballot}<tr
-									><td>{committeeModelName[ballot.modelId] ?? ballot.modelId}</td><td
-										>{{
-											NORMAL: '正常',
-											SUSPICIOUS: '可疑',
-											CHEAT_LIKELY: '极可能作弊',
-											UNKNOWN: '未知'
-										}[ballot.decision]}</td
-									><td
-										>{ballot.reasons
-											.map((reason) => committeeUnknownReason[reason] ?? reason)
-											.join('；')}</td
+						<thead><tr><th>玩家</th><th>状态</th><th>异常分数</th></tr></thead><tbody
+							>{#each data.longModelResults.slice(0, 10) as run}<tr
+									><td>{run.steam_id}</td><td>{run.state}</td><td
+										>{typeof run.score === 'number' ? run.score.toFixed(6) : '—'}</td
 									></tr
-								>{/each}
-						</tbody>
+								>{/each}</tbody
+						>
 					</table>
 				</div>
-			{/if}
-
-			<p>
-				两票可疑：观察；三票可疑及以上或两票极可能作弊：进入案件审核；三票极可能作弊：自动踢出候选。KPM＞4且另一专家至少可疑也可踢出，均受执行保护约束。
-				启用 AI 自动初审后，单票可疑或极可能作弊也会生成 AI
-				预筛记录，自动核对证据；预筛不改变委员会结论或执行处罚。
-			</p>
-			{#if selectedAssessment.kpmRule}<p>
-					180秒步兵KPM：{selectedAssessment.kpmRule.value.toFixed(2)} · 警惕加分：{selectedAssessment
-						.kpmRule.points}。专家不再受连续分钟条件限制。
-				</p>{:else}<p>这是旧版本历史评估，保留原记录，不按新阈值追溯处罚。</p>{/if}
-			{#if selectedAssessment.changePointContext}<p>
-					变化点：本局全部武器，已形成{selectedAssessment.changePointContext
-						.completedBuckets}个完整15秒区间。
-				</p>{/if}
-		</div>
-
-		<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-			<div class="rounded-ctl border border-white/10 p-3">
-				<div class="text-xs text-mist-400">Legacy</div>
-				<div class="text-lg text-white">
-					{selectedScore?.score ?? 0} · {selectedScore?.level ?? 'NORMAL'}
-				</div>
-			</div>
-			<div class="rounded-ctl border border-white/10 p-3">
-				<div class="text-xs text-mist-400">Tempo</div>
-				<div class="text-lg text-white">
-					{selectedAssessment.tempoPercentile === null
-						? '—'
-						: `P${(selectedAssessment.tempoPercentile * 100).toFixed(2)}`}
-				</div>
-			</div>
-			<div class="rounded-ctl border border-white/10 p-3">
-				<div class="text-xs text-mist-400">Precision</div>
-				<div class="text-lg text-white">
-					{selectedAssessment.precisionPercentile === null
-						? '—'
-						: `P${(selectedAssessment.precisionPercentile * 100).toFixed(2)}`}
-				</div>
-			</div>
-			<div class="rounded-ctl border border-white/10 p-3">
-				<div class="text-xs text-mist-400">
-					{lang === 'zh' ? '统计结果 / 独立事件' : 'Statistical result / episodes'}
-				</div>
-				<div class="text-lg text-white">
-					{selectedAssessment.level ?? 'INSUFFICIENT_DATA'} · {selectedAssessment.independentEpisodes}
-				</div>
-			</div>
-		</div>
-	{/if}
-	<div class="mt-5 flex flex-wrap items-center gap-3">
-		<label class="text-sm text-mist-300"
-			>{lang === 'zh' ? '分布图' : 'Distributions'}
-			<select class="ml-2 input" bind:value={distributionView}>
-				<option value="latest"
-					>{lang === 'zh' ? '最新分布（自动更新）' : 'Latest distributions (live)'}</option
-				>
-				<option value="snapshot"
-					>{lang === 'zh' ? '所选玩家评估时快照' : 'Selected assessment snapshot'}</option
-				>
-			</select>
-		</label>
-		{#if distributionView === 'latest' && distributionWeapons.length}
-			<label class="text-sm text-mist-300"
-				>{lang === 'zh' ? '同枪械指标' : 'Weapon metrics'}
-				<select
-					class="ml-2 input"
-					value={activeDistributionWeapon}
-					onchange={(event) => (distributionWeapon = event.currentTarget.value)}
-				>
-					{#each distributionWeapons as weapon}<option value={weapon}>{weapon}</option>{/each}
+			</details>{:else}<p class="mt-2 text-sm text-mist-400">等待同局连续 30 分钟有效采样。</p>{/if}
+	</section>
+{/if}
+{#if committeeEnabled(data.assessmentMode)}
+	<section class="mb-6 panel p-4">
+		<h3 class="text-base font-semibold text-white">
+			{lang === 'zh'
+				? '真实历史分布与 Shadow 对照'
+				: 'Historical distributions and shadow comparison'}
+		</h3>
+		<p class="mt-1 text-sm text-mist-400">
+			{lang === 'zh'
+				? '统计依据过去 30 天真实有效步兵事件；50 个本服样本开始初评，自动踢出仍需 200 个样本及完整保护条件。钟形参考曲线不参与计算。'
+				: 'Statistics use 30 days of accepted infantry events. Preliminary review starts at 50 local samples; auto kick requires 200 and all protection gates. The visual bell never drives decisions.'}
+		</p>
+		<div class="mt-3 flex flex-wrap items-center gap-3">
+			<span class="text-sm text-white"
+				>{lang === 'zh'
+					? '当前评估模式'
+					: 'Assessment mode'}：{data.assessmentMode.toUpperCase()}</span
+			>
+			{#if data.assessmentMode === 'statistical_shadow'}<span class="text-xs text-warn"
+					>{lang === 'zh'
+						? '仅观察委员会结果，不自动处罚'
+						: 'Actual enforcement still follows the legacy score'}</span
+				>{/if}
+			<label class="text-xs text-mist-300"
+				>{lang === 'zh' ? '玩家' : 'Player'}
+				<select class="ml-2 input" bind:value={selectedSteamId}>
+					{#each [...new Set(data.scores
+								.filter((score) => score.statistical)
+								.map((score) => score.steamId))] as steamId}<option value={steamId}
+							>{steamId}</option
+						>{/each}
 				</select>
 			</label>
-		{/if}
-	</div>
-	{#if distributionView === 'latest'}
-		<p class="mt-3 text-sm text-mist-300">
-			{lang === 'zh' ? '最近生成' : 'Last built'}：{data.distributions.updatedAt
-				? when(data.distributions.updatedAt)
-				: '—'} ·
-			{lang === 'zh' ? '数据纳入截止' : 'Data cutoff'}：{data.distributions.dataBefore
-				? when(data.distributions.dataBefore)
-				: '—'}
-		</p>
-		<p class="mt-2 text-xs text-mist-400">
-			{lang === 'zh'
-				? `每 ${data.distributions.refreshMinutes} 分钟重建，页面每 10 秒读取。汇总所有地图和人数分组的近 30 天有效参考数据，最近 10 分钟暂缓纳入。均衡抽样数不是累计击杀数：同一玩家、地图、人数分组、武器及指标每天最多纳入 20 条、周期内最多 100 条；重复观测不会无限增加权重。新玩家和新日期持续补入，过期数据移出，因此样本数可能持平或减少，曲线仍会更新。`
-				: `Rebuilt every ${data.distributions.refreshMinutes} minutes; refreshed every 10 seconds. All-map, all-population references cover 30 days, excluding the latest 10 minutes. Player/context sampling caps are 20 per day and 100 per period. New data enters and expired data leaves; counts need not increase monotonically.`}
-		</p>
-		{#if data.distributions.status !== 'READY'}
-			<p class="mt-2 text-sm text-warn">
-				{lang === 'zh'
-					? '基线尚未就绪或已过期；下面如有曲线，为最后保存的数据。'
-					: 'Baseline unavailable or stale; any curves below are the last saved data.'}
-			</p>
-		{/if}
-		{#if data.distributions.lastFailureAt && (!data.distributions.updatedAt || data.distributions.lastFailureAt > data.distributions.updatedAt)}
-			<p class="mt-2 text-sm text-warn">
-				最近一次基线重建失败：{when(data.distributions.lastFailureAt)}，等待 Worker 重试。
-			</p>
-		{/if}
-		{#if latestDistributions.length}<div class="mt-4 grid gap-3 lg:grid-cols-2">
-				{#each latestDistributions as metric (`${metric.code}:${metric.weaponCategory}:${metric.source}`)}<DistributionChart
-						{metric}
-						{lang}
-					/>{/each}
-			</div>{:else}<p class="mt-4 text-sm text-warn">
-				{lang === 'zh'
-					? '尚无最新参考分布。请检查击杀事件接收及基线重建状态。'
-					: 'No reference distributions available yet.'}
-			</p>{/if}
-	{:else}
-		<p class="mt-3 text-xs text-mist-400">
-			{lang === 'zh'
-				? '这是该玩家评估当时的证据快照，样本和分位数按原样保存，不随新数据变化。最新分布仅供分析，不追溯修改历史投票或处罚。'
-				: 'Frozen evidence at assessment time. New distributions do not rewrite past votes or actions.'}
-		</p>
-		{#if selectedAssessment?.metrics.length}<div class="mt-4 grid gap-3 lg:grid-cols-2">
-				{#each selectedAssessment.metrics as metric (`${metric.code}:${metric.weaponCategory}`)}<DistributionChart
-						{metric}
-						{lang}
-					/>{/each}
-			</div>{:else}<p class="mt-4 text-sm text-mist-400">
-				{lang === 'zh' ? '所选玩家暂无可用分布快照。' : 'No saved distributions for this player.'}
-			</p>{/if}
-	{/if}
-	<h4 class="mt-6 text-sm font-semibold text-white">
-		{lang === 'zh'
-			? '过去 30 天：旧系统与统计系统对照'
-			: 'Last 30 days: legacy and statistical comparison'}
-	</h4>
-	<p class="mt-1 text-xs text-mist-400">
-		{lang === 'zh' ? '可用评估' : 'Ready assessments'}：{data.comparison.total} · {lang === 'zh'
-			? '开始于'
-			: 'Since'}：{data.comparison.since ? when(data.comparison.since) : '—'}
-	</p>
-	<div class="mt-2 table-wrap">
-		<table>
-			<thead><tr><th></th><th>Statistical Normal</th><th>Statistical Abnormal</th></tr></thead
-			><tbody
-				><tr
-					><th>Legacy Normal</th><td>{data.comparison.normalNormal}</td><td
-						>{data.comparison.normalAbnormal}</td
-					></tr
-				><tr
-					><th>Legacy Abnormal</th><td>{data.comparison.abnormalNormal}</td><td
-						>{data.comparison.abnormalAbnormal}</td
-					></tr
-				></tbody
-			>
-		</table>
-	</div>
-	<h4 class="mt-6 text-sm font-semibold text-white">
-		{lang === 'zh'
-			? '委员会汇总（当前投票版本，按评估事件去重）'
-			: 'Committee shadow summary (distinct episodes)'}
-	</h4>
-	<p class="mt-1 text-xs text-mist-400">
-		{lang === 'zh'
-			? `仅统计当前模型 ${data.committeeShadow.modelVersion} 及当前投票规则已保存的评估；旧版本结论保留在历史案件，不混入本表。单票异常可进入 AI 预筛，预筛记录不计入正式审核门槛。自动踢出仍需组织开启并通过全部保护条件。`
-			: `Saved assessments for ${data.committeeShadow.modelVersion} and the current voting policy only; historical versions are excluded. A single abnormal ballot is recorded, not enforced. Automatic kicks require opt-in and all protection gates.`}
-	</p>
-	<div class="mt-3 flex flex-wrap gap-4 text-sm text-white">
-		<span>NORMAL：{data.committeeShadow.counts.NORMAL}</span>
-		<span>WATCH：{data.committeeShadow.counts.WATCH}</span>
-		<span>达到审核门槛的评估：{data.committeeShadow.counts.CASE}</span>
-		<span>直接踢出候选：{data.committeeShadow.counts.KICK_CANDIDATE}</span>
-		<span
-			>{lang === 'zh' ? '意见分歧率' : 'Disagreement'}：{data.committeeShadow.disagreementRate ===
-			null
-				? '—'
-				: `${(data.committeeShadow.disagreementRate * 100).toFixed(1)}%`}</span
-		>
-		<span
-			>{lang === 'zh' ? '候选案件已确认误判' : 'Confirmed false positives'}：{data.committeeShadow
-				.falsePositive}</span
-		>
-		<span
-			>{lang === 'zh' ? '候选案件已确认违规' : 'Confirmed abuse'}：{data.committeeShadow
-				.confirmedAbuse}</span
-		>
-	</div>
-	{#if data.committeeShadow.truncated}<p class="mt-2 text-xs text-warn">
-			{lang === 'zh'
-				? '超过 5000 条查询上限，汇总不完整。'
-				: 'Over 5000 records; summary is incomplete.'}
-		</p>{/if}
-	{#if Object.keys(data.committeeShadow.models).length}<div class="mt-3 table-wrap">
-			<table>
-				<thead
-					><tr
-						><th>{lang === 'zh' ? '模型' : 'Model'}</th><th>NORMAL</th><th>SUSPICIOUS</th><th
-							>CHEAT_LIKELY</th
-						><th>{lang === 'zh' ? '未知（未参与判断）' : 'UNKNOWN'}</th><th
-							>{lang === 'zh' ? '未知原因 · 记录数' : 'Unknown reasons · count'}</th
-						></tr
-					></thead
-				><tbody>
-					{#each Object.entries(data.committeeShadow.models) as [model, votes] (model)}<tr
-							><td>{lang === 'zh' ? (committeeModelName[model] ?? model) : model}</td><td
-								>{votes.NORMAL}</td
-							><td>{votes.SUSPICIOUS}</td><td>{votes.CHEAT_LIKELY}</td><td>{votes.UNKNOWN}</td><td
-								class="max-w-md text-xs text-mist-400"
-							>
-								{#each Object.entries(data.committeeShadow.unknownReasons[model] ?? {}) as [reason, count] (reason)}
-									<div>
-										{lang === 'zh' ? (committeeUnknownReason[reason] ?? reason) : reason} · {count}
-									</div>
-								{:else}—{/each}
-							</td></tr
-						>{/each}
-				</tbody>
-			</table>
-		</div>{/if}
-</section>
+		</div>
+		{#if selectedAssessment}
+			<div class="mt-3 panel p-3 text-sm">
+				<strong>委员会：五专家独立投票</strong>
+				{#if selectedAssessment.committee}
+					<p class="mt-2">
+						本次评估：{selectedScore ? when(selectedScore.scoredAt) : '—'} · 极可能作弊 {selectedAssessment
+							.committee.cheatVotes} 票 · 可疑 {selectedAssessment.committee.suspiciousVotes} 票 · 未知
+						{selectedAssessment.committee.unknownVotes} 票 · 结果 {selectedAssessment.committee
+							.decision}
+					</p>
+					<div class="mt-2 table-wrap">
+						<table>
+							<thead><tr><th>专家</th><th>本次投票</th><th>依据</th></tr></thead><tbody>
+								{#each selectedAssessment.committee.verdicts as ballot}<tr
+										><td>{committeeModelName[ballot.modelId] ?? ballot.modelId}</td><td
+											>{{
+												NORMAL: '正常',
+												SUSPICIOUS: '可疑',
+												CHEAT_LIKELY: '极可能作弊',
+												UNKNOWN: '未知'
+											}[ballot.decision]}</td
+										><td
+											>{ballot.reasons
+												.map((reason) => committeeUnknownReason[reason] ?? reason)
+												.join('；')}</td
+										></tr
+									>{/each}
+							</tbody>
+						</table>
+					</div>
+				{/if}
 
-<section class="mb-6 panel p-4">
-	<h3 class="text-base font-semibold text-white">
-		{lang === 'zh' ? '信号接入状态' : 'Signal sources'}
-	</h3>
-	<div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-		{#each signalSources as signal (signal.en)}
-			<div class="rounded-ctl border border-white/10 p-3">
-				<div class="text-sm font-medium text-white">{lang === 'zh' ? signal.zh : signal.en}</div>
-				<div class="mt-1 text-xs text-mist-400">
-					{lang === 'zh' ? signal.sourceZh : signal.sourceEn}
+				<p>
+					两票可疑：观察；三票可疑及以上或两票极可能作弊：进入案件审核；三票极可能作弊：自动踢出候选。KPM＞4且另一专家至少可疑也可踢出，均受执行保护约束。
+					启用 AI 自动初审后，单票可疑或极可能作弊也会生成 AI
+					预筛记录，自动核对证据；预筛不改变委员会结论或执行处罚。
+				</p>
+				{#if selectedAssessment.kpmRule}<p>
+						180秒步兵KPM：{selectedAssessment.kpmRule.value.toFixed(2)} · 警惕加分：{selectedAssessment
+							.kpmRule.points}。专家不再受连续分钟条件限制。
+					</p>{:else}<p>这是旧版本历史评估，保留原记录，不按新阈值追溯处罚。</p>{/if}
+				{#if selectedAssessment.changePointContext}<p>
+						变化点：本局全部武器，已形成{selectedAssessment.changePointContext
+							.completedBuckets}个完整15秒区间。
+					</p>{/if}
+			</div>
+
+			<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+				<div class="rounded-ctl border border-white/10 p-3">
+					<div class="text-xs text-mist-400">Legacy</div>
+					<div class="text-lg text-white">
+						{selectedScore?.score ?? 0} · {selectedScore?.level ?? 'NORMAL'}
+					</div>
+				</div>
+				<div class="rounded-ctl border border-white/10 p-3">
+					<div class="text-xs text-mist-400">Tempo</div>
+					<div class="text-lg text-white">
+						{selectedAssessment.tempoPercentile === null
+							? '—'
+							: `P${(selectedAssessment.tempoPercentile * 100).toFixed(2)}`}
+					</div>
+				</div>
+				<div class="rounded-ctl border border-white/10 p-3">
+					<div class="text-xs text-mist-400">Precision</div>
+					<div class="text-lg text-white">
+						{selectedAssessment.precisionPercentile === null
+							? '—'
+							: `P${(selectedAssessment.precisionPercentile * 100).toFixed(2)}`}
+					</div>
+				</div>
+				<div class="rounded-ctl border border-white/10 p-3">
+					<div class="text-xs text-mist-400">
+						{lang === 'zh' ? '统计结果 / 独立事件' : 'Statistical result / episodes'}
+					</div>
+					<div class="text-lg text-white">
+						{selectedAssessment.level ?? 'INSUFFICIENT_DATA'} · {selectedAssessment.independentEpisodes}
+					</div>
 				</div>
 			</div>
-		{/each}
-	</div>
-	<p class="mt-3 text-xs text-mist-400">
-		{lang === 'zh'
-			? '未接入：WARDOGS 官方总游戏时间、游戏内聊天接收。缺少可靠 Feed 时，实时行为指标显示为未知。'
-			: 'Unavailable: official WARDOGS playtime and inbound game chat. Live behavior metrics are unknown without a reliable feed.'}
-	</p>
-</section>
-
-<section class="mb-6 panel p-4">
-	<div class="flex flex-wrap items-center justify-between gap-2">
-		<h3 class="text-base font-semibold text-white">{t.online}</h3>
-		<button class="btn-quiet btn" type="button" disabled={refreshing} onclick={refresh}
-			>{t.refresh}</button
-		>
-	</div>
-	<p class="mt-1 mb-3 text-xs text-mist-400">
-		{t.dataAt}: {data.playersAt ? when(data.playersAt) : t.noFeed} · {t.kdHint}
-		<br />{t.metricMissing}
-	</p>
-	{#if data.feedRowsTruncated}<p class="mb-2 text-sm text-warn">{t.truncated}</p>{/if}
-	{#if data.onlinePlayers.length}
-		<div class="table-wrap">
+		{/if}
+		<div class="mt-5 flex flex-wrap items-center gap-3">
+			<label class="text-sm text-mist-300"
+				>{lang === 'zh' ? '分布图' : 'Distributions'}
+				<select class="ml-2 input" bind:value={distributionView}>
+					<option value="latest"
+						>{lang === 'zh' ? '最新分布（自动更新）' : 'Latest distributions (live)'}</option
+					>
+					<option value="snapshot"
+						>{lang === 'zh' ? '所选玩家评估时快照' : 'Selected assessment snapshot'}</option
+					>
+				</select>
+			</label>
+			{#if distributionView === 'latest' && distributionWeapons.length}
+				<label class="text-sm text-mist-300"
+					>{lang === 'zh' ? '同枪械指标' : 'Weapon metrics'}
+					<select
+						class="ml-2 input"
+						value={activeDistributionWeapon}
+						onchange={(event) => (distributionWeapon = event.currentTarget.value)}
+					>
+						{#each distributionWeapons as weapon}<option value={weapon}>{weapon}</option>{/each}
+					</select>
+				</label>
+			{/if}
+		</div>
+		{#if distributionView === 'latest'}
+			<p class="mt-3 text-sm text-mist-300">
+				{lang === 'zh' ? '最近生成' : 'Last built'}：{data.distributions.updatedAt
+					? when(data.distributions.updatedAt)
+					: '—'} ·
+				{lang === 'zh' ? '数据纳入截止' : 'Data cutoff'}：{data.distributions.dataBefore
+					? when(data.distributions.dataBefore)
+					: '—'}
+			</p>
+			<p class="mt-2 text-xs text-mist-400">
+				{lang === 'zh'
+					? `每 ${data.distributions.refreshMinutes} 分钟重建，页面每 10 秒读取。汇总所有地图和人数分组的近 30 天有效参考数据，最近 10 分钟暂缓纳入。均衡抽样数不是累计击杀数：同一玩家、地图、人数分组、武器及指标每天最多纳入 20 条、周期内最多 100 条；重复观测不会无限增加权重。新玩家和新日期持续补入，过期数据移出，因此样本数可能持平或减少，曲线仍会更新。`
+					: `Rebuilt every ${data.distributions.refreshMinutes} minutes; refreshed every 10 seconds. All-map, all-population references cover 30 days, excluding the latest 10 minutes. Player/context sampling caps are 20 per day and 100 per period. New data enters and expired data leaves; counts need not increase monotonically.`}
+			</p>
+			{#if data.distributions.status !== 'READY'}
+				<p class="mt-2 text-sm text-warn">
+					{lang === 'zh'
+						? '基线尚未就绪或已过期；下面如有曲线，为最后保存的数据。'
+						: 'Baseline unavailable or stale; any curves below are the last saved data.'}
+				</p>
+			{/if}
+			{#if data.distributions.lastFailureAt && (!data.distributions.updatedAt || data.distributions.lastFailureAt > data.distributions.updatedAt)}
+				<p class="mt-2 text-sm text-warn">
+					最近一次基线重建失败：{when(data.distributions.lastFailureAt)}，等待 Worker 重试。
+				</p>
+			{/if}
+			{#if latestDistributions.length}<div class="mt-4 grid gap-3 lg:grid-cols-2">
+					{#each latestDistributions as metric (`${metric.code}:${metric.weaponCategory}:${metric.source}`)}<DistributionChart
+							{metric}
+							{lang}
+						/>{/each}
+				</div>{:else}<p class="mt-4 text-sm text-warn">
+					{lang === 'zh'
+						? '尚无最新参考分布。请检查击杀事件接收及基线重建状态。'
+						: 'No reference distributions available yet.'}
+				</p>{/if}
+		{:else}
+			<p class="mt-3 text-xs text-mist-400">
+				{lang === 'zh'
+					? '这是该玩家评估当时的证据快照，样本和分位数按原样保存，不随新数据变化。最新分布仅供分析，不追溯修改历史投票或处罚。'
+					: 'Frozen evidence at assessment time. New distributions do not rewrite past votes or actions.'}
+			</p>
+			{#if selectedAssessment?.metrics.length}<div class="mt-4 grid gap-3 lg:grid-cols-2">
+					{#each selectedAssessment.metrics as metric (`${metric.code}:${metric.weaponCategory}`)}<DistributionChart
+							{metric}
+							{lang}
+						/>{/each}
+				</div>{:else}<p class="mt-4 text-sm text-mist-400">
+					{lang === 'zh' ? '所选玩家暂无可用分布快照。' : 'No saved distributions for this player.'}
+				</p>{/if}
+		{/if}
+		<h4 class="mt-6 text-sm font-semibold text-white">
+			{lang === 'zh'
+				? '过去 30 天：旧系统与统计系统对照'
+				: 'Last 30 days: legacy and statistical comparison'}
+		</h4>
+		<p class="mt-1 text-xs text-mist-400">
+			{lang === 'zh' ? '可用评估' : 'Ready assessments'}：{data.comparison.total} · {lang === 'zh'
+				? '开始于'
+				: 'Since'}：{data.comparison.since ? when(data.comparison.since) : '—'}
+		</p>
+		<div class="mt-2 table-wrap">
 			<table>
-				<thead
+				<thead><tr><th></th><th>Statistical Normal</th><th>Statistical Abnormal</th></tr></thead
+				><tbody
 					><tr
-						><th>{t.player}</th><th>{t.kills}</th><th>{t.deaths}</th><th>{t.kd}</th><th>{t.kpm}</th
-						><th>{lang === 'zh' ? '实时步兵 KPM（60 秒）' : 'Infantry KPM (60s)'}</th><th
-							>{t.peakKpm}</th
-						><th>{t.victims}</th><th>{t.risk}</th><th>{t.level}</th><th>{t.breakdown}</th></tr
-					></thead
-				>
-				<tbody
-					>{#each data.onlinePlayers as player (player.steamId)}
-						<tr>
-							<td
-								><a class="text-accent" href="/server/{data.server.id}/players/{player.steamId}"
-									>{player.name}</a
-								>
-								<div class="font-mono text-xs text-mist-400">{player.steamId}</div></td
-							>
-							<td>{player.kills}</td><td>{player.deaths}</td><td
-								>{kd(player.kills, player.deaths)}</td
-							>
-							<td
-								title={!metricsAvailable || player.infantry?.reliable === false
-									? t.metricMissing
-									: undefined}
-								>{integrityMetricDisplay(
-									player.infantry?.kpm180 ?? 0,
-									metricsAvailable,
-									player.infantry?.reliable180 !== false
-								)}</td
-							>
-							<td
-								>{integrityMetricDisplay(
-									player.infantry?.kpm60 ?? 0,
-									metricsAvailable,
-									player.infantry?.reliable60 !== false
-								)}</td
-							>
-							<td
-								>{integrityMetricDisplay(
-									player.infantry?.peakKpm180 ?? 0,
-									metricsAvailable,
-									player.infantry?.reliable !== false
-								)}</td
-							>
-							<td
-								>{integrityMetricDisplay(
-									player.infantry?.uniqueVictims180 ?? 0,
-									metricsAvailable,
-									player.infantry?.reliable !== false,
-									0
-								)}</td
-							>
-							<td>{player.riskScore ?? '—'}</td><td>{levelName(player.riskLevel)}</td>
-							<td
-								>{#if parts(player.riskBreakdown).length}<details>
-										<summary class="cursor-pointer">{t.breakdown}</summary>
-										<ul class="mt-2 space-y-1 text-xs">
-											{#each parts(player.riskBreakdown) as part (part.code)}<li>
-													+{part.points}
-													{integrityPartText(part.code, part.detail, lang)}
-												</li>{/each}
-										</ul>
-									</details>{:else}—{/if}</td
-							>
-						</tr>
-					{/each}</tbody
+						><th>Legacy Normal</th><td>{data.comparison.normalNormal}</td><td
+							>{data.comparison.normalAbnormal}</td
+						></tr
+					><tr
+						><th>Legacy Abnormal</th><td>{data.comparison.abnormalNormal}</td><td
+							>{data.comparison.abnormalAbnormal}</td
+						></tr
+					></tbody
 				>
 			</table>
 		</div>
-	{:else}<p class="text-sm text-mist-400">{t.noOnline}</p>{/if}
-</section>
-
-<section class="mb-6 panel p-4">
-	<h3 class="text-base font-semibold text-white">{t.dryRunTitle}</h3>
-	<p class="mt-1 mb-3 text-xs text-mist-400">{t.dryRunHint}</p>
-	<div class="table-wrap">
-		<table>
-			<thead
-				><tr
-					><th>{t.period}</th><th>{t.windows}</th><th>{t.koPlayers}</th><th
-						>{t.quarantinePlayers}</th
-					></tr
-				></thead
+		<h4 class="mt-6 text-sm font-semibold text-white">
+			{lang === 'zh'
+				? '委员会汇总（当前投票版本，按评估事件去重）'
+				: 'Committee shadow summary (distinct episodes)'}
+		</h4>
+		<p class="mt-1 text-xs text-mist-400">
+			{lang === 'zh'
+				? `仅统计当前模型 ${data.committeeShadow.modelVersion} 及当前投票规则已保存的评估；旧版本结论保留在历史案件，不混入本表。单票异常可进入 AI 预筛，预筛记录不计入正式审核门槛。自动踢出仍需组织开启并通过全部保护条件。`
+				: `Saved assessments for ${data.committeeShadow.modelVersion} and the current voting policy only; historical versions are excluded. A single abnormal ballot is recorded, not enforced. Automatic kicks require opt-in and all protection gates.`}
+		</p>
+		<div class="mt-3 flex flex-wrap gap-4 text-sm text-white">
+			<span>NORMAL：{data.committeeShadow.counts.NORMAL}</span>
+			<span>WATCH：{data.committeeShadow.counts.WATCH}</span>
+			<span>达到审核门槛的评估：{data.committeeShadow.counts.CASE}</span>
+			<span>直接踢出候选：{data.committeeShadow.counts.KICK_CANDIDATE}</span>
+			<span
+				>{lang === 'zh' ? '意见分歧率' : 'Disagreement'}：{data.committeeShadow.disagreementRate ===
+				null
+					? '—'
+					: `${(data.committeeShadow.disagreementRate * 100).toFixed(1)}%`}</span
 			>
-			<tbody>
-				{#each data.dryRun as item (item.hours)}
-					<tr
-						><td>{item.hours === 168 ? '7 d' : `${item.hours} h`}</td><td>{item.windows}</td><td
-							>{item.koPlayers}</td
-						><td>{item.quarantinePlayers}</td></tr
+			<span
+				>{lang === 'zh' ? '候选案件已确认误判' : 'Confirmed false positives'}：{data.committeeShadow
+					.falsePositive}</span
+			>
+			<span
+				>{lang === 'zh' ? '候选案件已确认违规' : 'Confirmed abuse'}：{data.committeeShadow
+					.confirmedAbuse}</span
+			>
+		</div>
+		{#if data.committeeShadow.truncated}<p class="mt-2 text-xs text-warn">
+				{lang === 'zh'
+					? '超过 5000 条查询上限，汇总不完整。'
+					: 'Over 5000 records; summary is incomplete.'}
+			</p>{/if}
+		{#if Object.keys(data.committeeShadow.models).length}<div class="mt-3 table-wrap">
+				<table>
+					<thead
+						><tr
+							><th>{lang === 'zh' ? '模型' : 'Model'}</th><th>NORMAL</th><th>SUSPICIOUS</th><th
+								>CHEAT_LIKELY</th
+							><th>{lang === 'zh' ? '未知（未参与判断）' : 'UNKNOWN'}</th><th
+								>{lang === 'zh' ? '未知原因 · 记录数' : 'Unknown reasons · count'}</th
+							></tr
+						></thead
+					><tbody>
+						{#each Object.entries(data.committeeShadow.models) as [model, votes] (model)}<tr
+								><td>{lang === 'zh' ? (committeeModelName[model] ?? model) : model}</td><td
+									>{votes.NORMAL}</td
+								><td>{votes.SUSPICIOUS}</td><td>{votes.CHEAT_LIKELY}</td><td>{votes.UNKNOWN}</td><td
+									class="max-w-md text-xs text-mist-400"
+								>
+									{#each Object.entries(data.committeeShadow.unknownReasons[model] ?? {}) as [reason, count] (reason)}
+										<div>
+											{lang === 'zh' ? (committeeUnknownReason[reason] ?? reason) : reason} · {count}
+										</div>
+									{:else}—{/each}
+								</td></tr
+							>{/each}
+					</tbody>
+				</table>
+			</div>{/if}
+	</section>
+{/if}
+{#if legacyEnabled(data.assessmentMode) || committeeEnabled(data.assessmentMode)}
+	<details class="mb-6 panel p-4">
+		<summary class="cursor-pointer text-base font-semibold text-white">
+			{lang === 'zh' ? '信号接入状态' : 'Signal sources'}
+		</summary>
+		<div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+			{#each signalSources as signal (signal.en)}
+				<div class="rounded-ctl border border-white/10 p-3">
+					<div class="text-sm font-medium text-white">{lang === 'zh' ? signal.zh : signal.en}</div>
+					<div class="mt-1 text-xs text-mist-400">
+						{lang === 'zh' ? signal.sourceZh : signal.sourceEn}
+					</div>
+				</div>
+			{/each}
+		</div>
+		<p class="mt-3 text-xs text-mist-400">
+			{lang === 'zh'
+				? '未接入：WARDOGS 官方总游戏时间、游戏内聊天接收。缺少可靠 Feed 时，实时行为指标显示为未知。'
+				: 'Unavailable: official WARDOGS playtime and inbound game chat. Live behavior metrics are unknown without a reliable feed.'}
+		</p>
+	</details>
+{/if}
+
+{#if legacyEnabled(data.assessmentMode)}
+	<section class="mb-6 panel p-4">
+		<div class="flex flex-wrap items-center justify-between gap-2">
+			<h3 class="text-base font-semibold text-white">{t.online}</h3>
+			<button class="btn-quiet btn" type="button" disabled={refreshing} onclick={refresh}
+				>{t.refresh}</button
+			>
+		</div>
+		<p class="mt-1 mb-3 text-xs text-mist-400">
+			{t.dataAt}: {data.playersAt ? when(data.playersAt) : t.noFeed} · {t.kdHint}
+			<br />{t.metricMissing}
+		</p>
+		{#if data.feedRowsTruncated}<p class="mb-2 text-sm text-warn">{t.truncated}</p>{/if}
+		{#if data.onlinePlayers.length}
+			<div class="table-wrap">
+				<table>
+					<thead
+						><tr
+							><th>{t.player}</th><th>{t.kills}</th><th>{t.deaths}</th><th>{t.kd}</th><th
+								>{t.kpm}</th
+							><th>{lang === 'zh' ? '实时步兵 KPM（60 秒）' : 'Infantry KPM (60s)'}</th><th
+								>{t.peakKpm}</th
+							><th>{t.victims}</th><th>{t.risk}</th><th>{t.level}</th><th>{t.breakdown}</th></tr
+						></thead
 					>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-	<h4 class="mt-4 text-sm font-semibold text-white">{t.contributors}</h4>
-	{#if data.contributors.length}
-		<ul class="mt-2 space-y-1 text-sm text-mist-300">
-			{#each data.contributors as item (item.code)}<li>{item.code}: +{item.points}</li>{/each}
-		</ul>
-	{:else}<p class="mt-2 text-sm text-mist-400">{t.noContributors}</p>{/if}
-</section>
+					<tbody
+						>{#each data.onlinePlayers as player (player.steamId)}
+							<tr>
+								<td
+									><a class="text-accent" href="/server/{data.server.id}/players/{player.steamId}"
+										>{player.name}</a
+									>
+									<div class="font-mono text-xs text-mist-400">{player.steamId}</div></td
+								>
+								<td>{player.kills}</td><td>{player.deaths}</td><td
+									>{kd(player.kills, player.deaths)}</td
+								>
+								<td
+									title={!metricsAvailable || player.infantry?.reliable === false
+										? t.metricMissing
+										: undefined}
+									>{integrityMetricDisplay(
+										player.infantry?.kpm180 ?? 0,
+										metricsAvailable,
+										player.infantry?.reliable180 !== false
+									)}</td
+								>
+								<td
+									>{integrityMetricDisplay(
+										player.infantry?.kpm60 ?? 0,
+										metricsAvailable,
+										player.infantry?.reliable60 !== false
+									)}</td
+								>
+								<td
+									>{integrityMetricDisplay(
+										player.infantry?.peakKpm180 ?? 0,
+										metricsAvailable,
+										player.infantry?.reliable !== false
+									)}</td
+								>
+								<td
+									>{integrityMetricDisplay(
+										player.infantry?.uniqueVictims180 ?? 0,
+										metricsAvailable,
+										player.infantry?.reliable !== false,
+										0
+									)}</td
+								>
+								<td>{player.riskScore ?? '—'}</td><td>{levelName(player.riskLevel)}</td>
+								<td
+									>{#if parts(player.riskBreakdown).length}<details>
+											<summary class="cursor-pointer">{t.breakdown}</summary>
+											<ul class="mt-2 space-y-1 text-xs">
+												{#each parts(player.riskBreakdown) as part (part.code)}<li>
+														+{part.points}
+														{integrityPartText(part.code, part.detail, lang)}
+													</li>{/each}
+											</ul>
+										</details>{:else}—{/if}</td
+								>
+							</tr>
+						{/each}</tbody
+					>
+				</table>
+			</div>
+		{:else}<p class="text-sm text-mist-400">{t.noOnline}</p>{/if}
+	</section>
+{/if}
 
 <section class="mb-6 panel p-4">
 	<h3 class="mb-3 text-base font-semibold text-white">
@@ -760,7 +774,7 @@
 			<table>
 				<thead
 					><tr
-						><th>{t.time}</th><th>{t.player}</th><th>{t.caseId}</th><th
+						><th>{t.time}</th><th>{t.player}</th><th>来源／档位</th><th
 							>{lang === 'zh' ? '处置指令（不代表已执行）' : 'Requested action'}</th
 						><th>{lang === 'zh' ? '执行状态' : 'Delivery'}</th><th
 							>{lang === 'zh' ? '执行说明' : 'Delivery detail'}</th
@@ -772,13 +786,26 @@
 				<tbody
 					>{#each data.actions as item (item.id)}<tr
 							><td>{when(item.createdAt)}</td><td class="font-mono">{item.steamId}</td><td
-								class="font-mono">{item.caseId}</td
+								class="whitespace-normal"
+								>{item.source === 'SHORT_MODEL'
+									? '短窗模型'
+									: item.source === 'LONG_MODEL'
+										? '长时序模型'
+										: item.source === 'REVIEW'
+											? '人工操作'
+											: '旧规则／委员会'}
+								{item.percentileLabel}{#if item.score !== null}<div class="text-xs text-mist-400">
+										分数 {item.score.toFixed(5)}{#if item.threshold !== null}
+											· 阈值 {item.threshold.toFixed(5)}{/if}
+									</div>{/if}</td
 							><td
 								>{item.source === 'REVIEW'
 									? '人工确认违规（7天；保留更长期封禁）'
 									: item.action === 'KICK' && lang === 'zh'
 										? '踢出指令'
-										: item.action}</td
+										: item.action === 'WARNING'
+											? '警惕'
+											: item.action}</td
 							><td>{actionState(item)}</td><td class="max-w-md whitespace-normal"
 								>{integrityDeliveryReason(item.deliveryReason, lang)}</td
 							><td>{item.effectiveAt ? when(item.effectiveAt) : '—'}</td><td
@@ -793,56 +820,63 @@
 		</p>{/if}
 </section>
 
-<IntegrityCaseList {data} {lang} archiveUrl={`/server/${data.server.id}/integrity/cases`} />
+{#if data.cases.length}<IntegrityCaseList
+		{data}
+		{lang}
+		archiveUrl={`/server/${data.server.id}/integrity/cases`}
+	/>{/if}
 
-<section class="mb-6 panel p-4">
-	<h3 class="mb-3 text-base font-semibold text-white">{t.reports}</h3>
-	{#if data.reports.length}
-		<div class="table-wrap">
-			<table>
-				<thead
-					><tr><th>{t.time}</th><th>{t.player}</th><th>{t.reason}</th><th>{t.status}</th></tr
-					></thead
-				>
-				<tbody>
-					{#each data.reports as item (item.id)}
-						<tr>
-							<td class="whitespace-nowrap">{when(item.createdAt)}</td>
-							<td class="font-mono">{item.targetSteamId}</td>
-							<td>{item.reason}</td>
-							<td>{lang === 'zh' ? integrityCaseStatus(item.status) : item.status}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{:else}<p class="text-sm text-mist-400">{t.noReports}</p>{/if}
-</section>
-
-<section class="panel p-4">
-	<h3 class="mb-3 text-base font-semibold text-white">{t.scores}</h3>
-	{#if data.scores.length}
-		<div class="table-wrap">
-			<table>
-				<thead
-					><tr
-						><th>{t.time}</th><th>{t.player}</th><th>{t.risk}</th><th>{t.status}</th><th
-							>{t.version}</th
-						></tr
-					></thead
-				>
-				<tbody>
-					{#each data.scores as item (item.id)}
-						<tr>
-							<td class="whitespace-nowrap">{when(item.scoredAt)}</td>
-							<td class="font-mono">{item.steamId}</td>
-							<td>{item.score}</td>
-							<td>{levelName(item.level)}</td>
-							<td>v{item.ruleVersion}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{:else}<p class="text-sm text-mist-400">{t.noScores}</p>{/if}
-</section>
+{#if data.reports.length}
+	<section class="mb-6 panel p-4">
+		<h3 class="mb-3 text-base font-semibold text-white">{t.reports}</h3>
+		{#if data.reports.length}
+			<div class="table-wrap">
+				<table>
+					<thead
+						><tr><th>{t.time}</th><th>{t.player}</th><th>{t.reason}</th><th>{t.status}</th></tr
+						></thead
+					>
+					<tbody>
+						{#each data.reports as item (item.id)}
+							<tr>
+								<td class="whitespace-nowrap">{when(item.createdAt)}</td>
+								<td class="font-mono">{item.targetSteamId}</td>
+								<td>{item.reason}</td>
+								<td>{lang === 'zh' ? integrityCaseStatus(item.status) : item.status}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{:else}<p class="text-sm text-mist-400">{t.noReports}</p>{/if}
+	</section>
+{/if}
+{#if legacyEnabled(data.assessmentMode) && data.scores.length}
+	<section class="panel p-4">
+		<h3 class="mb-3 text-base font-semibold text-white">{t.scores}</h3>
+		{#if data.scores.length}
+			<div class="table-wrap">
+				<table>
+					<thead
+						><tr
+							><th>{t.time}</th><th>{t.player}</th><th>{t.risk}</th><th>{t.status}</th><th
+								>{t.version}</th
+							></tr
+						></thead
+					>
+					<tbody>
+						{#each data.scores as item (item.id)}
+							<tr>
+								<td class="whitespace-nowrap">{when(item.scoredAt)}</td>
+								<td class="font-mono">{item.steamId}</td>
+								<td>{item.score}</td>
+								<td>{levelName(item.level)}</td>
+								<td>v{item.ruleVersion}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{:else}<p class="text-sm text-mist-400">{t.noScores}</p>{/if}
+	</section>
+{/if}

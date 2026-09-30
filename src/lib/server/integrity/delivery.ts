@@ -1,3 +1,4 @@
+import { committeeEnabled } from '$lib/integrity-engines';
 import { and, eq } from 'drizzle-orm';
 import type { Env } from '../env';
 import { vipFor } from '../qq/vip';
@@ -98,7 +99,8 @@ export async function integrityDeliverySkipReason(
 		.where(eq(integrityRules.orgId, match.action.orgId))
 		.limit(1);
 	if (!rules || rules.suspended || rules.version !== match.caseRow.ruleVersion) return DISABLED;
-	if (rules.assessmentMode === 'model_only') return 'A测模型模式不执行自动处罚';
+	if (rules.assessmentMode !== 'legacy' && rules.assessmentMode !== 'statistical')
+		return '未选择旧规则或委员会，不执行其自动处罚';
 	if (rules.assessmentMode === 'statistical') {
 		const [state] = await env.db
 			.select()

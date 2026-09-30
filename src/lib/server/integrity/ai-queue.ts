@@ -15,11 +15,11 @@ export async function discoverAiJobs(env: Env) {
 		await tx.execute(sql`UPDATE integrity_ai_jobs j SET state='pending',attempts=0,next_at=now(),result=NULL,last_error=NULL,updated_at=now()
  FROM integrity_cases c JOIN integrity_ai_settings s ON s.org_id=c.org_id
  WHERE j.case_id=c.id AND j.state='done' AND (j.result->>'promptVersion' IS DISTINCT FROM ${PROMPT_VERSION} OR (s.auto_close_enabled AND j.result->>'disposition' = 'ADVISORY'))
- AND s.auto_enabled AND c.status='OPEN' AND c.reviewed_at IS NULL `);
+ AND EXISTS(SELECT 1 FROM integrity_rules r WHERE r.org_id=c.org_id AND r.assessment_mode IN ('statistical','statistical_shadow')) AND s.auto_enabled AND c.status='OPEN' AND c.reviewed_at IS NULL `);
 		await tx.execute(sql`INSERT INTO integrity_ai_jobs(case_id)
  SELECT c.id FROM integrity_cases c JOIN integrity_ai_settings s ON s.org_id=c.org_id
  JOIN organizations o ON o.id=c.org_id
- WHERE o.suspended_at IS NULL AND s.auto_enabled AND s.model <> '' AND c.reviewed_at IS NULL AND c.status='OPEN'
+ WHERE o.suspended_at IS NULL AND EXISTS(SELECT 1 FROM integrity_rules r WHERE r.org_id=c.org_id AND r.assessment_mode IN ('statistical','statistical_shadow')) AND s.auto_enabled AND s.model <> '' AND c.reviewed_at IS NULL AND c.status='OPEN'
 
  AND NOT EXISTS(SELECT 1 FROM integrity_ai_jobs j WHERE j.case_id=c.id)
  ORDER BY (c.trigger=${AI_PRESCREEN_TRIGGER}),c.created_at,c.id LIMIT 100 ON CONFLICT DO NOTHING`);
@@ -39,7 +39,7 @@ export async function processNextAiJob(env: Env, reviewer: typeof aiCall = aiCal
  WHERE j.case_id=(SELECT q.case_id FROM integrity_ai_jobs q
  JOIN integrity_cases c ON c.id=q.case_id JOIN integrity_ai_settings s ON s.org_id=c.org_id
  JOIN organizations o ON o.id=c.org_id
- WHERE o.suspended_at IS NULL AND s.auto_enabled AND s.model<>'' AND c.reviewed_at IS NULL AND c.status='OPEN'
+ WHERE o.suspended_at IS NULL AND EXISTS(SELECT 1 FROM integrity_rules r WHERE r.org_id=c.org_id AND r.assessment_mode IN ('statistical','statistical_shadow')) AND s.auto_enabled AND s.model<>'' AND c.reviewed_at IS NULL AND c.status='OPEN'
  AND (s.last_request_at IS NULL OR s.last_request_at<now()-interval '65 seconds')
  AND (s.budget_day<>${new Date().toISOString().slice(0, 10)} OR s.daily_requests<s.daily_limit)
  AND q.attempts<3 AND ((q.state='pending' AND q.next_at<=now()) OR (q.state='running' AND q.lease_until<now()))
@@ -115,6 +115,10 @@ export function startIntegrityAi(env: Env) {
 	const pass = () => {
 		if (running || !isOwner()) return;
 		running = (async () => {
+			const active = await env.db.execute(
+				sql`SELECT 1 FROM integrity_rules r JOIN integrity_ai_settings s ON s.org_id=r.org_id WHERE r.assessment_mode IN ('statistical','statistical_shadow') AND s.auto_enabled LIMIT 1`
+			);
+			if (!active.length) return;
 			await discoverAiJobs(env);
 			await processNextAiJob(env);
 		})()

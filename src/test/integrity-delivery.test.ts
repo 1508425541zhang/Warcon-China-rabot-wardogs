@@ -80,6 +80,7 @@ describe.skipIf(!hasTestDb)('Integrity delivery guard', () => {
 		await env.db
 			.update(integrityRules)
 			.set({
+				assessmentMode: 'legacy',
 				autoKickEnabled: true,
 				autoQuarantine24hEnabled: true,
 				autoQuarantine7dEnabled: true,
@@ -182,7 +183,7 @@ describe.skipIf(!hasTestDb)('Integrity delivery guard', () => {
 			expect((await actionOf(actionId)).effectiveAt).toBeNull();
 			expect(clientSpy).not.toHaveBeenCalled();
 		} finally {
-			await rule({ assessmentMode: 'statistical_shadow', version: 1 });
+			await rule({ assessmentMode: 'legacy', version: 1 });
 		}
 	});
 

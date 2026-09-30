@@ -1,6 +1,12 @@
 import { and, eq, gte, or, sql } from 'drizzle-orm';
 import type { Env } from '../env';
-import { integrityBaselines, integrityModelState, organizations, samples } from '../db/schema';
+import {
+	integrityBaselines,
+	integrityModelState,
+	organizations,
+	integrityRules,
+	samples
+} from '../db/schema';
 import { refreshCleanIntegrityBaselines as refreshIntegrityBaselines } from './baseline-replay';
 import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
 import {
@@ -294,7 +300,11 @@ export function startIntegrityBaselines(env: Env): void {
 		if (running) return;
 		running = true;
 		try {
-			const orgs = await env.db.select({ id: organizations.id }).from(organizations);
+			const orgs = await env.db
+				.select({ id: organizations.id })
+				.from(organizations)
+				.innerJoin(integrityRules, eq(integrityRules.orgId, organizations.id))
+				.where(sql`${integrityRules.assessmentMode} IN ('statistical','statistical_shadow')`);
 			for (const org of orgs) {
 				try {
 					await refreshIntegrityBaselines(env, org.id);

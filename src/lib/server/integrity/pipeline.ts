@@ -1,3 +1,5 @@
+import { longModelEnabled, committeeEnabled } from '$lib/integrity-engines';
+import { modelConfig } from './model-http';
 import { loadRoundPrecision } from './precision-round-data';
 import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import type { Env } from '../env';
@@ -77,6 +79,12 @@ export async function processIntegrityBatch(
 		)[0]?.orgId;
 	if (!orgId) return;
 	const rules = await getIntegrityRules(env, orgId);
+	if (rules.assessmentMode === 'disabled' || rules.assessmentMode === 'short_only') {
+		infantry.reset(serverId);
+		return;
+	}
+	if (longModelEnabled(rules.assessmentMode) && !(await modelConfig(env, orgId)).developerEnabled)
+		return;
 	const overrides = await weaponOverrides(env, orgId);
 	if (!infantry.hasServer(serverId) && batch.length) {
 		const before = new Date(batch[0].ts);
@@ -106,7 +114,7 @@ export async function processIntegrityBatch(
 	}
 	const generated = generateBatchFeatures(infantry, serverId, batch, overrides, rules.config);
 	const findings = generated.findings;
-	if (rules.assessmentMode === 'model_only') {
+	if (longModelEnabled(rules.assessmentMode)) {
 		// Keep measured window inputs, but never execute the legacy score or expert committee.
 		const snapshots = generated.snapshots;
 		if (snapshots.length)
@@ -681,14 +689,12 @@ export async function processIntegrityBatch(
 					currentBehaviorAnomaly: score.currentBehaviorAnomaly
 				})
 				.returning({ id: integrityScores.id });
-			const legacyCase = score.score >= rules.config.koThreshold;
+			const legacyCase =
+				rules.assessmentMode === 'legacy' && score.score >= rules.config.koThreshold;
 			const statisticalCase =
-				statistical?.level === 'CASE' || statistical?.level === 'KICK_CANDIDATE';
-			const aiPrescreen =
-				!!aiConfig?.autoEnabled &&
-				!!aiConfig.model.trim() &&
-				(rules.assessmentMode === 'statistical' || !legacyCase) &&
-				needsAiPrescreen(statistical);
+				committeeEnabled(rules.assessmentMode) &&
+				(statistical?.level === 'WATCH' || statistical?.level === 'KICK_CANDIDATE');
+			const aiPrescreen = false;
 			// Case existence is independent from assessment-level transitions.
 			const priorCases =
 				statisticalCase || aiPrescreen

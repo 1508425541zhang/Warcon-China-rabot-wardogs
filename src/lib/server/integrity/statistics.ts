@@ -10,7 +10,14 @@ export type MetricCode =
 	| 'penetrationRate'
 	| 'headshotRateWeapon'
 	| 'maxKillDistanceWeapon';
-export type AssessmentMode = 'legacy' | 'statistical_shadow' | 'statistical' | 'model_only';
+export type AssessmentMode =
+	| 'disabled'
+	| 'legacy'
+	| 'statistical_shadow'
+	| 'statistical'
+	| 'model_only'
+	| 'long_only'
+	| 'short_only';
 export type SampleQuality = 'INSUFFICIENT_DATA' | 'LOW_SAMPLE' | 'NORMAL_SAMPLE' | 'HIGH_SAMPLE';
 export type StatisticalLevel = 'NORMAL' | 'WATCH' | 'CASE' | 'KICK_CANDIDATE';
 export type PopulationBucket = '1–20' | '21–40' | '41–60' | '61–80' | '81+';

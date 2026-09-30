@@ -1,3 +1,5 @@
+import { longModelEnabled } from '$lib/integrity-engines';
+import { getIntegrityRules } from './rules';
 import { sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { Env } from '../env';
@@ -65,7 +67,7 @@ export async function runPlayerModel(
 	await env.db
 		.execute(sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,threshold)
   SELECT ${id},${orgId},${serverId},${steamId},${matchId},${slot},${config.revision},${MODEL_CALIBRATION.p98}
-  WHERE EXISTS(SELECT 1 FROM servers s JOIN integrity_rules r ON r.org_id=s.org_id WHERE s.id=${serverId} AND s.org_id=${orgId} AND r.assessment_mode='model_only')
+  WHERE EXISTS(SELECT 1 FROM servers s JOIN integrity_rules r ON r.org_id=s.org_id WHERE s.id=${serverId} AND s.org_id=${orgId} AND r.assessment_mode IN ('model_only','long_only'))
   AND EXISTS(SELECT 1 FROM matches WHERE id=${matchId} AND server_id=${serverId} AND started_at<=${at.toISOString()}::timestamptz-interval '30 minutes')
   AND NOT EXISTS(SELECT 1 FROM integrity_model_runs WHERE server_id=${serverId} AND steam_id=${steamId} AND match_id=${matchId} AND config_revision=${config.revision} AND created_at>${at.toISOString()}::timestamptz-(${config.intervalSeconds}*interval '1 second'))
   ON CONFLICT DO NOTHING RETURNING id`);
@@ -94,7 +96,7 @@ export async function processModelQueue(env: Env) {
 	try {
 		const config = await modelConfig(env, orgId);
 		const active = await env.db.execute(
-			sql`SELECT 1 FROM integrity_rules WHERE org_id=${orgId} AND assessment_mode='model_only'`
+			sql`SELECT 1 FROM integrity_rules WHERE org_id=${orgId} AND assessment_mode IN ('model_only','long_only')`
 		);
 		if (
 			!config.developerEnabled ||
@@ -120,7 +122,7 @@ export async function processModelQueue(env: Env) {
 		);
 		const current = await modelConfig(env, orgId);
 		const mode = await env.db.execute(
-			sql`SELECT 1 FROM integrity_rules WHERE org_id=${orgId} AND assessment_mode='model_only'`
+			sql`SELECT 1 FROM integrity_rules WHERE org_id=${orgId} AND assessment_mode IN ('model_only','long_only')`
 		);
 		const stale = !current.developerEnabled || current.revision !== config.revision || !mode.length;
 		await env.db.execute(
@@ -145,6 +147,8 @@ export async function scheduleOnlineModels(env: Env, at = new Date()) {
 			at.getTime() - memory.statusAt > 30000
 		)
 			continue;
+		if (!longModelEnabled((await getIntegrityRules(env, memory.server.orgId)).assessmentMode))
+			continue;
 		const config = await modelConfig(env, memory.server.orgId);
 		if (!config.developerEnabled) continue;
 		const [match] = await env.db.execute<{ id: number }>(
@@ -167,6 +171,10 @@ export function startModelQueue(env: Env) {
 	timer = setInterval(() => {
 		if (!pending && isOwner())
 			pending = (async () => {
+				const active = await env.db.execute(
+					sql`SELECT 1 FROM integrity_rules r JOIN site_settings s ON s.key='integrityModel:'||r.org_id WHERE r.assessment_mode IN ('model_only','long_only') AND s.value->>'developerEnabled'='true' LIMIT 1`
+				);
+				if (!active.length) return;
 				if (Date.now() - lastSweep >= 10000) {
 					await scheduleOnlineModels(env);
 					lastSweep = Date.now();
@@ -177,7 +185,7 @@ export function startModelQueue(env: Env) {
 				.finally(() => {
 					pending = undefined;
 				});
-	}, 1000);
+	}, 10000);
 }
 export async function stopModelQueue() {
 	clearInterval(timer);
@@ -185,11 +193,11 @@ export async function stopModelQueue() {
 	await pending;
 }
 
-export async function modelRuns(env: Env, orgId: string) {
+export async function modelRuns(env: Env, orgId: string, serverId?: string) {
 	return env.db
 		.execute(sql`SELECT id,server_id,steam_id,match_id,state,score,threshold,created_at,finished_at,action,action_state,action_reason,expires_at,
   result->>'reason' AS data_reason, result->>'windowSeconds' AS window_seconds,
   result->>'observedBuckets' AS observed_buckets, result->>'requiredBuckets' AS required_buckets,
   CASE WHEN state='READY' THEN score>=threshold ELSE NULL END AS anomalous
-  FROM integrity_model_runs WHERE org_id=${orgId} ORDER BY created_at DESC LIMIT 50`);
+  FROM integrity_model_runs WHERE org_id=${orgId} AND ${serverId ? sql`server_id=${serverId}` : sql`true`} ORDER BY created_at DESC LIMIT 50`);
 }

@@ -1,3 +1,4 @@
+import { longModelEnabled } from '$lib/integrity-engines';
 import { and, eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { Env } from '../env';
@@ -77,7 +78,8 @@ export async function enforceModelRun(env: Env, id: string) {
 			!config?.developerEnabled ||
 			!config.autoPunishEnabled ||
 			config.revision !== run.config_revision ||
-			rules?.assessmentMode !== 'model_only'
+			!rules ||
+			!longModelEnabled(rules.assessmentMode as import('./statistics').AssessmentMode)
 		)
 			return skip('模型模式、自动处罚或配置版本已改变');
 		const validated = validateModelResult(run.result, run.id);
@@ -179,7 +181,7 @@ export async function modelDeliverySkipReason(
 	if (!run || !run.action) return '模型处罚记录缺失';
 	const config = await modelConfig(env, run.org_id);
 	const [mode] = await env.db.execute(
-		sql`SELECT 1 FROM integrity_rules WHERE org_id=${run.org_id} AND assessment_mode='model_only'`
+		sql`SELECT 1 FROM integrity_rules WHERE org_id=${run.org_id} AND assessment_mode IN ('model_only','long_only')`
 	);
 	if (
 		!config.developerEnabled ||

@@ -22,18 +22,17 @@ describe.skipIf(!hasTestDb)('case archive pagination', () => {
 			ruleVersion: 1,
 			riskScore: 55,
 			riskBreakdown: [],
+			statistical: { level: 'WATCH' },
 			snapshot: {}
 		});
 		await env.db
 			.insert(integrityCases)
 			.values(Array.from({ length: 45 }, (_, i) => row(`${prefix}-${String(i).padStart(3, '0')}`)));
-		await env.db
-			.insert(integrityCases)
-			.values({
-				...row(`${prefix}-foreign`),
-				orgId: world.otherOrg.id,
-				serverId: world.otherOrgServer.id
-			});
+		await env.db.insert(integrityCases).values({
+			...row(`${prefix}-foreign`),
+			orgId: world.otherOrg.id,
+			serverId: world.otherOrgServer.id
+		});
 		const params = { id: world.server.id };
 		const first = (await callLoad(load, world.users.owner, { params })).body as any;
 		expect(first.total).toBe(45);

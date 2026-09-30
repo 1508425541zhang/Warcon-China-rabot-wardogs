@@ -25,7 +25,7 @@
 		overrides: { cause: string; category: string }[];
 		weaponDefaults: Readonly<Record<string, WeaponCategory>>;
 		categories: readonly WeaponCategory[];
-		assessmentMode: 'legacy' | 'statistical_shadow' | 'statistical' | 'model_only';
+		assessmentMode: import('$lib/server/integrity/statistics').AssessmentMode;
 		lang: 'zh' | 'en';
 	} = $props();
 	// svelte-ignore state_referenced_locally -- initialise the editable snapshot for SSR; the effect follows later prop updates.

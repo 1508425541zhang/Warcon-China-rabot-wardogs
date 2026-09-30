@@ -1,3 +1,4 @@
+import { retainedCase } from '$lib/server/integrity/case-retention';
 import { and, count, desc, eq, inArray, lte, sql } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
@@ -13,11 +14,14 @@ import {
 } from '$lib/server/db/schema';
 import { aiJobViews } from '$lib/server/integrity/ai-queue';
 import { aiSettings } from '$lib/server/integrity/ai';
+import { committeeEnabled } from '$lib/integrity-engines';
+import { getIntegrityRules } from '$lib/server/integrity/rules';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const env = getEnv();
 	try {
 		const { server, user } = await requireServerCap(env, locals, params.id, 'integrity.view');
+		const committee = committeeEnabled((await getIntegrityRules(env, server.orgId)).assessmentMode);
 		const now = new Date(),
 			raw = url.searchParams.get('before');
 		const parsed = raw ? Date.parse(raw) : NaN;
@@ -29,6 +33,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			: 'pending';
 		const scope = and(
 			eq(integrityCases.serverId, server.id),
+			retainedCase,
 			lte(integrityCases.createdAt, before),
 			view === 'pending'
 				? eq(integrityCases.status, 'OPEN')
@@ -86,8 +91,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 							)
 						)
 				: [],
-			aiJobViews(env, ids),
-			aiSettings(env, server.orgId),
+			committee ? aiJobViews(env, ids) : Promise.resolve([]),
+			committee ? aiSettings(env, server.orgId) : Promise.resolve(null),
 			orgRoleFor(env, user, server.orgId)
 		]);
 		return {
