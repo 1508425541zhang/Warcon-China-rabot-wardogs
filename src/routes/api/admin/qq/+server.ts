@@ -20,6 +20,7 @@ export const PUT = route(async ({ locals, request }) => {
 		outcome: 'ok',
 		detail: {
 			revision: config.revision,
+			provider: config.provider,
 			enabled: config.enabled,
 			servers: config.policies.map((p) => p.serverId)
 		}

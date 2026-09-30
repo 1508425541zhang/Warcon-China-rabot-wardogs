@@ -1,5 +1,8 @@
 import { env } from '$env/dynamic/private';
 import { z } from 'zod';
+import type { QqProvider } from '$lib/qq-providers';
+
+export const qqProviderSchema = z.enum(['napcat', 'llbot']);
 
 export const policySchema = z.object({
 	enabled: z.boolean().default(true),
@@ -26,6 +29,7 @@ export function parsePolicies(raw: string): QqPolicy[] {
 	return policies;
 }
 export interface QqConfiguration {
+	provider: QqProvider;
 	enabled: boolean;
 	url: string;
 	selfId: string;
@@ -39,6 +43,7 @@ export function applyQqConfiguration(value: QqConfiguration | null) {
 }
 export function environmentQqConfiguration(): QqConfiguration {
 	return {
+		provider: qqProviderSchema.parse(env.QQ_BOT_PROVIDER || 'napcat'),
 		enabled: !!env.ONEBOT_HTTP_URL,
 		url: env.ONEBOT_HTTP_URL || '',
 		selfId: env.ONEBOT_SELF_ID || '',
@@ -52,7 +57,7 @@ export function validateQqConnection(urlValue: string, selfId: string) {
 	try {
 		url = new URL(urlValue);
 	} catch {
-		throw new Error('请输入完整的 NapCat HTTP 接口地址。');
+		throw new Error('请输入完整的 QQ 机器人 HTTP 接口地址。');
 	}
 	if (
 		!['http:', 'https:'].includes(url.protocol) ||
@@ -63,7 +68,7 @@ export function validateQqConnection(urlValue: string, selfId: string) {
 	)
 		throw new Error('接口地址只支持 HTTP/HTTPS，不能带账号、密码、查询参数或片段。');
 	if (url.protocol === 'http:' && !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))
-		throw new Error('远程 NapCat 连接必须使用 HTTPS；同机可使用回环 HTTP。');
+		throw new Error('远程 QQ 机器人连接必须使用 HTTPS；同机可使用回环 HTTP。');
 	if (!/^[1-9]\d{4,15}$/.test(selfId)) throw new Error('请输入有效的机器人 QQ 号。');
 	return url.toString().replace(/\/$/, '');
 }

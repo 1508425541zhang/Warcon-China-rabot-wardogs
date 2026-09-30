@@ -13,6 +13,9 @@ import {
 } from '$lib/server/qq/settings';
 import { qqCredentials, qqPolicy, applyQqConfiguration } from '$lib/server/qq/config';
 import { loadSettings } from '$lib/server/settings';
+import { POST as webhook } from '../routes/api/qq/webhook/+server';
+import { QqClient, qqSignature } from '$lib/server/qq/protocol';
+import { processMessage } from '$lib/server/qq/runtime';
 
 describe.skipIf(!hasTestDb)('site QQ configuration', () => {
 	let env: Env;
@@ -150,5 +153,87 @@ describe.skipIf(!hasTestDb)('site QQ configuration', () => {
 				data: { user_id: 999999 }
 			})) as unknown as typeof fetch;
 		await expect(testQqConnection(env, wrong)).rejects.toThrow('不匹配');
+	});
+	test('legacy settings default to NapCat; LLBot selection persists and cannot accept unknown providers', async () => {
+		await env.db.execute(
+			sql`UPDATE site_settings SET value=value-'provider' WHERE key='qqCommunity'`
+		);
+		expect((await qqSettingsView(env)).provider).toBe('napcat');
+		let view = await qqSettingsView(env);
+		await saveQqSettings(
+			env,
+			{ ...patch(view.revision), provider: 'llbot', url: 'http://127.0.0.1:3000' },
+			world.users.site!.id
+		);
+		applyQqConfiguration(null);
+		await loadQqSettings(env);
+		view = await qqSettingsView(env);
+		expect(view.provider).toBe('llbot');
+		expect(qqCredentials()?.url).toBe('http://127.0.0.1:3000');
+		expect(qqCredentials()?.token).toBe(token);
+		await expect(
+			saveQqSettings(env, { ...patch(view.revision), provider: 'unknown' }, world.users.site!.id)
+		).rejects.toThrow();
+		await saveQqSettings(
+			env,
+			{ ...patch(view.revision), token: '', secret: '' },
+			world.users.site!.id
+		);
+		expect((await qqSettingsView(env)).provider).toBe('llbot');
+		const fetcher = (async (_url: unknown) =>
+			Response.json({ status: 'ok', retcode: 0, data: { user_id: 123456 } })) as typeof fetch;
+		expect((await testQqConnection(env, fetcher)).message).toContain('LLBot');
+	});
+	test('LLBot signed array events deduplicate, reject bad authentication and reply through OneBot HTTP', async () => {
+		await env.db.execute(sql`UPDATE qq_inbox SET state='done' WHERE state='pending'`);
+		const raw = JSON.stringify({
+			time: Math.floor(Date.now() / 1000),
+			self_id: 123456,
+			post_type: 'message',
+			message_type: 'group',
+			sub_type: 'normal',
+			group_id: 234567,
+			user_id: 345678,
+			message_id: 901,
+			message: [
+				{ type: 'at', data: { qq: '123456' } },
+				{ type: 'text', data: { text: ' /帮助' } }
+			]
+		});
+		const post = (signature = qqSignature(secret, raw), selfId = '123456', body = raw) =>
+			webhook({
+				request: new Request('http://localhost/api/qq/webhook', {
+					method: 'POST',
+					headers: { 'x-self-id': selfId, 'x-signature': signature },
+					body
+				})
+			} as Parameters<typeof webhook>[0]);
+		expect((await post('bad')).status).toBe(401);
+		expect((await post(undefined, '999999')).status).toBe(401);
+		expect((await post(undefined, undefined, raw.replace('/帮助', '/积分'))).status).toBe(401);
+		expect((await post()).status).toBe(204);
+		expect((await post()).status).toBe(204);
+		const id = 'ob11:123456:234567:901';
+		expect(await env.db.execute(sql`SELECT id FROM qq_inbox WHERE id=${id}`)).toHaveLength(1);
+		let sent = false;
+		const fetcher = (async (url: unknown, init?: RequestInit) => {
+			expect(String(url)).toBe('http://127.0.0.1:3000/send_group_msg');
+			expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${token}`);
+			const payload = JSON.parse(String(init?.body));
+			expect(payload.group_id).toBe('234567');
+			expect(payload.message[0].data.text).toContain('/战绩');
+			sent = true;
+			return Response.json({ status: 'ok', retcode: 0, data: { message_id: 902 } });
+		}) as typeof fetch;
+		await processMessage(env, new QqClient('http://127.0.0.1:3000', token, fetcher), '123456');
+		expect(sent).toBe(true);
+		const [done] = await env.db.execute(sql`SELECT reply_state FROM qq_inbox WHERE id=${id}`);
+		expect(done.reply_state).toBe('done');
+		await env.db.execute(sql`UPDATE qq_inbox SET state='pending' WHERE id=${id}`);
+		sent = false;
+		await processMessage(env, new QqClient('http://127.0.0.1:3000', token, fetcher), '999999');
+		expect(sent).toBe(false);
+		const [expired] = await env.db.execute(sql`SELECT reply_state FROM qq_inbox WHERE id=${id}`);
+		expect(expired.reply_state).toBe('expired');
 	});
 });
