@@ -3,7 +3,13 @@ import { sql } from 'drizzle-orm';
 import { testEnv, hasTestDb } from './db';
 import type { Env } from '$lib/server/env';
 import { creditWarmth, debit, wallet, reconcileOrder } from '$lib/server/qq/economy';
-import { bindAccount, createLinkCode, linkedAccount } from '$lib/server/qq/identity';
+import {
+	bindAccount,
+	createLinkCode,
+	linkedAccount,
+	bindByPlayer,
+	unbindQq
+} from '$lib/server/qq/identity';
 import {
 	castVote,
 	closeVotes,
@@ -156,6 +162,69 @@ describe.skipIf(!hasTestDb)('QQ community database invariants', () => {
 		await expect(bindAccount(env, code, actor)).rejects.toThrow();
 		await env.db.execute(sql`DELETE FROM account WHERE id='qq-account'`);
 		await expect(linkedAccount(env, 'qq-test', 'member')).rejects.toThrow();
+	});
+	test('group-only binding checks both fields, is idempotent, and does not redirect to the website', async () => {
+		const member = 'ob11:34567';
+		const target = '76561198000000003';
+		const roster = [{ steamId: target, name: 'enemy', faction: 'blue' }];
+		await expect(bindByPlayer(env, 'qq-test', member, target, 'wrong', roster)).rejects.toThrow(
+			'不匹配'
+		);
+		await expect(
+			bindByPlayer(env, 'qq-test', member, '76561198000000999', 'enemy', roster)
+		).rejects.toThrow('不匹配');
+		const result = await command(env, {
+			id: 'direct-bind',
+			server_id: 'qq-test',
+			member_id: member,
+			content: `/绑定 ${target} enemy`
+		});
+		expect(result).toContain('绑定成功');
+		expect(result).not.toContain('/qq-link');
+		expect((await linkedAccount(env, 'qq-test', member)).steamId).toBe(target);
+		expect((await bindByPlayer(env, 'qq-test', member, target, 'enemy', roster)).already).toBe(
+			true
+		);
+		await expect(
+			bindByPlayer(env, 'qq-test', 'ob11:45678', target, 'enemy', roster)
+		).rejects.toThrow('其他 QQ');
+		const usage = await command(env, {
+			id: 'usage',
+			server_id: 'qq-test',
+			member_id: member,
+			content: '/绑定'
+		});
+		expect(usage).toContain('/绑定 SteamID64 游戏内昵称');
+		expect(usage).not.toContain('/qq-link');
+		await env.db.execute(
+			sql`INSERT INTO player_sessions(server_id,steam_id,name,joined_at,last_seen) VALUES('qq-test',${steam},'Direct target',now(),now())`
+		);
+		const report = await command(env, {
+			id: 'direct-report',
+			server_id: 'qq-test',
+			member_id: member,
+			content: `/举报 ${steam} 测试异常行为`
+		});
+		expect(report).toContain('已进入人工审核');
+		const [savedReport] = await env.db.execute(
+			sql`SELECT reporter_steam_id,source FROM integrity_reports WHERE reporter_steam_id=${target}`
+		);
+		expect(savedReport.reporter_steam_id).toBe(target);
+		expect(savedReport.source).toBe('qq');
+		await env.db.execute(
+			sql`DELETE FROM player_sessions WHERE server_id='qq-test' AND steam_id=${steam} AND name='Direct target'`
+		);
+		expect(
+			await command(env, {
+				id: 'unknown',
+				server_id: 'qq-test',
+				member_id: 'ob11:99999',
+				content: '/随机'
+			})
+		).toContain('未知指令');
+		await command(env, { id: 'unbind', server_id: 'qq-test', member_id: member, content: '/解绑' });
+		await expect(linkedAccount(env, 'qq-test', member)).rejects.toThrow('尚未绑定');
+		await unbindQq(env, 'qq-test', member);
 	});
 	test('a duplicate vote charges once and close creates one map order', async () => {
 		await env.db.execute(

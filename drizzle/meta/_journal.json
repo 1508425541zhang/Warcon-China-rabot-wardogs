@@ -484,6 +484,13 @@
       "when": 1790640000000,
       "tag": "0068_qq_community",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1790726400000,
+      "tag": "0069_qq_direct_binding",
+      "breakpoints": true
     }
   ]
 }

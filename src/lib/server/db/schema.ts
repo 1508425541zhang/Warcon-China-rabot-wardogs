@@ -1753,9 +1753,7 @@ export const qqLinks = pgTable(
 			.notNull()
 			.references(() => servers.id, { onDelete: 'cascade' }),
 		memberId: text('member_id').notNull(),
-		userId: text('user_id')
-			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
+		userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
 		steamId: text('steam_id').notNull()
 	},
 	(t) => [
