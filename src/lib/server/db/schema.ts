@@ -840,7 +840,10 @@ export const integrityActions = pgTable(
 		revertedAt: ts('reverted_at'),
 		revertedBy: text('reverted_by')
 	},
-	(t) => [index('integrity_actions_player_idx').on(t.orgId, t.steamId, t.createdAt.desc())]
+	(t) => [
+		index('integrity_actions_player_idx').on(t.orgId, t.steamId, t.createdAt.desc()),
+		index('integrity_actions_server_time_idx').on(t.serverId, t.createdAt.desc(), t.id.desc())
+	]
 );
 
 /** A unique Steam reporter may file again after cooldown, but cannot inflate risk by repetition. */

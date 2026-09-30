@@ -1,3 +1,7 @@
+import {
+	startHistoryRetention,
+	stopHistoryRetention
+} from '$lib/server/integrity/history-retention';
 import { startSteamPlaytime, stopSteamPlaytime } from '$lib/server/steam-playtime';
 import { startIntegrityAi, stopIntegrityAi } from '$lib/server/integrity/ai-queue';
 import { startModelQueue, stopModelQueue } from '$lib/server/integrity/model-runtime';
@@ -46,6 +50,7 @@ export function startWorker(env: Env, label = 'worker'): ReturnType<typeof Bun.s
 	startSteamPlaytime(env);
 	startIntegrityAi(env);
 	startModelQueue(env);
+	startHistoryRetention(env);
 	const port = Number(env.WORKER_PORT) || 7700;
 	const server = Bun.serve({
 		port,
@@ -189,6 +194,7 @@ async function relay(env: Env, path: string, url: URL, req: Request): Promise<Re
 export async function stopWorker(): Promise<void> {
 	stopIntegrityBaselines();
 	await stopIntegrityAi();
+	await stopHistoryRetention();
 	await stopModelQueue();
 	await stopSteamPlaytime();
 	await stopIntegrityProfileRefresh();

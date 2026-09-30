@@ -1,3 +1,4 @@
+import { historyPolicy } from '$lib/server/integrity/history-retention';
 import { retainedCase } from '$lib/server/integrity/case-retention';
 import {
 	committeeEnabled,
@@ -6,7 +7,7 @@ import {
 	longModelEnabled
 } from '$lib/integrity-engines';
 import { modelRuns } from '$lib/server/integrity/model-runtime';
-import { integrityActionHistory } from '$lib/server/integrity/action-history';
+import { integrityActionPage } from '$lib/server/integrity/action-history';
 import { loadDistributionDashboard } from '$lib/server/integrity/distribution-dashboard';
 import { loadShortRisk } from '$lib/server/integrity/short-risk';
 import { COMMITTEE_VOTING_VERSION } from '$lib/server/integrity/committee';
@@ -40,121 +41,123 @@ import { summarizeCommitteeShadow } from '$lib/server/integrity/shadow-dashboard
 import { STATISTICAL_MODEL_CONFIG } from '$lib/server/integrity/statistical-config';
 import type { Player, Status } from '$lib/types';
 
-export const load: PageServerLoad = async ({ locals, params }) => {
+export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const env = getEnv();
 	try {
 		const { server, user } = await requireServerCap(env, locals, params.id, 'integrity.view');
 		const now = new Date();
+		const retention = await historyPolicy(env, server.id);
+		const history = await integrityActionPage(env, server.id, {
+			page: Number(url.searchParams.get('actionsPage') ?? 1),
+			pageSize: retention.policy.pageSize,
+			filter: url.searchParams.get('actionsFilter') ?? 'all',
+			before: url.searchParams.has('actionsBefore')
+				? new Date(url.searchParams.get('actionsBefore')!)
+				: undefined
+		});
 		const rules = await getIntegrityRules(env, server.orgId),
 			legacy = legacyEnabled(rules.assessmentMode),
 			committee = committeeEnabled(rules.assessmentMode);
-		const [cases, scores, reports, actions, [live], recentKills, liveScores, mappings] =
-			await Promise.all([
-				env.db
-					.select({
-						name: steamProfiles.persona,
-						id: integrityCases.id,
-						steamId: integrityCases.steamId,
-						createdAt: integrityCases.createdAt,
-						status: integrityCases.status,
-						confidence: integrityCases.confidence,
-						riskScore: integrityCases.riskScore,
-						riskBreakdown: integrityCases.riskBreakdown,
-						statistical: integrityCases.statistical,
-						snapshot: integrityCases.snapshot,
-						trigger: integrityCases.trigger
-					})
-					.from(integrityCases)
-					.leftJoin(steamProfiles, eq(steamProfiles.steamId, integrityCases.steamId))
-					.where(
-						and(
-							eq(integrityCases.serverId, server.id),
-							retainedCase,
-							sql`${integrityCases.status} NOT IN ('AI_ARCHIVED', 'AI_CLEARED')`
-						)
+		const [cases, scores, reports, [live], recentKills, liveScores, mappings] = await Promise.all([
+			env.db
+				.select({
+					name: steamProfiles.persona,
+					id: integrityCases.id,
+					steamId: integrityCases.steamId,
+					createdAt: integrityCases.createdAt,
+					status: integrityCases.status,
+					confidence: integrityCases.confidence,
+					riskScore: integrityCases.riskScore,
+					riskBreakdown: integrityCases.riskBreakdown,
+					statistical: integrityCases.statistical,
+					snapshot: integrityCases.snapshot,
+					trigger: integrityCases.trigger
+				})
+				.from(integrityCases)
+				.leftJoin(steamProfiles, eq(steamProfiles.steamId, integrityCases.steamId))
+				.where(
+					and(
+						eq(integrityCases.serverId, server.id),
+						retainedCase,
+						sql`${integrityCases.status} NOT IN ('AI_ARCHIVED', 'AI_CLEARED')`
 					)
-					.orderBy(desc(integrityCases.createdAt), desc(integrityCases.id))
-					.limit(5),
-				legacy || committee
-					? env.db
-							.select({
-								id: integrityScores.id,
-								steamId: integrityScores.steamId,
-								scoredAt: integrityScores.scoredAt,
-								score: integrityScores.score,
-								level: integrityScores.level,
-								breakdown: integrityScores.breakdown,
-								statistical: integrityScores.statistical,
-								ruleVersion: integrityScores.ruleVersion
-							})
-							.from(integrityScores)
-							.where(eq(integrityScores.serverId, server.id))
-							.orderBy(desc(integrityScores.scoredAt))
-							.limit(50)
-					: Promise.resolve([]),
-				env.db
-					.select({
-						id: integrityReports.id,
-						targetSteamId: integrityReports.targetSteamId,
-						reason: integrityReports.reason,
-						createdAt: integrityReports.createdAt,
-						status: integrityReports.status
-					})
-					.from(integrityReports)
-					.where(eq(integrityReports.serverId, server.id))
-					.orderBy(desc(integrityReports.createdAt))
-					.limit(50),
-				env.db
-					.select()
-					.from(integrityActions)
-					.where(eq(integrityActions.serverId, server.id))
-					.orderBy(desc(integrityActions.createdAt))
-					.limit(50),
-				env.db
-					.select({
-						feedAt: serverLive.feedAt,
-						statusAt: serverLive.statusAt,
-						playersAt: serverLive.playersAt,
-						status: serverLive.status,
-						players: serverLive.players
-					})
-					.from(serverLive)
-					.where(eq(serverLive.serverId, server.id))
-					.limit(1),
-				legacy
-					? env.db
-							.select()
-							.from(kills)
-							.where(
-								and(
-									eq(kills.serverId, server.id),
-									gte(kills.ts, new Date(now.getTime() - 10 * 60_000))
-								)
+				)
+				.orderBy(desc(integrityCases.createdAt), desc(integrityCases.id))
+				.limit(5),
+			legacy || committee
+				? env.db
+						.select({
+							id: integrityScores.id,
+							steamId: integrityScores.steamId,
+							scoredAt: integrityScores.scoredAt,
+							score: integrityScores.score,
+							level: integrityScores.level,
+							breakdown: integrityScores.breakdown,
+							statistical: integrityScores.statistical,
+							ruleVersion: integrityScores.ruleVersion
+						})
+						.from(integrityScores)
+						.where(eq(integrityScores.serverId, server.id))
+						.orderBy(desc(integrityScores.scoredAt))
+						.limit(50)
+				: Promise.resolve([]),
+			env.db
+				.select({
+					id: integrityReports.id,
+					targetSteamId: integrityReports.targetSteamId,
+					reason: integrityReports.reason,
+					createdAt: integrityReports.createdAt,
+					status: integrityReports.status
+				})
+				.from(integrityReports)
+				.where(eq(integrityReports.serverId, server.id))
+				.orderBy(desc(integrityReports.createdAt))
+				.limit(50),
+			env.db
+				.select({
+					feedAt: serverLive.feedAt,
+					statusAt: serverLive.statusAt,
+					playersAt: serverLive.playersAt,
+					status: serverLive.status,
+					players: serverLive.players
+				})
+				.from(serverLive)
+				.where(eq(serverLive.serverId, server.id))
+				.limit(1),
+			legacy
+				? env.db
+						.select()
+						.from(kills)
+						.where(
+							and(
+								eq(kills.serverId, server.id),
+								gte(kills.ts, new Date(now.getTime() - 10 * 60_000))
 							)
-							.orderBy(desc(kills.ts))
-							.limit(3001)
-					: Promise.resolve([]),
-				legacy
-					? env.db
-							.select({
-								steamId: integrityScores.steamId,
-								score: integrityScores.score,
-								level: integrityScores.level,
-								breakdown: integrityScores.breakdown,
-								scoredAt: integrityScores.scoredAt
-							})
-							.from(integrityScores)
-							.where(
-								and(
-									eq(integrityScores.serverId, server.id),
-									gte(integrityScores.scoredAt, new Date(now.getTime() - 15 * 60_000))
-								)
+						)
+						.orderBy(desc(kills.ts))
+						.limit(3001)
+				: Promise.resolve([]),
+			legacy
+				? env.db
+						.select({
+							steamId: integrityScores.steamId,
+							score: integrityScores.score,
+							level: integrityScores.level,
+							breakdown: integrityScores.breakdown,
+							scoredAt: integrityScores.scoredAt
+						})
+						.from(integrityScores)
+						.where(
+							and(
+								eq(integrityScores.serverId, server.id),
+								gte(integrityScores.scoredAt, new Date(now.getTime() - 15 * 60_000))
 							)
-							.orderBy(desc(integrityScores.score), desc(integrityScores.scoredAt))
-							.limit(1000)
-					: Promise.resolve([]),
-				legacy ? weaponOverrides(env, server.orgId) : Promise.resolve(new Map())
-			]);
+						)
+						.orderBy(desc(integrityScores.score), desc(integrityScores.scoredAt))
+						.limit(1000)
+				: Promise.resolve([]),
+			legacy ? weaponOverrides(env, server.orgId) : Promise.resolve(new Map())
+		]);
 		const status = live?.status && typeof live.status === 'object' ? (live.status as Status) : null;
 		const roster = Array.isArray(live?.players) ? (live.players as Player[]) : [];
 		const recentScore = new Map<string, (typeof liveScores)[number]>();
@@ -272,7 +275,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		const reviewCaseIds = [
 			...new Set([
 				...cases.map((c) => c.id),
-				...actions.filter((a) => a.source === 'REVIEW').map((a) => a.caseId)
+				...history.rows.flatMap((a) => (a.source === 'REVIEW' && a.caseId ? [a.caseId] : []))
 			])
 		];
 		const reviewPenalties = reviewCaseIds.length
@@ -326,7 +329,18 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			cases: cases.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
 			scores: scores.map((item) => ({ ...item, scoredAt: item.scoredAt.toISOString() })),
 			reports: reports.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
-			actions: await integrityActionHistory(env, server.id),
+			actions: history.rows,
+			actionsPagination: {
+				page: history.page,
+				pages: history.pages,
+				total: history.total,
+				pageSize: history.pageSize,
+				filter: history.filter,
+				before: history.before
+			},
+			historyPolicy: retention.policy,
+			historyPolicyRevision: retention.revision,
+			historyLastCleanup: retention.lastCleanup,
 			feedAt: live?.feedAt?.toISOString() ?? null,
 			feedConfigured: !!server.feedTokenHash,
 			playersAt: live?.playersAt?.toISOString() ?? null,

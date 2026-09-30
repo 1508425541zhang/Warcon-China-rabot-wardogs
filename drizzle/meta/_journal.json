@@ -505,6 +505,13 @@
       "when": 1790899200000,
       "tag": "0071_qq_integrity_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1790985600000,
+      "tag": "0072_integrity_retention",
+      "breakpoints": true
     }
   ]
 }

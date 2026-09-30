@@ -45,6 +45,7 @@ type RecordValue = {
 	reason?: string;
 	attemptedAt?: string;
 	updatedAt: string;
+	createdAt?: string;
 	windowScores?: ShortWindow[];
 	weightedScore?: number;
 };
@@ -137,6 +138,7 @@ async function tick(env: Env) {
 			if (!active.length) return false;
 			const [prior] = await tx.select().from(siteSettings).where(eq(siteSettings.key, key));
 			const saved = prior?.value as RecordValue | undefined;
+			record.createdAt = saved?.createdAt ?? prior?.updatedAt.toISOString() ?? now.toISOString();
 			if (saved?.attemptedAt) return false; // crash/unknown outcomes are never blindly re-sent.
 			let reason = '';
 			const [live] = await tx.select().from(serverLive).where(eq(serverLive.serverId, server.id));

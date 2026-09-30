@@ -6,6 +6,7 @@
 		shortModelEnabled,
 		engineNames
 	} from '$lib/integrity-engines';
+	import IntegrityActionHistory from '$lib/components/IntegrityActionHistory.svelte';
 	import IntegrityCaseList from '$lib/components/IntegrityCaseList.svelte';
 	import ShortRiskPanel from '$lib/components/ShortRiskPanel.svelte';
 	import { committeeModelName, committeeUnknownReason } from '$lib/committee-display';
@@ -765,60 +766,17 @@
 	</section>
 {/if}
 
-<section class="mb-6 panel p-4">
-	<h3 class="mb-3 text-base font-semibold text-white">
-		{lang === 'zh' ? '处罚记录（自动／人工）' : 'Actions (automatic / human review)'}
-	</h3>
-	{#if data.actions.length}
-		<div class="table-wrap">
-			<table>
-				<thead
-					><tr
-						><th>{t.time}</th><th>{t.player}</th><th>来源／档位</th><th
-							>{lang === 'zh' ? '处置指令（不代表已执行）' : 'Requested action'}</th
-						><th>{lang === 'zh' ? '执行状态' : 'Delivery'}</th><th
-							>{lang === 'zh' ? '执行说明' : 'Delivery detail'}</th
-						><th>{lang === 'zh' ? '生效时间' : 'Effective at'}</th><th
-							>{lang === 'zh' ? '到期' : 'Expires'}</th
-						></tr
-					></thead
-				>
-				<tbody
-					>{#each data.actions as item (item.id)}<tr
-							><td>{when(item.createdAt)}</td><td class="font-mono">{item.steamId}</td><td
-								class="whitespace-normal"
-								>{item.source === 'SHORT_MODEL'
-									? '短窗模型'
-									: item.source === 'LONG_MODEL'
-										? '长时序模型'
-										: item.source === 'REVIEW'
-											? '人工操作'
-											: '旧规则／委员会'}
-								{item.percentileLabel}{#if item.score !== null}<div class="text-xs text-mist-400">
-										分数 {item.score.toFixed(5)}{#if item.threshold !== null}
-											· 阈值 {item.threshold.toFixed(5)}{/if}
-									</div>{/if}</td
-							><td
-								>{item.source === 'REVIEW'
-									? '人工确认违规（7天；保留更长期封禁）'
-									: item.action === 'KICK' && lang === 'zh'
-										? '踢出指令'
-										: item.action === 'WARNING'
-											? '警惕'
-											: item.action}</td
-							><td>{actionState(item)}</td><td class="max-w-md whitespace-normal"
-								>{integrityDeliveryReason(item.deliveryReason, lang)}</td
-							><td>{item.effectiveAt ? when(item.effectiveAt) : '—'}</td><td
-								>{item.expiresAt ? when(item.expiresAt) : '—'}</td
-							></tr
-						>{/each}</tbody
-				>
-			</table>
-		</div>
-	{:else}<p class="text-sm text-mist-400">
-			{lang === 'zh' ? '暂无处罚记录。' : 'No actions.'}
-		</p>{/if}
-</section>
+<IntegrityActionHistory
+	serverId={data.server.id}
+	actions={data.actions}
+	pagination={data.actionsPagination}
+	policy={data.historyPolicy}
+	revision={data.historyPolicyRevision}
+	lastCleanup={data.historyLastCleanup}
+	canConfigure={data.canConfigure}
+	{lang}
+	stateLabel={actionState}
+/>
 
 {#if data.cases.length}<IntegrityCaseList
 		{data}
