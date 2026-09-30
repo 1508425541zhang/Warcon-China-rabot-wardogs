@@ -19,28 +19,26 @@ describe.skipIf(!hasTestDb)('adjacent match retention', () => {
 				}))
 			)
 			.returning();
-		await env.db
-			.insert(matchPlayers)
-			.values([
-				...[1, 2, 3].map((i) => ({
-					matchId: rounds[0].id,
-					serverId: world.server.id,
-					steamId: `7656119800000000${i}`,
-					name: 'Same name'
-				})),
-				...[2, 3, 4].map((i) => ({
-					matchId: rounds[1].id,
-					serverId: world.server.id,
-					steamId: `7656119800000000${i}`,
-					name: 'Changed name'
-				})),
-				{
-					matchId: rounds[3].id,
-					serverId: world.server.id,
-					steamId: '76561198000000002',
-					name: 'Returned'
-				}
-			]);
+		await env.db.insert(matchPlayers).values([
+			...[1, 2, 3].map((i) => ({
+				matchId: rounds[0].id,
+				serverId: world.server.id,
+				steamId: `7656119800000000${i}`,
+				name: 'Same name'
+			})),
+			...[2, 3, 4].map((i) => ({
+				matchId: rounds[1].id,
+				serverId: world.server.id,
+				steamId: `7656119800000000${i}`,
+				name: 'Changed name'
+			})),
+			{
+				matchId: rounds[3].id,
+				serverId: world.server.id,
+				steamId: '76561198000000002',
+				name: 'Returned'
+			}
+		]);
 		const rows = await loadMatchRetention(env, world.server.id, rounds[1].startedAt);
 		expect(rows).toHaveLength(3);
 		expect(rows[0]).toMatchObject({

@@ -70,6 +70,7 @@ Cloudflare Email Service / Email Routing 中：
 4. 确保 `ADMIN_EMAIL` 符合你的 Email Service / Email Routing 发件绑定权限。
 
 收到邮件后 Worker 会：
+
 - 解析主题和正文
 - 写入 `inbound_emails`
 - 自动回复“邮件已收到”
@@ -97,10 +98,10 @@ npm run deploy
 
 ```json
 {
-  "playerId": "SteamID64 / 玩家ID / 玩家名",
-  "category": "作弊疑似",
-  "details": "具体发生了什么",
-  "reporterEmail": "optional@example.com"
+	"playerId": "SteamID64 / 玩家ID / 玩家名",
+	"category": "作弊疑似",
+	"details": "具体发生了什么",
+	"reporterEmail": "optional@example.com"
 }
 ```
 

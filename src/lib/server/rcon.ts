@@ -130,14 +130,12 @@ export class WardogsClient {
 			}
 			const faction = (payload as { faction?: unknown } | null)?.faction;
 			if (typeof faction === 'string' && faction.length > 0 && faction.length <= 100)
-				await this.env.db
-					.insert(factionMovePermits)
-					.values({
-						serverId: this.server.id,
-						steamId: move[1],
-						faction,
-						expiresAt: new Date(Date.now() + 120000)
-					});
+				await this.env.db.insert(factionMovePermits).values({
+					serverId: this.server.id,
+					steamId: move[1],
+					faction,
+					expiresAt: new Date(Date.now() + 120000)
+				});
 		}
 		const all = { Authorization: `Bearer ${this.key}`, ...headers };
 		if (this.demoKey) {

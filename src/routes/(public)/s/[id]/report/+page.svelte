@@ -240,7 +240,8 @@
 					</div>
 					<h3>登录后才能提交</h3>
 					<p>
-						为了减少匿名滥用，举报需要登录账号并绑定已验证的 Steam。登录后系统会继续执行重复举报限制和审计记录。
+						为了减少匿名滥用，举报需要登录账号并绑定已验证的
+						Steam。登录后系统会继续执行重复举报限制和审计记录。
 					</p>
 					<a class="primary-action" href="/sign-in">
 						登录并开始举报
@@ -303,9 +304,10 @@
 							maxlength="260"
 							rows="6"
 							placeholder="示例：第 4 回合约 02:10，目标在没有视野的情况下连续预瞄两名玩家；第 6 回合出现了相同情况。请复核对应时间段。"
-							required
-						></textarea>
-						<p class="field-help">不要填写住址、电话等现实身份信息；只提交与本次游戏行为有关的内容。</p>
+							required></textarea>
+						<p class="field-help">
+							不要填写住址、电话等现实身份信息；只提交与本次游戏行为有关的内容。
+						</p>
 					</div>
 
 					<div class="submit-row">
@@ -347,8 +349,7 @@
 		background:
 			linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 26%),
 			radial-gradient(circle at 12% 5%, rgba(200, 255, 55, 0.075), transparent 32%),
-			radial-gradient(circle at 86% 18%, rgba(103, 232, 249, 0.06), transparent 30%),
-			#080b0d;
+			radial-gradient(circle at 86% 18%, rgba(103, 232, 249, 0.06), transparent 30%), #080b0d;
 		box-shadow: 0 30px 80px rgba(0, 0, 0, 0.34);
 	}
 
@@ -396,14 +397,13 @@
 		z-index: 8;
 		pointer-events: none;
 		opacity: 0.035;
-		background:
-			repeating-linear-gradient(
-				0deg,
-				rgba(255, 255, 255, 0.7) 0,
-				rgba(255, 255, 255, 0.7) 1px,
-				transparent 1px,
-				transparent 3px
-			);
+		background: repeating-linear-gradient(
+			0deg,
+			rgba(255, 255, 255, 0.7) 0,
+			rgba(255, 255, 255, 0.7) 1px,
+			transparent 1px,
+			transparent 3px
+		);
 		mix-blend-mode: overlay;
 	}
 
@@ -554,8 +554,7 @@
 		border: 1px solid rgba(200, 255, 55, 0.17);
 		border-radius: 18px;
 		background:
-			linear-gradient(145deg, rgba(200, 255, 55, 0.045), transparent 35%),
-			rgba(3, 8, 9, 0.82);
+			linear-gradient(145deg, rgba(200, 255, 55, 0.045), transparent 35%), rgba(3, 8, 9, 0.82);
 		box-shadow:
 			inset 0 0 80px rgba(200, 255, 55, 0.025),
 			0 24px 60px rgba(0, 0, 0, 0.28);
@@ -863,8 +862,7 @@
 	.form-card {
 		padding: clamp(1.4rem, 3vw, 2.4rem);
 		background:
-			linear-gradient(145deg, rgba(255, 255, 255, 0.045), transparent 40%),
-			rgba(10, 14, 16, 0.75);
+			linear-gradient(145deg, rgba(255, 255, 255, 0.045), transparent 40%), rgba(10, 14, 16, 0.75);
 	}
 
 	.form-card-head {

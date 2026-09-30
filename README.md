@@ -6,7 +6,7 @@
 
 **面向 WARDOGS 社区服务器的开源中文管理面板。** 在 [Warcon](https://github.com/warcon-app/warcon) 的多服务器 RCON 管理基础上，加入 Kill Feed 事件分析、玩家档案、五专家风控、证据案件、管理员审核和可配置自动化。支持 Docker Compose 自托管。
 
-*A self-hosted Chinese WARDOGS server management panel with RCON, Kill Feed, evidence review and server-side anti-cheat signals.*
+_A self-hosted Chinese WARDOGS server management panel with RCON, Kill Feed, evidence review and server-side anti-cheat signals._
 
 [快速开始](#快速开始) · [功能总览](#功能总览) · [风控如何工作](#风控如何工作) · [安装指南](docs/install.zh-CN.md) · [功能文档](docs/features.zh-CN.md) · [技术架构](docs/architecture.zh-CN.md) · [许可证](LICENSE)
 
@@ -45,14 +45,14 @@ docker compose ps -a
 
 ## 功能总览
 
-| 领域 | 当前提供的能力 | 进一步阅读 |
-| --- | --- | --- |
-| 服务器管理 | 多服务器 RCON、组织与角色权限、玩家操作、地图轮换、封禁／预留位、审计、公开状态页 | [中文使用说明](README.zh-CN.md) |
-| 玩家数据 | SteamID64 档案、击杀／死亡／KD、180 秒纯步兵 KPM、武器击杀距离参考图、相邻对局留存及 Steam 游戏时长分布 | [功能与数据边界](docs/features.zh-CN.md) |
-| 社区风控 | Legacy 可调评分、统计影子模式、五专家委员会、版本化规则、历史基线和可解释的未知状态 | [委员会 v3](docs/committee-v3.zh-CN.md) |
-| 证据与审核 | 案件分页归档、事件与规则快照、审核结论、人工确认违规后的本服七天封禁 | [案件审核](docs/case-review-penalty.zh-CN.md) |
-| 自动化 | 禁止换边、武器限制、强弱阵营平衡、KPM／KD／金钱效率上限、疑似组队名单和赛后荣誉广播；各项独立配置 | [功能介绍](docs/features.zh-CN.md#自动化页面) |
-| 可选扩展 | 兼容 OpenAI 接口的 AI 案件辅审、Steam 公开资料、Discord 通知、JSON／JSONL 历史导入、个人插件 | [AI 辅审](docs/integrity-ai.zh-CN.md) · [插件开发](docs/personal-plugins.zh-CN.md) |
+| 领域       | 当前提供的能力                                                                                          | 进一步阅读                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 服务器管理 | 多服务器 RCON、组织与角色权限、玩家操作、地图轮换、封禁／预留位、审计、公开状态页                       | [中文使用说明](README.zh-CN.md)                                                    |
+| 玩家数据   | SteamID64 档案、击杀／死亡／KD、180 秒纯步兵 KPM、武器击杀距离参考图、相邻对局留存及 Steam 游戏时长分布 | [功能与数据边界](docs/features.zh-CN.md)                                           |
+| 社区风控   | Legacy 可调评分、统计影子模式、五专家委员会、版本化规则、历史基线和可解释的未知状态                     | [委员会 v3](docs/committee-v3.zh-CN.md)                                            |
+| 证据与审核 | 案件分页归档、事件与规则快照、审核结论、人工确认违规后的本服七天封禁                                    | [案件审核](docs/case-review-penalty.zh-CN.md)                                      |
+| 自动化     | 禁止换边、武器限制、强弱阵营平衡、KPM／KD／金钱效率上限、疑似组队名单和赛后荣誉广播；各项独立配置       | [功能介绍](docs/features.zh-CN.md#自动化页面)                                      |
+| 可选扩展   | 兼容 OpenAI 接口的 AI 案件辅审、Steam 公开资料、Discord 通知、JSON／JSONL 历史导入、个人插件            | [AI 辅审](docs/integrity-ai.zh-CN.md) · [插件开发](docs/personal-plugins.zh-CN.md) |
 
 主界面以简体中文呈现；游戏返回的地图、武器、协议字段和部分原始错误可能保留原文。没有可信来源的指标会标为不可用或已确认下限，不能靠界面设置补出未采集的事件。
 
@@ -71,13 +71,13 @@ docker compose ps -a
 
 ## 数据来源与限制
 
-| 数据来源 | 可用于什么 | 必须了解的限制 |
-| --- | --- | --- |
-| WARDOGS RCON | 在线玩家、地图、管理命令和状态观察 | RCON 连通不等于 Kill Feed 已回传 |
-| Kill Feed | 击杀事件、KPM、武器与部分行为证据 | 未上报的伤害、断线期间事件不能补造；步兵分类需要可靠阵营和武器信息 |
-| Steam Web API（可选） | 已公开的账号、封禁和 WARDOGS 累计游戏时长 | 不是官方完整战斗生涯；资料不公开时显示未知 |
-| 管理员及社区记录 | 人工审核、网页举报、经审核的外服历史导入 | 外服历史保留来源，不冒充本服实时事件 |
-| AI 提供商（可选） | 对已保存案件 JSON 做理由说明与数字核对 | 需要管理员配置兼容接口；建议不直接封禁 |
+| 数据来源              | 可用于什么                                | 必须了解的限制                                                     |
+| --------------------- | ----------------------------------------- | ------------------------------------------------------------------ |
+| WARDOGS RCON          | 在线玩家、地图、管理命令和状态观察        | RCON 连通不等于 Kill Feed 已回传                                   |
+| Kill Feed             | 击杀事件、KPM、武器与部分行为证据         | 未上报的伤害、断线期间事件不能补造；步兵分类需要可靠阵营和武器信息 |
+| Steam Web API（可选） | 已公开的账号、封禁和 WARDOGS 累计游戏时长 | 不是官方完整战斗生涯；资料不公开时显示未知                         |
+| 管理员及社区记录      | 人工审核、网页举报、经审核的外服历史导入  | 外服历史保留来源，不冒充本服实时事件                               |
+| AI 提供商（可选）     | 对已保存案件 JSON 做理由说明与数字核对    | 需要管理员配置兼容接口；建议不直接封禁                             |
 
 目前没有已验证的**游戏内聊天读取**接口，因此不宣称 `!report`／`!BAN` 已可用。项目不读取玩家 IP，不根据延迟推测地区，不扫描客户端进程。工程／医疗贡献缺少可靠来源时，不生成相应奖项。详见[完整功能说明](docs/features.zh-CN.md)。
 
@@ -89,15 +89,15 @@ docker compose ps -a
 
 ## 文档导航
 
-| 你想做什么 | 从这里开始 |
-| --- | --- |
-| 第一次安装、设置账号、接入真实游戏服 | [中文安装与故障排查](docs/install.zh-CN.md) |
-| 快速找到管理界面入口 | [中文使用说明](README.zh-CN.md) |
-| 核对已实现功能和未接入数据 | [功能介绍](docs/features.zh-CN.md) |
-| 配置委员会、审核案件与 AI | [委员会规则](docs/committee-v3.zh-CN.md) · [案件审核](docs/case-review-penalty.zh-CN.md) · [AI 辅审](docs/integrity-ai.zh-CN.md) |
-| 导入其他服务器的历史事件 | [JSON／JSONL 导入规范](docs/integrity-import.zh-CN.md) |
-| 扩展个人插件或调用插件 API | [插件开发手册](docs/personal-plugins.zh-CN.md) |
-| 理解架构或对照原版 Warcon | [技术架构](docs/architecture.zh-CN.md) · [上游说明](README.upstream.md) |
+| 你想做什么                           | 从这里开始                                                                                                                       |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| 第一次安装、设置账号、接入真实游戏服 | [中文安装与故障排查](docs/install.zh-CN.md)                                                                                      |
+| 快速找到管理界面入口                 | [中文使用说明](README.zh-CN.md)                                                                                                  |
+| 核对已实现功能和未接入数据           | [功能介绍](docs/features.zh-CN.md)                                                                                               |
+| 配置委员会、审核案件与 AI            | [委员会规则](docs/committee-v3.zh-CN.md) · [案件审核](docs/case-review-penalty.zh-CN.md) · [AI 辅审](docs/integrity-ai.zh-CN.md) |
+| 导入其他服务器的历史事件             | [JSON／JSONL 导入规范](docs/integrity-import.zh-CN.md)                                                                           |
+| 扩展个人插件或调用插件 API           | [插件开发手册](docs/personal-plugins.zh-CN.md)                                                                                   |
+| 理解架构或对照原版 Warcon            | [技术架构](docs/architecture.zh-CN.md) · [上游说明](README.upstream.md)                                                          |
 
 ## 常见问题
 

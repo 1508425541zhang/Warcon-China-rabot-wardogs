@@ -56,25 +56,23 @@ describe.skipIf(!hasTestDb)('playtime cohort database', () => {
 		const now = new Date();
 		const old = new Date(Date.now() - 3 * 86400000);
 		const ids = [1, 2, 3, 4, 5].map((n) => `7656119800000990${n}`);
-		await env.db
-			.insert(playerSessions)
-			.values([
-				...[0, 0, 1, 2].map((i) => ({
-					serverId: w.server.id,
-					steamId: ids[i],
-					name: 'player',
-					joinedAt: old,
-					lastSeen: now
-				})),
-				{
-					serverId: w.otherServer.id,
-					steamId: ids[3],
-					name: 'other',
-					joinedAt: old,
-					lastSeen: now
-				},
-				{ serverId: w.server.id, steamId: ids[4], name: 'old', joinedAt: old, lastSeen: old }
-			]);
+		await env.db.insert(playerSessions).values([
+			...[0, 0, 1, 2].map((i) => ({
+				serverId: w.server.id,
+				steamId: ids[i],
+				name: 'player',
+				joinedAt: old,
+				lastSeen: now
+			})),
+			{
+				serverId: w.otherServer.id,
+				steamId: ids[3],
+				name: 'other',
+				joinedAt: old,
+				lastSeen: now
+			},
+			{ serverId: w.server.id, steamId: ids[4], name: 'old', joinedAt: old, lastSeen: old }
+		]);
 		await env.db.insert(steamGamePlaytime).values([
 			{ steamId: ids[0], minutes: 120, state: 'known', checkedAt: now },
 			{ steamId: ids[1], minutes: 600, state: 'known', checkedAt: old },

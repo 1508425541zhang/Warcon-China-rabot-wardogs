@@ -1,178 +1,182 @@
-import PostalMime from "postal-mime";
-import { createMimeMessage } from "mimetext";
-import { EmailMessage } from "cloudflare:email";
+import PostalMime from 'postal-mime';
+import { createMimeMessage } from 'mimetext';
+import { EmailMessage } from 'cloudflare:email';
 
 interface SendEmail {
-  send(message: {
-    to: string;
-    from: string;
-    subject: string;
-    text?: string;
-    html?: string;
-  }): Promise<unknown>;
+	send(message: {
+		to: string;
+		from: string;
+		subject: string;
+		text?: string;
+		html?: string;
+	}): Promise<unknown>;
 }
 
 interface Env {
-  DB: D1Database;
-  EMAIL: SendEmail;
-  APP_NAME: string;
-  REPORT_FROM_EMAIL: string;
-  ADMIN_EMAIL: string;
-  ADMIN_TOKEN: string;
+	DB: D1Database;
+	EMAIL: SendEmail;
+	APP_NAME: string;
+	REPORT_FROM_EMAIL: string;
+	ADMIN_EMAIL: string;
+	ADMIN_TOKEN: string;
 }
 
 type ReportInput = {
-  playerId?: unknown;
-  category?: unknown;
-  details?: unknown;
-  reporterEmail?: unknown;
-  website?: unknown;
+	playerId?: unknown;
+	category?: unknown;
+	details?: unknown;
+	reporterEmail?: unknown;
+	website?: unknown;
 };
 
-const CATEGORIES = new Set(["作弊疑似", "破坏对局", "恶意交流", "利用漏洞", "其他"]);
-const STATUS = new Set(["new", "reviewing", "closed"]);
+const CATEGORIES = new Set(['作弊疑似', '破坏对局', '恶意交流', '利用漏洞', '其他']);
+const STATUS = new Set(['new', 'reviewing', 'closed']);
 
 const securityHeaders = {
-  "content-security-policy":
-    "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-  "referrer-policy": "no-referrer",
-  "x-content-type-options": "nosniff",
-  "x-frame-options": "DENY",
-  "permissions-policy": "camera=(), microphone=(), geolocation=()"
+	'content-security-policy':
+		"default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+	'referrer-policy': 'no-referrer',
+	'x-content-type-options': 'nosniff',
+	'x-frame-options': 'DENY',
+	'permissions-policy': 'camera=(), microphone=(), geolocation=()'
 };
 
 function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8", ...securityHeaders }
-  });
+	return new Response(JSON.stringify(data), {
+		status,
+		headers: { 'content-type': 'application/json; charset=utf-8', ...securityHeaders }
+	});
 }
 
 function text(value: unknown, max: number) {
-  return typeof value === "string" ? value.trim().slice(0, max) : "";
+	return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
 function validEmail(value: string) {
-  return !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+	return !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function authorized(request: Request, env: Env) {
-  const auth = request.headers.get("authorization") || "";
-  return !!env.ADMIN_TOKEN && auth === `Bearer ${env.ADMIN_TOKEN}`;
+	const auth = request.headers.get('authorization') || '';
+	return !!env.ADMIN_TOKEN && auth === `Bearer ${env.ADMIN_TOKEN}`;
 }
 
-async function notifyAdmin(env: Env, report: {
-  id: string;
-  playerId: string;
-  category: string;
-  details: string;
-  reporterEmail: string;
-  createdAt: string;
-}) {
-  if (!env.ADMIN_EMAIL || !env.REPORT_FROM_EMAIL) return;
-  const safeDetails = report.details.replace(/[<>]/g, "");
-  await env.EMAIL.send({
-    from: env.REPORT_FROM_EMAIL,
-    to: env.ADMIN_EMAIL,
-    subject: `[${env.APP_NAME || "战斗 Report"}] 新举报 ${report.category} / ${report.playerId}`,
-    text:
-      `举报编号: ${report.id}\n` +
-      `目标: ${report.playerId}\n` +
-      `分类: ${report.category}\n` +
-      `时间: ${report.createdAt}\n` +
-      `举报者邮箱: ${report.reporterEmail || "未填写"}\n\n` +
-      report.details,
-    html:
-      `<h2>新举报</h2><p><b>编号：</b>${report.id}</p><p><b>目标：</b>${report.playerId}</p>` +
-      `<p><b>分类：</b>${report.category}</p><p><b>时间：</b>${report.createdAt}</p>` +
-      `<p><b>举报者邮箱：</b>${report.reporterEmail || "未填写"}</p><hr><p>${safeDetails.replace(/\n/g, "<br>")}</p>`
-  });
+async function notifyAdmin(
+	env: Env,
+	report: {
+		id: string;
+		playerId: string;
+		category: string;
+		details: string;
+		reporterEmail: string;
+		createdAt: string;
+	}
+) {
+	if (!env.ADMIN_EMAIL || !env.REPORT_FROM_EMAIL) return;
+	const safeDetails = report.details.replace(/[<>]/g, '');
+	await env.EMAIL.send({
+		from: env.REPORT_FROM_EMAIL,
+		to: env.ADMIN_EMAIL,
+		subject: `[${env.APP_NAME || '战斗 Report'}] 新举报 ${report.category} / ${report.playerId}`,
+		text:
+			`举报编号: ${report.id}\n` +
+			`目标: ${report.playerId}\n` +
+			`分类: ${report.category}\n` +
+			`时间: ${report.createdAt}\n` +
+			`举报者邮箱: ${report.reporterEmail || '未填写'}\n\n` +
+			report.details,
+		html:
+			`<h2>新举报</h2><p><b>编号：</b>${report.id}</p><p><b>目标：</b>${report.playerId}</p>` +
+			`<p><b>分类：</b>${report.category}</p><p><b>时间：</b>${report.createdAt}</p>` +
+			`<p><b>举报者邮箱：</b>${report.reporterEmail || '未填写'}</p><hr><p>${safeDetails.replace(/\n/g, '<br>')}</p>`
+	});
 }
 
 async function createReport(request: Request, env: Env) {
-  let input: ReportInput;
-  try {
-    input = await request.json<ReportInput>();
-  } catch {
-    return json({ ok: false, error: "JSON 格式无效" }, 400);
-  }
+	let input: ReportInput;
+	try {
+		input = await request.json<ReportInput>();
+	} catch {
+		return json({ ok: false, error: 'JSON 格式无效' }, 400);
+	}
 
-  if (text(input.website, 200)) return json({ ok: true, id: crypto.randomUUID() }, 201);
+	if (text(input.website, 200)) return json({ ok: true, id: crypto.randomUUID() }, 201);
 
-  const playerId = text(input.playerId, 120);
-  const category = text(input.category, 40);
-  const details = text(input.details, 1200);
-  const reporterEmail = text(input.reporterEmail, 160).toLowerCase();
+	const playerId = text(input.playerId, 120);
+	const category = text(input.category, 40);
+	const details = text(input.details, 1200);
+	const reporterEmail = text(input.reporterEmail, 160).toLowerCase();
 
-  if (playerId.length < 2) return json({ ok: false, error: "请填写玩家名、玩家 ID 或 SteamID64" }, 400);
-  if (!CATEGORIES.has(category)) return json({ ok: false, error: "举报分类无效" }, 400);
-  if (details.length < 10) return json({ ok: false, error: "请至少用 10 个字描述发生了什么" }, 400);
-  if (!validEmail(reporterEmail)) return json({ ok: false, error: "邮箱格式不正确" }, 400);
+	if (playerId.length < 2)
+		return json({ ok: false, error: '请填写玩家名、玩家 ID 或 SteamID64' }, 400);
+	if (!CATEGORIES.has(category)) return json({ ok: false, error: '举报分类无效' }, 400);
+	if (details.length < 10) return json({ ok: false, error: '请至少用 10 个字描述发生了什么' }, 400);
+	if (!validEmail(reporterEmail)) return json({ ok: false, error: '邮箱格式不正确' }, 400);
 
-  const id = crypto.randomUUID();
-  const createdAt = new Date().toISOString();
+	const id = crypto.randomUUID();
+	const createdAt = new Date().toISOString();
 
-  await env.DB.prepare(
-    "INSERT INTO reports (id, player_id, category, details, reporter_email, status, source, created_at) VALUES (?1, ?2, ?3, ?4, ?5, 'new', 'web', ?6)"
-  )
-    .bind(id, playerId, category, details, reporterEmail || null, createdAt)
-    .run();
+	await env.DB.prepare(
+		"INSERT INTO reports (id, player_id, category, details, reporter_email, status, source, created_at) VALUES (?1, ?2, ?3, ?4, ?5, 'new', 'web', ?6)"
+	)
+		.bind(id, playerId, category, details, reporterEmail || null, createdAt)
+		.run();
 
-  try {
-    await notifyAdmin(env, { id, playerId, category, details, reporterEmail, createdAt });
-  } catch (error) {
-    console.error("admin email failed", error);
-  }
+	try {
+		await notifyAdmin(env, { id, playerId, category, details, reporterEmail, createdAt });
+	} catch (error) {
+		console.error('admin email failed', error);
+	}
 
-  return json({ ok: true, id, status: "new" }, 201);
+	return json({ ok: true, id, status: 'new' }, 201);
 }
 
 async function listReports(request: Request, env: Env) {
-  if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401);
+	if (!authorized(request, env)) return json({ ok: false, error: 'unauthorized' }, 401);
 
-  const url = new URL(request.url);
-  const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 50)));
-  const status = text(url.searchParams.get("status"), 20);
+	const url = new URL(request.url);
+	const limit = Math.max(1, Math.min(100, Number(url.searchParams.get('limit') || 50)));
+	const status = text(url.searchParams.get('status'), 20);
 
-  let stmt;
-  if (status && STATUS.has(status)) {
-    stmt = env.DB.prepare(
-      "SELECT id, player_id AS playerId, category, details, reporter_email AS reporterEmail, status, source, created_at AS createdAt FROM reports WHERE status = ?1 ORDER BY created_at DESC LIMIT ?2"
-    ).bind(status, limit);
-  } else {
-    stmt = env.DB.prepare(
-      "SELECT id, player_id AS playerId, category, details, reporter_email AS reporterEmail, status, source, created_at AS createdAt FROM reports ORDER BY created_at DESC LIMIT ?1"
-    ).bind(limit);
-  }
+	let stmt;
+	if (status && STATUS.has(status)) {
+		stmt = env.DB.prepare(
+			'SELECT id, player_id AS playerId, category, details, reporter_email AS reporterEmail, status, source, created_at AS createdAt FROM reports WHERE status = ?1 ORDER BY created_at DESC LIMIT ?2'
+		).bind(status, limit);
+	} else {
+		stmt = env.DB.prepare(
+			'SELECT id, player_id AS playerId, category, details, reporter_email AS reporterEmail, status, source, created_at AS createdAt FROM reports ORDER BY created_at DESC LIMIT ?1'
+		).bind(limit);
+	}
 
-  const result = await stmt.run();
-  return json({ ok: true, reports: result.results });
+	const result = await stmt.run();
+	return json({ ok: true, reports: result.results });
 }
 
 async function updateReport(request: Request, env: Env, id: string) {
-  if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401);
+	if (!authorized(request, env)) return json({ ok: false, error: 'unauthorized' }, 401);
 
-  let body: { status?: unknown };
-  try {
-    body = await request.json<{ status?: unknown }>();
-  } catch {
-    return json({ ok: false, error: "JSON 格式无效" }, 400);
-  }
+	let body: { status?: unknown };
+	try {
+		body = await request.json<{ status?: unknown }>();
+	} catch {
+		return json({ ok: false, error: 'JSON 格式无效' }, 400);
+	}
 
-  const status = text(body.status, 20);
-  if (!STATUS.has(status)) return json({ ok: false, error: "status 无效" }, 400);
+	const status = text(body.status, 20);
+	if (!STATUS.has(status)) return json({ ok: false, error: 'status 无效' }, 400);
 
-  const result = await env.DB.prepare("UPDATE reports SET status = ?1 WHERE id = ?2")
-    .bind(status, id)
-    .run();
+	const result = await env.DB.prepare('UPDATE reports SET status = ?1 WHERE id = ?2')
+		.bind(status, id)
+		.run();
 
-  if (!result.meta.changes) return json({ ok: false, error: "not_found" }, 404);
-  return json({ ok: true, id, status });
+	if (!result.meta.changes) return json({ ok: false, error: 'not_found' }, 404);
+	return json({ ok: true, id, status });
 }
 
 async function health(env: Env) {
-  const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM reports").first<{ n: number }>();
-  return json({ ok: true, service: env.APP_NAME || "战斗 Report", reports: Number(row?.n || 0) });
+	const row = await env.DB.prepare('SELECT COUNT(*) AS n FROM reports').first<{ n: number }>();
+	return json({ ok: true, service: env.APP_NAME || '战斗 Report', reports: Number(row?.n || 0) });
 }
 
 const page = `<!doctype html>
@@ -243,65 +247,67 @@ document.querySelector("#reportForm").addEventListener("submit",async e=>{e.prev
 </html>`;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
+	async fetch(request: Request, env: Env): Promise<Response> {
+		const url = new URL(request.url);
 
-    if (request.method === "GET" && url.pathname === "/") {
-      return new Response(page, {
-        headers: { "content-type": "text/html; charset=utf-8", ...securityHeaders }
-      });
-    }
+		if (request.method === 'GET' && url.pathname === '/') {
+			return new Response(page, {
+				headers: { 'content-type': 'text/html; charset=utf-8', ...securityHeaders }
+			});
+		}
 
-    if (request.method === "GET" && url.pathname === "/api/health") return health(env);
-    if (request.method === "POST" && url.pathname === "/api/report") return createReport(request, env);
-    if (request.method === "GET" && url.pathname === "/api/reports") return listReports(request, env);
+		if (request.method === 'GET' && url.pathname === '/api/health') return health(env);
+		if (request.method === 'POST' && url.pathname === '/api/report')
+			return createReport(request, env);
+		if (request.method === 'GET' && url.pathname === '/api/reports')
+			return listReports(request, env);
 
-    const match = /^\/api\/reports\/([0-9a-f-]{36})$/.exec(url.pathname);
-    if (request.method === "PATCH" && match) return updateReport(request, env, match[1]);
+		const match = /^\/api\/reports\/([0-9a-f-]{36})$/.exec(url.pathname);
+		if (request.method === 'PATCH' && match) return updateReport(request, env, match[1]);
 
-    return json({ ok: false, error: "not_found" }, 404);
-  },
+		return json({ ok: false, error: 'not_found' }, 404);
+	},
 
-  async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
-    const parser = new PostalMime();
-    let body = "";
-    try {
-      const parsed = await parser.parse(await new Response(message.raw).arrayBuffer());
-      body = (parsed.text || "").slice(0, 20000);
-    } catch (error) {
-      console.error("email parse failed", error);
-    }
+	async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
+		const parser = new PostalMime();
+		let body = '';
+		try {
+			const parsed = await parser.parse(await new Response(message.raw).arrayBuffer());
+			body = (parsed.text || '').slice(0, 20000);
+		} catch (error) {
+			console.error('email parse failed', error);
+		}
 
-    const id = crypto.randomUUID();
-    const createdAt = new Date().toISOString();
-    const subject = (message.headers.get("subject") || "").slice(0, 300);
-    const messageId = (message.headers.get("message-id") || "").slice(0, 500);
+		const id = crypto.randomUUID();
+		const createdAt = new Date().toISOString();
+		const subject = (message.headers.get('subject') || '').slice(0, 300);
+		const messageId = (message.headers.get('message-id') || '').slice(0, 500);
 
-    await env.DB.prepare(
-      "INSERT INTO inbound_emails (id, mail_from, rcpt_to, subject, text_body, message_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
-    )
-      .bind(id, message.from, message.to, subject, body, messageId || null, createdAt)
-      .run();
+		await env.DB.prepare(
+			'INSERT INTO inbound_emails (id, mail_from, rcpt_to, subject, text_body, message_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)'
+		)
+			.bind(id, message.from, message.to, subject, body, messageId || null, createdAt)
+			.run();
 
-    try {
-      const reply = createMimeMessage();
-      if (messageId) {
-        reply.setHeader("In-Reply-To", messageId);
-        reply.setHeader("References", messageId);
-      }
-      reply.setSender(message.to);
-      reply.setRecipient(message.from);
-      reply.setSubject(subject ? `Re: ${subject}` : `${env.APP_NAME || "战斗 Report"}：邮件已收到`);
-      reply.addMessage({
-        contentType: "text/plain",
-        data:
-          `你的邮件已经被 ${env.APP_NAME || "战斗 Report"} 收到并进入记录。\n\n` +
-          `邮件记录编号：${id}\n` +
-          "本回执仅确认收件，不代表举报内容已经被认定成立。"
-      });
-      await message.reply(new EmailMessage(message.to, message.from, reply.asRaw()));
-    } catch (error) {
-      console.error("email reply failed", error);
-    }
-  }
+		try {
+			const reply = createMimeMessage();
+			if (messageId) {
+				reply.setHeader('In-Reply-To', messageId);
+				reply.setHeader('References', messageId);
+			}
+			reply.setSender(message.to);
+			reply.setRecipient(message.from);
+			reply.setSubject(subject ? `Re: ${subject}` : `${env.APP_NAME || '战斗 Report'}：邮件已收到`);
+			reply.addMessage({
+				contentType: 'text/plain',
+				data:
+					`你的邮件已经被 ${env.APP_NAME || '战斗 Report'} 收到并进入记录。\n\n` +
+					`邮件记录编号：${id}\n` +
+					'本回执仅确认收件，不代表举报内容已经被认定成立。'
+			});
+			await message.reply(new EmailMessage(message.to, message.from, reply.asRaw()));
+		} catch (error) {
+			console.error('email reply failed', error);
+		}
+	}
 } satisfies ExportedHandler<Env>;

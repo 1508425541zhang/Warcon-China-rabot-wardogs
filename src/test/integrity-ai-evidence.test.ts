@@ -61,23 +61,21 @@ describe.skipIf(!hasTestDb)('AI complete combat evidence', () => {
 			...extra
 		});
 		const anchor = make('anchor', { eventTime: 1000 });
-		await env.db
-			.insert(kills)
-			.values([
-				anchor,
-				...Array.from({ length: 1001 }, (_, i) => make('early-' + i)),
-				make('death', { killerSteamId: otherPlayer, victimSteamId: subject }),
-				make('environment', { killerSteamId: null, victimSteamId: subject }),
-				make('background', {
-					killerSteamId: otherPlayer,
-					victimSteamId: '76561198000000003',
-					eventTime: 950
-				}),
-				make('unrelated', { killerSteamId: otherPlayer, victimSteamId: '76561198000000003' }),
-				make('late', { ts: new Date(now.getTime() + 1000), eventTime: 1100 }),
-				make('wrong-round', { matchRow: other.id }),
-				make('wrong-server', { serverId: 'not-this-server' })
-			]);
+		await env.db.insert(kills).values([
+			anchor,
+			...Array.from({ length: 1001 }, (_, i) => make('early-' + i)),
+			make('death', { killerSteamId: otherPlayer, victimSteamId: subject }),
+			make('environment', { killerSteamId: null, victimSteamId: subject }),
+			make('background', {
+				killerSteamId: otherPlayer,
+				victimSteamId: '76561198000000003',
+				eventTime: 950
+			}),
+			make('unrelated', { killerSteamId: otherPlayer, victimSteamId: '76561198000000003' }),
+			make('late', { ts: new Date(now.getTime() + 1000), eventTime: 1100 }),
+			make('wrong-round', { matchRow: other.id }),
+			make('wrong-server', { serverId: 'not-this-server' })
+		]);
 		const [c] = await env.db
 			.insert(integrityCases)
 			.values({

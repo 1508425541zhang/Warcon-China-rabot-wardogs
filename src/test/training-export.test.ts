@@ -15,15 +15,13 @@ describe.skipIf(!hasTestDb)('training source JSONL export', () => {
 		const payload = {
 			players: [{ steamId: '76561198000000001', health: null, future: { weapon: 'AK74M' } }]
 		};
-		await env.db
-			.insert(trainingObservations)
-			.values({
-				serverId: w.server.id,
-				pollStartedAt: at,
-				receivedAt: at,
-				endpoint: '/v1/players',
-				payload
-			});
+		await env.db.insert(trainingObservations).values({
+			serverId: w.server.id,
+			pollStartedAt: at,
+			receivedAt: at,
+			endpoint: '/v1/players',
+			payload
+		});
 		await env.db.insert(trainingFeedBatches).values([
 			{
 				serverId: w.server.id,
