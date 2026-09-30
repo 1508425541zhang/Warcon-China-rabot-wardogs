@@ -64,8 +64,12 @@ test('model identity and finite scores are mandatory; redirects and credential U
 			'r'
 		)
 	).toThrow();
-	expect(modelDecision(MODEL_CALIBRATION.p95 - 1e-8)).toBeNull();
-	expect(modelDecision(MODEL_CALIBRATION.p95)).toBe('KICK');
+	expect(modelDecision(MODEL_CALIBRATION.p97 - 1e-8)).toBeNull();
+	expect(modelDecision(MODEL_CALIBRATION.p97)).toBe('KICK');
+	expect(MODEL_CALIBRATION.p97).toBeGreaterThan(MODEL_CALIBRATION.p95);
+	expect(MODEL_CALIBRATION.p97).toBeLessThan(MODEL_CALIBRATION.p99);
+	expect(modelDecision(MODEL_CALIBRATION.p95)).toBeNull();
+	expect(modelDecision((MODEL_CALIBRATION.p95 + MODEL_CALIBRATION.p97) / 2)).toBeNull();
 	expect(modelDecision(MODEL_CALIBRATION.p99)).toBe('QUARANTINE_24H');
 });
 
@@ -251,7 +255,7 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 			forgetMemory(w.server.id);
 		}
 	});
-	test('P95 kicks, P99 creates a 24h ban, dedupe and late VIP exemption preserve manual bans', async () => {
+	test('P97 kicks, P99 creates a 24h ban, dedupe and late VIP exemption preserve manual bans', async () => {
 		const server = (await getServer(env, w.server.id))!,
 			org = (await getOrg(env, w.org.id))!;
 		const m = memoryFor(server, org);
@@ -276,12 +280,12 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 				pointScores: Array(60).fill(score)
 			};
 			await env.db.execute(
-				sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,threshold,state,score,result) VALUES(${id},${w.org.id},${w.server.id},${ids[index]},${matchId},${index},${config.revision},${MODEL_CALIBRATION.p95},'READY',${score},${JSON.stringify(result)}::text::jsonb)`
+				sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,threshold,state,score,result) VALUES(${id},${w.org.id},${w.server.id},${ids[index]},${matchId},${index},${config.revision},${MODEL_CALIBRATION.p97},'READY',${score},${JSON.stringify(result)}::text::jsonb)`
 			);
 			return id;
 		};
 		try {
-			const kick = await makeRun(0, MODEL_CALIBRATION.p95);
+			const kick = await makeRun(0, MODEL_CALIBRATION.p97);
 			await enforceModelRun(env, kick);
 			await enforceModelRun(env, kick);
 			const [k] = await env.db.execute(

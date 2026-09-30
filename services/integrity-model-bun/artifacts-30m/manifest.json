@@ -14,5 +14,5 @@
   "runtime": "bun-native-float32",
   "weights_sha256": "6ab9fe0dfe12e071200b2409aeb7a4708581880ea6f3fa0997c34f9916996718",
   "weights_index_sha256": "8a49cf1dd4be0d8dc9f522bc853dec2a50ff9e831c144d9a406574c15e2b76c6",
-  "calibration_sha256": "96256529a50350f6233f55d39a7330583c7d9d06d8331e85f5d2c78ec28ec51a"
+  "calibration_sha256": "9f1d411092aaf2c4d441d684d934e81f6794eb6fcd6352d2a28cc134635de951"
 }

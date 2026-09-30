@@ -60,6 +60,7 @@ export async function modelConfigView(env: Env, orgId: string) {
 		windowSteps: 60,
 		referenceSamples: calibration.sample_count,
 		p95: calibration.p95,
+		p97: calibration.p97,
 		p99: calibration.p99
 	};
 }

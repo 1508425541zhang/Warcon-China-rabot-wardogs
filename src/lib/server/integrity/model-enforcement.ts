@@ -34,12 +34,12 @@ export function modelDecision(score: number) {
 	if (!Number.isFinite(score) || score < 0) return null;
 	return score >= MODEL_CALIBRATION.p99
 		? 'QUARANTINE_24H'
-		: score >= MODEL_CALIBRATION.p95
+		: score >= MODEL_CALIBRATION.p97
 			? 'KICK'
 			: null;
 }
 
-/** Fixed P95/P99 of the pinned model, with no expert votes or legacy-score dependency. */
+/** Fixed P97/P99 of the pinned model, with no expert votes or legacy-score dependency. */
 export async function enforceModelRun(env: Env, id: string) {
 	if (!isOwner()) return;
 	const [candidate] = await env.db.execute<ModelRun>(
@@ -84,7 +84,7 @@ export async function enforceModelRun(env: Env, id: string) {
 		if (validated.status !== 'READY' || validated.score !== Number(run.score))
 			return skip('模型结果无效');
 		const action = modelDecision(validated.score!);
-		if (!action) return skip('低于 P95');
+		if (!action) return skip('低于 P97');
 		const m = memoryOf(run.server_id);
 		if (
 			!m?.ok ||
@@ -116,32 +116,28 @@ export async function enforceModelRun(env: Env, id: string) {
 		if (ban) return skip('已有有效封禁，保留原记录');
 		const expires = action === 'QUARANTINE_24H' ? new Date(Date.now() + 86400000) : null;
 		const entryId = expires ? randomUUID() : null;
-		const reason = `模型 A测：异常分数达到 ${expires ? 'P99，临时隔离24小时' : 'P95，自动踢出'}。记录 ${id}，可联系管理员复核。`;
+		const reason = `模型 A测：异常分数达到 ${expires ? 'P99，临时隔离24小时' : 'P97，自动踢出'}。记录 ${id}，可联系管理员复核。`;
 		if (entryId)
-			await tx
-				.insert(listEntries)
-				.values({
-					id: entryId,
-					listId: banList.id,
-					steamId: run.steam_id,
-					reason,
-					expiresAt: expires,
-					addedByName: 'Model A-test rule'
-				});
-		await tx
-			.insert(outbox)
-			.values({
-				serverId: run.server_id,
-				triggerName: '模型 A测 P95/P99',
-				triggerKind: 'model_integrity',
-				action: 'kick',
-				params: { steamId: run.steam_id, reason },
-				target: run.steam_id,
+			await tx.insert(listEntries).values({
+				id: entryId,
+				listId: banList.id,
 				steamId: run.steam_id,
-				okMessage: `模型 ${action}: ${run.steam_id}`,
-				detail: { runId: id },
-				dedupeKey: `model:${id}:kick`
+				reason,
+				expiresAt: expires,
+				addedByName: 'Model A-test rule'
 			});
+		await tx.insert(outbox).values({
+			serverId: run.server_id,
+			triggerName: '模型 A测 P97/P99',
+			triggerKind: 'model_integrity',
+			action: 'kick',
+			params: { steamId: run.steam_id, reason },
+			target: run.steam_id,
+			steamId: run.steam_id,
+			okMessage: `模型 ${action}: ${run.steam_id}`,
+			detail: { runId: id },
+			dedupeKey: `model:${id}:kick`
+		});
 		await tx.execute(
 			sql`UPDATE integrity_model_runs SET action=${action},action_state='pending',action_reason=${reason},punished_at=now(),expires_at=${expires},list_entry_id=${entryId} WHERE id=${id}`
 		);
@@ -161,7 +157,7 @@ export async function enforceModelRun(env: Env, id: string) {
 				runId: id,
 				decision,
 				score: candidate.score,
-				p95: MODEL_CALIBRATION.p95,
+				p97: MODEL_CALIBRATION.p97,
 				p99: MODEL_CALIBRATION.p99
 			}
 		});
