@@ -1,0 +1,23 @@
+{
+  "name": "battle-report-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create battle-report-db",
+    "db:migrate:local": "wrangler d1 execute battle-report-db --local --file=./schema.sql",
+    "db:migrate:remote": "wrangler d1 execute battle-report-db --remote --file=./schema.sql",
+    "types": "wrangler types"
+  },
+  "dependencies": {
+    "postal-mime": "^2.4.3",
+    "mimetext": "^3.0.27"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260920.0",
+    "typescript": "^5.9.2",
+    "wrangler": "^4.38.0"
+  }
+}
