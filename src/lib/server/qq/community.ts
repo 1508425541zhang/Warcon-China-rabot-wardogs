@@ -10,6 +10,8 @@ import { qqPolicies, qqPolicy, type QqPolicy } from './config';
 import { createLinkCode, linkedAccount } from './identity';
 import { debit, wallet } from './economy';
 import { friendlyTargets, parseCommand, type RosterPlayer } from './protocol';
+import type { Status } from '$lib/types';
+import { battleMessage, battlePageSize } from './battle';
 
 export async function communityServer(env: Env, id: string) {
 	const server = await getServer(env, id);
@@ -78,6 +80,26 @@ export async function playerSummary(env: Env, server: ServerRow, target: string)
 
 /** Narrow, read-only projections shared by QQ commands and authenticated integrations. */
 export async function communityQuery(env: Env, server: ServerRow, view: string, page = 1) {
+	if (view === 'battle') {
+		const status = (await gateway().run(env, server, 'status', {})) as Status;
+		const { players } = (await gateway().run(env, server, 'players', {})) as {
+			players: RosterPlayer[];
+		};
+		try {
+			return {
+				page,
+				pageSize: battlePageSize,
+				total: players.length,
+				pages: Math.max(1, Math.ceil(players.length / battlePageSize)),
+				scores: status.scores,
+				scoreCap: status.scoreCap,
+				matchSeconds: status.matchSeconds,
+				text: battleMessage(status, players, page)
+			};
+		} catch (error) {
+			throw new ApiError(400, (error as Error).message);
+		}
+	}
 	if (view === 'status') {
 		const data = (await gateway().run(env, server, 'status', {})) as {
 			serverName: string;
@@ -273,7 +295,14 @@ export async function command(
 	const { server } = await communityServer(env, policy.serverId);
 	const { name, arg } = parseCommand(message.content);
 	if (name === '帮助')
-		return `/服务器，/在线 [页码]，/地图，/流水\n/绑定：验证 Steam\n/战绩 [玩家名或SteamID]，/总结 [玩家]，/举报 SteamID 原因\n/积分：余额；暖服人数≤${policy.lowAt}，每分钟${policy.pointsPerMinute}积分\n/发起投票，/投票 [编号]（${policy.voteCost}积分/票）\n/友方广播 正文（${policy.broadcastCost}积分，按同阵营逐人发送）\n/优先队列（${policy.reserveCost}积分兑换${policy.reserveHours}小时预留位）\n/订单：发送与兑换结果；/解绑：打开网页解绑`;
+		return `/服务器，/在线 [页码]，/地图，/流水\n/局势 [页码]：三方比分、胜利进度和全员分页名单（也可用 /对局、/比分）\n/绑定：验证 Steam\n/战绩 [玩家名或SteamID]，/总结 [玩家]，/举报 SteamID 原因\n/积分：余额；暖服人数≤${policy.lowAt}，每分钟${policy.pointsPerMinute}积分\n/发起投票，/投票 [编号]（${policy.voteCost}积分/票）\n/友方广播 正文（${policy.broadcastCost}积分，按同阵营逐人发送）\n/优先队列（${policy.reserveCost}积分兑换${policy.reserveHours}小时预留位）\n/订单：发送与兑换结果；/解绑：打开网页解绑`;
+	if (['局势', '对局', '比分'].includes(name)) {
+		if (arg && !/^[1-9]\d{0,2}$/.test(arg)) throw new ApiError(400, '格式：/局势 [1–999页码]');
+		const data = (await communityQuery(env, server, 'battle', Number(arg || 1))) as {
+			text: string;
+		};
+		return data.text;
+	}
 	if (name === '服务器') {
 		const data = (await communityQuery(env, server, 'status')) as {
 			name: string;

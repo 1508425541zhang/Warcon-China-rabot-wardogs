@@ -4,7 +4,14 @@ import { testEnv, hasTestDb } from './db';
 import type { Env } from '$lib/server/env';
 import { creditWarmth, debit, wallet, reconcileOrder } from '$lib/server/qq/economy';
 import { bindAccount, createLinkCode, linkedAccount } from '$lib/server/qq/identity';
-import { castVote, closeVotes, createPurchase, playerSummary } from '$lib/server/qq/community';
+import {
+	castVote,
+	closeVotes,
+	createPurchase,
+	playerSummary,
+	command,
+	communityQuery
+} from '$lib/server/qq/community';
 import { parsePolicies } from '$lib/server/qq/config';
 import { setGateway, type Gateway } from '$lib/server/gateway';
 import { localGateway } from '$lib/server/gateway-local';
@@ -59,9 +66,39 @@ describe.skipIf(!hasTestDb)('QQ community database invariants', () => {
 								{ steamId: '76561198000000003', name: 'enemy', faction: 'blue' }
 							]
 						}
-					: {}
+					: action === 'status'
+						? {
+								serverName: 'QQ server',
+								map: 'mapA',
+								matchSeconds: 120,
+								scoreCap: 100,
+								scores: [
+									{ name: 'red', colorHex: '#D86060', score: 50 },
+									{ name: 'blue', colorHex: '#5B95D8', score: 20 }
+								]
+							}
+						: {}
 		} as Gateway);
 	}, 120000);
+	test('battle commands and API projection query the roster without requiring account binding', async () => {
+		for (const name of ['局势', '对局', '比分']) {
+			const text = await command(env, {
+				id: 'battle',
+				server_id: 'qq-test',
+				member_id: 'unbound',
+				content: '/' + name
+			});
+			expect(text).toContain('🟥 red · 2人 · 50 / 100');
+			expect(text).toContain('🟦 enemy · blue');
+		}
+		const data = (await communityQuery(env, (await getServer(env, 'qq-test'))!, 'battle')) as {
+			total: number;
+		};
+		expect(data.total).toBe(3);
+		await expect(
+			command(env, { id: 'battle', server_id: 'qq-test', member_id: 'unbound', content: '/局势 0' })
+		).rejects.toThrow('格式');
+	});
 	afterAll(() => {
 		setGateway(localGateway);
 		for (const [key, value] of Object.entries({
