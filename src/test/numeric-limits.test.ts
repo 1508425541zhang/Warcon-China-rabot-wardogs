@@ -5,6 +5,7 @@ import { seedWorld } from './world';
 import { callApi, stubGateway } from './call';
 import { ACTIONS } from '$lib/server/actions';
 import { acquireOrRenew } from '$lib/server/leadership';
+import { vipSettings, saveVips } from '$lib/server/qq/vip';
 import { runNumericLimits } from '$lib/server/numeric-limits';
 import {
 	numericLimitRules,
@@ -42,26 +43,22 @@ describe.skipIf(!hasTestDb)('numeric hard limits', () => {
 			cash: 1000,
 			ping: 10
 		};
-		await env.db
-			.insert(playerSessions)
-			.values({
+		await env.db.insert(playerSessions).values({
+			serverId: server.id,
+			steamId: player.steamId,
+			name: player.name,
+			joinedAt: old,
+			lastSeen: now
+		});
+		await env.db.insert(playerProgressSamples).values(
+			[90, 60, 30].map((s, i) => ({
 				serverId: server.id,
-				steamId: player.steamId,
-				name: player.name,
-				joinedAt: old,
-				lastSeen: now
-			});
-		await env.db
-			.insert(playerProgressSamples)
-			.values(
-				[90, 60, 30].map((s, i) => ({
-					serverId: server.id,
-					matchId: round.id,
-					bucket: Math.floor(now.getTime() / 30000) - 3 + i,
-					observedAt: new Date(now.getTime() - s * 1000),
-					players: [{ ...player, kills: 10 + i * 3, cash: 100 + i * 200 }]
-				}))
-			);
+				matchId: round.id,
+				bucket: Math.floor(now.getTime() / 30000) - 3 + i,
+				observedAt: new Date(now.getTime() - s * 1000),
+				players: [{ ...player, kills: 10 + i * 3, cash: 100 + i * 200 }]
+			}))
+		);
 		const config = { ...defaultNumericLimits, enabled: true, kpm: 3, windowSeconds: 60 };
 		const enable = () =>
 			env.db.insert(numericLimitRules).values({ serverId: server.id, config, updatedAt: old });
@@ -104,6 +101,48 @@ describe.skipIf(!hasTestDb)('numeric hard limits', () => {
 		await t.run();
 		expect(t.warning).toHaveBeenCalledTimes(1);
 		expect(t.kick).not.toHaveBeenCalled();
+	});
+	test('VIP overkill and whitelist suppress actual numeric warnings, while cash remains restricted for overkill', async () => {
+		const t = await setup();
+		await t.enable();
+		const prior = await vipSettings(t.env);
+		const vip = {
+			serverId: t.server.id,
+			steamId: t.player.steamId,
+			enabled: true,
+			reserve: false,
+			allowOverkill: true,
+			whitelist: false,
+			note: ''
+		};
+		const save = async (entry: typeof vip) =>
+			saveVips(
+				t.env,
+				{ revision: (await vipSettings(t.env)).revision, entries: [...prior.entries, entry] },
+				t.world.users.site!.id
+			);
+		try {
+			await save(vip);
+			await t.run();
+			expect(t.warning).not.toHaveBeenCalled();
+			await t.env.db
+				.update(numericLimitRules)
+				.set({ config: { ...defaultNumericLimits, enabled: true, cash: 1, windowSeconds: 60 } })
+				.where(eq(numericLimitRules.serverId, t.server.id));
+			await save({ ...vip, whitelist: true });
+			await t.run();
+			expect(t.warning).not.toHaveBeenCalled();
+			await save(vip);
+			await t.run();
+			expect(t.warning).toHaveBeenCalledTimes(1);
+			expect(t.kick).not.toHaveBeenCalled();
+		} finally {
+			await saveVips(
+				t.env,
+				{ revision: (await vipSettings(t.env)).revision, entries: prior.entries },
+				t.world.users.site!.id
+			);
+		}
 	});
 	test('permissions and limits validated by endpoint', async () => {
 		const t = await setup();

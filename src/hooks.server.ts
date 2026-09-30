@@ -1,4 +1,6 @@
 import { startSteamPlaytime, stopSteamPlaytime } from '$lib/server/steam-playtime';
+import { startQq, stopQq } from '$lib/server/qq/runtime';
+import { qqPolicies } from '$lib/server/qq/config';
 import { startIntegrityAi, stopIntegrityAi } from '$lib/server/integrity/ai-queue';
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 import { building } from '$app/environment';
@@ -84,6 +86,8 @@ export const init: ServerInit = async () => {
 		startIntegrityAi(env);
 	}
 	registerFleetCollector(env);
+	qqPolicies();
+	startQq(env);
 	installShutdown(env);
 };
 
@@ -106,6 +110,7 @@ function installShutdown(env: Awaited<ReturnType<typeof initEnv>>): void {
 		if (exiting) return;
 		exiting = true;
 		void (async () => {
+			await stopQq();
 			if (env.WARCON_ROLE !== 'web') {
 				stopIntegrityBaselines();
 				await stopIntegrityAi().catch(() => {});
@@ -206,6 +211,7 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 		isApi &&
 		!isAuthApi &&
 		!path.startsWith(FEED_PATH) &&
+		path !== '/api/qq/webhook' &&
 		!event.locals.apiKey &&
 		!SAFE_METHODS.has(event.request.method)
 	) {

@@ -7,7 +7,8 @@
 	const TABS = [
 		['/admin', 'Overview'],
 		['/admin/users', 'Users'],
-		['/admin/settings', 'Settings']
+		['/admin/settings', 'Settings'],
+		['/admin/qq', 'QQ 机器人']
 	] as const;
 	const isCurrent = (path: string) =>
 		path === '/admin' ? page.url.pathname === '/admin' : page.url.pathname.startsWith(path);

@@ -21,6 +21,7 @@ import { isOwner, withOwnedTransaction } from './leadership';
 import { ACTIONS } from './actions';
 import { mapId } from '$lib/format';
 import { writeAudit } from './audit';
+import { serverVips, vipFor, vipAllowsMetric } from './qq/vip';
 
 export async function numericLimitView(env: Env, serverId: string) {
 	const [[rule], events] = await Promise.all([
@@ -95,6 +96,7 @@ export async function runNumericLimits(
 			.from(playerSessions)
 			.where(and(eq(playerSessions.serverId, server.id), isNull(playerSessions.leftAt)))
 	]);
+	const vips = await serverVips(env, server.id);
 	for (const player of input.players) {
 		const joined = sessions.find((s) => s.steamId === player.steamId)?.joinedAt;
 		if (!joined || input.now.getTime() - joined.getTime() < config.windowSeconds * 1000) continue;
@@ -119,7 +121,8 @@ export async function runNumericLimits(
 			deaths: player.deaths,
 			cash: player.cash
 		});
-		const breaches = numericBreaches(config, points);
+		const vip = vips.find((v) => v.steamId === player.steamId);
+		const breaches = numericBreaches(config, points).filter((b) => vipAllowsMetric(vip, b.metric));
 		if (!breaches.length) continue;
 		const claim = await withOwnedTransaction(env, async (tx) => {
 			await tx.execute(
@@ -189,7 +192,9 @@ export async function runNumericLimits(
 				.select()
 				.from(numericLimitRules)
 				.where(eq(numericLimitRules.serverId, server.id));
+			const currentVip = await vipFor(env, server.id, player.steamId);
 			if (
+				breaches.some((b) => !vipAllowsMetric(currentVip, b.metric)) ||
 				!isOwner() ||
 				!active ||
 				active.updatedAt.toISOString() !== version ||

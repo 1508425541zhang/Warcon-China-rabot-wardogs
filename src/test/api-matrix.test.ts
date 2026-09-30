@@ -20,6 +20,7 @@ const ROUTES = join(import.meta.dir, '..', 'routes');
  * metrics token, a public-page switch, a WebAuthn ceremony. Each has tests of its own.
  */
 const NOT_ROLE_BASED = [
+	'POST api/qq/webhook',
 	'GET api/health',
 	'POST api/ingest/events',
 	'POST api/reports',
@@ -57,6 +58,11 @@ const MATRIX: Record<string, Policy | typeof PER_LIST> = {
 
 	// the panel
 	'GET api/admin/overview': 'site',
+	'GET api/admin/qq': 'site',
+	'PUT api/admin/qq': 'site',
+	'POST api/admin/qq': 'site',
+	'GET api/admin/qq/vips': 'site',
+	'PUT api/admin/qq/vips': 'site',
 	'GET api/settings': 'site',
 	'PUT api/settings': 'site',
 	'GET api/users': 'site',
@@ -128,6 +134,8 @@ const MATRIX: Record<string, Policy | typeof PER_LIST> = {
 
 	// a server: by capability
 	'GET api/servers/[id]/analytics': 'cap:server.view',
+	'GET api/servers/[id]/community': 'cap:server.view',
+	'POST api/servers/[id]/community': 'cap:automation.manage',
 	'GET api/servers/[id]/cash': 'cap:server.view',
 	'GET api/servers/[id]/feed': 'cap:server.view',
 	'GET api/servers/[id]/kills': 'cap:server.view',

@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import type { Env } from '../env';
+import { vipFor } from '../qq/vip';
 import {
 	integrityActions,
 	listEntries,
@@ -80,6 +81,8 @@ export async function integrityDeliverySkipReason(
 			? null
 			: '人工封禁已撤销或到期';
 	}
+	if ((await vipFor(env, row.serverId, row.steamId))?.whitelist)
+		return 'VIP 白名单：免除自动风控处罚';
 	const [rules] = await env.db
 		.select({
 			version: integrityRules.version,
