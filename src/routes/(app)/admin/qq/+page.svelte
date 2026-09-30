@@ -1,11 +1,13 @@
 <script lang="ts">
 	import VipSettings from '$lib/components/VipSettings.svelte';
+	import { qqProviders } from '$lib/qq-providers';
 	import { untrack } from 'svelte';
 	import { api, errorMessage, rconGet } from '$lib/api';
 	import type { PageProps } from './$types';
 	let { data }: PageProps = $props();
 	type Config = typeof data.config;
 	const edit = (c: Config) => ({
+		provider: c.provider,
 		enabled: c.enabled,
 		url: c.url,
 		selfId: c.selfId,
@@ -21,6 +23,7 @@
 	});
 	let saved = $state(untrack(() => data.config));
 	let form = $state(untrack(() => edit(data.config)));
+	let provider = $derived(qqProviders[form.provider]);
 	let busy = $state(false);
 	let dirty = $state(false);
 	let message = $state('');
@@ -140,7 +143,7 @@
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
 	<div>
 		<h2 class="text-xl font-semibold">QQ 机器人</h2>
-		<p class="mt-1 text-sm text-mist-400">连接 NapCat，管理群查询、暖服积分和兑换规则。</p>
+		<p class="mt-1 text-sm text-mist-400">连接 NapCat 或 LLBot，管理群查询、暖服积分和兑换规则。</p>
 	</div>
 	<span class="rounded-full border border-white/15 px-3 py-1 text-sm"
 		>已保存状态：{saved.enabled ? '启用' : '停用'}</span
@@ -166,13 +169,23 @@
 			<p class="text-sm text-mist-400">
 				停用后不再接收新指令或新增暖服积分，历史绑定和积分保留。已经开始的操作可能完成。
 			</p>
+			<label class="block space-y-1">
+				<span class="label-sm">机器人架构</span>
+				<select class="input w-full" bind:value={form.provider}>
+					<option value="napcat">NapCat · OneBot 11</option>
+					<option value="llbot">LLBot（LuckyLilliaBot）· OneBot 11</option>
+				</select>
+				<span class="block text-xs text-mist-500"
+					>切换架构后请填写对应连接并保存。相同 QQ 号的绑定和积分继续使用。</span
+				>
+			</label>
 			<div class="grid gap-4 md:grid-cols-2">
 				<label class="space-y-1"
-					><span class="label-sm">NapCat HTTP 接口地址</span><input
+					><span class="label-sm">{provider.name} HTTP 接口地址</span><input
 						class="input w-full"
 						type="url"
 						bind:value={form.url}
-						placeholder="http://127.0.0.1:3001"
+						placeholder={provider.placeholder}
 						maxlength="2000"
 						required={form.enabled}
 					/><span class="block text-xs text-mist-500">同机使用回环地址，远程连接使用 HTTPS。</span
@@ -184,7 +197,7 @@
 						bind:value={form.selfId}
 						inputmode="numeric"
 						pattern={'[1-9][0-9]{4,15}'}
-						placeholder="登录 NapCat 的 QQ 号"
+						placeholder="登录机器人的 QQ 号"
 						required={form.enabled}
 					/></label
 				>
@@ -197,7 +210,7 @@
 							type="password"
 							bind:value={form.token}
 							autocomplete="new-password"
-							placeholder={saved.hasToken ? '留空保留原密钥' : '与 NapCat HTTP 服务端 token 一致'}
+							placeholder={saved.hasToken ? '留空保留原密钥' : '与机器人 HTTP 服务端 token 一致'}
 							minlength="16"
 							maxlength="512"
 						/></label
@@ -214,7 +227,7 @@
 							type="password"
 							bind:value={form.secret}
 							autocomplete="new-password"
-							placeholder={saved.hasSecret ? '留空保留原密钥' : '与 NapCat HTTP 客户端 token 一致'}
+							placeholder={saved.hasSecret ? '留空保留原密钥' : '与机器人 HTTP 上报 token 一致'}
 							minlength="16"
 							maxlength="512"
 						/></label
@@ -224,12 +237,17 @@
 				</div>
 			</div>
 			<div class="rounded border border-white/10 p-3 text-sm">
-				<p class="mb-1 font-medium">NapCat 事件上报地址</p>
+				<p class="mb-1 font-medium">{provider.name} 事件上报地址</p>
 				<code class="break-all select-all">{data.callback}</code>
 				<p class="mt-2 text-mist-400">
-					在 NapCat 添加 HTTP 客户端，使用此地址和事件签名密钥，消息格式选择 array。QQ 登录与扫码在
-					NapCat 中完成。
+					{provider.setup} QQ 登录与扫码在机器人中完成。
 				</p>
+				<a
+					class="mt-2 inline-block underline"
+					href={provider.guide}
+					target="_blank"
+					rel="noreferrer">{provider.name} 官方配置文档</a
+				>
 			</div>
 			<button class="btn" type="button" onclick={test} disabled={busy || dirty}
 				>检测已保存的连接</button

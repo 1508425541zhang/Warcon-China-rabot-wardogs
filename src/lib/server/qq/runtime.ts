@@ -116,13 +116,14 @@ export async function deliverOrder(env: Env, order: Order) {
 	);
 }
 
-export async function processMessage(env: Env, client: QqClient) {
+export async function processMessage(env: Env, client: QqClient, selfId?: string) {
 	const [message] = await env.db
 		.execute<Message>(sql`UPDATE qq_inbox SET state='processing',started_at=now()
 	 WHERE id=(SELECT id FROM qq_inbox WHERE state='pending' ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING *`);
 	if (!message) return;
 	if (
 		!message.id.startsWith('ob11:') ||
+		(selfId !== undefined && !message.id.startsWith(`ob11:${selfId}:`)) ||
 		!/^ob11:[1-9]\d+$/.test(message.member_id) ||
 		Date.now() - new Date(message.created_at).getTime() > 240000 ||
 		!qqPolicy(message.server_id)?.groups.includes(message.group_id)
@@ -166,7 +167,8 @@ export function startQq(env: Env) {
 		active = (async () => {
 			await loadQqSettings(env);
 			const credentials = qqCredentials();
-			if (credentials) await pass(env, new QqClient(credentials.url, credentials.token));
+			if (credentials)
+				await pass(env, new QqClient(credentials.url, credentials.token), credentials.selfId);
 		})()
 			.catch((error) => {
 				console.error('[qq]', publicMessage(error));
@@ -182,7 +184,7 @@ export async function stopQq() {
 	await active;
 }
 
-async function pass(env: Env, client: QqClient) {
+async function pass(env: Env, client: QqClient, selfId: string) {
 	// Cross-process advisory lock: a slow recipient loop must never race another web replica.
 	const connection = await env.sql.reserve();
 	try {
@@ -202,7 +204,7 @@ async function pass(env: Env, client: QqClient) {
 			await env.db.execute(
 				sql`UPDATE qq_inbox SET reply_state='unknown' WHERE reply_state='sending'`
 			);
-			await processMessage(env, client);
+			await processMessage(env, client, selfId);
 			await closeVotes(env);
 			const [order] = await env.db.execute<Order>(
 				sql`UPDATE qq_orders SET state='processing',started_at=now() WHERE id=(SELECT id FROM qq_orders WHERE state='pending' ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING *`

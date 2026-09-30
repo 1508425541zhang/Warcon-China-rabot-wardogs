@@ -1,12 +1,12 @@
-# NapCatQQ / OneBot 11、暖服积分与兑换
+# NapCatQQ / LLBot / OneBot 11、暖服积分与兑换
 
-WARCON 通过 OneBot 11 的 HTTP 上报接收群指令，通过 HTTP API 回复。推荐 NapCatQQ；无需官方 QQ 开放平台 AppID 或群 openid。业务逻辑、积分账本和游戏 RCON 仍在 WARCON 内，NapCat 独立运行并登录机器人 QQ。
+WARCON 支持 NapCatQQ 和 LLBot（LuckyLilliaBot），通过 OneBot 11 的 HTTP 上报接收群指令，通过 HTTP API 回复。无需官方 QQ 开放平台 AppID 或群 openid。业务逻辑、积分账本和游戏 RCON 仍在 WARCON 内，机器人框架独立运行并登录机器人 QQ。
 
 ## 网页配置（推荐）
 
 以站点所有者身份打开 **站点管理 → QQ 机器人**（`/admin/qq`）。此页独立检查权限，组织管理员和组织 API 密钥不能修改站点机器人设置。
 
-- “机器人连接”：设置总开关、NapCat HTTP 地址、机器人 QQ 号、API 访问密钥及事件签名密钥。
+- “机器人连接”：选择 NapCat 或 LLBot，设置总开关、HTTP 地址、机器人 QQ 号、API 访问密钥及事件签名密钥。页面根据架构显示对应配置说明和官方文档。
 - “服务器与积分规则”：选择现有服务器，设置授权数字群号、单服开关、暖服人数阈值与每分钟积分、投票价格和时长、友方广播价格、预留位价格与小时数。
 - 候选地图可以手填真实 ID，也可点击“读取游戏地图目录”后勾选 2–10 张。
 - 点击“保存配置”后写入数据库，无需改源码或重启。机器人在下一轮读取，Worker 通常十秒内读取。已开始的操作可能完成，未来购买使用新的规则。
@@ -21,10 +21,12 @@ WARCON 通过 OneBot 11 的 HTTP 上报接收群指令，通过 HTTP API 回复�
 | 请求 | 用途 |
 | --- | --- |
 | `GET /api/admin/qq` | 返回脱敏配置、`revision` 和密钥是否已设置 |
-| `PUT /api/admin/qq` | 保存完整配置：`revision, enabled, url, selfId, policies`；`token`、`secret` 留空保留；`clearToken`、`clearSecret` 明确清除 |
+| `PUT /api/admin/qq` | 保存完整配置：`revision, provider, enabled, url, selfId, policies`；`provider` 为 `napcat` 或 `llbot`；`token`、`secret` 留空保留；`clearToken`、`clearSecret` 明确清除 |
 | `POST /api/admin/qq` | 检测已保存连接与登录账号 |
 
 配置存入现有 `site_settings` 的 `qqCommunity` 项，无需新增迁移。环境文件和数据库备份都要保留 `ENCRYPTION_KEY` 才能解密。
+
+旧配置未保存 `provider` 时默认为 NapCat；旧 API 客户端省略 `provider` 时保留当前选择。环境变量 `QQ_BOT_PROVIDER=napcat|llbot` 只提供首次保存前的默认架构。每个站点当前配置一个机器人连接，可以选择任一框架；切换框架不会迁移或清空积分、Steam 绑定、群规则和订单。相同 QQ 用户继续使用 `ob11:QQ号` 身份；切换机器人 QQ 号后，旧 QQ 号的待处理指令会过期，避免由新机器人执行。
 
 ## VIP 设置
 
@@ -44,11 +46,26 @@ WARCON 通过 OneBot 11 的 HTTP 上报接收群指令，通过 HTTP API 回复�
 
 ## 配置并启动
 
+### LLBot 接入
+
+1. 按 [LLBot 官方安装文档](https://luckylillia.com/guide/choice_install)启动 LuckyLilliaBot，登录机器人 QQ 并加入授权群。
+2. 在 WARCON 的 **站点管理 → QQ 机器人 → 机器人架构** 选择 **LLBot（LuckyLilliaBot）· OneBot 11**，保存接口地址、QQ 号和两个独立随机密钥，以及服务器和群规则。
+3. 在 LLBot 的 Bot 配置中启用 **OneBot 11**，添加两项连接：
+   - `http`：启用；同机示例监听 `127.0.0.1:3002`，`token` 填 WARCON 的 API 访问密钥；WARCON 地址相应填写 `http://127.0.0.1:3002`。端口可配置，须避开 WARCON 本身的端口。
+   - `http-post`：启用；`url` 填管理页显示的 `/api/qq/webhook` 上报地址，`token` 填 WARCON 的事件签名密钥；`messageFormat=array`，关闭 `reportSelfMessage` 和 `reportOfflineMessage`，关闭 `debug`。
+4. [llbot-onebot.example.json](llbot-onebot.example.json) 提供 `ob11` 部分配置，替换占位密钥和地址后合并到 LLBot 现有配置；不要覆盖其他配置项。LLBot 通常在 `bin/llbot/data/config_<QQ号>.json` 保存配置，也可直接使用其 WebUI 修改。
+5. 点击 WARCON “检测已保存的连接”，再在授权群发送 `/帮助`。API 请求使用 `Authorization: Bearer <API密钥>`；HTTP 上报 token 生成 `X-Signature: sha1=...`，原始请求体和 `X-Self-ID` 必须由代理完整保留。未签名事件会被拒绝。
+
+LLBot 接入复用下文所有群指令、战绩 API、举报、暖服积分、投票、友方广播和优先队列业务。这里对接 OneBot 11 HTTP + HTTP POST；没有启用 Milky、Satori、WebSocket 或任意 API 透传。开发依据：[LLBot 配置文档](https://luckylillia.com/guide/config)、[协议开发对接](https://luckylillia.com/guide/develop)、[HTTP 签名与 API 源码](https://github.com/LLOneBot/LuckyLilliaBot/blob/main/src/onebot11/connect/http.ts)。
+
+### NapCat 接入
+
 1. 按 [NapCat 安装文档](https://napneko.github.io/guide/boot/Shell)安装并启动 NapCat，用手机 QQ 扫码登录要作为机器人的账号。WARCON 不接收 QQ 密码。NapCat 账号必须已加入授权群。
 2. 部署 WARCON 分支并运行现有数据库迁移。账本仍用 `0068_qq_community`，本次协议切换没有新增迁移。
 3. 推荐使用上述网页配置。若暂不使用管理页，也可设置 WARCON 服务环境变量。Web 和 Worker 的 `QQ_BOT_POLICIES` 必须相同；`groups` 改为数字群号字符串，地图为实际游戏地图 ID。
 
 ```dotenv
+QQ_BOT_PROVIDER=napcat
 ONEBOT_HTTP_URL=http://127.0.0.1:3001
 ONEBOT_ACCESS_TOKEN=生成独立随机长密钥A
 ONEBOT_EVENT_SECRET=生成独立随机长密钥B
