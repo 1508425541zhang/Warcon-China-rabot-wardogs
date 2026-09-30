@@ -123,7 +123,7 @@ describe.skipIf(!hasTestDb)('Confirmed anti-cheat QQ notices', () => {
 		expect(text).toContain('录像人工确认');
 		expect(text).toContain('不是模型百分位');
 	});
-	test('model kicks include actual P97/P99 policy and P95 reference', async () => {
+	test('model kicks include actual P98/P99 policy and P95 reference', async () => {
 		const [match] = await env.db
 			.insert(matches)
 			.values({ serverId: 'notice-server', map: 'A', startedAt: new Date() })
@@ -132,7 +132,7 @@ describe.skipIf(!hasTestDb)('Confirmed anti-cheat QQ notices', () => {
 			const row = await create('model_integrity');
 			const run = crypto.randomUUID();
 			await env.db.execute(
-				sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,state,score,threshold,result,action,action_state) VALUES(${run},'notice-org','notice-server',${steam},${match.id},${row.id},'test','READY',0.1,${MODEL_CALIBRATION.p97},${JSON.stringify({ calibrationSha256: CALIBRATION_SHA })}::jsonb,${action},'delivered')`
+				sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,state,score,threshold,result,action,action_state) VALUES(${run},'notice-org','notice-server',${steam},${match.id},${row.id},'test','READY',0.1,${MODEL_CALIBRATION.p98},${JSON.stringify({ calibrationSha256: CALIBRATION_SHA })}::jsonb,${action},'delivered')`
 			);
 			row.detail = { runId: run, modelCalibration: MODEL_CALIBRATION, playerName: '模型玩家' };
 			await env.db.update(outbox).set({ detail: row.detail }).where(eq(outbox.id, row.id));
@@ -140,7 +140,7 @@ describe.skipIf(!hasTestDb)('Confirmed anti-cheat QQ notices', () => {
 			const text = (await queued()).at(-1)!.content;
 			expect(text).toContain('AI 自动决策');
 			expect(text).toContain('参考 P95');
-			expect(text).toContain(action === 'KICK' ? 'P97 · 自动踢出' : 'P99 · 隔离24小时');
+			expect(text).toContain(action === 'KICK' ? 'P98 · 自动踢出' : 'P99 · 隔离24小时');
 		}
 	});
 	test('disabled notices never enqueue', async () => {

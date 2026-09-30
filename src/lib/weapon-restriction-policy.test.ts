@@ -10,12 +10,12 @@ test('all source families and newly discovered exact IDs are selectable', () => 
 	expect(restrictedCause(null, [], ['items'])).toBe(false);
 	expect(restrictedCause('Id.Item.M4', [], ['vehicles'])).toBe(false);
 });
-test('warning must precede another kill; grace, stale feed and kick cooldown', () => {
-	expect(restrictionStage(100, 100, undefined, null)).toBe('warn');
-	expect(restrictionStage(100, 110, { clock: 100 }, null)).toBeNull();
-	expect(restrictionStage(108, 110, { clock: 100 }, null)).toBe('kick');
-	expect(restrictionStage(40, 110, undefined, null)).toBeNull();
-	expect(restrictionStage(116, 110, undefined, null)).toBeNull();
-	expect(restrictionStage(120, 120, { clock: 100 }, 110)).toBeNull();
-	expect(restrictionStage(170, 170, { clock: 100 }, 110)).toBe('kick');
+test('first restricted kill kicks directly; stale feed and kick cooldown', () => {
+	expect(restrictionStage(100, 100, null)).toBe('kick');
+	expect(restrictionStage(100, 110, null)).toBe('kick');
+	expect(restrictionStage(40, 110, null)).toBeNull();
+	expect(restrictionStage(116, 110, null)).toBeNull();
+	expect(restrictionStage(NaN, 110, null)).toBeNull();
+	expect(restrictionStage(120, 120, 110)).toBeNull();
+	expect(restrictionStage(170, 170, 110)).toBe('kick');
 });

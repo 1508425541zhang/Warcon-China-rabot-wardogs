@@ -34,12 +34,12 @@ export function modelDecision(score: number) {
 	if (!Number.isFinite(score) || score < 0) return null;
 	return score >= MODEL_CALIBRATION.p99
 		? 'QUARANTINE_24H'
-		: score >= MODEL_CALIBRATION.p97
+		: score >= MODEL_CALIBRATION.p98
 			? 'KICK'
 			: null;
 }
 
-/** Fixed P97/P99 of the pinned model, with no expert votes or legacy-score dependency. */
+/** Fixed P98/P99 of the pinned model, with no expert votes or legacy-score dependency. */
 export async function enforceModelRun(env: Env, id: string) {
 	if (!isOwner()) return;
 	const [candidate] = await env.db.execute<ModelRun>(
@@ -84,7 +84,7 @@ export async function enforceModelRun(env: Env, id: string) {
 		if (validated.status !== 'READY' || validated.score !== Number(run.score))
 			return skip('模型结果无效');
 		const action = modelDecision(validated.score!);
-		if (!action) return skip('低于 P97');
+		if (!action) return skip('低于 P98');
 		const m = memoryOf(run.server_id);
 		if (
 			!m?.ok ||
@@ -116,7 +116,7 @@ export async function enforceModelRun(env: Env, id: string) {
 		if (ban) return skip('已有有效封禁，保留原记录');
 		const expires = action === 'QUARANTINE_24H' ? new Date(Date.now() + 86400000) : null;
 		const entryId = expires ? randomUUID() : null;
-		const reason = `模型 A测：异常分数达到 ${expires ? 'P99，临时隔离24小时' : 'P97，自动踢出'}。记录 ${id}，可联系管理员复核。`;
+		const reason = `模型 A测：异常分数达到 ${expires ? 'P99，临时隔离24小时' : 'P98，自动踢出'}。记录 ${id}，可联系管理员复核。`;
 		if (entryId)
 			await tx.insert(listEntries).values({
 				id: entryId,
@@ -128,7 +128,7 @@ export async function enforceModelRun(env: Env, id: string) {
 			});
 		await tx.insert(outbox).values({
 			serverId: run.server_id,
-			triggerName: '模型 A测 P97/P99',
+			triggerName: '模型 A测 P98/P99',
 			triggerKind: 'model_integrity',
 			action: 'kick',
 			params: { steamId: run.steam_id, reason },
@@ -161,7 +161,7 @@ export async function enforceModelRun(env: Env, id: string) {
 				runId: id,
 				decision,
 				score: candidate.score,
-				p97: MODEL_CALIBRATION.p97,
+				p98: MODEL_CALIBRATION.p98,
 				p99: MODEL_CALIBRATION.p99
 			}
 		});

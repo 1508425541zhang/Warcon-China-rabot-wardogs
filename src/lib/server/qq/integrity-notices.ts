@@ -46,17 +46,20 @@ export async function enqueueIntegrityNotice(db: DbOrTx, row: OutboxRow, at = ne
 			(run.result?.calibrationSha256 === CALIBRATION_SHA ? MODEL_CALIBRATION : null);
 		const p95 = number(calibration?.p95),
 			p97 = number(calibration?.p97),
+			p98 = number(calibration?.p98),
 			p99 = number(calibration?.p99);
 		source = 'AI 自动决策（30 分钟时序模型）';
 		percentile =
 			run.action === 'QUARANTINE_24H'
 				? 'P99 · 隔离24小时并踢出'
-				: p97 === Number(run.threshold)
-					? 'P97 · 自动踢出'
-					: p95 === Number(run.threshold)
-						? 'P95 · 自动踢出'
-						: '自动踢出（历史阈值）';
-		reference = `异常分数：${Number(run.score).toFixed(6)}\n踢出阈值：${Number(run.threshold).toFixed(6)}${p95 !== null ? '\n参考 P95：' + p95.toFixed(6) : ''}${p97 !== null ? ' · P97：' + p97.toFixed(6) : ''}${p99 !== null ? ' · P99：' + p99.toFixed(6) : ''}\n异常分数不是作弊概率。`;
+				: p98 === Number(run.threshold)
+					? 'P98 · 自动踢出'
+					: p97 === Number(run.threshold)
+						? 'P97 · 自动踢出'
+						: p95 === Number(run.threshold)
+							? 'P95 · 自动踢出'
+							: '自动踢出（历史阈值）';
+		reference = `异常分数：${Number(run.score).toFixed(6)}\n踢出阈值：${Number(run.threshold).toFixed(6)}${p95 !== null ? '\n参考 P95：' + p95.toFixed(6) : ''}${p97 !== null ? ' · P97：' + p97.toFixed(6) : ''}${p98 !== null ? ' · P98：' + p98.toFixed(6) : ''}${p99 !== null ? ' · P99：' + p99.toFixed(6) : ''}\n异常分数不是作弊概率。`;
 		identity = '模型记录：' + clean(detail.runId, 100);
 	} else {
 		const [action] = await db.execute<{ source: string }>(

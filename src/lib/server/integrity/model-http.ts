@@ -61,6 +61,7 @@ export async function modelConfigView(env: Env, orgId: string) {
 		referenceSamples: calibration.sample_count,
 		p95: calibration.p95,
 		p97: calibration.p97,
+		p98: calibration.p98,
 		p99: calibration.p99
 	};
 }

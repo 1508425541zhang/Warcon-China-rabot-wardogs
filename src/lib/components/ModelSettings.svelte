@@ -15,7 +15,7 @@
 			autoPunishEnabled: boolean;
 			maxActionsPerHour: number;
 			cooldownSeconds: number;
-			p97: number;
+			p98: number;
 			p99: number;
 			intervalSeconds: number;
 			hasToken: boolean;
@@ -65,7 +65,7 @@
 	<h3 class="font-semibold">开发者模型 · A测</h3>
 	<p class="text-sm text-mist-400">
 		Anomaly Transformer Epoch 58 的 30 分钟时序适配模型，每 30 秒采样一个点，每 30
-		分钟评估一次，通过 HTTP 与面板通信。启用后可选择“仅依赖模型”，跳过五专家投票。P97 自动踢出；P99
+		分钟评估一次，通过 HTTP 与面板通信。启用后可选择“仅依赖模型”，跳过五专家投票。P98 自动踢出；P99
 		优先执行 24 小时临时隔离。异常分数不是作弊概率。
 	</p>
 	<form onsubmit={save} class="space-y-3">
@@ -99,7 +99,7 @@
 				type="checkbox"
 				bind:checked={config.autoPunishEnabled}
 				disabled={busy}
-			/>自动处罚：P97 踢出 / P99 隔离 24 小时</label
+			/>自动处罚：P98 踢出 / P99 隔离 24 小时</label
 		>
 		<label class="block text-sm"
 			>同玩家处罚冷却（秒）<input
@@ -113,7 +113,7 @@
 			/></label
 		>
 		<p class="text-sm">
-			P97：{config.p97.toFixed(6)} · P99：{config.p99.toFixed(6)}（固定模型参考分布）
+			P98：{config.p98.toFixed(6)} · P99：{config.p99.toFixed(6)}（固定模型参考分布）
 		</p>
 		<div class="grid gap-3 sm:grid-cols-2">
 			<label class="block text-sm"
