@@ -1,0 +1,30 @@
+{
+  "ob11": {
+    "enable": true,
+    "connect": [
+      {
+        "type": "http",
+        "enable": true,
+        "host": "127.0.0.1",
+        "port": 3002,
+        "token": "REPLACE_WITH_ONEBOT_ACCESS_TOKEN",
+        "reportSelfMessage": false,
+        "reportOfflineMessage": false,
+        "messageFormat": "array",
+        "debug": false
+      },
+      {
+        "type": "http-post",
+        "enable": true,
+        "url": "http://127.0.0.1:3000/api/qq/webhook",
+        "enableHeart": false,
+        "heartInterval": 60000,
+        "token": "REPLACE_WITH_ONEBOT_EVENT_SECRET",
+        "reportSelfMessage": false,
+        "reportOfflineMessage": false,
+        "messageFormat": "array",
+        "debug": false
+      }
+    ]
+  }
+}

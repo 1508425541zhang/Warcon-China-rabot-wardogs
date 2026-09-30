@@ -5,11 +5,13 @@ import type { Env } from '../env';
 import { siteSettings, servers } from '../db/schema';
 import { encryptSecret, decryptSecret } from '../crypto';
 import { ApiError } from '../http';
+import { qqProviders } from '$lib/qq-providers';
 import {
 	applyQqConfiguration,
 	environmentQqConfiguration,
 	parsePolicies,
 	policySchema,
+	qqProviderSchema,
 	validateQqConnection,
 	type QqConfiguration
 } from './config';
@@ -23,6 +25,7 @@ type Stored = Omit<QqConfiguration, 'token' | 'secret'> & {
 function decode(env: Env, value: Stored): QqConfiguration {
 	return {
 		...value,
+		provider: qqProviderSchema.parse(value.provider || 'napcat'),
 		token: value.tokenEnc ? decryptSecret(env, value.tokenEnc) : '',
 		secret: value.secretEnc ? decryptSecret(env, value.secretEnc) : ''
 	};
@@ -37,6 +40,7 @@ export async function qqSettingsView(env: Env) {
 	return {
 		revision: row ? (row.value as Stored).revision : 'environment',
 		source: row ? 'database' : 'environment',
+		provider: c.provider,
 		enabled: c.enabled,
 		url: c.url,
 		selfId: c.selfId,
@@ -48,6 +52,7 @@ export async function qqSettingsView(env: Env) {
 }
 const patchSchema = z.object({
 	revision: z.string().min(1).max(100),
+	provider: qqProviderSchema.optional(),
 	enabled: z.boolean(),
 	url: z.string().trim().max(2000),
 	selfId: z.string().trim().max(16),
@@ -94,6 +99,7 @@ export async function saveQqSettings(env: Env, input: unknown, userId: string) {
 			throw new ApiError(400, '规则中的服务器不存在，请重新选择。');
 		const value: Stored = {
 			revision: randomUUID(),
+			provider: patch.provider ?? previous.provider,
 			enabled: patch.enabled,
 			url: patch.url,
 			selfId: patch.selfId,
@@ -134,9 +140,12 @@ export async function testQqConnection(env: Env, fetcher: typeof fetch = fetch) 
 		return {
 			ok: true,
 			selfId: c.selfId,
-			message: 'NapCat 接口已连接，登录 QQ 号匹配。群事件上报仍需在群中发送 /帮助 验证。'
+			message: `${qqProviders[c.provider].name} 接口已连接，登录 QQ 号匹配。群事件上报仍需在群中发送 /帮助 验证。`
 		};
 	} catch {
-		throw new ApiError(502, '连接失败或登录 QQ 号不匹配，请检查 NapCat 登录状态、接口地址和密钥。');
+		throw new ApiError(
+			502,
+			`连接失败或登录 QQ 号不匹配，请检查 ${qqProviders[c.provider].name} 登录状态、接口地址和密钥。`
+		);
 	}
 }
