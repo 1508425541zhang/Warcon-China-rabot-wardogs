@@ -1,0 +1,95 @@
+{
+  "baseline60StepValidationReconstruction": 0.014301025235282084,
+  "adaptedValidationReconstruction": 0.005733153231198057,
+  "bestAdaptationEpoch": 11,
+  "windows": {
+    "train": 3838,
+    "validation": 882,
+    "calibration": 679,
+    "test": 750
+  },
+  "testMatch": 27,
+  "testAboveP95": 0.034666666666666665,
+  "testAboveP99": 0.0013333333333333333,
+  "history": [
+    {
+      "epoch": 1,
+      "trainReconstruction": 0.027205314432891706,
+      "validationReconstruction": 0.008063711287493896,
+      "seconds": 12.7
+    },
+    {
+      "epoch": 2,
+      "trainReconstruction": 0.024415990015647062,
+      "validationReconstruction": 0.007894476513349812,
+      "seconds": 11.9
+    },
+    {
+      "epoch": 3,
+      "trainReconstruction": 0.022501114911089342,
+      "validationReconstruction": 0.007305477618064537,
+      "seconds": 12.7
+    },
+    {
+      "epoch": 4,
+      "trainReconstruction": 0.02157902418014904,
+      "validationReconstruction": 0.007413702148177541,
+      "seconds": 12.5
+    },
+    {
+      "epoch": 5,
+      "trainReconstruction": 0.021250707601817947,
+      "validationReconstruction": 0.006605366040459388,
+      "seconds": 10.3
+    },
+    {
+      "epoch": 6,
+      "trainReconstruction": 0.02037573205307126,
+      "validationReconstruction": 0.0063339025443451494,
+      "seconds": 11.0
+    },
+    {
+      "epoch": 7,
+      "trainReconstruction": 0.019965068708794814,
+      "validationReconstruction": 0.006247997508582801,
+      "seconds": 11.7
+    },
+    {
+      "epoch": 8,
+      "trainReconstruction": 0.019335943658370526,
+      "validationReconstruction": 0.006158523543082102,
+      "seconds": 11.2
+    },
+    {
+      "epoch": 9,
+      "trainReconstruction": 0.01929924701883768,
+      "validationReconstruction": 0.006201064316666729,
+      "seconds": 11.2
+    },
+    {
+      "epoch": 10,
+      "trainReconstruction": 0.018813423218671233,
+      "validationReconstruction": 0.005850700413002559,
+      "seconds": 11.6
+    },
+    {
+      "epoch": 11,
+      "trainReconstruction": 0.01875843872549012,
+      "validationReconstruction": 0.005733153231198057,
+      "seconds": 11.9
+    },
+    {
+      "epoch": 12,
+      "trainReconstruction": 0.01840574579158177,
+      "validationReconstruction": 0.005854850568541467,
+      "seconds": 11.4
+    }
+  ],
+  "source_sha256": "941161ad0a228bf23e299cfd03b5bab06046c10c3b7d3108066a7e3c83dd3cec",
+  "limitations": [
+    "No cheating labels: neither precision nor recall is available.",
+    "Within-match windows overlap by twenty minutes.",
+    "Epoch58 pretraining already saw validation/calibration matches; this is adaptation validation, not independent pretraining validation.",
+    "Frozen original scaler and masks; no padding or resampling; original match27 remains excluded."
+  ]
+}

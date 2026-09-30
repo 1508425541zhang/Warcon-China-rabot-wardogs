@@ -11,6 +11,7 @@ import {
 import { enforceModelRun } from './model-enforcement';
 import { isOwner } from '../leadership';
 import { ApiError } from '../http';
+import { allMemory } from '../observe';
 
 /** Export one player's observed features only; no credentials, names, labels or expert opinions. */
 export async function modelSources(
@@ -24,8 +25,8 @@ export async function modelSources(
 		sql`SELECT id, started_at, ${at.toISOString()}::timestamptz AS ended_at, map FROM matches WHERE id=${matchId} AND server_id=${serverId} AND started_at < ${at}`
 	);
 	if (!match.length) throw new ApiError(404, '模型所需对局不存在。');
-	// Include context before the target 100-minute window; builder preserves match-aligned buckets.
-	const since = new Date(at.getTime() - 6100_000);
+	// Thirty minutes plus counter context; preserve sixty ordered thirty-second buckets.
+	const since = new Date(at.getTime() - 1900_000);
 	const progress = await env.db.execute(sql`SELECT server_id, match_id, observed_at,
   jsonb_array_length(players) AS roster_size,
   (SELECT jsonb_agg(jsonb_build_object('steamId','player','cash',p->'cash','kills',p->'kills','deaths',p->'deaths')) FROM jsonb_array_elements(players) p WHERE p->>'steamId'=${steamId}) AS players
@@ -65,6 +66,8 @@ export async function runPlayerModel(
 		.execute(sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,threshold)
   SELECT ${id},${orgId},${serverId},${steamId},${matchId},${slot},${config.revision},${MODEL_CALIBRATION.p95}
   WHERE EXISTS(SELECT 1 FROM servers s JOIN integrity_rules r ON r.org_id=s.org_id WHERE s.id=${serverId} AND s.org_id=${orgId} AND r.assessment_mode='model_only')
+  AND EXISTS(SELECT 1 FROM matches WHERE id=${matchId} AND server_id=${serverId} AND started_at<=${at.toISOString()}::timestamptz-interval '30 minutes')
+  AND NOT EXISTS(SELECT 1 FROM integrity_model_runs WHERE server_id=${serverId} AND steam_id=${steamId} AND match_id=${matchId} AND config_revision=${config.revision} AND created_at>${at.toISOString()}::timestamptz-(${config.intervalSeconds}*interval '1 second'))
   ON CONFLICT DO NOTHING RETURNING id`);
 }
 
@@ -133,11 +136,43 @@ export async function processModelQueue(env: Env) {
 
 let timer: ReturnType<typeof setInterval> | undefined;
 let pending: Promise<void> | undefined;
+let lastSweep = 0;
+export async function scheduleOnlineModels(env: Env, at = new Date()) {
+	for (const memory of allMemory()) {
+		if (
+			!memory.ok ||
+			at.getTime() - memory.playersAt > 30000 ||
+			at.getTime() - memory.statusAt > 30000
+		)
+			continue;
+		const config = await modelConfig(env, memory.server.orgId);
+		if (!config.developerEnabled) continue;
+		const [match] = await env.db.execute<{ id: number }>(
+			sql`SELECT id FROM matches WHERE server_id=${memory.server.id} AND ended_at IS NULL AND started_at<=${at.toISOString()}::timestamptz-interval '30 minutes' ORDER BY started_at DESC LIMIT 1`
+		);
+		if (!match) continue;
+		for (const player of memory.players)
+			await runPlayerModel(
+				env,
+				memory.server.orgId,
+				memory.server.id,
+				player.steamId,
+				Number(match.id),
+				at
+			);
+	}
+}
 export function startModelQueue(env: Env) {
 	if (timer) return;
 	timer = setInterval(() => {
 		if (!pending && isOwner())
-			pending = processModelQueue(env)
+			pending = (async () => {
+				if (Date.now() - lastSweep >= 10000) {
+					await scheduleOnlineModels(env);
+					lastSweep = Date.now();
+				}
+				for (let i = 0; i < 5; i++) await processModelQueue(env);
+			})()
 				.catch(() => {})
 				.finally(() => {
 					pending = undefined;
@@ -153,6 +188,8 @@ export async function stopModelQueue() {
 export async function modelRuns(env: Env, orgId: string) {
 	return env.db
 		.execute(sql`SELECT id,server_id,steam_id,match_id,state,score,threshold,created_at,finished_at,action,action_state,action_reason,expires_at,
+  result->>'reason' AS data_reason, result->>'windowSeconds' AS window_seconds,
+  result->>'observedBuckets' AS observed_buckets, result->>'requiredBuckets' AS required_buckets,
   CASE WHEN state='READY' THEN score>=threshold ELSE NULL END AS anomalous
   FROM integrity_model_runs WHERE org_id=${orgId} ORDER BY created_at DESC LIMIT 50`);
 }

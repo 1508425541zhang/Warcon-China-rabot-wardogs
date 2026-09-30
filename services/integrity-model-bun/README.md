@@ -1,25 +1,13 @@
-# Epoch 58 模型 HTTP API（Bun 原生，A测）
+# Epoch58 的30分钟时序模型（A测）
 
-本服务只需要 WARCON 已有的 Bun 1.4.2。无需 Python、PyTorch、NumPy、ONNX、Docker、npm 安装或其他推理依赖。生产目录只包含 TypeScript 和冻结模型数据；训练与格式转换在本机完成。
+活动模型 `warcon-at-epoch58-30m-v1` 由原 Epoch58 适配。每30秒一个采样点，60个有序点组成30分钟序列；每玩家默认每1800秒评估一次。保留两层四头注意力、循环卷积、LayerNorm、GELU、原冻结scaler及14个数值通道和13个观测掩码。没有替换成单点模型，没有补齐或复制缺失时间点。
 
-活动模型 `warcon-at-epoch58`，原始 checkpoint SHA256 `ea3bc3f168e7ca8e329e85736d74c59019d6392cbded31bc63bee41ad7378da7`。`weights.f32` 是原始 state_dict 的小端 float32 导出，`weights.json` 标明形状和偏移。位置编码只保留推理窗口需要的 200 步。manifest 的 checkpoint 字段记录训练来源，运行不读取 .pth。启动时校验权重、索引、scaler、校准文件哈希。没有重新训练或更换阈值。
+适配使用3838个完整训练窗口，以第24局的882个窗口选择第11轮。原始checkpoint的SHA256为 `ea3bc3f168e7ca8e329e85736d74c59019d6392cbded31bc63bee41ad7378da7`。活动冻结文件位于 `artifacts-30m`，原200步模型位于 `artifacts` 供回归核对。小端float32权重和形状索引支持Bun原生推理，无需Python、PyTorch、NumPy或ONNX。manifest记录原始和适配checkpoint、权重、索引、scaler和校准指纹，加载时验证完整性。
 
-推理包含循环卷积、两层四头全注意力、LayerNorm、erf GELU、重建输出和训练时相同的带掩码损失。只省略不参与重建评分的 sigma/prior 分支及 eval 禁用的 dropout。14 个数值通道与 13 个观测掩码保留原有缺失语义。四张原始表重建 30 秒桶；需要 200 连续活跃桶、80% 有观测、75% 现金覆盖，否则返回 `INSUFFICIENT_DATA`。
+输入协议为 `{schema:"warcon-raw-30s-v1",requestId,sources:{matches,player_progress_samples,integrity_player_metric_history,integrity_windows}}`，每次限单局、单玩家。四张原始表重建30秒桶；需要60个连续活跃桶、80%观测和75%现金覆盖，末桶必须新鲜。换局重新累计，禁止跨局拼接。不足时返回 `INSUFFICIENT_DATA`、原因及覆盖数量；完整序列返回 `READY`、总体重建分数和60个逐点评分。定时调度无需玩家先产生击杀事件。
 
-启动：
+P95/P99按60步评分重新校准，参考第26局679个无标签窗口。P95自动踢出，P99优先隔离24小时；保留VIP白名单、观测健康检查、版本验证、去重、处罚冷却和每小时上限。请求失败或数据不足不产生处罚，不回退专家。后台显示覆盖情况和不足原因。
 
-```sh
-MODEL_API_TOKEN=<至少32字符的私密令牌> bun services/integrity-model-bun/server.ts
-```
+第27局750个窗口未参与原训练或本次适配、选择和校准；结果见 `artifacts-30m/evaluation.json`。第24/26局曾出现在Epoch58预训练中，本次适配验证和校准并不独立于预训练。窗口存在重叠，数量不等于独立样本数。没有作弊真值标签，不能报告准确率、召回率或认定超过百分位即作弊。
 
-默认监听 `127.0.0.1:8091`。环境变量：`MODEL_HOST`、`MODEL_PORT`、`MODEL_ARTIFACTS_DIR`。Bearer 令牌通过私密环境文件传入，不能提交到 Git。可安装同目录的 `warcon-model.service`，部署源目录到 `/opt/warcon-model`，环境文件放 `/etc/warcon/model.env`（root:warcon 0640）。资源限制独立于 WARCON 主进程。
-
-- `GET /v1/health`：模型、checkpoint、校准指纹和运行时。
-- `POST /v1/assess`：输入 `{schema:"warcon-raw-30s-v1",requestId,sources:{matches,player_progress_samples,integrity_player_metric_history,integrity_windows}}`。仅允许单局、单玩家，各表最多 25000 条，总体最多 8 MiB。
-- 两个接口都需要 `Authorization: Bearer <令牌>`。服务没有外部依赖、数据库访问或处罚权限。HTTP 请求经过 WARCON 后台，处罚由现有队列执行。
-
-组织的“反作弊管理”页面提供模型开发者设置：地址填写 `http://127.0.0.1:8091`，令牌加密存储；选择“仅模型”后执行模型判断。固定 P95 踢出、P99 临时隔离 24 小时。VIP 白名单、数据健康检查、版本校验、去重、处罚冷却及每小时上限继续生效。未满足数据覆盖、HTTP 异常或版本错误不会产生处罚，也不会回退到专家结论。
-
-这是异常重建分数，不能解释成作弊概率；校准来源是无标签训练参考分布。A测保留人工复核记录，不合并 main。
-
-验证：`bun test services/integrity-model-bun/inference.test.ts`。`parity.json` 保存原 PyTorch Epoch58 的三种固定输入参考输出，覆盖完整/缺失掩码、较大数值，核对预测采样、200 个逐点评分和总体评分。另在本机核对四表重建与原服务逐项一致。原架构许可证见 `MODEL-LICENSE`。
+两套parity文件记录原200步和适配60步的PyTorch CPU参考输出，覆盖完整、缺失掩码和较大数值，验证预测、逐点评分和总体分数。原架构许可证见 `MODEL-LICENSE`。A测保持独立分支，不合并main。

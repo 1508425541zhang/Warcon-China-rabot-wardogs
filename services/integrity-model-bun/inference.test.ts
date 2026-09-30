@@ -5,7 +5,7 @@ import { buildRows } from './features';
 import { serve } from './server';
 import parity from './parity.json';
 
-const predictor = new Predictor();
+const predictor = new Predictor(import.meta.dir + '/artifacts');
 function fixture(count = 205) {
 	const stamp = (i: number) => new Date(Date.UTC(2026, 0, 1) + i * 30_000).toISOString();
 	return {

@@ -5,13 +5,13 @@ import type { Env } from '../env';
 import { siteSettings } from '../db/schema';
 import { encryptSecret, decryptSecret } from '../crypto';
 import { ApiError } from '../http';
-import calibration from '../../../../services/integrity-model-bun/artifacts/calibration.json';
-import manifest from '../../../../services/integrity-model-bun/artifacts/manifest.json';
+import calibration from '../../../../services/integrity-model-bun/artifacts-30m/calibration.json';
+import manifest from '../../../../services/integrity-model-bun/artifacts-30m/manifest.json';
 export const MODEL_CALIBRATION = calibration;
 export const CALIBRATION_SHA = manifest.calibration_sha256;
 
-export const MODEL_ID = 'warcon-at-epoch58';
-export const MODEL_SHA = 'ea3bc3f168e7ca8e329e85736d74c59019d6392cbded31bc63bee41ad7378da7';
+export const MODEL_ID = manifest.model_id;
+export const MODEL_SHA = manifest.checkpoint_sha256;
 export const MODEL_SCHEMA = 'warcon-raw-30s-v1';
 const key = (orgId: string) => `integrityModel:${orgId}`;
 export type ModelConfig = {
@@ -33,14 +33,20 @@ const defaults: Config = {
 	autoPunishEnabled: true,
 	maxActionsPerHour: 10,
 	cooldownSeconds: 600,
-	intervalSeconds: 600
+	intervalSeconds: 1800
 };
 export async function modelConfig(env: Env, orgId: string): Promise<Config> {
 	const [row] = await env.db
 		.select()
 		.from(siteSettings)
 		.where(eq(siteSettings.key, key(orgId)));
-	return row ? (row.value as Config) : { ...defaults };
+	return row
+		? {
+				...defaults,
+				...(row.value as Config),
+				intervalSeconds: Math.max(1800, Number((row.value as Config).intervalSeconds) || 1800)
+			}
+		: { ...defaults };
 }
 export async function modelConfigView(env: Env, orgId: string) {
 	const { tokenEnc, ...config } = await modelConfig(env, orgId);
@@ -49,6 +55,10 @@ export async function modelConfigView(env: Env, orgId: string) {
 		hasToken: !!tokenEnc,
 		modelId: MODEL_ID,
 		stage: 'A测',
+		bucketSeconds: 30,
+		windowSeconds: 1800,
+		windowSteps: 60,
+		referenceSamples: calibration.sample_count,
 		p95: calibration.p95,
 		p99: calibration.p99
 	};
@@ -61,7 +71,7 @@ const configSchema = z.object({
 	autoPunishEnabled: z.boolean().default(true),
 	maxActionsPerHour: z.number().int().min(1).max(100).default(10),
 	cooldownSeconds: z.number().int().min(60).max(86400).default(600),
-	intervalSeconds: z.number().int().min(60).max(3600)
+	intervalSeconds: z.number().int().min(1800).max(86400)
 });
 export function modelUrl(value: string) {
 	let url: URL;
@@ -173,7 +183,9 @@ export function validateModelResult(result: Record<string, unknown>, requestId: 
 		result.checkpointSha256 !== MODEL_SHA ||
 		result.schema !== MODEL_SCHEMA ||
 		result.requestId !== requestId ||
-		result.calibrationSha256 !== CALIBRATION_SHA
+		result.calibrationSha256 !== CALIBRATION_SHA ||
+		result.windowSeconds !== 1800 ||
+		result.bucketSeconds !== 30
 	)
 		throw new ApiError(502, '模型响应身份不匹配。');
 	if (result.status === 'INSUFFICIENT_DATA')
@@ -184,7 +196,7 @@ export function validateModelResult(result: Record<string, unknown>, requestId: 
 		!Number.isFinite(result.score) ||
 		result.score < 0 ||
 		!Array.isArray(result.pointScores) ||
-		result.pointScores.length !== 200 ||
+		result.pointScores.length !== 60 ||
 		result.pointScores.some((x) => typeof x !== 'number' || !Number.isFinite(x) || x < 0)
 	)
 		throw new ApiError(502, '模型评分格式无效。');

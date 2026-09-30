@@ -18,7 +18,8 @@ import {
 import {
 	runPlayerModel,
 	processModelQueue,
-	modelSources
+	modelSources,
+	scheduleOnlineModels
 } from '$lib/server/integrity/model-runtime';
 import { saveAssessmentMode } from '$lib/server/integrity/rules';
 import { processIntegrityBatch } from '$lib/server/integrity/pipeline';
@@ -49,12 +50,20 @@ test('model identity and finite scores are mandatory; redirects and credential U
 		requestId: 'r',
 		status: 'READY',
 		score: 0.1,
-		pointScores: Array(200).fill(0.1)
+		windowSeconds: 1800,
+		bucketSeconds: 30,
+		pointScores: Array(60).fill(0.1)
 	};
 	expect(validateModelResult(result, 'r').status).toBe('READY');
 	expect(() => validateModelResult({ ...result, score: NaN }, 'r')).toThrow();
 	expect(() => validateModelResult({ ...result, checkpointSha256: 'wrong' }, 'r')).toThrow();
 	expect(() => validateModelResult(result, 'other-request')).toThrow();
+	expect(() =>
+		validateModelResult(
+			{ ...result, windowSeconds: 1800, bucketSeconds: 30, pointScores: Array(200).fill(0.1) },
+			'r'
+		)
+	).toThrow();
 	expect(modelDecision(MODEL_CALIBRATION.p95 - 1e-8)).toBeNull();
 	expect(modelDecision(MODEL_CALIBRATION.p95)).toBe('KICK');
 	expect(modelDecision(MODEL_CALIBRATION.p99)).toBe('QUARANTINE_24H');
@@ -90,7 +99,7 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 			url: 'http://127.0.0.1:8091',
 			token: 'a'.repeat(32),
 			threshold: 0.05,
-			intervalSeconds: 600
+			intervalSeconds: 1800
 		});
 		expect(config.hasToken).toBe(true);
 		expect(JSON.stringify(config)).not.toContain('a'.repeat(32));
@@ -130,7 +139,10 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 			sql`SELECT count(*) AS n FROM integrity_model_runs WHERE server_id=${w.server.id}`
 		);
 		expect(Number(count[0].n)).toBe(1);
-		const mocked = spyOn(globalThis, 'fetch').mockImplementation((async (_url: RequestInfo | URL, init?: RequestInit) => {
+		const mocked = spyOn(globalThis, 'fetch').mockImplementation((async (
+			_url: RequestInfo | URL,
+			init?: RequestInit
+		) => {
 			const body = JSON.parse(String(init?.body));
 			return new Response(
 				JSON.stringify({
@@ -141,7 +153,9 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 					requestId: body.requestId,
 					status: 'READY',
 					score: 0.2,
-					pointScores: Array(200).fill(0.2)
+					windowSeconds: 1800,
+					bucketSeconds: 30,
+					pointScores: Array(60).fill(0.2)
 				})
 			);
 		}) as unknown as typeof fetch);
@@ -212,6 +226,31 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 			await releaseOwnership(env);
 		}
 	});
+	test('online periodic sweep schedules players without kills and skips a young match', async () => {
+		const m = memoryFor((await getServer(env, w.server.id))!, (await getOrg(env, w.org.id))!);
+		m.ok = true;
+		m.playersAt = m.statusAt = Date.now();
+		m.players = [{ steamId: '76561198000000991', name: 'no kills' }] as typeof m.players;
+		try {
+			await scheduleOnlineModels(env);
+			await scheduleOnlineModels(env);
+			const [count] = await env.db.execute(
+				sql`SELECT count(*) AS n FROM integrity_model_runs WHERE steam_id='76561198000000991'`
+			);
+			expect(Number(count.n)).toBe(1);
+			const [young] = await env.db.execute<{ id: number }>(
+				sql`INSERT INTO matches(server_id,started_at) VALUES(${w.server.id},now()-interval '1 minute') RETURNING id`
+			);
+			await runPlayerModel(env, w.org.id, w.server.id, '76561198000000992', Number(young.id));
+			const [none] = await env.db.execute(
+				sql`SELECT count(*) AS n FROM integrity_model_runs WHERE steam_id='76561198000000992'`
+			);
+			expect(Number(none.n)).toBe(0);
+			await env.db.execute(sql`DELETE FROM matches WHERE id=${young.id}`);
+		} finally {
+			forgetMemory(w.server.id);
+		}
+	});
 	test('P95 kicks, P99 creates a 24h ban, dedupe and late VIP exemption preserve manual bans', async () => {
 		const server = (await getServer(env, w.server.id))!,
 			org = (await getOrg(env, w.org.id))!;
@@ -232,7 +271,9 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 				requestId: id,
 				status: 'READY',
 				score,
-				pointScores: Array(200).fill(score)
+				windowSeconds: 1800,
+				bucketSeconds: 30,
+				pointScores: Array(60).fill(score)
 			};
 			await env.db.execute(
 				sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,threshold,state,score,result) VALUES(${id},${w.org.id},${w.server.id},${ids[index]},${matchId},${index},${config.revision},${MODEL_CALIBRATION.p95},'READY',${score},${JSON.stringify(result)}::text::jsonb)`

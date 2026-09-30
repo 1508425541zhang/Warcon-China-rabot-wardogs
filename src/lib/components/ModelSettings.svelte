@@ -20,6 +20,7 @@
 			intervalSeconds: number;
 			hasToken: boolean;
 			modelId: string;
+			referenceSamples: number;
 		};
 		runs: Record<string, unknown>[];
 	} = $props();
@@ -63,9 +64,9 @@
 <section class="border-line mt-5 space-y-4 rounded border p-4" aria-label="开发者模型 A测">
 	<h3 class="font-semibold">开发者模型 · A测</h3>
 	<p class="text-sm text-mist-400">
-		独立 Anomaly Transformer Epoch 58，通过 HTTP
-		与面板通信。启用后可选择“仅依赖模型”，跳过五专家投票。P95 自动踢出；P99 优先执行 24
-		小时临时隔离。异常分数不是作弊概率。
+		Anomaly Transformer Epoch 58 的 30 分钟时序适配模型，每 30 秒采样一个点，每 30
+		分钟评估一次，通过 HTTP 与面板通信。启用后可选择“仅依赖模型”，跳过五专家投票。P95 自动踢出；P99
+		优先执行 24 小时临时隔离。异常分数不是作弊概率。
 	</p>
 	<form onsubmit={save} class="space-y-3">
 		<label class="flex gap-2"
@@ -130,8 +131,8 @@
 				>每玩家请求间隔（秒）<input
 					class="mt-1 input"
 					type="number"
-					min="60"
-					max="3600"
+					min="1800"
+					max="86400"
 					bind:value={config.intervalSeconds}
 					required
 					disabled={busy}
@@ -139,8 +140,8 @@
 			>
 		</div>
 		<p class="text-xs text-mist-400">
-			百分位基于 991 个未标注训练窗口，并非人工确认的正常玩家分布。输入需同局约 100
-			分钟有效序列；数据不足、断连或版本不符时标记状态，不回退专家。HTTP
+			百分位基于 {config.referenceSamples} 个未标注参考窗口，并非人工确认的正常玩家分布。输入需同局连续
+			30 分钟（60 个有序采样点）；定时评估在线玩家，换局重新累计。数据不足、断连或版本不符时显示原因，不回退专家。HTTP
 			明文连接请放在可信网络内，跨公网可使用 HTTPS。
 		</p>
 		<div class="flex gap-2">
@@ -166,7 +167,15 @@
 			><tbody>
 				{#each runs as run}<tr
 						><td>{String(run.steam_id)}</td><td>{String(run.match_id)}</td><td
-							>{String(run.state)}{run.anomalous === true ? ' · 超过实验阈值' : ''}</td
+							>{String(run.state)}{run.anomalous === true ? ' · 超过实验阈值' : ''}<br />{String(
+								run.data_reason ?? ''
+							)}{run.required_buckets
+								? ' · 观测 ' +
+									String(run.observed_buckets) +
+									'/' +
+									String(run.required_buckets) +
+									' 点'
+								: ''}</td
 						><td
 							>{run.score == null ? '—' : Number(run.score).toFixed(6)} / {String(
 								run.threshold
