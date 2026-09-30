@@ -304,6 +304,7 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 		await env.db
 			.update(integrityRules)
 			.set({
+				assessmentMode: 'legacy',
 				autoKickEnabled: false,
 				autoQuarantine24hEnabled: false,
 				autoQuarantine7dEnabled: false,
@@ -361,8 +362,12 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 		expect(action.effectiveAt).toBeNull();
 		expect(effectiveActionKinds([action])).toEqual([]);
 	});
-	test('Shadow: legacy KICK still executes when the statistical result is NORMAL', async () => {
+	test('Shadow evaluation cannot execute even a legacy KICK', async () => {
 		await setFlags({ autoKickEnabled: true });
+		await env.db
+			.update(integrityRules)
+			.set({ assessmentMode: 'statistical_shadow' })
+			.where(eq(integrityRules.orgId, world.org.id));
 		const input = await candidate(sid(816));
 		const shadow = statistical('NORMAL');
 		await env.db
@@ -374,7 +379,7 @@ describe.skipIf(!hasTestDb)('experimental Integrity actions', () => {
 			.set({ statistical: shadow })
 			.where(eq(integrityCases.id, input.caseId));
 		expect((await getIntegrityRules(env, world.org.id)).assessmentMode).toBe('statistical_shadow');
-		expect(await enforceIntegrityCase(env, input)).toBe('KICK');
+		expect(await enforceIntegrityCase(env, input)).toBe('OBSERVE');
 	});
 	test('Shadow: statistical KICK_CANDIDATE cannot execute when legacy is NORMAL', async () => {
 		await setFlags({ autoKickEnabled: true });

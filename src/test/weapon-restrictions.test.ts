@@ -26,15 +26,13 @@ describe.skipIf(!hasTestDb)('weapon restriction persisted delivery', () => {
 			.insert(matches)
 			.values({ serverId: server.id, map: 'Europe', startedAt: old })
 			.returning();
-		await env.db
-			.insert(weaponRestrictionRules)
-			.values({
-				serverId: server.id,
-				enabled: true,
-				causes: ['Id.Item.M67Grenade'],
-				groups: [],
-				updatedAt: old
-			});
+		await env.db.insert(weaponRestrictionRules).values({
+			serverId: server.id,
+			enabled: true,
+			causes: ['Id.Item.M67Grenade'],
+			groups: [],
+			updatedAt: old
+		});
 		const player = {
 			steamId: '76561198000777777',
 			name: '玩家',
@@ -61,25 +59,23 @@ describe.skipIf(!hasTestDb)('weapon restriction persisted delivery', () => {
 			}
 		} as unknown as WardogsClient;
 		const add = async (eventId: string, eventTime: number, extra: Record<string, unknown> = {}) => {
-			await env.db
-				.insert(kills)
-				.values({
-					serverId: server.id,
-					ts: new Date(Date.now() + 10),
-					eventId,
-					instanceId: 'i',
-					matchId: 'm',
-					matchRow: round.id,
-					eventTime,
-					map: 'Europe',
-					killerSteamId: player.steamId,
-					killerName: player.name,
-					victimSteamId: '76561198000777778',
-					victimName: 'victim',
-					cause: 'Id.Item.M67Grenade',
-					tags: [],
-					...extra
-				});
+			await env.db.insert(kills).values({
+				serverId: server.id,
+				ts: new Date(Date.now() + 10),
+				eventId,
+				instanceId: 'i',
+				matchId: 'm',
+				matchRow: round.id,
+				eventTime,
+				map: 'Europe',
+				killerSteamId: player.steamId,
+				killerName: player.name,
+				victimSteamId: '76561198000777778',
+				victimName: 'victim',
+				cause: 'Id.Item.M67Grenade',
+				tags: [],
+				...extra
+			});
 		};
 		return {
 			env,
@@ -95,17 +91,17 @@ describe.skipIf(!hasTestDb)('weapon restriction persisted delivery', () => {
 			}
 		};
 	}
-	test('warn once for multi-kill, kick on new post-warning kill, replay cannot kick twice', async () => {
+	test('first kill kicks, multi-kill and replay cannot kick twice; fresh kill after cooldown kicks again', async () => {
 		const s = await setup();
 		await s.add('one', 590);
 		await s.add('same-explosion', 591);
 		await s.run();
 		expect(s.calls).toHaveLength(1);
-		expect(s.calls[0]).toEndWith('/message');
+		expect(s.calls[0]).toEndWith('/kick');
 		await s.run();
 		expect(s.calls).toHaveLength(1);
-		s.input.status.matchSeconds = 612;
-		await s.add('two', 611);
+		s.input.status.matchSeconds = 672;
+		await s.add('two', 671);
 		await s.run();
 		expect(s.calls).toHaveLength(2);
 		expect(s.calls[1]).toEndWith('/kick');
@@ -117,7 +113,7 @@ describe.skipIf(!hasTestDb)('weapon restriction persisted delivery', () => {
 			.where(eq(weaponRestrictionEvents.serverId, s.server.id));
 		expect(events.map((e) => e.state)).toEqual(['delivered', 'delivered']);
 	});
-	test('failed warning is never kick eligibility', async () => {
+	test('failed kick does not become success or replay; later kill attempts a direct kick', async () => {
 		const s = await setup();
 		s.fail();
 		await s.add('failed', 590);
@@ -125,7 +121,10 @@ describe.skipIf(!hasTestDb)('weapon restriction persisted delivery', () => {
 		s.input.status.matchSeconds = 612;
 		await s.add('later', 611);
 		await s.run();
-		expect(s.calls.every((p) => p.endsWith('/message'))).toBe(true);
+		expect(s.calls).toHaveLength(2);
+		expect(s.calls.every((p) => p.endsWith('/kick'))).toBe(true);
+		await s.run();
+		expect(s.calls).toHaveLength(2);
 	});
 	test('offline, stale, map transition and unrelated source do not act', async () => {
 		const s = await setup();

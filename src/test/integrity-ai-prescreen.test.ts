@@ -19,13 +19,15 @@ import { acquireOrRenew, releaseOwnership } from '$lib/server/leadership';
 import type { KillView } from '$lib/types';
 import { hasTestDb, testEnv } from './db';
 import { seedWorld } from './world';
+import { getIntegrityRules } from '$lib/server/integrity/rules';
 import { saveAiSettings, aiCall } from '$lib/server/integrity/ai';
 import { discoverAiJobs, processNextAiJob } from '$lib/server/integrity/ai-queue';
 
 describe.skipIf(!hasTestDb)('AI low-signal pipeline', () => {
-	test('enabled AI screens a single vote once, respects pause, and never punishes', async () => {
+	test('enabled AI no longer creates low-signal cases or automatic jobs', async () => {
 		const env = await testEnv();
 		const world = await seedWorld(env);
+		await getIntegrityRules(env, world.org.id);
 		const steamId = '76561198000007890';
 		const received = new Date();
 		const eventIds = Array.from({ length: 11 }, (_, i) => `shadow-${world.server.id}-${i}`);
@@ -134,75 +136,15 @@ describe.skipIf(!hasTestDb)('AI low-signal pipeline', () => {
 			await processIntegrityBatch(env, world.server.id, batch.slice(4, 5));
 			const caseRows = () =>
 				env.db.select().from(integrityCases).where(eq(integrityCases.serverId, world.server.id));
-			const initial = await caseRows();
-			expect(initial).toHaveLength(1);
-			expect(initial[0].trigger).toBe('AI_SINGLE_SIGNAL');
-			expect((initial[0].statistical as StatisticalAssessment).committee?.cheatVotes).toBe(1);
-			await processIntegrityBatch(env, world.server.id, batch.slice(5));
-			await processIntegrityBatch(env, world.server.id, batch.slice(5));
-			expect(await caseRows()).toHaveLength(1);
+			expect(await caseRows()).toHaveLength(0);
 			await discoverAiJobs(env);
-			await discoverAiJobs(env);
-			expect(
-				await env.db.select().from(integrityAiJobs).where(eq(integrityAiJobs.caseId, initial[0].id))
-			).toHaveLength(1);
-			await env.db
-				.update(integrityAiSettings)
-				.set({ autoEnabled: false })
-				.where(eq(integrityAiSettings.orgId, world.org.id));
+			expect(await env.db.select().from(integrityAiJobs)).toHaveLength(0);
 			expect(
 				await processNextAiJob(env, async () => {
-					throw new Error('paused AI must not call provider');
+					throw Error('no low-signal provider calls');
 				})
 			).toBe(false);
-			await env.db
-				.update(integrityAiSettings)
-				.set({ autoEnabled: true })
-				.where(eq(integrityAiSettings.orgId, world.org.id));
-			let calls = 0;
-			const reviewer: typeof aiCall = (env, org, op, bundle, automatic) =>
-				aiCall(env, org, op, bundle, automatic, async (_base, _key, _path, body) => {
-					calls++;
-					expect(bundle?.reviewPurpose).toContain('AI预筛');
-					expect(JSON.stringify(body)).toContain('numericChecks');
-					expect(JSON.stringify(body)).not.toContain('test-secret');
-					return {
-						choices: [
-							{
-								message: {
-									content: JSON.stringify({
-										verdict: '证据不足',
-										suspicionPercent: null,
-										evidenceQuality: '低',
-										summary: '单票异常，需更多证据。',
-										reasons: [],
-										alternatives: [],
-										contradictions: [],
-										missingEvidence: []
-									})
-								},
-								finish_reason: 'stop'
-							}
-						]
-					};
-				});
-			expect(await processNextAiJob(env, reviewer)).toBe(true);
-			expect(await processNextAiJob(env, reviewer)).toBe(false);
-			expect(calls).toBe(1);
-			const [done] = await env.db
-				.select()
-				.from(integrityAiJobs)
-				.where(eq(integrityAiJobs.caseId, initial[0].id));
-			expect(done.state).toBe('done');
-			expect((await caseRows())[0].reviewedAt).toBeNull();
-			expect((await caseRows())[0].status).toBe('OPEN');
-			expect(
-				await env.db
-					.select()
-					.from(integrityActions)
-					.where(eq(integrityActions.caseId, initial[0].id))
-			).toHaveLength(0);
-			expect(await env.db.select().from(outbox).where(eq(outbox.steamId, steamId))).toHaveLength(0);
+			expect(await env.db.select().from(integrityActions)).toHaveLength(0);
 		} finally {
 			resetIntegrityServer(world.server.id);
 			await releaseOwnership(env);

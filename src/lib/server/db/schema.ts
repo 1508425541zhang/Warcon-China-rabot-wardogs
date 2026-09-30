@@ -840,7 +840,10 @@ export const integrityActions = pgTable(
 		revertedAt: ts('reverted_at'),
 		revertedBy: text('reverted_by')
 	},
-	(t) => [index('integrity_actions_player_idx').on(t.orgId, t.steamId, t.createdAt.desc())]
+	(t) => [
+		index('integrity_actions_player_idx').on(t.orgId, t.steamId, t.createdAt.desc()),
+		index('integrity_actions_server_time_idx').on(t.serverId, t.createdAt.desc(), t.id.desc())
+	]
 );
 
 /** A unique Steam reporter may file again after cooldown, but cannot inflate risk by repetition. */
@@ -966,6 +969,34 @@ export const kills = pgTable(
 	]
 );
 export type KillRow = typeof kills.$inferSelect;
+
+/** Authenticated feed bodies, including unsupported events and retries. Never pruned. */
+export const trainingFeedBatches = pgTable(
+	'training_feed_batches',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		serverId: text('server_id').notNull(),
+		receivedAt: ts('received_at').notNull(),
+		instanceId: text('instance_id').notNull(),
+		parserVersion: integer('parser_version').notNull().default(1),
+		payload: jsonb('payload').notNull()
+	},
+	(t) => [index('training_feed_batches_server_time_idx').on(t.serverId, t.receivedAt, t.id)]
+);
+
+/** Complete successful /v1/players and /v1/status responses, before normalization. */
+export const trainingObservations = pgTable(
+	'training_observations',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		serverId: text('server_id').notNull(),
+		pollStartedAt: ts('poll_started_at').notNull(),
+		receivedAt: ts('received_at').notNull(),
+		endpoint: text('endpoint').notNull(),
+		payload: jsonb('payload').notNull()
+	},
+	(t) => [index('training_observations_server_time_idx').on(t.serverId, t.receivedAt, t.id)]
+);
 
 /** Durable handoff from feed ingestion to the worker; unrelated to RCON outbox. */
 export const feedProcessingJobs = pgTable(
@@ -1725,9 +1756,7 @@ export const qqLinks = pgTable(
 			.notNull()
 			.references(() => servers.id, { onDelete: 'cascade' }),
 		memberId: text('member_id').notNull(),
-		userId: text('user_id')
-			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
+		userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
 		steamId: text('steam_id').notNull()
 	},
 	(t) => [
@@ -1813,6 +1842,28 @@ export const qqOrders = pgTable(
 		startedAt: ts('started_at')
 	},
 	(t) => [index('qq_orders_pending_idx').on(t.state, t.createdAt)]
+);
+export const qqIntegrityNotifications = pgTable(
+	'qq_integrity_notifications',
+	{
+		outboxId: bigint('outbox_id', { mode: 'number' })
+			.notNull()
+			.references(() => outbox.id, { onDelete: 'cascade' }),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		groupId: text('group_id').notNull(),
+		selfId: text('self_id').notNull(),
+		content: text('content').notNull(),
+		state: text('state').notNull().default('pending'),
+		outcome: text('outcome'),
+		createdAt: ts('created_at').notNull().defaultNow(),
+		finishedAt: ts('finished_at')
+	},
+	(t) => [
+		primaryKey({ columns: [t.outboxId, t.groupId] }),
+		index('qq_integrity_notifications_pending_idx').on(t.state, t.createdAt)
+	]
 );
 export const qqDeliveries = pgTable(
 	'qq_deliveries',

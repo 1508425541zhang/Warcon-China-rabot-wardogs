@@ -25,6 +25,7 @@ import { ApiError } from './http';
 import { writeAudit } from './audit';
 import {
 	kills,
+	trainingFeedBatches,
 	feedProcessingJobs,
 	matches,
 	serverLive,
@@ -193,109 +194,115 @@ export async function ingestBatch(
 	let fresh: ParsedKill[] = batch.kills;
 	let duplicates = 0;
 	let written: KillView[] = [];
-	if (fresh.length)
-		// The table cannot hold a unique event id (a hypertable's unique indexes must include ts),
-		// so the look and the insert are one turn per server: the game sends a batch again when it
-		// did not hear back, and a copy that arrived mid-write passed the look and was written too.
-		await env.db.transaction(async (db) => {
-			await db.execute(
-				sql`SELECT pg_advisory_xact_lock(hashtextextended(${'feed:' + serverId}, 0))`
-			);
-			const ids = [...new Set(fresh.map((k) => k.eventId))];
-			const seen = new Set(
-				(
-					await db
-						.select({ eventId: kills.eventId })
-						.from(kills)
-						.where(
-							and(
-								eq(kills.serverId, serverId),
-								inArray(kills.eventId, ids),
-								gt(kills.ts, new Date(now.getTime() - DEDUPE_WINDOW_MS))
-							)
-						)
-				).map((r) => r.eventId)
-			);
-			const once = new Set<string>();
-			fresh = fresh.filter((k) => {
-				if (seen.has(k.eventId) || once.has(k.eventId)) return false;
-				once.add(k.eventId);
-				return true;
-			});
-			duplicates = batch.kills.length - fresh.length;
-			if (!fresh.length) return;
-			const [[live], [match]] = await Promise.all([
-				db
-					.select({
-						players: serverLive.players,
-						playersAt: serverLive.playersAt,
-						status: serverLive.status,
-						statusAt: serverLive.statusAt
-					})
-					.from(serverLive)
-					.where(eq(serverLive.serverId, serverId))
-					.limit(1),
-				db
-					.select({ id: matches.id })
-					.from(matches)
-					.where(and(eq(matches.serverId, serverId), isNull(matches.endedAt)))
-					.orderBy(sql`${matches.id} DESC`)
-					.limit(1)
-			]);
-			const rosterFresh =
-				!!live?.playersAt &&
-				live.playersAt <= now &&
-				now.getTime() - live.playersAt.getTime() <= 10_000;
-			const factionByMap = new Map(
-				fresh.map((kill) => [kill.map, rosterFresh ? rosterFactions(live, kill.map) : null])
-			);
-			const rows = await db
-				.insert(kills)
-				.values(
-					fresh.map((k) => {
-						const faction = factionByMap.get(k.map);
-						const kf = k.killerSteamId ? (faction?.get(k.killerSteamId) ?? null) : null;
-						const vf = faction?.get(k.victimSteamId) ?? null;
-						return {
-							ts: now,
-							serverId,
-							eventId: k.eventId,
-							instanceId: batch.instanceId,
-							matchId: k.matchId,
-							matchRow: match?.id ?? null,
-							eventTime: k.eventTime,
-							map: k.map,
-							killerSteamId: k.killerSteamId,
-							killerName: k.killerName,
-							killerFaction: kf,
-							factionObservedAt: faction && kf && vf ? live!.playersAt : null,
-							victimSteamId: k.victimSteamId,
-							victimName: k.victimName,
-							victimFaction: vf,
-							cause: k.cause,
-							distanceM: k.distanceM,
-							distanceInvalid: k.distanceInvalid,
-							rawDistanceCm: k.rawDistanceCm,
-							headshot: k.headshot,
-							suicide: k.suicide,
-							teamKill: isTeamKill(k, kf, vf),
-							tags: k.tags
-						};
-					})
-				)
-				.returning();
-			written = rows.map(killView);
-			if (rows.length)
-				await db.insert(feedProcessingJobs).values(
-					(['legacy', 'integrity'] as const).map((consumer) => ({
-						serverId,
-						consumer,
-						killTs: now,
-						eventIds: rows.map((row) => row.eventId),
-						createdAt: now
-					}))
-				);
+	// Archive the complete validated envelope, even if no event is understood by this parser.
+	// Raw receipt and derived kills/jobs commit together; failed writes must be retried by the game.
+	// The table cannot hold a unique event id (a hypertable's unique indexes must include ts),
+	// so the look and the insert are one turn per server: the game sends a batch again when it
+	// did not hear back, and a copy that arrived mid-write passed the look and was written too.
+	await env.db.transaction(async (db) => {
+		await db.insert(trainingFeedBatches).values({
+			serverId,
+			receivedAt: now,
+			instanceId: batch.instanceId,
+			payload: body
 		});
+		if (!fresh.length) return;
+		await db.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${'feed:' + serverId}, 0))`);
+		const ids = [...new Set(fresh.map((k) => k.eventId))];
+		const seen = new Set(
+			(
+				await db
+					.select({ eventId: kills.eventId })
+					.from(kills)
+					.where(
+						and(
+							eq(kills.serverId, serverId),
+							inArray(kills.eventId, ids),
+							gt(kills.ts, new Date(now.getTime() - DEDUPE_WINDOW_MS))
+						)
+					)
+			).map((r) => r.eventId)
+		);
+		const once = new Set<string>();
+		fresh = fresh.filter((k) => {
+			if (seen.has(k.eventId) || once.has(k.eventId)) return false;
+			once.add(k.eventId);
+			return true;
+		});
+		duplicates = batch.kills.length - fresh.length;
+		if (!fresh.length) return;
+		const [[live], [match]] = await Promise.all([
+			db
+				.select({
+					players: serverLive.players,
+					playersAt: serverLive.playersAt,
+					status: serverLive.status,
+					statusAt: serverLive.statusAt
+				})
+				.from(serverLive)
+				.where(eq(serverLive.serverId, serverId))
+				.limit(1),
+			db
+				.select({ id: matches.id })
+				.from(matches)
+				.where(and(eq(matches.serverId, serverId), isNull(matches.endedAt)))
+				.orderBy(sql`${matches.id} DESC`)
+				.limit(1)
+		]);
+		const rosterFresh =
+			!!live?.playersAt &&
+			live.playersAt <= now &&
+			now.getTime() - live.playersAt.getTime() <= 10_000;
+		const factionByMap = new Map(
+			fresh.map((kill) => [kill.map, rosterFresh ? rosterFactions(live, kill.map) : null])
+		);
+		const rows = await db
+			.insert(kills)
+			.values(
+				fresh.map((k) => {
+					const faction = factionByMap.get(k.map);
+					const kf = k.killerSteamId ? (faction?.get(k.killerSteamId) ?? null) : null;
+					const vf = faction?.get(k.victimSteamId) ?? null;
+					return {
+						ts: now,
+						serverId,
+						eventId: k.eventId,
+						instanceId: batch.instanceId,
+						matchId: k.matchId,
+						matchRow: match?.id ?? null,
+						eventTime: k.eventTime,
+						map: k.map,
+						killerSteamId: k.killerSteamId,
+						killerName: k.killerName,
+						killerFaction: kf,
+						factionObservedAt: faction && kf && vf ? live!.playersAt : null,
+						victimSteamId: k.victimSteamId,
+						victimName: k.victimName,
+						victimFaction: vf,
+						cause: k.cause,
+						distanceM: k.distanceM,
+						distanceInvalid: k.distanceInvalid,
+						rawDistanceCm: k.rawDistanceCm,
+						headshot: k.headshot,
+						suicide: k.suicide,
+						teamKill: isTeamKill(k, kf, vf),
+						tags: k.tags
+					};
+				})
+			)
+			.returning();
+		written = rows.map(killView);
+		if (rows.length)
+			await db.insert(feedProcessingJobs).values(
+				(['legacy', 'integrity'] as const).map((consumer) => ({
+					serverId,
+					consumer,
+					killTs: now,
+					eventIds: rows.map((row) => row.eventId),
+					createdAt: now
+				}))
+			);
+	});
 	// The liveness stamp, at most every ten seconds per server: the worker's upsert of the row
 	// leaves this column alone, so the two never fight.
 	const last = feedAtWritten.get(serverId) ?? 0;

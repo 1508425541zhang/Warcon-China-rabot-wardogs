@@ -60,17 +60,15 @@ export async function applyReviewPenalty(
 				.set({ expiresAt, reason, addedBy: actor.id, addedByName: actor.username })
 				.where(eq(listEntries.id, entryId));
 	} else
-		await tx
-			.insert(listEntries)
-			.values({
-				id: entryId,
-				listId: list.id,
-				steamId: c.steamId,
-				reason,
-				expiresAt,
-				addedBy: actor.id,
-				addedByName: actor.username
-			});
+		await tx.insert(listEntries).values({
+			id: entryId,
+			listId: list.id,
+			steamId: c.steamId,
+			reason,
+			expiresAt,
+			addedBy: actor.id,
+			addedByName: actor.username
+		});
 	await tx.update(lists).set({ updatedAt: now }).where(eq(lists.id, list.id));
 	const [action] = await tx
 		.insert(integrityActions)
@@ -89,25 +87,30 @@ export async function applyReviewPenalty(
 			deliveryState: 'pending'
 		})
 		.returning();
-	await tx
-		.insert(outbox)
-		.values({
-			serverId: c.serverId,
-			triggerName: '人工案件确认违规',
-			triggerKind: 'integrity',
-			action: 'kick',
-			params: {
-				steamId: c.steamId,
-				reason:
-					expiresAt === null || expiresAt > requestedExpiry
-						? '人工确认违规，已有更长期封禁继续生效。'
-						: reason
-			},
-			target: c.steamId,
+	await tx.insert(outbox).values({
+		serverId: c.serverId,
+		triggerName: '人工案件确认违规',
+		triggerKind: 'integrity',
+		action: 'kick',
+		params: {
 			steamId: c.steamId,
-			okMessage: `案件 ${c.id}：人工确认违规并封禁7天`,
-			detail: { caseId: c.id, actionId: id, source: 'REVIEW', reviewerId: actor.id },
-			dedupeKey: `integrity:${id}:kick`
-		});
+			reason:
+				expiresAt === null || expiresAt > requestedExpiry
+					? '人工确认违规，已有更长期封禁继续生效。'
+					: reason
+		},
+		target: c.steamId,
+		steamId: c.steamId,
+		okMessage: `案件 ${c.id}：人工确认违规并封禁7天`,
+		detail: {
+			caseId: c.id,
+			actionId: id,
+			source: 'REVIEW',
+			reviewerId: actor.id,
+			reviewerName: actor.name || actor.username,
+			reviewReason
+		},
+		dedupeKey: `integrity:${id}:kick`
+	});
 	return { ...action, reused: false };
 }

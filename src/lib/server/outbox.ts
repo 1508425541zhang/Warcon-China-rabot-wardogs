@@ -25,7 +25,9 @@ import { deliveries } from './metrics';
 import { NAME_FLAG } from './name-filter';
 import { KILL_RATE_FLAG } from './kill-rate';
 import { recordIntegrityDelivery } from './integrity/actions';
+import { enqueueIntegrityNotice } from './qq/integrity-notices';
 import { integrityDeliverySkipReason } from './integrity/delivery';
+import { modelDeliverySkipReason } from './integrity/model-enforcement';
 import type { OutboxView } from '$lib/types';
 
 const CLAIM_LIMIT = 50;
@@ -218,7 +220,8 @@ export async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 	if (early) return finish(env, row, 'skipped', early);
 	let integrityEarly: string | null;
 	try {
-		integrityEarly = await integrityDeliverySkipReason(env, row);
+		integrityEarly =
+			(await integrityDeliverySkipReason(env, row)) || (await modelDeliverySkipReason(env, row));
 	} catch (err) {
 		console.error('[warcon] Integrity delivery preflight', err);
 		return finish(env, row, 'failed', 'Integrity delivery validation failed');
@@ -237,7 +240,9 @@ export async function deliverOne(env: Env, row: OutboxRow): Promise<void> {
 				if (late) throw new Skipped(late);
 				if (mustWait(row, m)) throw new Waiting();
 				if (!isOwner()) throw new LostOwnership();
-				const integrityLate = await integrityDeliverySkipReason(env, row);
+				const integrityLate =
+					(await integrityDeliverySkipReason(env, row)) ||
+					(await modelDeliverySkipReason(env, row));
 				if (integrityLate) throw new Skipped(integrityLate);
 				if (await vipRiskKickExempt(env, row)) throw new Skipped('VIP 白名单：跳过自动风险踢人');
 				const client = await WardogsClient.forServer(env, m!.server);
@@ -369,12 +374,15 @@ async function finish(env: Env, row: OutboxRow, state: Outcome, outcome: string)
 				.set({ state, outcome: outcome.slice(0, 300), doneAt: new Date(), leaseUntil: null })
 				.where(and(eq(outbox.id, row.id), eq(outbox.state, 'sending')))
 				.returning({ id: outbox.id });
-			if (updated) await recordIntegrityDelivery(tx, row, state);
+			if (updated) {
+				await recordIntegrityDelivery(tx, row, state);
+				if (state === 'delivered') await enqueueIntegrityNotice(tx, row);
+			}
 		});
 	} catch (err) {
 		if (err instanceof LostOwnership) throw err;
 		console.error('[warcon] outbox update', err);
-		if (row.triggerKind === 'integrity') throw err;
+		if (['integrity', 'model_integrity'].includes(row.triggerKind)) throw err;
 	}
 	// A grant can be delivered before the roster is in memory: audit it from the server row then.
 	const server =

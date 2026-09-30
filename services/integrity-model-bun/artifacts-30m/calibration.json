@@ -1,0 +1,14 @@
+{
+  "model_id": "warcon-at-epoch58-30m-v1",
+  "checkpoint_sha256": "5290f9fe543fd92198fddf3333cdff4aa8586ad24e6fc5a7dd53dc53d50c7e2c",
+  "feature_schema": "warcon-raw-30s-v1",
+  "score_kind": "masked_window_reconstruction_0.8_numeric_0.2_masks",
+  "reference": "Match26 windows excluded from 30-minute fine tuning; unlabeled; Epoch58 pretraining included match26. Not independently verified clean.",
+  "sample_count": 679,
+  "p95": 0.020842972397804294,
+  "p99": 0.06836409524083145,
+  "method": "numpy quantile linear",
+  "mean": 0.007121761357590051,
+  "p97": 0.027915530577301964,
+  "p98": 0.03130149543285363
+}

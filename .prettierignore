@@ -10,3 +10,7 @@ pnpm-lock.yaml
 renovate.json
 /.*/worktrees/
 .playwright-mcp
+
+# Serialized inference artifacts are checksum-verified; preserve their exact bytes.
+services/integrity-model-bun/artifacts/
+services/integrity-model-bun/artifacts-30m/

@@ -7,6 +7,7 @@ import { qqCredentials, qqPolicy } from './config';
 import { loadQqSettings } from './settings';
 import { closeVotes, command, communityServer } from './community';
 import { QqClient, type RosterPlayer } from './protocol';
+import { processIntegrityNotice } from './integrity-notices';
 
 type Order = {
 	id: string;
@@ -205,6 +206,7 @@ async function pass(env: Env, client: QqClient, selfId: string) {
 				sql`UPDATE qq_inbox SET reply_state='unknown' WHERE reply_state='sending'`
 			);
 			await processMessage(env, client, selfId);
+			await processIntegrityNotice(env, client, selfId);
 			await closeVotes(env);
 			const [order] = await env.db.execute<Order>(
 				sql`UPDATE qq_orders SET state='processing',started_at=now() WHERE id=(SELECT id FROM qq_orders WHERE state='pending' ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING *`

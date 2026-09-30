@@ -2,6 +2,7 @@ import { describe, test, expect } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { hasTestDb, testEnv } from './db';
 import { seedWorld } from './world';
+import { saveAssessmentMode } from '$lib/server/integrity/rules';
 import { saveAiSettings, aiSettings, aiBundle } from '$lib/server/integrity/ai';
 import { finishAiReview, triageDecision } from '$lib/server/integrity/ai-triage';
 import {
@@ -51,6 +52,15 @@ describe.skipIf(!hasTestDb)('AI automatic case lifecycle', () => {
 	async function fixture() {
 		const env = await testEnv(),
 			w = await seedWorld(env);
+		stubGateway();
+		await saveAssessmentMode(
+			env,
+			new Request('http://localhost/test'),
+			w.users.owner!,
+			w.org.id,
+			'statistical_shadow',
+			''
+		);
 		await saveAiSettings(env, w.org.id, {
 			baseUrl: 'https://example.com/v1',
 			apiKey: 'test-key',

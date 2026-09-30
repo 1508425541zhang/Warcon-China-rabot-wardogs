@@ -177,10 +177,10 @@
 								{#if item.trigger === 'AI_SINGLE_SIGNAL'}<p class="mb-2 text-xs text-accent">
 										AI 预筛：已有专家异常票，尚未达到委员会正式建案门槛，仅供初审参考。
 									</p>{/if}
-								<AiCaseSummary
-									job={data.aiJobs.find((j) => j.caseId === item.id)}
-									enabled={data.aiAutoEnabled}
-								/>
+								{#if data.aiAutoEnabled || data.aiJobs.length}<AiCaseSummary
+										job={data.aiJobs.find((j) => j.caseId === item.id)}
+										enabled={data.aiAutoEnabled}
+									/>{/if}
 								<details>
 									<summary class="cursor-pointer">{t.breakdown}</summary>
 									{#if caseSignals(item.snapshot)}<p class="mt-2 text-xs text-accent">

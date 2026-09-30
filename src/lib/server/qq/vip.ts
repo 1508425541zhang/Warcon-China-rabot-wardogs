@@ -105,10 +105,16 @@ export async function vipAutomaticBanExempt(
 ) {
 	if (
 		entry.addedBy ||
-		entry.addedByName !== 'Community Integrity rule' ||
+		!['Community Integrity rule', 'Model A-test rule'].includes(entry.addedByName) ||
 		!(await vipFor(env, serverId, entry.steamId))?.whitelist
 	)
 		return false;
+	if (entry.addedByName === 'Model A-test rule') {
+		const rows = await env.db.execute(
+			sql`SELECT 1 FROM integrity_model_runs WHERE server_id=${serverId} AND steam_id=${entry.steamId} AND list_entry_id=${entry.id} AND action='QUARANTINE_24H' LIMIT 1`
+		);
+		return rows.length > 0;
+	}
 	const actions = await env.db
 		.select({ source: integrityActions.source })
 		.from(integrityActions)

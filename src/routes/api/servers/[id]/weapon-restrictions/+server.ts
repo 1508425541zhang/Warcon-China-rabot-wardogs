@@ -26,8 +26,7 @@ export const POST = route(async ({ locals, params, request }) => {
 		params.id!,
 		'automation.manage'
 	);
-	if (!access.caps.has('players.moderate') || !access.caps.has('chat.send'))
-		throw new ApiError(403, '需要踢出和私信权限。');
+	if (!access.caps.has('players.moderate')) throw new ApiError(403, '需要踢出权限。');
 	const parsed = config.safeParse(await readJson(request));
 	if (!parsed.success) throw new ApiError(400, '来源列表格式不正确，请每项填写完整来源 ID。');
 	if (parsed.data.enabled && !parsed.data.causes.length && !parsed.data.groups.length)

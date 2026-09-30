@@ -1,3 +1,4 @@
+import { committeeEnabled, longModelEnabled } from '$lib/integrity-engines';
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getEnv } from '$lib/server/env';
@@ -11,19 +12,35 @@ import { integrityBaselines } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { shadowComparison } from '$lib/server/integrity/baselines';
 import { integrityImports } from '$lib/server/integrity/imports';
+import { modelConfigView } from '$lib/server/integrity/model-http';
+import { modelRuns } from '$lib/server/integrity/model-runtime';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
 	try {
 		const { org } = await requireOrgRole(env, locals, params.id, 'owner');
-		const [rules, mappings, baselines, imports] = await Promise.all([
-			getIntegrityRules(env, org.id),
+		const rules = await getIntegrityRules(env, org.id);
+		const committee = committeeEnabled(rules.assessmentMode);
+		const [mappings, baselines, imports] = await Promise.all([
 			weaponMappings(env, org.id),
-			env.db.select().from(integrityBaselines).where(eq(integrityBaselines.orgId, org.id)),
-			integrityImports(env, org.id)
+			committee
+				? env.db.select().from(integrityBaselines).where(eq(integrityBaselines.orgId, org.id))
+				: Promise.resolve([]),
+			committee ? integrityImports(env, org.id) : Promise.resolve([])
 		]);
-		const comparison = await shadowComparison(env, org.id, rules.config.koThreshold);
+		const comparison = committee
+			? await shadowComparison(env, org.id, rules.config.koThreshold)
+			: {
+					total: 0,
+					since: null,
+					normalNormal: 0,
+					normalAbnormal: 0,
+					abnormalNormal: 0,
+					abnormalAbnormal: 0
+				};
 		return {
+			modelConfig: await modelConfigView(env, org.id),
+			modelRuns: longModelEnabled(rules.assessmentMode) ? await modelRuns(env, org.id) : [],
 			orgId: org.id,
 			ruleVersion: rules.version,
 			assessmentMode: rules.assessmentMode,

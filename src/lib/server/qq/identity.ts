@@ -4,6 +4,64 @@ import type { Env } from '../env';
 import { ApiError } from '../http';
 import { toSessionUser, type SessionUser } from '../access';
 import { qqPolicy } from './config';
+import type { RosterPlayer } from './protocol';
+
+/** Group identity is checked by the signed webhook; player identity matches the server roster. */
+export async function bindByPlayer(
+	env: Env,
+	serverId: string,
+	memberId: string,
+	steamId: string,
+	name: string,
+	roster: RosterPlayer[]
+) {
+	if (
+		!qqPolicy(serverId) ||
+		!/^ob11:[1-9]\d+$/.test(memberId) ||
+		!/^\d{17}$/.test(steamId) ||
+		!name.trim() ||
+		name.length > 100
+	)
+		throw new ApiError(400, '格式：/绑定 SteamID64 游戏内昵称');
+	const live = roster.find((player) => player.steamId === steamId);
+	const [saved] = live
+		? []
+		: await env.db.execute<{ name: string }>(sql`
+		SELECT name FROM player_sessions WHERE server_id=${serverId} AND steam_id=${steamId} ORDER BY last_seen DESC LIMIT 1`);
+	const actual = live?.name ?? saved?.name;
+	if (!actual || actual.trim().normalize('NFC') !== name.trim().normalize('NFC'))
+		throw new ApiError(400, 'SteamID64 与本服游戏昵称不匹配，请核对后重新输入。');
+	return env.db.transaction(async (tx) => {
+		await tx.execute(
+			sql`SELECT pg_advisory_xact_lock(hashtextextended(${`qq-bind:${serverId}`},0))`
+		);
+		const rows = await tx.execute<{ member_id: string; steam_id: string }>(sql`
+			SELECT member_id,steam_id FROM qq_links WHERE server_id=${serverId} AND (member_id=${memberId} OR steam_id=${steamId})`);
+		if (rows.some((r) => r.member_id === memberId && r.steam_id === steamId))
+			return { steamId, already: true };
+		if (rows.some((r) => r.member_id === memberId))
+			throw new ApiError(409, '你已绑定其他 SteamID，请先发送 /解绑。');
+		if (rows.length) throw new ApiError(409, '该 SteamID 已绑定其他 QQ，请联系管理员处理。');
+		const inserted = await tx.execute(
+			sql`INSERT INTO qq_links(server_id,member_id,user_id,steam_id) VALUES(${serverId},${memberId},NULL,${steamId}) ON CONFLICT DO NOTHING RETURNING steam_id`
+		);
+		if (!inserted.length)
+			throw new ApiError(409, 'QQ 或 SteamID 已绑定，请查询绑定状态或联系管理员。');
+		await tx.execute(
+			sql`DELETE FROM qq_link_codes WHERE server_id=${serverId} AND member_id=${memberId}`
+		);
+		return { steamId, already: false };
+	});
+}
+
+export async function unbindQq(env: Env, serverId: string, memberId: string) {
+	await env.db.execute(
+		sql`DELETE FROM qq_links WHERE server_id=${serverId} AND member_id=${memberId}`
+	);
+	await env.db.execute(
+		sql`DELETE FROM qq_link_codes WHERE server_id=${serverId} AND member_id=${memberId}`
+	);
+}
 
 const hash = (code: string) => createHash('sha256').update(code).digest('hex');
 export async function createLinkCode(env: Env, serverId: string, memberId: string) {
@@ -42,10 +100,18 @@ export async function bindAccount(env: Env, code: string, actor: SessionUser) {
 	});
 }
 export async function linkedAccount(env: Env, serverId: string, memberId: string) {
+	const [direct] = await env.db.execute<{ steam_id: string }>(
+		sql`SELECT steam_id FROM qq_links WHERE server_id=${serverId} AND member_id=${memberId} AND user_id IS NULL`
+	);
+	if (direct)
+		return {
+			steamId: direct.steam_id,
+			actor: toSessionUser({ id: `qq:${memberId}`, name: memberId })
+		};
 	const [row] = await env.db.execute<{ steam_id: string; profile: Record<string, unknown> }>(sql`
 	 SELECT l.steam_id, row_to_json(u) AS profile FROM qq_links l JOIN "user" u ON u.id=l.user_id
 	 JOIN account a ON a.user_id=u.id AND a.provider_id='steam' AND a.account_id=l.steam_id
 	 WHERE l.server_id=${serverId} AND l.member_id=${memberId} AND coalesce(u.banned,false)=false LIMIT 1`);
-	if (!row) throw new ApiError(403, '请先发送 /绑定，并在网页验证 Steam 身份。');
+	if (!row) throw new ApiError(403, '尚未绑定。格式：/绑定 SteamID64 游戏内昵称');
 	return { steamId: row.steam_id, actor: toSessionUser(row.profile) };
 }

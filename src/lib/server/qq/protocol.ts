@@ -112,6 +112,22 @@ export class QqClient {
 		private token: string,
 		private fetcher: typeof fetch = fetch
 	) {}
+	async loggedIn(selfId: string) {
+		try {
+			const response = await this.fetcher(`${this.url}/get_login_info`, {
+				method: 'POST',
+				redirect: 'error',
+				headers: { 'content-type': 'application/json', authorization: `Bearer ${this.token}` },
+				body: '{}',
+				signal: AbortSignal.timeout(10000)
+			});
+			if (!response.ok) return false;
+			const data = await response.json();
+			return data.status === 'ok' && data.retcode === 0 && String(data.data?.user_id) === selfId;
+		} catch {
+			return false;
+		}
+	}
 	async reply(group: string, _messageId: string, content: string) {
 		const response = await this.fetcher(`${this.url}/send_group_msg`, {
 			method: 'POST',

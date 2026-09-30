@@ -19,7 +19,6 @@ export function restrictedCause(
 export function restrictionStage(
 	eventClock: number,
 	nowClock: number,
-	warning: { clock: number } | undefined,
 	lastKickClock: number | null
 ) {
 	if (
@@ -29,9 +28,6 @@ export function restrictionStage(
 		eventClock < nowClock - 60
 	)
 		return null;
-	if (!warning) return 'warn';
-	// Only a NEW kill after the warning grace can escalate. One grenade's multi-kill cannot.
-	if (eventClock < warning.clock + 8) return null;
 	if (lastKickClock !== null && eventClock < lastKickClock + 60) return null;
 	return 'kick';
 }

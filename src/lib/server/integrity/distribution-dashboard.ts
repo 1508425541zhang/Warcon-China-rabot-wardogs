@@ -6,6 +6,18 @@ import { METRICS, type MetricCode, type PopulationBucket } from './statistics';
 import { STATISTICAL_MODEL_CONFIG } from './statistical-config';
 
 type Baseline = typeof integrityBaselines.$inferSelect;
+export function emptyDistributionDashboard(): Awaited<
+	ReturnType<typeof loadDistributionDashboard>
+> {
+	return {
+		status: 'DISABLED',
+		updatedAt: null,
+		lastFailureAt: null,
+		refreshMinutes: STATISTICAL_MODEL_CONFIG.baselineRefreshMinutes,
+		dataBefore: null,
+		metrics: []
+	};
+}
 
 /** Descriptive projection only: never re-score a player or send exact CDF frequencies. */
 export function distributionChart(row: Baseline): DistributionChartMetric {

@@ -153,13 +153,11 @@ export async function runWeaponRestrictions(
 				)
 				.orderBy(desc(weaponRestrictionEvents.createdAt));
 			if (prior.some((e) => e.id === id || e.state === 'executing')) return null;
-			const warning = prior.find((e) => e.action === 'warn' && e.state === 'delivered');
-			if (warning && k.ts.getTime() <= warning.updatedAt.getTime()) return null;
 			const lastKick = prior.find((e) => e.action === 'kick' && e.state === 'delivered');
+			if (lastKick && k.ts.getTime() <= lastKick.updatedAt.getTime()) return null;
 			const action = restrictionStage(
 				k.eventTime,
 				status.matchSeconds! + Math.max(0, now.getTime() - input.statusAt) / 1000,
-				warning,
 				lastKick?.clock ?? null
 			);
 			if (!action) return null;
@@ -188,8 +186,7 @@ export async function runWeaponRestrictions(
 		if (!claim) continue;
 		acted.add(steamId);
 		let state = 'delivered',
-			reason =
-				claim.action === 'warn' ? '首次违规，警告已发送' : '警告后再次使用受限来源造成击杀，已踢出';
+			reason = '使用受限来源造成击杀，已直接踢出';
 		try {
 			const [active] = await env.db
 				.select()
@@ -203,19 +200,14 @@ export async function runWeaponRestrictions(
 			) {
 				state = 'skipped';
 				reason = '规则已变更或数据已过期';
-			} else if (claim.action === 'warn')
-				await ACTIONS.whisper.run(client, {
-					steamId,
-					message: `武器限制警告：${causeLabel(k.cause).slice(0, 70)} 已被禁用。请立即更换；8秒后再用任何受限来源造成击杀将踢出。`
-				});
-			else
+			} else
 				await ACTIONS.kick.run(client, {
 					steamId,
-					reason: `武器限制：警告后再次使用 ${causeLabel(k.cause).slice(0, 90)} 造成击杀。`
+					reason: `武器限制：使用 ${causeLabel(k.cause).slice(0, 90)} 造成击杀，直接踢出。`
 				});
 		} catch {
 			state = 'error';
-			reason = '游戏接口执行失败或结果未知；不会视为警告成功，不自动重试本事件';
+			reason = '游戏接口执行失败或结果未知；不会视为踢出成功，不自动重试本事件';
 		}
 		await env.db
 			.update(weaponRestrictionEvents)
