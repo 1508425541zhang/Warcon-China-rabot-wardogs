@@ -498,6 +498,13 @@
       "when": 1790812800000,
       "tag": "0070_model_alpha",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1790899200000,
+      "tag": "0071_qq_integrity_notifications",
+      "breakpoints": true
     }
   ]
 }

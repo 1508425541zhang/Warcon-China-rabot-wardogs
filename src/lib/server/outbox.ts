@@ -25,6 +25,7 @@ import { deliveries } from './metrics';
 import { NAME_FLAG } from './name-filter';
 import { KILL_RATE_FLAG } from './kill-rate';
 import { recordIntegrityDelivery } from './integrity/actions';
+import { enqueueIntegrityNotice } from './qq/integrity-notices';
 import { integrityDeliverySkipReason } from './integrity/delivery';
 import { modelDeliverySkipReason } from './integrity/model-enforcement';
 import type { OutboxView } from '$lib/types';
@@ -373,12 +374,15 @@ async function finish(env: Env, row: OutboxRow, state: Outcome, outcome: string)
 				.set({ state, outcome: outcome.slice(0, 300), doneAt: new Date(), leaseUntil: null })
 				.where(and(eq(outbox.id, row.id), eq(outbox.state, 'sending')))
 				.returning({ id: outbox.id });
-			if (updated) await recordIntegrityDelivery(tx, row, state);
+			if (updated) {
+				await recordIntegrityDelivery(tx, row, state);
+				if (state === 'delivered') await enqueueIntegrityNotice(tx, row);
+			}
 		});
 	} catch (err) {
 		if (err instanceof LostOwnership) throw err;
 		console.error('[warcon] outbox update', err);
-		if (row.triggerKind === 'integrity') throw err;
+		if (['integrity', 'model_integrity'].includes(row.triggerKind)) throw err;
 	}
 	// A grant can be delivered before the roster is in memory: audit it from the server row then.
 	const server =

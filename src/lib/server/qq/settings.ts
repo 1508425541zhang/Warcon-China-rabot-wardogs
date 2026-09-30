@@ -26,6 +26,7 @@ function decode(env: Env, value: Stored): QqConfiguration {
 	return {
 		...value,
 		provider: qqProviderSchema.parse(value.provider || 'napcat'),
+		policies: parsePolicies(JSON.stringify(value.policies)),
 		token: value.tokenEnc ? decryptSecret(env, value.tokenEnc) : '',
 		secret: value.secretEnc ? decryptSecret(env, value.secretEnc) : ''
 	};

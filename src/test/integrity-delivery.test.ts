@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+import { applyQqConfiguration, parsePolicies } from '$lib/server/qq/config';
 import type { Env } from '$lib/server/env';
 import {
 	integrityActions,
@@ -231,6 +232,54 @@ describe.skipIf(!hasTestDb)('Integrity delivery guard', () => {
 				.set({ status, reviewedAt: null })
 				.where(eq(integrityCases.id, caseId));
 			expect(await integrityDeliverySkipReason(env, row)).toContain('changed');
+		}
+	});
+
+	test('confirmed RCON kick atomically records one notice; failed RCON records none', async () => {
+		await rule({});
+		applyQqConfiguration({
+			provider: 'llbot',
+			enabled: true,
+			url: 'http://127.0.0.1:3001',
+			token: 'test',
+			secret: 'test',
+			selfId: '12345',
+			policies: parsePolicies(
+				JSON.stringify([{ serverId: world.server.id, groups: ['23456'], maps: ['A', 'B'] }])
+			)
+		});
+		try {
+			const { row } = await created(827);
+			clientSpy.mockImplementation(async () => ({ json: async () => ({}), close: async () => {} }));
+			await deliverOne(env, row);
+			expect((await outboxOf(row.id)).state).toBe('delivered');
+			expect(
+				(
+					await env.db.execute(
+						sql`SELECT * FROM qq_integrity_notifications WHERE outbox_id=${row.id}`
+					)
+				).length
+			).toBe(1);
+			const failed = await created(828);
+			clientSpy.mockImplementation(async () => ({
+				json: async () => {
+					throw Error('RCON failure');
+				},
+				close: async () => {}
+			}));
+			await deliverOne(env, failed.row);
+			expect(
+				(
+					await env.db.execute(
+						sql`SELECT * FROM qq_integrity_notifications WHERE outbox_id=${failed.row.id}`
+					)
+				).length
+			).toBe(0);
+		} finally {
+			applyQqConfiguration(null);
+			clientSpy.mockImplementation(async () => {
+				throw Error('RCON must not be called');
+			});
 		}
 	});
 

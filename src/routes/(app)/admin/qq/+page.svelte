@@ -45,6 +45,7 @@
 	function addRule() {
 		form.policies.push({
 			enabled: true,
+			antiCheatNotices: true,
 			serverId: data.servers.find((s) => !form.policies.some((p) => p.serverId === s.id))?.id || '',
 			groupsText: '',
 			mapsText: '',
@@ -286,6 +287,16 @@
 							>
 						</div>
 					</div>
+					<label class="block space-y-1"
+						><span class="label-sm">反作弊踢出群通知</span><input
+							type="checkbox"
+							bind:checked={p.antiCheatNotices}
+						/>
+					</label>
+					<p class="text-sm text-mist-400">
+						确认反作弊踢出成功后，向本服授权群发送理由、实际处罚档位和
+						AI、规则或管理员来源。普通踢出不发送。
+					</p>
 					<label class="block space-y-1"
 						><span class="label-sm">游戏服务器</span><select
 							class="input w-full"

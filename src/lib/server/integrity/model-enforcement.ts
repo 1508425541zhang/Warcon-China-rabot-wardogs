@@ -135,7 +135,11 @@ export async function enforceModelRun(env: Env, id: string) {
 			target: run.steam_id,
 			steamId: run.steam_id,
 			okMessage: `模型 ${action}: ${run.steam_id}`,
-			detail: { runId: id },
+			detail: {
+				runId: id,
+				playerName: m.players.find((p) => p.steamId === run.steam_id)?.name,
+				modelCalibration: MODEL_CALIBRATION
+			},
 			dedupeKey: `model:${id}:kick`
 		});
 		await tx.execute(

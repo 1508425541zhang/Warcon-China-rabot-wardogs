@@ -1840,6 +1840,28 @@ export const qqOrders = pgTable(
 	},
 	(t) => [index('qq_orders_pending_idx').on(t.state, t.createdAt)]
 );
+export const qqIntegrityNotifications = pgTable(
+	'qq_integrity_notifications',
+	{
+		outboxId: bigint('outbox_id', { mode: 'number' })
+			.notNull()
+			.references(() => outbox.id, { onDelete: 'cascade' }),
+		serverId: text('server_id')
+			.notNull()
+			.references(() => servers.id, { onDelete: 'cascade' }),
+		groupId: text('group_id').notNull(),
+		selfId: text('self_id').notNull(),
+		content: text('content').notNull(),
+		state: text('state').notNull().default('pending'),
+		outcome: text('outcome'),
+		createdAt: ts('created_at').notNull().defaultNow(),
+		finishedAt: ts('finished_at')
+	},
+	(t) => [
+		primaryKey({ columns: [t.outboxId, t.groupId] }),
+		index('qq_integrity_notifications_pending_idx').on(t.state, t.createdAt)
+	]
+);
 export const qqDeliveries = pgTable(
 	'qq_deliveries',
 	{

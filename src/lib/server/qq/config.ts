@@ -6,6 +6,7 @@ export const qqProviderSchema = z.enum(['napcat', 'llbot']);
 
 export const policySchema = z.object({
 	enabled: z.boolean().default(true),
+	antiCheatNotices: z.boolean().default(true),
 	serverId: z.string().min(1).max(100),
 	groups: z.array(z.string().regex(/^[1-9]\d{4,15}$/)).min(1),
 	lowAt: z.number().int().min(1).max(200).default(20),
