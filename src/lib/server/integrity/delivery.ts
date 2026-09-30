@@ -98,6 +98,7 @@ export async function integrityDeliverySkipReason(
 		.where(eq(integrityRules.orgId, match.action.orgId))
 		.limit(1);
 	if (!rules || rules.suspended || rules.version !== match.caseRow.ruleVersion) return DISABLED;
+	if (rules.assessmentMode === 'model_only') return 'A测模型模式不执行自动处罚';
 	if (rules.assessmentMode === 'statistical') {
 		const [state] = await env.db
 			.select()

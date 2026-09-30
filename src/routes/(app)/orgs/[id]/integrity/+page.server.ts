@@ -11,6 +11,8 @@ import { integrityBaselines } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { shadowComparison } from '$lib/server/integrity/baselines';
 import { integrityImports } from '$lib/server/integrity/imports';
+import { modelConfigView } from '$lib/server/integrity/model-http';
+import { modelRuns } from '$lib/server/integrity/model-runtime';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const env = getEnv();
@@ -24,6 +26,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		]);
 		const comparison = await shadowComparison(env, org.id, rules.config.koThreshold);
 		return {
+			modelConfig: await modelConfigView(env, org.id),
+			modelRuns: await modelRuns(env, org.id),
 			orgId: org.id,
 			ruleVersion: rules.version,
 			assessmentMode: rules.assessmentMode,

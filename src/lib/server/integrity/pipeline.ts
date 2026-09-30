@@ -44,6 +44,7 @@ import { loadCleanCareerContext } from './career-context';
 import { shouldRetryActionEligibility, canReuseStatisticalCase } from './action-retry';
 import { AI_PRESCREEN_TRIGGER, needsAiPrescreen } from './ai-prescreen';
 import type { KillView } from '$lib/types';
+import { runPlayerModel } from './model-runtime';
 
 const infantry = new InfantryWindows();
 
@@ -105,6 +106,61 @@ export async function processIntegrityBatch(
 	}
 	const generated = generateBatchFeatures(infantry, serverId, batch, overrides, rules.config);
 	const findings = generated.findings;
+	if (rules.assessmentMode === 'model_only') {
+		// Keep measured window inputs, but never execute the legacy score or expert committee.
+		const snapshots = generated.snapshots;
+		if (snapshots.length)
+			await withOwnedTransaction(env, async (tx) => {
+				for (const f of snapshots) {
+					const own = batch.find((k) => k.eventId === f.eventIds.at(-1));
+					if (!own) continue;
+					const observedAt = new Date(own.ts);
+					const [existing] = await tx
+						.select({ id: integrityWindows.id })
+						.from(integrityWindows)
+						.where(
+							and(
+								eq(integrityWindows.serverId, serverId),
+								eq(integrityWindows.steamId, f.steamId),
+								eq(integrityWindows.observedAt, observedAt),
+								eq(integrityWindows.roundId, f.roundId)
+							)
+						)
+						.limit(1);
+					if (existing) continue;
+					await tx.insert(integrityWindows).values({
+						orgId,
+						serverId,
+						steamId: f.steamId,
+						instanceId: f.instanceId,
+						roundId: f.roundId,
+						map: f.map,
+						clockFrom: f.clockFrom,
+						clockTo: f.clockTo,
+						observedAt,
+						infantryKills: f.infantryKills,
+						kpm180: f.kpm180,
+						uniqueVictims: f.uniqueVictims,
+						headshots: f.headshots,
+						penetrations: f.penetrations,
+						burstPoints: f.burstPoints,
+						maxKills15s: f.maxKills15s,
+						medianKillInterval: f.medianKillInterval,
+						behaviorReasons: [],
+						eventIds: f.eventIds
+					});
+				}
+			});
+		// Queue only live batches; the separate HTTP consumer never blocks feed processing.
+		if (allowActions && batch.length && Date.now() - Date.parse(batch.at(-1)!.ts) < 300000) {
+			const players = new Map<string, number>();
+			for (const k of batch)
+				if (k.killer?.steamId && k.matchRow) players.set(k.killer.steamId, k.matchRow);
+			for (const [steamId, matchId] of players)
+				await runPlayerModel(env, orgId, serverId, steamId, matchId);
+		}
+		return;
+	}
 	if (rules.assessmentMode !== 'legacy') {
 		findings.push(...generated.snapshots);
 		// Wake the round-wide change-point expert for vehicle and other non-infantry kills too.

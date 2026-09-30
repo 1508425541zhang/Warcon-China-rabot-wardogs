@@ -1,0 +1,24 @@
+[Unit]
+Description=WARCON Epoch58 native Bun model API (A test)
+After=network.target
+
+[Service]
+User=warcon
+Group=warcon
+WorkingDirectory=/opt/warcon-model
+EnvironmentFile=/etc/warcon/model.env
+ExecStart=/usr/local/bin/bun /opt/warcon-model/server.ts
+Restart=on-failure
+RestartSec=3
+MemoryHigh=64M
+MemoryMax=96M
+CPUQuota=50%
+TasksMax=32
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

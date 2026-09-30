@@ -125,6 +125,8 @@ export async function enforceIntegrityCase(
 			!(row.autoKickEnabled || row.autoQuarantine24hEnabled || row.autoQuarantine7dEnabled)
 		)
 			return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };
+		if (row.assessmentMode === 'model_only')
+			return { decision: 'OBSERVE' as const, circuit: false };
 		const config = validateIntegrityRules(row.config as Record<string, unknown>);
 		const settings: EnforcementSettings = {
 			autoKickEnabled: row.autoKickEnabled,

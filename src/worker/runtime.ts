@@ -1,5 +1,6 @@
 import { startSteamPlaytime, stopSteamPlaytime } from '$lib/server/steam-playtime';
 import { startIntegrityAi, stopIntegrityAi } from '$lib/server/integrity/ai-queue';
+import { startModelQueue, stopModelQueue } from '$lib/server/integrity/model-runtime';
 // The worker process: owns every game request (observation, trigger delivery, commands relayed
 // from the web), and serves the relay on WORKER_PORT. Framework-free: bundled by
 // scripts/build-worker.ts with $env and $app shims, never through SvelteKit.
@@ -44,6 +45,7 @@ export function startWorker(env: Env, label = 'worker'): ReturnType<typeof Bun.s
 	startIntegrityProfileRefresh(env);
 	startSteamPlaytime(env);
 	startIntegrityAi(env);
+	startModelQueue(env);
 	const port = Number(env.WORKER_PORT) || 7700;
 	const server = Bun.serve({
 		port,
@@ -187,6 +189,7 @@ async function relay(env: Env, path: string, url: URL, req: Request): Promise<Re
 export async function stopWorker(): Promise<void> {
 	stopIntegrityBaselines();
 	await stopIntegrityAi();
+	await stopModelQueue();
 	await stopSteamPlaytime();
 	await stopIntegrityProfileRefresh();
 	await stopFeedProcessing();

@@ -1,0 +1,12 @@
+{
+  "model_id": "warcon-at-epoch58",
+  "checkpoint_sha256": "ea3bc3f168e7ca8e329e85736d74c59019d6392cbded31bc63bee41ad7378da7",
+  "feature_schema": "warcon-raw-30s-v1",
+  "score_kind": "masked_window_reconstruction_0.8_numeric_0.2_masks",
+  "reference": "epoch58 training windows; unlabeled, not verified clean; match27 excluded",
+  "sample_count": 991,
+  "p95": 0.012539893854409456,
+  "p99": 0.04076347462832935,
+  "method": "numpy quantile linear",
+  "mean": 0.0051863155494313445
+}

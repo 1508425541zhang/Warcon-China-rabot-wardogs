@@ -6,6 +6,7 @@
 	import IntegritySettings from '../../../server/[id]/integrity/IntegritySettings.svelte';
 	import type { PageProps } from './$types';
 	import type { AssessmentMode } from '$lib/server/integrity/statistics';
+	import ModelSettings from '$lib/components/ModelSettings.svelte';
 
 	let { data }: PageProps = $props();
 	let lang = $state<'zh' | 'en'>('zh');
@@ -235,7 +236,10 @@
 			<select class="mt-1 input" bind:value={assessmentMode}
 				><option value="legacy">{lang === 'zh' ? '旧规则' : 'Legacy'}</option><option
 					value="statistical_shadow">{lang === 'zh' ? '统计影子模式' : 'Statistical Shadow'}</option
-				><option value="statistical">{lang === 'zh' ? '统计模式' : 'Statistical'}</option></select
+				><option value="statistical">{lang === 'zh' ? '统计模式' : 'Statistical'}</option>
+				{#if data.modelConfig.developerEnabled || data.assessmentMode === 'model_only'}<option
+						value="model_only">仅依赖模型（开发者 · A测）</option
+					>{/if}</select
 			>
 		</label><button
 			class="btn btn-primary"
@@ -243,6 +247,7 @@
 			onclick={saveMode}>{lang === 'zh' ? '保存评估模式' : 'Save assessment mode'}</button
 		>
 	</div>
+	<ModelSettings orgId={data.orgId} initial={data.modelConfig} runs={data.modelRuns} />
 	{#if data.baselineSummary.metrics === 0}<p class="mt-2 text-sm text-warn">
 			{lang === 'zh'
 				? '历史样本不足；切换后统计系统会保持观察，不会因为缺失基线自动处置。'

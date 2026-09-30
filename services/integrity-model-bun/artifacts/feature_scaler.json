@@ -1,0 +1,104 @@
+{
+  "continuous_channels": {
+    "cash_balance": {
+      "mean": 39493.76843122102,
+      "std": 35485.90776529409,
+      "observed_train_values": 103520
+    },
+    "cash_change_30s": {
+      "mean": 423.4213406855685,
+      "std": 837.2745538392754,
+      "observed_train_values": 97204
+    },
+    "kills_change_30s": {
+      "mean": 0.039928691094978305,
+      "std": 0.2182043533240806,
+      "observed_train_values": 46558
+    },
+    "deaths_change_30s": {
+      "mean": 0.04491172301215688,
+      "std": 0.20835101681689475,
+      "observed_train_values": 46558
+    },
+    "kpm_180_history_mean": {
+      "mean": 0.49828275746727924,
+      "std": 0.2679591028525993,
+      "observed_train_values": 2394
+    },
+    "kpm_180_window_mean": {
+      "mean": 0.604858561900369,
+      "std": 0.37250326651514454,
+      "observed_train_values": 1084
+    },
+    "headshot_rate_window": {
+      "mean": 0.3288166453753873,
+      "std": 0.4072289275291849,
+      "observed_train_values": 1081
+    },
+    "penetration_rate_window": {
+      "mean": 0.020366944187480727,
+      "std": 0.11564207596148003,
+      "observed_train_values": 1081
+    },
+    "max_kills_15s_max": {
+      "mean": 1.246309963099631,
+      "std": 0.5165483297675132,
+      "observed_train_values": 1084
+    },
+    "unique_victims_window_max": {
+      "mean": 1.7546125461254614,
+      "std": 1.066396723387086,
+      "observed_train_values": 1084
+    },
+    "burst_points_window_max": {
+      "mean": 0.012915129151291513,
+      "std": 0.16019818270376382,
+      "observed_train_values": 1084
+    },
+    "median_kill_interval_s": {
+      "mean": 51.801486362096774,
+      "std": 44.792232296435294,
+      "observed_train_values": 496
+    },
+    "roster_size": {
+      "mean": 93.1283326893354,
+      "std": 16.1988429389295,
+      "observed_train_values": 103520
+    },
+    "active_fraction": {
+      "mean": 0.9308852291822888,
+      "std": 0.24912208754251872,
+      "observed_train_values": 114686
+    }
+  },
+  "channel_order": [
+    "cash_balance",
+    "cash_change_30s",
+    "kills_change_30s",
+    "deaths_change_30s",
+    "kpm_180_history_mean",
+    "kpm_180_window_mean",
+    "headshot_rate_window",
+    "penetration_rate_window",
+    "max_kills_15s_max",
+    "unique_victims_window_max",
+    "burst_points_window_max",
+    "median_kill_interval_s",
+    "roster_size",
+    "active_fraction",
+    "cash_observed",
+    "cash_change_valid",
+    "combat_change_valid",
+    "history_kpm_observed",
+    "window_kpm_observed",
+    "headshot_rate_observed",
+    "penetration_rate_observed",
+    "max15_observed",
+    "unique_victims_observed",
+    "burst_observed",
+    "interval_observed",
+    "roster_observed",
+    "active_observed"
+  ],
+  "fitted_on": "unique observed training buckets only"
+}
