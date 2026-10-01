@@ -365,6 +365,16 @@ pub async fn snapshot(state: &AppState, actor: &Actor, id: &str) -> Result<Value
         json!({"apiVersion":1,"server":{"id":id,"name":scope.name,"map":live["status"]["map"].as_str()},"statusAt":live["status_at"],"playersAt":live["players_at"],"stale":!fresh,"metrics":{"online":has_players.then_some(raw.len()),"kills":sum("kills"),"deaths":sum("deaths"),"cash":sum("cash"),"averagePing":if has_players&&raw.len()<=256&&!pings.is_empty(){Some((pings.iter().sum::<f64>()/pings.len() as f64+0.5).floor())}else{None}},"players":players,"playersTruncated":raw.len()>256}),
     )
 }
+pub async fn snapshot_api(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    h: HeaderMap,
+) -> Result<Json<Value>> {
+    let actor = auth::authenticate(&state, &h, &Method::GET).await?;
+    Ok(Json(
+        json!({"ok":true,"apiVersion":1,"snapshot":snapshot(&state,&actor,&id).await?}),
+    ))
+}
 pub async fn data(
     State(state): State<AppState>,
     Path(id): Path<String>,

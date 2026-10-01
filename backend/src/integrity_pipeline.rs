@@ -155,8 +155,26 @@ impl Pipeline {
             }
             tx.commit().await?;
             *current = next;
-            // Long model queue is registered by the native model consumer, independently
-            // of this ordered lane. This branch only persists the measured inputs.
+            if allow_actions
+                && batch
+                    .last()
+                    .and_then(|k| date(&k["ts"]))
+                    .is_some_and(|at| (0..300000).contains(&(Utc::now() - at).num_milliseconds()))
+            {
+                let mut players = std::collections::BTreeMap::new();
+                for event in batch {
+                    if let (Some(steam), Some(mid)) = (
+                        event["killer"]["steamId"].as_str(),
+                        event["matchRow"].as_i64(),
+                    ) {
+                        players.insert(steam, mid);
+                    }
+                }
+                for (steam, mid) in players {
+                    crate::model_queue::schedule(state, &org, server, steam, mid, Utc::now())
+                        .await?;
+                }
+            }
             return Ok(Outcome {
                 alerts: vec![],
                 actions: vec![],
@@ -527,7 +545,7 @@ impl Pipeline {
                     && (c["status"] != "OPEN"
                         || (c["ruleVersion"] == config.version
                             && decisions::reuse(&c["statistical"], &statistical)))
-                    && c["trigger"] != "AI_PRESCREEN"
+                    && c["trigger"] != "AI_SINGLE_SIGNAL"
                     && c["statistical"]["level"] == statistical["level"]
             });
             let mut case = reused.and_then(|c| c["id"].as_str()).map(str::to_owned);

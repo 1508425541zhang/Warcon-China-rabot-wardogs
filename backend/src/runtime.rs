@@ -13,6 +13,7 @@ pub struct Runtime {
     pub leader: OnceLock<Arc<Leadership>>,
     pub stop: CancellationToken,
     pub events: broadcast::Sender<Value>,
+    pub poller: Mutex<Value>,
     interest: Mutex<HashMap<String, Instant>>,
 }
 impl Default for Runtime {
@@ -21,6 +22,7 @@ impl Default for Runtime {
             leader: OnceLock::new(),
             stop: CancellationToken::new(),
             events: broadcast::channel(4096).0,
+            poller: Mutex::new(Value::Null),
             interest: Mutex::new(HashMap::new()),
         }
     }

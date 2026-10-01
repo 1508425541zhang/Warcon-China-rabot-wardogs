@@ -54,6 +54,11 @@ pub async fn post(State(state): State<AppState>, request: Request) -> Result<Jso
     let body: Value =
         serde_json::from_slice(&bytes).map_err(|_| ApiError::bad("Malformed JSON body."))?;
     let receipt = feed::ingest(&state.db, &server, body, chrono::Utc::now()).await?;
+    crate::diagnostics::feed(
+        receipt.accepted as u64,
+        receipt.skipped as u64,
+        receipt.duplicates as u64,
+    );
     Ok(Json(
         json!({"ok":true,"accepted":receipt.accepted,"skipped":receipt.skipped,"duplicates":receipt.duplicates}),
     ))

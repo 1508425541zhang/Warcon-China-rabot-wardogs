@@ -67,6 +67,10 @@ async fn main() -> anyhow::Result<()> {
     }
     task!(integrity_baseline_db);
     task!(integrity_consumer);
+    task!(legacy_consumer);
+    task!(group_control);
+    task!(ai_queue);
+    task!(integrity_retention);
     task!(model_queue);
     task!(outbox_worker);
     task!(webhook_worker);
@@ -114,6 +118,13 @@ async fn main() -> anyhow::Result<()> {
         });
     }
     if let Some(steam) = steam {
+        let friends_app = state.clone();
+        let friends_steam = steam.clone();
+        let friends_stop = stop.clone();
+        tasks.spawn(async move {
+            let mut clock=tokio::time::interval(std::time::Duration::from_secs(30));clock.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop{tokio::select!{_=friends_stop.cancelled()=>break,_=clock.tick()=>{if warcon_backend::steam::friends_pass(&friends_app,&friends_steam).await.is_err(){tracing::warn!("Steam friends refresh pass unavailable");}}}}
+        });
         let profile_stop = stop.clone();
         let profile_leader = leader.clone();
         let profile_steam = steam.clone();

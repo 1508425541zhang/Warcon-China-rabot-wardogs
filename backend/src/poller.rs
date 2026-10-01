@@ -40,6 +40,9 @@ pub async fn run(app: AppState) -> Result<()> {
     let mut settings = crate::settings::load(&app.db).await?;
     let mut memories: HashMap<String, Memory> = HashMap::new();
     let mut in_flight = HashMap::<String, bool>::new();
+    let mut flight_started = HashMap::<String, i64>::new();
+    let mut last_players = HashMap::<String, usize>::new();
+    let mut launched = 0u64;
     let mut present = HashSet::<String>::new();
     let mut signature = HashMap::<String, String>::new();
     let mut wakes = HashMap::<String, Wake>::new();
@@ -52,6 +55,8 @@ pub async fn run(app: AppState) -> Result<()> {
          done=tasks.join_next(),if !tasks.is_empty()=>{
           let Some(Ok((mut m,result)))=done else{app.runtime.stop.cancel();return Err(crate::runtime::lost())};
           in_flight.remove(&m.id);
+          flight_started.remove(&m.id);
+          last_players.insert(m.id.clone(),if m.ok{m.players.len()}else{0});
           if let Err(e)=result{if e.code=="worker_ownership_lost"{app.runtime.stop.cancel();break}tracing::warn!(server_id=%m.id,code=%e.code,"Observation stage failed");m.sessions=None;}
           let now=observer::now();let (pc,sc)=m.cadence(&settings,m.tier(&app));
           m.players_due=if m.players_due<=now{now+pc}else{m.players_due.min(now+pc)}.max(m.hold);m.status_due=if m.status_due<=now{now+sc}else{m.status_due.min(now+sc)}.max(m.hold);
@@ -71,6 +76,11 @@ pub async fn run(app: AppState) -> Result<()> {
          _=beat.tick()=>{
           if let Err(e)=app.runtime.check().await{if e.code=="worker_ownership_lost"{return Err(e)}tracing::warn!("Worker ownership check unavailable; pausing observations");continue}
           let now=observer::now();
+          let mut tiers=json!({"watched":0,"hot":0,"idle":0,"offline":0});
+          let mut behind=0;
+          for m in memories.values(){let tier=m.tier(&app);tiers[tier]=json!(tiers[tier].as_u64().unwrap_or(0)+1);let(p,s)=m.cadence(&settings,tier);if m.players_due.min(m.status_due)>0&&now-m.players_due.min(m.status_due).max(m.hold)>p.min(s){behind+=1}}
+          for(id,offline)in &in_flight{let tier=if *offline{"offline"}else if app.runtime.watched(id){"watched"}else if last_players.get(id).copied().unwrap_or(0)>0{"hot"}else{"idle"};tiers[tier]=json!(tiers[tier].as_u64().unwrap_or(0)+1);}
+          *app.runtime.poller.lock().unwrap_or_else(|e|e.into_inner())=json!({"enabled":true,"servers":present.len(),"players":last_players.iter().filter(|(id,_)|present.contains(*id)).map(|(_,n)|n).sum::<usize>(),"tiers":tiers,"active":in_flight.len(),"behind":behind,"stuck":flight_started.values().filter(|t|now-**t>120000).count(),"launched":launched,"beatAt":now});
           if now-settings_at>=10000{settings_at=now;if let Ok(next)=crate::settings::load(&app.db).await{settings=next;}}
           if now-roster_at>=5000{
            roster_at=now;
@@ -95,10 +105,12 @@ pub async fn run(app: AppState) -> Result<()> {
            let mut m=memories.remove(&id).unwrap();let status_due=m.status_due<=now;let players_due=m.players_due<=now;
            let (pc,sc)=m.cadence(&settings,m.tier(&app));m.players_interval=pc;
            if players_due{m.players_due=observation_state::next_due(m.players_due,pc,now).max(m.hold)}if status_due{m.status_due=observation_state::next_due(m.status_due,sc,now).max(m.hold)}
-           in_flight.insert(id,offline);let app=app.clone();let settings=settings.clone();
+           flight_started.insert(id.clone(),now);launched+=1;in_flight.insert(id,offline);let app=app.clone();let settings=settings.clone();
            tasks.spawn(async move{
             let result=async{
+             let began=std::time::Instant::now();
              {let _lane=dispatcher::acquire(&m.id,2,Duration::from_secs(30)).await?;app.runtime.check().await?;observer::observe(&app,&mut m,status_due,players_due,&settings).await?;}
+             crate::diagnostics::observation(m.ok,began.elapsed().as_secs_f64());
              if m.ok&&observer::now()-m.sync_at>=number(&settings,"listSyncMs",60000){let summary=crate::list_sync::reconcile(&app,&m.id,2).await?;if summary["ok"]==true{m.sync_at=observer::now();}}
              Ok(())
             }.await;

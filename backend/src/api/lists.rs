@@ -220,6 +220,33 @@ pub async fn entries_view(
     }
     Ok(rows)
 }
+pub async fn membership(
+    state: &AppState,
+    org: &str,
+    steam: &str,
+    role: Option<&Role>,
+) -> Result<Value> {
+    let mut out = serde_json::json!({"ban":null,"reserve":null,"canBan":false,"canReserve":false});
+    if let Some(role) = role {
+        let org: Value = sqlx::query_scalar("SELECT to_jsonb(o)FROM organizations o WHERE id=$1")
+            .bind(org)
+            .fetch_one(&state.db)
+            .await?;
+        for kind in &role.kinds {
+            out[if kind == "ban" {
+                "canBan"
+            } else {
+                "canReserve"
+            }] = serde_json::json!(true);
+            out[kind] = entries_view(state, &org, kind, false)
+                .await?
+                .into_iter()
+                .find(|e| e["steamId"] == steam)
+                .unwrap_or(Value::Null);
+        }
+    }
+    Ok(out)
+}
 #[derive(Deserialize)]
 pub struct Query {
     #[serde(rename = "includeRemoved")]

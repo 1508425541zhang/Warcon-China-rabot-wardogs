@@ -249,6 +249,24 @@ pub async fn query(
     };
     Ok(json!({"entries":found.into_iter().map(|r|row(r,v)).collect::<Vec<_>>(),"nextBefore":next}))
 }
+pub async fn target(
+    app: &AppState,
+    v: &Visibility,
+    org: &str,
+    ids: &[String],
+    steam: &str,
+    limit: i64,
+) -> Result<Vec<Value>> {
+    let mut q = QueryBuilder::new("SELECT to_jsonb(a)FROM audit_log a WHERE org_id=");
+    q.push_bind(org.to_owned())
+        .push(" AND(server_id IS NULL OR server_id=ANY(")
+        .push_bind(ids.to_vec())
+        .push("))AND target=")
+        .push_bind(steam.to_owned());
+    filter(&mut q, v);
+    q.push(" ORDER BY id DESC LIMIT ").push_bind(limit);
+    Ok(q.build_query_scalar::<Value>().fetch_all(&app.db).await?.into_iter().map(|r|{let r=row(r,v);json!({"id":r["id"],"ts":r["ts"],"actorName":r["actorName"],"action":r["action"],"serverName":r["serverName"],"outcome":r["outcome"],"message":r["message"]})}).collect())
+}
 fn before(f: &Filters) -> Option<i64> {
     let n = integer(&json!(f.before), 0, 0, i64::MAX);
     (n > 0).then_some(n)

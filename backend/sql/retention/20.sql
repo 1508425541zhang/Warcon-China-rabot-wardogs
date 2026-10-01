@@ -1,0 +1,1 @@
+DELETE FROM history_retention_cases t WHERE NOT EXISTS(SELECT 1 FROM integrity_cases c WHERE c.id=t.id AND (c.reviewed_at IS NOT NULL OR c.status<>'OPEN') AND c.created_at<now()-interval '7 days') OR EXISTS(SELECT 1 FROM integrity_actions a WHERE a.case_id=t.id)

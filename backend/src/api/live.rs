@@ -85,6 +85,41 @@ pub async fn interest(state: &AppState, ids: &[String]) -> Result<()> {
     }
     Ok(())
 }
+pub async fn summary(
+    State(state): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    h: HeaderMap,
+) -> Result<Json<Value>> {
+    let a = auth::authenticate(&state, &h, &Method::GET).await?;
+    let s = auth::server_scope(&state, &a, &id, "server.view").await?;
+    let role = super::servers::accessible(&state, &a, Some(&s.org_id))
+        .await?
+        .into_iter()
+        .find(|v| v["id"] == id)
+        .map(|v| v["roleName"].clone())
+        .unwrap_or(Value::Null);
+    let mut rows = live::read(&state, std::slice::from_ref(&id)).await?;
+    if !rows.contains_key(&id) {
+        interest(&state, std::slice::from_ref(&id)).await?;
+        for _ in 0..10 {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            rows = live::read(&state, std::slice::from_ref(&id)).await?;
+            if rows.contains_key(&id) {
+                break;
+            }
+        }
+    }
+    let Some(l) = rows.get(&id) else {
+        return Ok(Json(
+            json!({"ok":false,"role":role,"live":null,"error":{"message":"Not observed yet."}}),
+        ));
+    };
+    let mut out = json!({"ok":l["ok"],"role":role,"caps":s.caps,"live":l,"status":l["status"]});
+    if l["ok"] != true {
+        out["error"] = json!({"message":l["error"]})
+    }
+    Ok(Json(out))
+}
 pub async fn events(
     State(state): State<AppState>,
     headers: HeaderMap,

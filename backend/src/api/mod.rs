@@ -2,10 +2,15 @@ pub mod activity;
 pub mod analytics;
 pub mod automation;
 pub mod community;
+pub mod faction_quota;
 pub mod feed_setup;
+pub mod group_control;
 pub mod ingest;
+pub mod integrity_ai;
 pub mod integrity_cases;
+pub mod integrity_imports;
 pub mod integrity_reports;
+pub mod integrity_retention;
 pub mod integrity_settings;
 pub mod keys;
 pub mod kills;
@@ -16,6 +21,7 @@ pub mod model_settings;
 pub mod notes;
 pub mod orgs;
 pub mod outbox;
+pub mod players;
 pub mod plugins;
 pub mod public;
 pub mod qq;
@@ -24,6 +30,7 @@ pub mod rcon_actions;
 pub mod roles;
 pub mod servers;
 pub mod settings;
+pub mod triggers;
 pub mod users;
 pub mod webhooks;
 use crate::config::AppState;
@@ -35,7 +42,7 @@ use axum::{
     response::Response,
     routing::{delete, get, post},
 };
-use serde_json::{Value, json};
+use serde_json::json;
 
 pub fn router(state: AppState) -> Router {
     Router::new()
@@ -62,7 +69,19 @@ pub fn router(state: AppState) -> Router {
         .route("/api/passkeys/register-options",post(crate::passkeys::register_options))
         .route("/api/passkeys/auth",post(crate::passkeys::authenticate))
         .route("/api/passkeys/{id}",delete(crate::passkeys::delete))
-        .route("/api/health",get(health))
+        .route("/api/health",get(crate::diagnostics::health))
+        .route("/api/admin/overview",get(crate::diagnostics::overview))
+        .route("/metrics",get(crate::diagnostics::metrics))
+        .route("/api/steam/profiles",get(players::profiles))
+        .route("/api/orgs/{id}/players",get(players::org_seen))
+        .route("/api/servers/{id}/players/seen",get(players::seen))
+        .route("/api/servers/{id}/players/marks",get(players::marks))
+        .route("/api/servers/{id}/players/{steam_id}",get(players::dossier))
+        .route("/api/servers/{id}/players/{steam_id}/career",get(players::career))
+        .route("/api/servers/{id}/players/{steam_id}/steam",post(players::refresh))
+        .route("/api/servers/{id}/stats/purge",post(players::purge))
+        .route("/api/servers/{id}/plugin-snapshot",get(plugins::snapshot_api))
+        .route("/api/servers/{id}/summary",get(live::summary))
         .route("/api/admin/qq",get(qq::get).put(qq::put).post(qq::test))
         .route("/api/qq/webhook",post(qq::webhook))
         .route("/api/admin/qq/vips",get(qq::get_vips).put(qq::put_vips))
@@ -78,8 +97,12 @@ pub fn router(state: AppState) -> Router {
         .route("/api/orgs/{id}/integrity/rules",get(integrity_settings::get_rules).put(integrity_settings::put_rules))
         .route("/api/orgs/{id}/integrity/model",get(model_settings::get).put(model_settings::put).post(model_settings::test))
         .route("/api/orgs/{id}/integrity/cases/{case_id}/labels",post(integrity_cases::label))
+        .route("/api/orgs/{id}/integrity/imports",get(integrity_imports::get).post(integrity_imports::post).layer(axum::extract::DefaultBodyLimit::max(crate::integrity_imports::MAX_BYTES+100000)))
+        .route("/api/orgs/{id}/integrity/imports/{batch_id}",post(integrity_imports::review))
         .route("/api/integrity/reports",post(integrity_reports::post))
         .route("/api/reports",post(integrity_reports::post))
+        .route("/api/servers/{id}/integrity/ai",get(integrity_ai::get).post(integrity_ai::post))
+        .route("/api/server/{id}/integrity/history-retention",get(integrity_retention::get).put(integrity_retention::put))
         .route("/api/orgs/{id}/integrity/mode",axum::routing::put(integrity_settings::put_mode))
         .route("/api/orgs/{id}/integrity/enforcement",get(integrity_settings::get_enforcement).put(integrity_settings::put_enforcement))
         .route("/api/orgs/{id}/integrity/weapons",get(integrity_settings::get_weapons).put(integrity_settings::put_weapon).delete(integrity_settings::delete_weapon))
@@ -129,6 +152,11 @@ pub fn router(state: AppState) -> Router {
         .route("/api/servers/{id}/cash",get(analytics::cash))
         .route("/api/servers/{id}/feed",get(feed_setup::get).post(feed_setup::post).delete(feed_setup::delete))
         .route("/api/servers/{id}/numeric-limits",post(automation::numeric))
+        .route("/api/servers/{id}/faction-quota",get(faction_quota::get).post(faction_quota::post))
+        .route("/api/servers/{id}/group-control",post(group_control::post))
+        .route("/api/servers/{id}/triggers",get(triggers::get).post(triggers::post))
+        .route("/api/servers/{id}/triggers/{trigger}",axum::routing::patch(triggers::patch).delete(triggers::delete))
+        .route("/api/servers/{id}/triggers/dry-run",post(triggers::dry_run))
         .route("/api/servers/{id}/faction-lock",post(automation::faction_lock))
         .route("/api/servers/{id}/skill-balance",post(automation::skill_balance))
         .route("/api/servers/{id}/weapon-restrictions",post(automation::weapons))
@@ -142,6 +170,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/servers/{id}/players/{steam_id}/notes/{note_id}",delete(notes::delete))
         .fallback(||async{(StatusCode::NOT_FOUND,Json(json!({"ok":false,"error":{"code":"not_found","message":"Route is not implemented by the Rust backend."}})))})
         .layer(middleware::from_fn(response_headers))
+        .layer(middleware::from_fn(crate::diagnostics::record))
         .with_state(state)
 }
 async fn response_headers(request: Request, next: Next) -> Response {
@@ -156,7 +185,4 @@ async fn response_headers(request: Request, next: Next) -> Response {
         HeaderValue::from_static("nosniff"),
     );
     response
-}
-async fn health() -> Json<Value> {
-    Json(json!({"ok":true,"service":"warcon"}))
 }

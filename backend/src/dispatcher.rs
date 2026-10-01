@@ -136,7 +136,11 @@ pub fn stats() -> serde_json::Value {
     for lane in map.values().filter_map(Weak::upgrade) {
         let q = lane.queue.lock().unwrap_or_else(|e| e.into_inner());
         busy += usize::from(q.active);
-        queued += q.jobs.len();
+        queued += q
+            .jobs
+            .iter()
+            .filter(|j| j.deadline > Instant::now())
+            .count();
     }
     serde_json::json!({"busy":busy,"queued":queued})
 }

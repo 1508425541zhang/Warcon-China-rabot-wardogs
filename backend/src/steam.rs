@@ -28,6 +28,93 @@ pub struct SteamClient {
     backoff: Mutex<Option<Instant>>,
 }
 impl SteamClient {
+    pub async fn friends(&self, id: &str) -> anyhow::Result<Value> {
+        anyhow::ensure!(
+            id.len() == 17 && id.bytes().all(|b| b.is_ascii_digit()),
+            "invalid_steam_id"
+        );
+        if self.backed_off().await {
+            return Ok(serde_json::json!({"state":"unknown","total":0,"checked":0,"banned":0}));
+        }
+        let mut url = self.base.join("ISteamUser/GetFriendList/v1/")?;
+        url.query_pairs_mut()
+            .append_pair("key", &self.key)
+            .append_pair("steamid", id)
+            .append_pair("relationship", "friend");
+        let response = self
+            .client
+            .get(url)
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await
+            .map_err(|_| anyhow::anyhow!("steam_unreachable"))?;
+        if response.status().as_u16() == 401 {
+            return Ok(serde_json::json!({"state":"private","total":0,"checked":0,"banned":0}));
+        }
+        if response.status().as_u16() == 429 || response.status().is_server_error() {
+            *self.backoff.lock().await = Some(Instant::now() + Duration::from_secs(60));
+        }
+        anyhow::ensure!(response.status().is_success(), "steam_friends_unavailable");
+        let mut response = response;
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|_| anyhow::anyhow!("steam_response"))?
+        {
+            anyhow::ensure!(
+                bytes.len() + chunk.len() <= 2 * 1024 * 1024,
+                "steam_response_size"
+            );
+            bytes.extend(chunk)
+        }
+        let body: Value =
+            serde_json::from_slice(&bytes).map_err(|_| anyhow::anyhow!("steam_response"))?;
+        anyhow::ensure!(body["friendslist"].is_object(), "steam_friends_unavailable");
+        let mut seen = std::collections::HashSet::new();
+        let friends = body["friendslist"]["friends"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|p| p["steamid"].as_str())
+            .filter(|id| {
+                id.len() == 17
+                    && id.bytes().all(|b| b.is_ascii_digit())
+                    && seen.insert(id.to_string())
+            })
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        let sample = &friends[..friends.len().min(200)];
+        let mut banned = 0;
+        for ids in sample.chunks(100) {
+            let bans = self
+                .get("ISteamUser/GetPlayerBans/v1/", &ids.join(","))
+                .await?;
+            banned += bans["players"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|p| {
+                    p["NumberOfVACBans"].as_i64().unwrap_or(0) > 0
+                        || p["NumberOfGameBans"].as_i64().unwrap_or(0) > 0
+                })
+                .count();
+        }
+        Ok(
+            serde_json::json!({"state":if sample.len()<friends.len(){"partial"}else{"public"},"total":friends.len(),"checked":sample.len(),"banned":banned}),
+        )
+    }
+    pub async fn summaries(&self, ids: &[String]) -> anyhow::Result<Value> {
+        anyhow::ensure!(
+            ids.len() <= 100
+                && ids
+                    .iter()
+                    .all(|s| s.len() == 17 && s.bytes().all(|b| b.is_ascii_digit())),
+            "invalid_steam_ids"
+        );
+        self.get("ISteamUser/GetPlayerSummaries/v2/", &ids.join(","))
+            .await
+    }
     pub fn new(key: String) -> anyhow::Result<Self> {
         Self::with_endpoint(key, url::Url::parse("https://api.steampowered.com/")?)
     }
@@ -192,6 +279,78 @@ impl SteamClient {
             },
         })
     }
+}
+pub async fn refresh_friends(
+    state: &crate::config::AppState,
+    client: &SteamClient,
+    id: &str,
+) -> crate::error::Result<()> {
+    let old: Option<(String, Option<DateTime<Utc>>, String)> = sqlx::query_as(
+        "SELECT friends_state,friends_checked_at,error FROM steam_profiles WHERE steam_id=$1",
+    )
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await?;
+    let Some((kind, at, error)) = old.filter(|r| r.2.is_empty()) else {
+        return Ok(());
+    };
+    let _ = error;
+    if at.is_some_and(|at| {
+        (Utc::now() - at).num_seconds() < if kind == "unknown" { 3600 } else { 7 * 86400 }
+    }) {
+        return Ok(());
+    }
+    let mut tx = state.db.begin().await?;
+    let day = Utc::now().timestamp().div_euclid(86400);
+    let budget = format!("rust:steamFriendBudget:{day}");
+    let granted:Option<Value>=sqlx::query_scalar("INSERT INTO site_settings(key,value)VALUES($1,'3'::jsonb)ON CONFLICT(key)DO UPDATE SET value=to_jsonb((site_settings.value#>>'{}')::int+3)WHERE(site_settings.value#>>'{}')::int+3<=20000 RETURNING value").bind(&budget).fetch_optional(&mut *tx).await?;
+    tx.commit().await?;
+    if granted.is_none() {
+        return Ok(());
+    }
+    let result = client
+        .friends(id)
+        .await
+        .unwrap_or(serde_json::json!({"state":"unknown","total":0,"checked":0,"banned":0}));
+    let mut tx = if state.runtime.leader.get().is_some() {
+        state.worker_transaction().await?
+    } else {
+        state.db.begin().await?
+    };
+    if result["state"] == "unknown" {
+        if kind == "unknown" {
+            sqlx::query("UPDATE steam_profiles SET friends_checked_at=now()WHERE steam_id=$1 AND friends_state='unknown' AND friends_checked_at IS NOT DISTINCT FROM $2").bind(id).bind(at).execute(&mut *tx).await?;
+        }
+    } else {
+        sqlx::query("UPDATE steam_profiles SET friends_state=$2,friends_total=$3,friends_checked=$4,banned_friends=$5,friends_checked_at=now()WHERE steam_id=$1 AND friends_checked_at IS NOT DISTINCT FROM $6").bind(id).bind(result["state"].as_str()).bind(result["total"].as_i64().unwrap_or(0)as i32).bind(result["checked"].as_i64().unwrap_or(0)as i32).bind(result["banned"].as_i64().unwrap_or(0)as i32).bind(at).execute(&mut *tx).await?;
+    }
+    sqlx::query("DELETE FROM site_settings WHERE key LIKE 'rust:steamFriendBudget:%' AND key<>$1 AND updated_at<now()-interval '2 days'").bind(&budget).execute(&mut *tx).await?;
+    tx.commit().await?;
+    Ok(())
+}
+pub async fn friends_pass(
+    state: &crate::config::AppState,
+    client: &SteamClient,
+) -> crate::error::Result<()> {
+    state.runtime.check().await?;
+    let ids:Vec<String>=sqlx::query_scalar("SELECT p.steam_id FROM steam_profiles p WHERE p.error='' AND(p.friends_checked_at IS NULL OR p.friends_checked_at<now()-CASE WHEN p.friends_state='unknown' THEN interval '1 hour' ELSE interval '7 days' END)AND(EXISTS(SELECT 1 FROM player_sessions ps JOIN servers s ON s.id=ps.server_id JOIN organizations o ON o.id=s.org_id WHERE ps.steam_id=p.steam_id AND ps.left_at IS NULL AND o.suspended_at IS NULL)OR EXISTS(SELECT 1 FROM integrity_profile_refresh_jobs j WHERE j.steam_id=p.steam_id AND j.updated_at>now()-interval '1 day'))ORDER BY p.friends_checked_at NULLS FIRST LIMIT 8").fetch_all(&state.db).await?;
+    let jobs = ids.iter().map(|id| refresh_friends(state, client, id));
+    let results = futures_util::future::join_all(jobs).await;
+    for r in results {
+        r?
+    }
+    Ok(())
+}
+pub async fn request_refresh(
+    state: &crate::config::AppState,
+    ids: &[String],
+) -> crate::error::Result<()> {
+    if std::env::var("STEAM_API_KEY").is_ok_and(|s| !s.is_empty()) {
+        let mut tx = state.db.begin().await?;
+        enqueue(&mut tx, ids).await?;
+        tx.commit().await?;
+    }
+    Ok(())
 }
 pub async fn save(tx: &mut Transaction<'_, Postgres>, p: &Profile) -> anyhow::Result<()> {
     sqlx::query("INSERT INTO steam_profiles(steam_id,persona,avatar,profile_url,public,account_created_at,vac_bans,game_bans,days_since_last_ban,community_banned,economy_ban,error,fetched_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now()) ON CONFLICT(steam_id) DO UPDATE SET persona=excluded.persona,avatar=excluded.avatar,profile_url=excluded.profile_url,public=excluded.public,account_created_at=excluded.account_created_at,vac_bans=excluded.vac_bans,game_bans=excluded.game_bans,days_since_last_ban=excluded.days_since_last_ban,community_banned=excluded.community_banned,economy_ban=excluded.economy_ban,error=excluded.error,fetched_at=excluded.fetched_at")

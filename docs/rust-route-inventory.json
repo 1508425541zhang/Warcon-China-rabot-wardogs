@@ -12,7 +12,8 @@
       "method": "GET",
       "path": "/api/admin/overview",
       "source": "src/routes/api/admin/overview/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -74,14 +75,14 @@
       "method": "GET",
       "path": "/api/health",
       "source": "src/routes/api/health/+server.ts",
-      "status": "partial",
+      "status": "implemented",
       "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/ingest/events",
       "source": "src/routes/api/ingest/events/+server.ts",
-      "status": "partial",
+      "status": "implemented",
       "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
@@ -151,19 +152,22 @@
       "method": "GET",
       "path": "/api/orgs/[id]/integrity/imports",
       "source": "src/routes/api/orgs/[id]/integrity/imports/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/orgs/[id]/integrity/imports",
       "source": "src/routes/api/orgs/[id]/integrity/imports/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/orgs/[id]/integrity/imports/[batchId]",
       "source": "src/routes/api/orgs/[id]/integrity/imports/[batchId]/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PUT",
@@ -358,7 +362,8 @@
       "method": "GET",
       "path": "/api/orgs/[id]/players",
       "source": "src/routes/api/orgs/[id]/players/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -588,7 +593,8 @@
       "method": "PUT",
       "path": "/api/server/[id]/integrity/history-retention",
       "source": "src/routes/api/server/[id]/integrity/history-retention/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -657,13 +663,15 @@
       "method": "GET",
       "path": "/api/servers/[id]/faction-quota",
       "source": "src/routes/api/servers/[id]/faction-quota/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/servers/[id]/faction-quota",
       "source": "src/routes/api/servers/[id]/faction-quota/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -704,13 +712,15 @@
       "method": "POST",
       "path": "/api/servers/[id]/group-control",
       "source": "src/routes/api/servers/[id]/group-control/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/servers/[id]/integrity/ai",
       "source": "src/routes/api/servers/[id]/integrity/ai/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -730,31 +740,36 @@
       "method": "POST",
       "path": "/api/servers/[id]/lists/ban/entries",
       "source": "src/routes/api/servers/[id]/lists/ban/entries/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PATCH",
       "path": "/api/servers/[id]/lists/ban/entries/[steamId]",
       "source": "src/routes/api/servers/[id]/lists/ban/entries/[steamId]/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "DELETE",
       "path": "/api/servers/[id]/lists/ban/entries/[steamId]",
       "source": "src/routes/api/servers/[id]/lists/ban/entries/[steamId]/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/servers/[id]/lists/reserve/entries",
       "source": "src/routes/api/servers/[id]/lists/reserve/entries/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "DELETE",
       "path": "/api/servers/[id]/lists/reserve/entries/[steamId]",
       "source": "src/routes/api/servers/[id]/lists/reserve/entries/[steamId]/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -802,13 +817,15 @@
       "method": "GET",
       "path": "/api/servers/[id]/players/[steamId]",
       "source": "src/routes/api/servers/[id]/players/[steamId]/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/servers/[id]/players/[steamId]/career",
       "source": "src/routes/api/servers/[id]/players/[steamId]/career/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
@@ -828,7 +845,8 @@
       "method": "POST",
       "path": "/api/servers/[id]/players/[steamId]/steam",
       "source": "src/routes/api/servers/[id]/players/[steamId]/steam/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PUT",
@@ -841,19 +859,22 @@
       "method": "GET",
       "path": "/api/servers/[id]/players/marks",
       "source": "src/routes/api/servers/[id]/players/marks/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/servers/[id]/players/seen",
       "source": "src/routes/api/servers/[id]/players/seen/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/servers/[id]/plugin-snapshot",
       "source": "src/routes/api/servers/[id]/plugin-snapshot/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -894,13 +915,15 @@
       "method": "POST",
       "path": "/api/servers/[id]/stats/purge",
       "source": "src/routes/api/servers/[id]/stats/purge/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/servers/[id]/summary",
       "source": "src/routes/api/servers/[id]/summary/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
@@ -913,31 +936,36 @@
       "method": "GET",
       "path": "/api/servers/[id]/triggers",
       "source": "src/routes/api/servers/[id]/triggers/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/servers/[id]/triggers",
       "source": "src/routes/api/servers/[id]/triggers/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PATCH",
       "path": "/api/servers/[id]/triggers/[triggerId]",
       "source": "src/routes/api/servers/[id]/triggers/[triggerId]/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "DELETE",
       "path": "/api/servers/[id]/triggers/[triggerId]",
       "source": "src/routes/api/servers/[id]/triggers/[triggerId]/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/servers/[id]/triggers/dry-run",
       "source": "src/routes/api/servers/[id]/triggers/dry-run/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
@@ -964,7 +992,8 @@
       "method": "GET",
       "path": "/api/steam/profiles",
       "source": "src/routes/api/steam/profiles/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -1383,7 +1412,7 @@
     {
       "name": "feed ordered claims/acknowledgements",
       "source": "src/lib/server/feed-processing.ts",
-      "status": "partial"
+      "status": "implemented"
     },
     {
       "name": "poller/presence/matches/raw observations/list snapshots",
@@ -1393,7 +1422,7 @@
     {
       "name": "poller automation hooks",
       "source": "src/lib/server/observe.ts",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "name": "delivery/outbox",
@@ -1403,7 +1432,7 @@
     {
       "name": "Integrity evaluation",
       "source": "src/lib/server/integrity/pipeline.ts",
-      "status": "partial"
+      "status": "implemented"
     },
     {
       "name": "baseline rebuild",
@@ -1423,7 +1452,7 @@
     {
       "name": "AI review queue",
       "source": "src/lib/server/integrity/ai-queue.ts",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "name": "long model queue",
@@ -1453,7 +1482,7 @@
     {
       "name": "history retention",
       "source": "src/lib/server/integrity/history-retention.ts",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "name": "QQ runtime",
@@ -1473,12 +1502,12 @@
     {
       "name": "remaining relay diagnostics and automation hooks",
       "source": "src/worker/runtime.ts",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "name": "settings reload",
       "source": "src/lib/server/settings.ts",
-      "status": "partial"
+      "status": "implemented"
     },
     {
       "name": "reserved slot reconciliation and list expiry",

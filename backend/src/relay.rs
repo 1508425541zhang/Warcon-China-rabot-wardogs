@@ -21,6 +21,7 @@ use subtle::ConstantTimeEq;
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(|| async { Json(json!({"ok":true})) }))
+        .route("/metrics", get(crate::diagnostics::metrics))
         .route("/relay/run", post(run))
         .route("/relay/test", post(test))
         .route("/relay/live", post(live))
@@ -38,7 +39,7 @@ async fn authorize(
     request: Request,
     next: Next,
 ) -> Result<Response> {
-    if request.uri().path() == "/health" {
+    if ["/health", "/metrics"].contains(&request.uri().path()) {
         return Ok(next.run(request).await);
     }
     let supplied = request
@@ -192,7 +193,5 @@ async fn sync_org(State(state): State<AppState>, ApiJson(p): ApiJson<Value>) -> 
     ))
 }
 async fn health(State(state): State<AppState>) -> Result<Response> {
-    Ok(response(Ok(
-        json!({"owner":state.runtime.leader.get().is_some(),"stopping":state.runtime.stop.is_cancelled()}),
-    )))
+    Ok(response(Ok(crate::diagnostics::stats(&state).await?)))
 }

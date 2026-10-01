@@ -1,0 +1,1 @@
+DELETE FROM history_retention_runs t USING integrity_model_runs r WHERE r.id=t.id AND (r.action IS NOT NULL OR r.punished_at IS NOT NULL OR NOT coalesce((r.state IN ('ERROR','superseded') OR (r.state='READY' AND r.action_state='skipped')),false))

@@ -1,0 +1,2404 @@
+{
+  "risk": [
+    {
+      "input": {
+        "profile": null,
+        "steamEnabled": true,
+        "watched": null,
+        "bannedOn": [],
+        "resembles": [],
+        "now": "2026-09-30T12:00:00.000Z"
+      },
+      "output": {
+        "score": 0,
+        "level": "low",
+        "reasons": [],
+        "steamChecked": false
+      }
+    },
+    {
+      "input": {
+        "profile": {
+          "public": true,
+          "accountCreatedAt": "2020-01-01T00:00:00.000Z",
+          "vacBans": 0,
+          "gameBans": 0,
+          "daysSinceLastBan": null,
+          "communityBanned": false,
+          "economyBan": "none"
+        },
+        "steamEnabled": true,
+        "watched": null,
+        "bannedOn": [],
+        "resembles": [],
+        "now": "2026-09-30T12:00:00.000Z"
+      },
+      "output": {
+        "score": 0,
+        "level": "low",
+        "reasons": [],
+        "steamChecked": true
+      }
+    },
+    {
+      "input": {
+        "profile": {
+          "public": false,
+          "accountCreatedAt": "2020-01-01T00:00:00.000Z",
+          "vacBans": 0,
+          "gameBans": 0,
+          "daysSinceLastBan": null,
+          "communityBanned": false,
+          "economyBan": "none",
+          "friendsState": "private"
+        },
+        "steamEnabled": true,
+        "watched": null,
+        "bannedOn": [],
+        "resembles": [],
+        "now": "2026-09-30T12:00:00.000Z"
+      },
+      "output": {
+        "score": 20,
+        "level": "medium",
+        "reasons": [
+          {
+            "code": "private",
+            "text": "Steam profile is private",
+            "weight": 12
+          },
+          {
+            "code": "friends_private",
+            "text": "Steam friends list is private",
+            "weight": 8
+          }
+        ],
+        "steamChecked": true
+      }
+    },
+    {
+      "input": {
+        "profile": {
+          "public": true,
+          "accountCreatedAt": "2020-01-01T00:00:00.000Z",
+          "vacBans": 1,
+          "gameBans": 0,
+          "daysSinceLastBan": 10,
+          "communityBanned": false,
+          "economyBan": "none"
+        },
+        "steamEnabled": true,
+        "watched": null,
+        "bannedOn": [],
+        "resembles": [],
+        "now": "2026-09-30T12:00:00.000Z"
+      },
+      "output": {
+        "score": 60,
+        "level": "high",
+        "reasons": [
+          {
+            "code": "vac",
+            "text": "1 VAC ban, last 10 days ago",
+            "weight": 60
+          }
+        ],
+        "steamChecked": true
+      }
+    },
+    {
+      "input": {
+        "profile": {
+          "public": true,
+          "accountCreatedAt": "2020-01-01T00:00:00.000Z",
+          "vacBans": 9,
+          "gameBans": 3,
+          "daysSinceLastBan": 2000,
+          "communityBanned": false,
+          "economyBan": "none"
+        },
+        "steamEnabled": true,
+        "watched": null,
+        "bannedOn": [],
+        "resembles": [],
+        "now": "2026-09-30T12:00:00.000Z"
+      },
+      "output": {
+        "score": 55,
+        "level": "high",
+        "reasons": [
+          {
+            "code": "vac",
+            "text": "9 VAC bans, last 2000 days ago",
+            "weight": 40
+          },
+          {
+            "code": "gameban",
+            "text": "3 game bans, last 2000 days ago",
+            "weight": 15
+          }
+        ],
+        "steamChecked": true
+      }
+    },
+    {
+      "input": {
+        "profile": {
+          "public": true,
+          "accountCreatedAt": "2026-09-30T12:00:00.000Z",
+          "vacBans": 0,
+          "gameBans": 0,
+          "daysSinceLastBan": null,
+          "communityBanned": false,
+          "economyBan": "none"
+        },
+        "steamEnabled": true,
+        "watched": null,
+        "bannedOn": [],
+        "resembles": [],
+        "now": "2026-09-30T12:00:00.000Z"
+      },
+      "output": {
+        "score": 30,
+        "level": "medium",
+        "reasons": [
+          {
+            "code": "age",
+            "text": "Steam account is 0 days old",
+            "weight": 30
+          }
+        ],
+        "steamChecked": true
+      }
+    },
+    {
+      "input": {
+        "profile": {
+          "public": true,
+          "accountCreatedAt": "2020-01-01T00:00:00.000Z",
+          "vacBans": 0,
+          "gameBans": 0,
+          "daysSinceLastBan": null,
+          "communityBanned": false,
+          "economyBan": "none",
+          "friendsState": "partial",
+          "friendsTotal": 100,
+          "friendsChecked": 50,
+          "bannedFriends": 3
+        },
+        "steamEnabled": true,
+        "watched": null,
+        "bannedOn": [],
+        "resembles": [],
+        "now": "2026-09-30T12:00:00.000Z"
+      },
+      "output": {
+        "score": 21,
+        "level": "medium",
+        "reasons": [
+          {
+            "code": "banned_friends",
+            "text": "3 banned Steam friends among 50 checked of 100",
+            "weight": 21
+          }
+        ],
+        "steamChecked": true
+      }
+    },
+    {
+      "input": {
+        "profile": {
+          "public": true,
+          "accountCreatedAt": "2020-01-01T00:00:00.000Z",
+          "vacBans": 0,
+          "gameBans": 0,
+          "daysSinceLastBan": null,
+          "communityBanned": false,
+          "economyBan": "none",
+          "error": "not_available"
+        },
+        "steamEnabled": true,
+        "watched": null,
+        "bannedOn": [],
+        "resembles": [],
+        "now": "2026-09-30T12:00:00.000Z"
+      },
+      "output": {
+        "score": 0,
+        "level": "low",
+        "reasons": [],
+        "steamChecked": false
+      }
+    },
+    {
+      "input": {
+        "profile": null,
+        "steamEnabled": false,
+        "watched": {
+          "reason": "review"
+        },
+        "bannedOn": [
+          {
+            "serverName": "Other",
+            "reason": "confirmed"
+          }
+        ],
+        "resembles": [
+          {
+            "name": "Name",
+            "steamId": "123",
+            "serverName": "Other"
+          }
+        ],
+        "performance": {
+          "matches": 25,
+          "wins": 20,
+          "losses": 4,
+          "draws": 1,
+          "kills": 100,
+          "deaths": 20,
+          "feedKills": 50,
+          "headshots": 30
+        },
+        "now": "2026-09-30T12:00:00.000Z"
+      },
+      "output": {
+        "score": 100,
+        "level": "high",
+        "reasons": [
+          {
+            "code": "win_rate",
+            "text": "80% wins across 25 recorded matches",
+            "weight": 8
+          },
+          {
+            "code": "kd",
+            "text": "5.0 K/D across 100 kills and 20 deaths",
+            "weight": 10
+          },
+          {
+            "code": "headshots",
+            "text": "60% headshots across 50 kill-feed kills",
+            "weight": 10
+          },
+          {
+            "code": "banned_elsewhere",
+            "text": "Banned on Other: confirmed",
+            "weight": 60
+          },
+          {
+            "code": "resembles",
+            "text": "Name resembles banned Name (123) on Other",
+            "weight": 20
+          },
+          {
+            "code": "watchlist",
+            "text": "On the watchlist: review",
+            "weight": 15
+          }
+        ],
+        "steamChecked": false
+      }
+    },
+    {
+      "input": {
+        "profile": null,
+        "steamEnabled": false,
+        "watched": {
+          "reason": "review"
+        },
+        "bannedOn": [
+          {
+            "serverName": "Other",
+            "reason": "confirmed"
+          }
+        ],
+        "resembles": [
+          {
+            "name": "Name",
+            "steamId": "123",
+            "serverName": "Other"
+          }
+        ],
+        "performance": {
+          "matches": 19,
+          "wins": 19,
+          "losses": 0,
+          "draws": 0,
+          "kills": 99,
+          "deaths": 19,
+          "feedKills": 49,
+          "headshots": 40
+        },
+        "now": "2026-09-30T12:00:00.000Z"
+      },
+      "output": {
+        "score": 95,
+        "level": "high",
+        "reasons": [
+          {
+            "code": "banned_elsewhere",
+            "text": "Banned on Other: confirmed",
+            "weight": 60
+          },
+          {
+            "code": "resembles",
+            "text": "Name resembles banned Name (123) on Other",
+            "weight": 20
+          },
+          {
+            "code": "watchlist",
+            "text": "On the watchlist: review",
+            "weight": 15
+          }
+        ],
+        "steamChecked": false
+      }
+    }
+  ],
+  "prefixes": [
+    {
+      "name": "José",
+      "length": 4,
+      "output": "josé",
+      "normal": "jose"
+    },
+    {
+      "name": "Ｓｔｅａｍ",
+      "length": 4,
+      "output": "stea",
+      "normal": "steam"
+    },
+    {
+      "name": "[a] 12",
+      "length": 4,
+      "output": "a12",
+      "normal": "ai"
+    },
+    {
+      "name": "[CLAN] Alice",
+      "length": 4,
+      "output": "clan",
+      "normal": "clanalice"
+    },
+    {
+      "name": "ＣＬＡＮ Bob",
+      "length": 4,
+      "output": "clan",
+      "normal": "clanbob"
+    },
+    {
+      "name": "clan2",
+      "length": 4,
+      "output": "clan",
+      "normal": "clan"
+    },
+    {
+      "name": "clon3",
+      "length": 4,
+      "output": "clon",
+      "normal": "clone"
+    },
+    {
+      "name": "abc",
+      "length": 4,
+      "output": "abc",
+      "normal": "abc"
+    },
+    {
+      "name": "abcdefghij",
+      "length": 4,
+      "output": "abcd",
+      "normal": "abcdefghij"
+    },
+    {
+      "name": "abhdefghij",
+      "length": 4,
+      "output": "abhd",
+      "normal": "abhdefghij"
+    },
+    {
+      "name": "a",
+      "length": 4,
+      "output": "a",
+      "normal": "a"
+    },
+    {
+      "name": "玩家组队",
+      "length": 4,
+      "output": "玩家组队",
+      "normal": ""
+    },
+    {
+      "name": "Русский",
+      "length": 4,
+      "output": "русс",
+      "normal": ""
+    },
+    {
+      "name": "😀😀",
+      "length": 4,
+      "output": "",
+      "normal": ""
+    }
+  ],
+  "comparisons": [
+    {
+      "a": "José",
+      "b": "José",
+      "similarity": 100,
+      "resembles": true
+    },
+    {
+      "a": "José",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "[a] 12",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "[CLAN] Alice",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "clan2",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "clon3",
+      "similarity": 19.999999999999996,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "abc",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "abcdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "abhdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "a",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "José",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 100,
+      "resembles": true
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "[a] 12",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "[CLAN] Alice",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "clan2",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "clon3",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "abc",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "abcdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "abhdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "a",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Ｓｔｅａｍ",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "[a] 12",
+      "similarity": 100,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "[CLAN] Alice",
+      "similarity": 25,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 12.5,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "clan2",
+      "similarity": 16.666666666666664,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "clon3",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "abc",
+      "similarity": 16.666666666666664,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "abcdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "abhdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "a",
+      "similarity": 16.666666666666664,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[a] 12",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "[a] 12",
+      "similarity": 25,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "[CLAN] Alice",
+      "similarity": 100,
+      "resembles": true
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "clan2",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "clon3",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "abc",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "abcdefghij",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "abhdefghij",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "a",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "[CLAN] Alice",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "[a] 12",
+      "similarity": 12.5,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "[CLAN] Alice",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 100,
+      "resembles": true
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "clan2",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "clon3",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "abc",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "abcdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "abhdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "a",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "ＣＬＡＮ Bob",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "[a] 12",
+      "similarity": 16.666666666666664,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "[CLAN] Alice",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "clan2",
+      "similarity": 100,
+      "resembles": true
+    },
+    {
+      "a": "clan2",
+      "b": "clon3",
+      "similarity": 60,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "abc",
+      "similarity": 19.999999999999996,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "abcdefghij",
+      "similarity": 9.999999999999998,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "abhdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "a",
+      "similarity": 19.999999999999996,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clan2",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "José",
+      "similarity": 19.999999999999996,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "[a] 12",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "[CLAN] Alice",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "clan2",
+      "similarity": 60,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "clon3",
+      "similarity": 100,
+      "resembles": true
+    },
+    {
+      "a": "clon3",
+      "b": "abc",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "abcdefghij",
+      "similarity": 9.999999999999998,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "abhdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "a",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "clon3",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "[a] 12",
+      "similarity": 16.666666666666664,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "[CLAN] Alice",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "clan2",
+      "similarity": 19.999999999999996,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "clon3",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "abc",
+      "similarity": 100,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "abcdefghij",
+      "similarity": 30.000000000000004,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "abhdefghij",
+      "similarity": 19.999999999999996,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "a",
+      "similarity": 33.333333333333336,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abc",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "[a] 12",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "[CLAN] Alice",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "clan2",
+      "similarity": 9.999999999999998,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "clon3",
+      "similarity": 9.999999999999998,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "abc",
+      "similarity": 30.000000000000004,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "abcdefghij",
+      "similarity": 100,
+      "resembles": true
+    },
+    {
+      "a": "abcdefghij",
+      "b": "abhdefghij",
+      "similarity": 90,
+      "resembles": true
+    },
+    {
+      "a": "abcdefghij",
+      "b": "a",
+      "similarity": 9.999999999999998,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abcdefghij",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "[a] 12",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "[CLAN] Alice",
+      "similarity": 8.333333333333337,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "clan2",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "clon3",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "abc",
+      "similarity": 19.999999999999996,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "abcdefghij",
+      "similarity": 90,
+      "resembles": true
+    },
+    {
+      "a": "abhdefghij",
+      "b": "abhdefghij",
+      "similarity": 100,
+      "resembles": true
+    },
+    {
+      "a": "abhdefghij",
+      "b": "a",
+      "similarity": 9.999999999999998,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "abhdefghij",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "[a] 12",
+      "similarity": 16.666666666666664,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "[CLAN] Alice",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "clan2",
+      "similarity": 19.999999999999996,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "clon3",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "abc",
+      "similarity": 33.333333333333336,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "abcdefghij",
+      "similarity": 9.999999999999998,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "abhdefghij",
+      "similarity": 9.999999999999998,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "a",
+      "similarity": 100,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "a",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "[a] 12",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "[CLAN] Alice",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "clan2",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "clon3",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "abc",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "abcdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "abhdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "a",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "玩家组队",
+      "similarity": 100,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "玩家组队",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "[a] 12",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "[CLAN] Alice",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "clan2",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "clon3",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "abc",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "abcdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "abhdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "a",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "Русский",
+      "similarity": 100,
+      "resembles": false
+    },
+    {
+      "a": "Русский",
+      "b": "😀😀",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "José",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "Ｓｔｅａｍ",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "[a] 12",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "[CLAN] Alice",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "ＣＬＡＮ Bob",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "clan2",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "clon3",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "abc",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "abcdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "abhdefghij",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "a",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "玩家组队",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "Русский",
+      "similarity": 0,
+      "resembles": false
+    },
+    {
+      "a": "😀😀",
+      "b": "😀😀",
+      "similarity": 100,
+      "resembles": false
+    }
+  ],
+  "groups": [
+    {
+      "players": [
+        {
+          "name": "[CLAN] Alice",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "ＣＬＡＮ Bob",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "clan2",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        },
+        {
+          "name": "clon3",
+          "steamId": "76561198000000003",
+          "faction": "Blue"
+        },
+        {
+          "name": "other",
+          "steamId": "76561198000000004",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 0,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": [
+        {
+          "id": "Blue:76561198000000000,76561198000000001,76561198000000002,76561198000000003",
+          "faction": "Blue",
+          "minimumSimilarity": 75,
+          "members": [
+            {
+              "steamId": "76561198000000000",
+              "name": "[CLAN] Alice",
+              "prefix": "clan"
+            },
+            {
+              "steamId": "76561198000000001",
+              "name": "ＣＬＡＮ Bob",
+              "prefix": "clan"
+            },
+            {
+              "steamId": "76561198000000002",
+              "name": "clan2",
+              "prefix": "clan"
+            },
+            {
+              "steamId": "76561198000000003",
+              "name": "clon3",
+              "prefix": "clon"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "players": [
+        {
+          "name": "[CLAN] Alice",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "ＣＬＡＮ Bob",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "clan2",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        },
+        {
+          "name": "clon3",
+          "steamId": "76561198000000003",
+          "faction": "Blue"
+        },
+        {
+          "name": "other",
+          "steamId": "76561198000000004",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 70,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": [
+        {
+          "id": "Blue:76561198000000000,76561198000000001,76561198000000002,76561198000000003",
+          "faction": "Blue",
+          "minimumSimilarity": 75,
+          "members": [
+            {
+              "steamId": "76561198000000000",
+              "name": "[CLAN] Alice",
+              "prefix": "clan"
+            },
+            {
+              "steamId": "76561198000000001",
+              "name": "ＣＬＡＮ Bob",
+              "prefix": "clan"
+            },
+            {
+              "steamId": "76561198000000002",
+              "name": "clan2",
+              "prefix": "clan"
+            },
+            {
+              "steamId": "76561198000000003",
+              "name": "clon3",
+              "prefix": "clon"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "players": [
+        {
+          "name": "[CLAN] Alice",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "ＣＬＡＮ Bob",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "clan2",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        },
+        {
+          "name": "clon3",
+          "steamId": "76561198000000003",
+          "faction": "Blue"
+        },
+        {
+          "name": "other",
+          "steamId": "76561198000000004",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 75,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": [
+        {
+          "id": "Blue:76561198000000000,76561198000000001,76561198000000002",
+          "faction": "Blue",
+          "minimumSimilarity": 100,
+          "members": [
+            {
+              "steamId": "76561198000000000",
+              "name": "[CLAN] Alice",
+              "prefix": "clan"
+            },
+            {
+              "steamId": "76561198000000001",
+              "name": "ＣＬＡＮ Bob",
+              "prefix": "clan"
+            },
+            {
+              "steamId": "76561198000000002",
+              "name": "clan2",
+              "prefix": "clan"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "players": [
+        {
+          "name": "[CLAN] Alice",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "ＣＬＡＮ Bob",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "clan2",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        },
+        {
+          "name": "clon3",
+          "steamId": "76561198000000003",
+          "faction": "Blue"
+        },
+        {
+          "name": "other",
+          "steamId": "76561198000000004",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 99,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": [
+        {
+          "id": "Blue:76561198000000000,76561198000000001,76561198000000002",
+          "faction": "Blue",
+          "minimumSimilarity": 100,
+          "members": [
+            {
+              "steamId": "76561198000000000",
+              "name": "[CLAN] Alice",
+              "prefix": "clan"
+            },
+            {
+              "steamId": "76561198000000001",
+              "name": "ＣＬＡＮ Bob",
+              "prefix": "clan"
+            },
+            {
+              "steamId": "76561198000000002",
+              "name": "clan2",
+              "prefix": "clan"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "players": [
+        {
+          "name": "aaaa",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "aaab",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "aabb",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        },
+        {
+          "name": "bbbb",
+          "steamId": "76561198000000003",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 0,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": [
+        {
+          "id": "Blue:76561198000000000,76561198000000001,76561198000000002",
+          "faction": "Blue",
+          "minimumSimilarity": 50,
+          "members": [
+            {
+              "steamId": "76561198000000000",
+              "name": "aaaa",
+              "prefix": "aaaa"
+            },
+            {
+              "steamId": "76561198000000001",
+              "name": "aaab",
+              "prefix": "aaab"
+            },
+            {
+              "steamId": "76561198000000002",
+              "name": "aabb",
+              "prefix": "aabb"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "players": [
+        {
+          "name": "aaaa",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "aaab",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "aabb",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        },
+        {
+          "name": "bbbb",
+          "steamId": "76561198000000003",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 70,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": [
+        {
+          "id": "Blue:76561198000000000,76561198000000001",
+          "faction": "Blue",
+          "minimumSimilarity": 75,
+          "members": [
+            {
+              "steamId": "76561198000000000",
+              "name": "aaaa",
+              "prefix": "aaaa"
+            },
+            {
+              "steamId": "76561198000000001",
+              "name": "aaab",
+              "prefix": "aaab"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "players": [
+        {
+          "name": "aaaa",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "aaab",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "aabb",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        },
+        {
+          "name": "bbbb",
+          "steamId": "76561198000000003",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 75,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": []
+    },
+    {
+      "players": [
+        {
+          "name": "aaaa",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "aaab",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "aabb",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        },
+        {
+          "name": "bbbb",
+          "steamId": "76561198000000003",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 99,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": []
+    },
+    {
+      "players": [
+        {
+          "name": "玩家组队甲",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "玩家组队乙",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "玩家组队丙",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 0,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": [
+        {
+          "id": "Blue:76561198000000000,76561198000000001,76561198000000002",
+          "faction": "Blue",
+          "minimumSimilarity": 100,
+          "members": [
+            {
+              "steamId": "76561198000000000",
+              "name": "玩家组队甲",
+              "prefix": "玩家组队"
+            },
+            {
+              "steamId": "76561198000000001",
+              "name": "玩家组队乙",
+              "prefix": "玩家组队"
+            },
+            {
+              "steamId": "76561198000000002",
+              "name": "玩家组队丙",
+              "prefix": "玩家组队"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "players": [
+        {
+          "name": "玩家组队甲",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "玩家组队乙",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "玩家组队丙",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 70,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": [
+        {
+          "id": "Blue:76561198000000000,76561198000000001,76561198000000002",
+          "faction": "Blue",
+          "minimumSimilarity": 100,
+          "members": [
+            {
+              "steamId": "76561198000000000",
+              "name": "玩家组队甲",
+              "prefix": "玩家组队"
+            },
+            {
+              "steamId": "76561198000000001",
+              "name": "玩家组队乙",
+              "prefix": "玩家组队"
+            },
+            {
+              "steamId": "76561198000000002",
+              "name": "玩家组队丙",
+              "prefix": "玩家组队"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "players": [
+        {
+          "name": "玩家组队甲",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "玩家组队乙",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "玩家组队丙",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 75,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": [
+        {
+          "id": "Blue:76561198000000000,76561198000000001,76561198000000002",
+          "faction": "Blue",
+          "minimumSimilarity": 100,
+          "members": [
+            {
+              "steamId": "76561198000000000",
+              "name": "玩家组队甲",
+              "prefix": "玩家组队"
+            },
+            {
+              "steamId": "76561198000000001",
+              "name": "玩家组队乙",
+              "prefix": "玩家组队"
+            },
+            {
+              "steamId": "76561198000000002",
+              "name": "玩家组队丙",
+              "prefix": "玩家组队"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "players": [
+        {
+          "name": "玩家组队甲",
+          "steamId": "76561198000000000",
+          "faction": "Blue"
+        },
+        {
+          "name": "玩家组队乙",
+          "steamId": "76561198000000001",
+          "faction": "Blue"
+        },
+        {
+          "name": "玩家组队丙",
+          "steamId": "76561198000000002",
+          "faction": "Blue"
+        }
+      ],
+      "cfg": {
+        "mode": "auto",
+        "engine": "structured",
+        "prefixLength": 4,
+        "similarityPercent": 99,
+        "minPlayers": 2
+      },
+      "factions": [
+        "Blue",
+        "Red",
+        "Blue"
+      ],
+      "output": [
+        {
+          "id": "Blue:76561198000000000,76561198000000001,76561198000000002",
+          "faction": "Blue",
+          "minimumSimilarity": 100,
+          "members": [
+            {
+              "steamId": "76561198000000000",
+              "name": "玩家组队甲",
+              "prefix": "玩家组队"
+            },
+            {
+              "steamId": "76561198000000001",
+              "name": "玩家组队乙",
+              "prefix": "玩家组队"
+            },
+            {
+              "steamId": "76561198000000002",
+              "name": "玩家组队丙",
+              "prefix": "玩家组队"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "awardSets": [
+    {
+      "lines": [
+        {
+          "name": "😀",
+          "kills": 8,
+          "deaths": 2,
+          "seconds": 60,
+          "awardSeed": "tie😀"
+        },
+        {
+          "name": "🦊",
+          "kills": 8,
+          "deaths": 2,
+          "seconds": 60,
+          "awardSeed": "tie😀"
+        },
+        {
+          "name": "a",
+          "kills": 8,
+          "deaths": 2,
+          "seconds": 60,
+          "awardSeed": "tie😀"
+        }
+      ],
+      "output": [
+        {
+          "key": "mvp",
+          "player": {
+            "name": "a",
+            "kills": 8,
+            "deaths": 2,
+            "seconds": 60,
+            "awardSeed": "tie😀"
+          },
+          "value": "4.00"
+        },
+        {
+          "key": "time",
+          "player": {
+            "name": "😀",
+            "kills": 8,
+            "deaths": 2,
+            "seconds": 60,
+            "awardSeed": "tie😀"
+          },
+          "value": "1.0"
+        }
+      ]
+    },
+    {
+      "lines": [
+        {
+          "name": "𠀀",
+          "kills": 8,
+          "deaths": 2,
+          "seconds": 60,
+          "awardSeed": "tie😀"
+        },
+        {
+          "name": "😀",
+          "kills": 8,
+          "deaths": 2,
+          "seconds": 60,
+          "awardSeed": "tie😀"
+        },
+        {
+          "name": "b",
+          "kills": 8,
+          "deaths": 2,
+          "seconds": 60,
+          "awardSeed": "tie😀"
+        }
+      ],
+      "output": [
+        {
+          "key": "mvp",
+          "player": {
+            "name": "𠀀",
+            "kills": 8,
+            "deaths": 2,
+            "seconds": 60,
+            "awardSeed": "tie😀"
+          },
+          "value": "4.00"
+        },
+        {
+          "key": "time",
+          "player": {
+            "name": "b",
+            "kills": 8,
+            "deaths": 2,
+            "seconds": 60,
+            "awardSeed": "tie😀"
+          },
+          "value": "1.0"
+        }
+      ]
+    }
+  ]
+}

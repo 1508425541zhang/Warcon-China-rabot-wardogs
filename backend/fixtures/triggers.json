@@ -1,0 +1,2717 @@
+{
+  "configs": [
+    {
+      "kind": "welcome",
+      "input": {
+        "message": "hello {name}"
+      },
+      "output": {
+        "message": "hello {name}",
+        "onlyFirstVisit": false,
+        "afterFaction": false
+      }
+    },
+    {
+      "kind": "faction_change",
+      "input": {
+        "message": "{previous} → {faction}"
+      },
+      "output": {
+        "message": "{previous} → {faction}"
+      }
+    },
+    {
+      "kind": "broadcast",
+      "input": {
+        "messages": [
+          "one",
+          "two"
+        ],
+        "everyMinutes": 2
+      },
+      "output": {
+        "messages": [
+          "one",
+          "two"
+        ],
+        "everyMinutes": 2,
+        "minPlayers": 1,
+        "maxPlayers": null
+      }
+    },
+    {
+      "kind": "empty_reset",
+      "input": {
+        "map": "Europe",
+        "afterMinutes": 5
+      },
+      "output": {
+        "map": "Europe",
+        "experiences": [],
+        "lighting": "",
+        "zoneAlternator": "",
+        "afterMinutes": 5,
+        "cooldownMinutes": 30
+      }
+    },
+    {
+      "kind": "risk_kick",
+      "input": {
+        "vacBans": true
+      },
+      "output": {
+        "vacBans": true,
+        "gameBans": false,
+        "maxBanAgeDays": 0,
+        "minAccountDays": 0,
+        "privateProfiles": false,
+        "bannedElsewhere": false,
+        "watchlist": false,
+        "kickAtScore": null,
+        "spareReserved": true,
+        "reason": "Your account does not meet this server’s requirements."
+      }
+    },
+    {
+      "kind": "ping_kick",
+      "input": {},
+      "output": {
+        "maxPingMs": 200,
+        "durationSeconds": 60,
+        "reason": "Ping too high for too long."
+      }
+    },
+    {
+      "kind": "restart_notice",
+      "input": {
+        "message": "restart"
+      },
+      "output": {
+        "message": "restart",
+        "leadMinutes": 0,
+        "leadMessage": "",
+        "repeatMinutes": 0,
+        "minPlayers": 1
+      }
+    },
+    {
+      "kind": "team_kill",
+      "input": {
+        "warnAt": 1,
+        "kickAt": 2
+      },
+      "output": {
+        "warnAt": 1,
+        "warnMessage": "Careful, {name}: that was a team kill ({count} this session).",
+        "kickAt": 2,
+        "kickReason": "Team killing ({count} this session)."
+      }
+    },
+    {
+      "kind": "seed_reward",
+      "input": {
+        "minutes": 30
+      },
+      "output": {
+        "scope": "org",
+        "lowAt": 20,
+        "untilFull": true,
+        "fullAt": null,
+        "minutes": 30,
+        "windowDays": 7,
+        "slotDays": 7,
+        "message": ""
+      }
+    },
+    {
+      "kind": "match_broadcast",
+      "input": {
+        "awards": {
+          "enabled": true,
+          "templates": {
+            "mvp": "本局MVP：{name}，KD {value}（{kills}杀/{deaths}死）",
+            "multi": "最佳单次多杀：{name}，同一时间戳 {value} 杀",
+            "streak": "最佳一命连杀：{name}，{value} 杀",
+            "earned": "本场赚钱最多（观测净增）：{name}，${value}",
+            "rich": "本场最富玩家：{name}，赛末观测持有 ${value}",
+            "time": "在线最久：{name}，{value} 分钟"
+          }
+        }
+      },
+      "output": {
+        "endMessage": "",
+        "startMessage": "",
+        "minPlayers": 1,
+        "awards": {
+          "enabled": true,
+          "templates": {
+            "mvp": "本局MVP：{name}，KD {value}（{kills}杀/{deaths}死）",
+            "multi": "最佳单次多杀：{name}，同一时间戳 {value} 杀",
+            "streak": "最佳一命连杀：{name}，{value} 杀",
+            "earned": "本场赚钱最多（观测净增）：{name}，${value}",
+            "rich": "本场最富玩家：{name}，赛末观测持有 ${value}",
+            "time": "在线最久：{name}，{value} 分钟"
+          }
+        }
+      }
+    },
+    {
+      "kind": "name_filter",
+      "input": {
+        "builtinWords": true
+      },
+      "output": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      }
+    },
+    {
+      "kind": "kill_rate",
+      "input": {
+        "maxKills": 2
+      },
+      "output": {
+        "windowMinutes": 5,
+        "maxKills": 2,
+        "headshotPct": 0,
+        "headshotMinKills": 15,
+        "cooldownMinutes": 30
+      }
+    },
+    {
+      "kind": "welcome",
+      "input": {
+        "message": "hello {name}",
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "maxKills": 0,
+        "headshotPct": 0,
+        "warnAt": 0,
+        "kickAt": 0,
+        "afterMinutes": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "output": {
+        "message": "hello {name}",
+        "onlyFirstVisit": false,
+        "afterFaction": false
+      }
+    },
+    {
+      "kind": "faction_change",
+      "input": {
+        "message": "{previous} → {faction}",
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "maxKills": 0,
+        "headshotPct": 0,
+        "warnAt": 0,
+        "kickAt": 0,
+        "afterMinutes": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "output": {
+        "message": "{previous} → {faction}"
+      }
+    },
+    {
+      "kind": "broadcast",
+      "input": {
+        "messages": [
+          "one",
+          "two"
+        ],
+        "everyMinutes": 2,
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "maxKills": 0,
+        "headshotPct": 0,
+        "warnAt": 0,
+        "kickAt": 0,
+        "afterMinutes": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "error": true
+    },
+    {
+      "kind": "empty_reset",
+      "input": {
+        "map": "Europe",
+        "afterMinutes": 0,
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "maxKills": 0,
+        "headshotPct": 0,
+        "warnAt": 0,
+        "kickAt": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "error": true
+    },
+    {
+      "kind": "risk_kick",
+      "input": {
+        "vacBans": true,
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "maxKills": 0,
+        "headshotPct": 0,
+        "warnAt": 0,
+        "kickAt": 0,
+        "afterMinutes": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "output": {
+        "vacBans": true,
+        "gameBans": false,
+        "maxBanAgeDays": 0,
+        "minAccountDays": 0,
+        "privateProfiles": false,
+        "bannedElsewhere": false,
+        "watchlist": false,
+        "kickAtScore": null,
+        "spareReserved": true,
+        "reason": "Your account does not meet this server’s requirements."
+      }
+    },
+    {
+      "kind": "ping_kick",
+      "input": {
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "maxKills": 0,
+        "headshotPct": 0,
+        "warnAt": 0,
+        "kickAt": 0,
+        "afterMinutes": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "error": true
+    },
+    {
+      "kind": "restart_notice",
+      "input": {
+        "message": "restart",
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "maxKills": 0,
+        "headshotPct": 0,
+        "warnAt": 0,
+        "kickAt": 0,
+        "afterMinutes": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "error": true
+    },
+    {
+      "kind": "team_kill",
+      "input": {
+        "warnAt": 0,
+        "kickAt": 0,
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "maxKills": 0,
+        "headshotPct": 0,
+        "afterMinutes": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "error": true
+    },
+    {
+      "kind": "seed_reward",
+      "input": {
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "maxKills": 0,
+        "headshotPct": 0,
+        "warnAt": 0,
+        "kickAt": 0,
+        "afterMinutes": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "error": true
+    },
+    {
+      "kind": "match_broadcast",
+      "input": {
+        "awards": {
+          "enabled": true,
+          "templates": {
+            "mvp": "本局MVP：{name}，KD {value}（{kills}杀/{deaths}死）",
+            "multi": "最佳单次多杀：{name}，同一时间戳 {value} 杀",
+            "streak": "最佳一命连杀：{name}，{value} 杀",
+            "earned": "本场赚钱最多（观测净增）：{name}，${value}",
+            "rich": "本场最富玩家：{name}，赛末观测持有 ${value}",
+            "time": "在线最久：{name}，{value} 分钟"
+          }
+        },
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "maxKills": 0,
+        "headshotPct": 0,
+        "warnAt": 0,
+        "kickAt": 0,
+        "afterMinutes": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "output": {
+        "endMessage": "",
+        "startMessage": "",
+        "minPlayers": 50,
+        "awards": {
+          "enabled": true,
+          "templates": {
+            "mvp": "本局MVP：{name}，KD {value}（{kills}杀/{deaths}死）",
+            "multi": "最佳单次多杀：{name}，同一时间戳 {value} 杀",
+            "streak": "最佳一命连杀：{name}，{value} 杀",
+            "earned": "本场赚钱最多（观测净增）：{name}，${value}",
+            "rich": "本场最富玩家：{name}，赛末观测持有 ${value}",
+            "time": "在线最久：{name}，{value} 分钟"
+          }
+        }
+      }
+    },
+    {
+      "kind": "name_filter",
+      "input": {
+        "builtinWords": true,
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "maxKills": 0,
+        "headshotPct": 0,
+        "warnAt": 0,
+        "kickAt": 0,
+        "afterMinutes": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "output": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      }
+    },
+    {
+      "kind": "kill_rate",
+      "input": {
+        "maxKills": 0,
+        "minutes": 999999,
+        "minPlayers": 50,
+        "maxPlayers": 3,
+        "headshotPct": 0,
+        "warnAt": 0,
+        "kickAt": 0,
+        "afterMinutes": 0,
+        "maxPingMs": 0,
+        "leadMinutes": 4
+      },
+      "error": true
+    },
+    {
+      "kind": "welcome",
+      "input": {},
+      "error": true
+    },
+    {
+      "kind": "faction_change",
+      "input": {},
+      "error": true
+    },
+    {
+      "kind": "broadcast",
+      "input": {},
+      "error": true
+    },
+    {
+      "kind": "empty_reset",
+      "input": {},
+      "error": true
+    },
+    {
+      "kind": "risk_kick",
+      "input": {},
+      "error": true
+    },
+    {
+      "kind": "ping_kick",
+      "input": {},
+      "output": {
+        "maxPingMs": 200,
+        "durationSeconds": 60,
+        "reason": "Ping too high for too long."
+      }
+    },
+    {
+      "kind": "restart_notice",
+      "input": {},
+      "error": true
+    },
+    {
+      "kind": "team_kill",
+      "input": {},
+      "error": true
+    },
+    {
+      "kind": "seed_reward",
+      "input": {},
+      "error": true
+    },
+    {
+      "kind": "match_broadcast",
+      "input": {},
+      "error": true
+    },
+    {
+      "kind": "name_filter",
+      "input": {},
+      "error": true
+    },
+    {
+      "kind": "kill_rate",
+      "input": {},
+      "error": true
+    }
+  ],
+  "nameTests": [
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "N A Z I",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "naaazi",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Ashkenazi",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "José",
+      "output": {
+        "verdict": "characters outside the ASCII policy (é)",
+        "why": "it uses characters outside plain English letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "【狼】",
+      "output": {
+        "verdict": "characters outside the ASCII policy (【 狼 】)",
+        "why": "it uses characters outside plain English letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Русский",
+      "output": {
+        "verdict": "characters outside the ASCII policy (Р у с к и)",
+        "why": "it uses characters outside plain English letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "n.a.z.i",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "a.b.cc",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "abc d e",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "1488",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "14 88",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Th3r4p1st",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Ｓｔｅａｍ",
+      "output": {
+        "verdict": "characters outside the ASCII policy (Ｓ ｔ ｅ ａ ｍ)",
+        "why": "it uses characters outside plain English letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "👩‍🔬",
+      "output": {
+        "verdict": "characters outside the ASCII policy (👩 ‍ 🔬)",
+        "why": "it uses characters outside plain English letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "á",
+      "output": {
+        "verdict": "characters outside the ASCII policy (á)",
+        "why": "it uses characters outside plain English letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "nаzi",
+      "output": {
+        "verdict": "characters outside the ASCII policy (а)",
+        "why": "it uses characters outside plain English letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "van dyke",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "ascii",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Paкистан",
+      "output": {
+        "verdict": "characters outside the ASCII policy (к и с т а)",
+        "why": "it uses characters outside plain English letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "N A Z I",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "naaazi",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Ashkenazi",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "José",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "【狼】",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Русский",
+      "output": {
+        "verdict": "characters outside the Latin policy (Р у с к и)",
+        "why": "it uses characters outside the Latin alphabet"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "n.a.z.i",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "a.b.cc",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "abc d e",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "1488",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "14 88",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Th3r4p1st",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Ｓｔｅａｍ",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "👩‍🔬",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "á",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "nаzi",
+      "output": {
+        "verdict": "characters outside the Latin policy (а)",
+        "why": "it uses characters outside the Latin alphabet"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "van dyke",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "latin",
+        "extraScripts": [
+          "Han"
+        ],
+        "allowSymbols": true,
+        "minLetters": 0,
+        "builtinWords": false,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Paкистан",
+      "output": {
+        "verdict": "characters outside the Latin policy (к и с т а)",
+        "why": "it uses characters outside the Latin alphabet"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "N A Z I",
+      "output": {
+        "verdict": "blocked word 'nazi'",
+        "why": "it contains a word this server does not allow"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "naaazi",
+      "output": {
+        "verdict": "blocked word 'nazi'",
+        "why": "it contains a word this server does not allow"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Ashkenazi",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "José",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "【狼】",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Русский",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "n.a.z.i",
+      "output": {
+        "verdict": "blocked word 'nazi'",
+        "why": "it contains a word this server does not allow"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "a.b.cc",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "abc d e",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "1488",
+      "output": {
+        "verdict": "blocked word '1488'",
+        "why": "it contains a word this server does not allow"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "14 88",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Th3r4p1st",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Ｓｔｅａｍ",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "👩‍🔬",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "á",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "nаzi",
+      "output": {
+        "verdict": "blocked word 'nazi'",
+        "why": "it contains a word this server does not allow"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "van dyke",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 0,
+        "builtinWords": true,
+        "blocked": [],
+        "allowed": [],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Paкистан",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "N A Z I",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "naaazi",
+      "output": {
+        "verdict": "blocked word 'a a'",
+        "why": "it contains a word this server does not allow"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Ashkenazi",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "José",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "【狼】",
+      "output": {
+        "verdict": "1 letter (minimum 2)",
+        "why": "it needs at least 2 letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Русский",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "n.a.z.i",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "a.b.cc",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "abc d e",
+      "output": {
+        "verdict": "blocked word 'abc'",
+        "why": "it contains a word this server does not allow"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "1488",
+      "output": {
+        "verdict": "0 letters (minimum 2)",
+        "why": "it needs at least 2 letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "14 88",
+      "output": {
+        "verdict": "0 letters (minimum 2)",
+        "why": "it needs at least 2 letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Th3r4p1st",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Ｓｔｅａｍ",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "👩‍🔬",
+      "output": {
+        "verdict": "0 letters (minimum 2)",
+        "why": "it needs at least 2 letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "á",
+      "output": {
+        "verdict": "1 letter (minimum 2)",
+        "why": "it needs at least 2 letters"
+      }
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "nаzi",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "van dyke",
+      "output": null
+    },
+    {
+      "cfg": {
+        "characters": "off",
+        "extraScripts": [],
+        "allowSymbols": false,
+        "minLetters": 2,
+        "builtinWords": false,
+        "blocked": [
+          "abc",
+          "1488",
+          "kkk",
+          "a a"
+        ],
+        "allowed": [
+          "abcdef"
+        ],
+        "action": "kick",
+        "spareReserved": true,
+        "reason": "Your name is not allowed on this server: {why}."
+      },
+      "name": "Paкистан",
+      "output": null
+    }
+  ],
+  "folding": [
+    {
+      "name": "N A Z I",
+      "leet": false,
+      "output": "nazi"
+    },
+    {
+      "name": "N A Z I",
+      "leet": true,
+      "output": "nazi"
+    },
+    {
+      "name": "naaazi",
+      "leet": false,
+      "output": "naaazi"
+    },
+    {
+      "name": "naaazi",
+      "leet": true,
+      "output": "naaazi"
+    },
+    {
+      "name": "Ashkenazi",
+      "leet": false,
+      "output": "ashkenazi"
+    },
+    {
+      "name": "Ashkenazi",
+      "leet": true,
+      "output": "ashkenazi"
+    },
+    {
+      "name": "José",
+      "leet": false,
+      "output": "jose"
+    },
+    {
+      "name": "José",
+      "leet": true,
+      "output": "jose"
+    },
+    {
+      "name": "【狼】",
+      "leet": false,
+      "output": "【狼】"
+    },
+    {
+      "name": "【狼】",
+      "leet": true,
+      "output": "【狼】"
+    },
+    {
+      "name": "Русский",
+      "leet": false,
+      "output": "pycckии"
+    },
+    {
+      "name": "Русский",
+      "leet": true,
+      "output": "pycckии"
+    },
+    {
+      "name": "n.a.z.i",
+      "leet": false,
+      "output": "nazi"
+    },
+    {
+      "name": "n.a.z.i",
+      "leet": true,
+      "output": "nazi"
+    },
+    {
+      "name": "a.b.cc",
+      "leet": false,
+      "output": "ab.cc"
+    },
+    {
+      "name": "a.b.cc",
+      "leet": true,
+      "output": "ab.cc"
+    },
+    {
+      "name": "abc d e",
+      "leet": false,
+      "output": "abc de"
+    },
+    {
+      "name": "abc d e",
+      "leet": true,
+      "output": "abc de"
+    },
+    {
+      "name": "1488",
+      "leet": false,
+      "output": "1488"
+    },
+    {
+      "name": "1488",
+      "leet": true,
+      "output": "iabb"
+    },
+    {
+      "name": "14 88",
+      "leet": false,
+      "output": "14 88"
+    },
+    {
+      "name": "14 88",
+      "leet": true,
+      "output": "ia bb"
+    },
+    {
+      "name": "Th3r4p1st",
+      "leet": false,
+      "output": "th3r4p1st"
+    },
+    {
+      "name": "Th3r4p1st",
+      "leet": true,
+      "output": "therapist"
+    },
+    {
+      "name": "Ｓｔｅａｍ",
+      "leet": false,
+      "output": "steam"
+    },
+    {
+      "name": "Ｓｔｅａｍ",
+      "leet": true,
+      "output": "steam"
+    },
+    {
+      "name": "👩‍🔬",
+      "leet": false,
+      "output": "👩‍🔬"
+    },
+    {
+      "name": "👩‍🔬",
+      "leet": true,
+      "output": "👩‍🔬"
+    },
+    {
+      "name": "á",
+      "leet": false,
+      "output": "a"
+    },
+    {
+      "name": "á",
+      "leet": true,
+      "output": "a"
+    },
+    {
+      "name": "nаzi",
+      "leet": false,
+      "output": "nazi"
+    },
+    {
+      "name": "nаzi",
+      "leet": true,
+      "output": "nazi"
+    },
+    {
+      "name": "van dyke",
+      "leet": false,
+      "output": "van dyke"
+    },
+    {
+      "name": "van dyke",
+      "leet": true,
+      "output": "van dyke"
+    },
+    {
+      "name": "Paкистан",
+      "leet": false,
+      "output": "pakиctah"
+    },
+    {
+      "name": "Paкистан",
+      "leet": true,
+      "output": "pakиctah"
+    }
+  ],
+  "ping": [
+    {
+      "cfg": {
+        "maxPingMs": 200,
+        "durationSeconds": 60,
+        "reason": "Ping too high for too long."
+      },
+      "prev": null,
+      "players": [
+        {
+          "steamId": "a",
+          "ping": 300
+        }
+      ],
+      "now": 1000,
+      "gap": 65000,
+      "output": {
+        "state": {
+          "lastAt": 1000,
+          "players": {
+            "a": {
+              "since": 1000,
+              "fired": false
+            }
+          }
+        },
+        "kicks": []
+      }
+    },
+    {
+      "cfg": {
+        "maxPingMs": 200,
+        "durationSeconds": 60,
+        "reason": "Ping too high for too long."
+      },
+      "prev": {
+        "lastAt": 1000,
+        "players": {
+          "a": {
+            "since": 1000,
+            "fired": false
+          }
+        }
+      },
+      "players": [
+        {
+          "steamId": "a",
+          "ping": 300
+        }
+      ],
+      "now": 61000,
+      "gap": 65000,
+      "output": {
+        "state": {
+          "lastAt": 61000,
+          "players": {
+            "a": {
+              "since": 1000,
+              "fired": true
+            }
+          }
+        },
+        "kicks": [
+          "a"
+        ]
+      }
+    },
+    {
+      "cfg": {
+        "maxPingMs": 200,
+        "durationSeconds": 60,
+        "reason": "Ping too high for too long."
+      },
+      "prev": {
+        "lastAt": 61000,
+        "players": {
+          "a": {
+            "since": 1000,
+            "fired": true
+          }
+        }
+      },
+      "players": [
+        {
+          "steamId": "a",
+          "ping": 300
+        },
+        {
+          "steamId": "b",
+          "ping": null
+        }
+      ],
+      "now": 62000,
+      "gap": 65000,
+      "output": {
+        "state": {
+          "lastAt": 62000,
+          "players": {
+            "a": {
+              "since": 1000,
+              "fired": true
+            }
+          }
+        },
+        "kicks": []
+      }
+    },
+    {
+      "cfg": {
+        "maxPingMs": 200,
+        "durationSeconds": 60,
+        "reason": "Ping too high for too long."
+      },
+      "prev": {
+        "lastAt": 62000,
+        "players": {
+          "a": {
+            "since": 1000,
+            "fired": true
+          }
+        }
+      },
+      "players": [
+        {
+          "steamId": "a",
+          "ping": 40
+        }
+      ],
+      "now": 70000,
+      "gap": 65000,
+      "output": {
+        "state": {
+          "lastAt": 70000,
+          "players": {}
+        },
+        "kicks": []
+      }
+    },
+    {
+      "cfg": {
+        "maxPingMs": 200,
+        "durationSeconds": 60,
+        "reason": "Ping too high for too long."
+      },
+      "prev": {
+        "lastAt": 70000,
+        "players": {}
+      },
+      "players": [
+        {
+          "steamId": "a",
+          "ping": 300
+        }
+      ],
+      "now": 80000,
+      "gap": 65000,
+      "output": {
+        "state": {
+          "lastAt": 80000,
+          "players": {
+            "a": {
+              "since": 80000,
+              "fired": false
+            }
+          }
+        },
+        "kicks": []
+      }
+    },
+    {
+      "cfg": {
+        "maxPingMs": 200,
+        "durationSeconds": 60,
+        "reason": "Ping too high for too long."
+      },
+      "prev": {
+        "lastAt": 80000,
+        "players": {
+          "a": {
+            "since": 80000,
+            "fired": false
+          }
+        }
+      },
+      "players": [
+        {
+          "steamId": "a",
+          "ping": 300
+        }
+      ],
+      "now": 145000,
+      "gap": 65000,
+      "output": {
+        "state": {
+          "lastAt": 145000,
+          "players": {
+            "a": {
+              "since": 80000,
+              "fired": true
+            }
+          }
+        },
+        "kicks": [
+          "a"
+        ]
+      }
+    },
+    {
+      "cfg": {
+        "maxPingMs": 200,
+        "durationSeconds": 60,
+        "reason": "Ping too high for too long."
+      },
+      "prev": {
+        "lastAt": 145000,
+        "players": {
+          "a": {
+            "since": 80000,
+            "fired": true
+          }
+        }
+      },
+      "players": [
+        {
+          "steamId": "a",
+          "ping": 300
+        }
+      ],
+      "now": 300000,
+      "gap": 65000,
+      "output": {
+        "state": {
+          "lastAt": 300000,
+          "players": {
+            "a": {
+              "since": 300000,
+              "fired": false
+            }
+          }
+        },
+        "kicks": []
+      }
+    }
+  ],
+  "rates": {
+    "cfg": {
+      "windowMinutes": 1,
+      "maxKills": 2,
+      "headshotPct": 70,
+      "headshotMinKills": 2,
+      "cooldownMinutes": 1
+    },
+    "steps": [
+      {
+        "at": 1000,
+        "head": true,
+        "output": null
+      },
+      {
+        "at": 2000,
+        "head": true,
+        "output": "2 kills in 1 min"
+      },
+      {
+        "at": 1800,
+        "head": false,
+        "output": null
+      },
+      {
+        "at": 61000,
+        "head": true,
+        "output": null
+      },
+      {
+        "at": 64000,
+        "head": true,
+        "output": "2 kills in 1 min"
+      },
+      {
+        "at": 125000,
+        "head": true,
+        "output": null
+      }
+    ]
+  },
+  "awards": {
+    "lines": [
+      {
+        "name": "A😀",
+        "steamId": "1",
+        "kills": 15,
+        "deaths": 3,
+        "cashDelta": 300,
+        "cashHeld": 800,
+        "seconds": 3000,
+        "multi": 3,
+        "streak": 10,
+        "awardSeed": "round"
+      },
+      {
+        "name": "B",
+        "steamId": "2",
+        "kills": 15,
+        "deaths": 3,
+        "cashDelta": 400,
+        "cashHeld": 700,
+        "seconds": 3000,
+        "multi": 3,
+        "streak": 10,
+        "awardSeed": "round"
+      },
+      {
+        "name": "C",
+        "steamId": "3",
+        "kills": 0,
+        "deaths": 0
+      }
+    ],
+    "output": [
+      {
+        "key": "mvp",
+        "player": {
+          "name": "A😀",
+          "steamId": "1",
+          "kills": 15,
+          "deaths": 3,
+          "cashDelta": 300,
+          "cashHeld": 800,
+          "seconds": 3000,
+          "multi": 3,
+          "streak": 10,
+          "awardSeed": "round"
+        },
+        "value": "5.00"
+      },
+      {
+        "key": "multi",
+        "player": {
+          "name": "B",
+          "steamId": "2",
+          "kills": 15,
+          "deaths": 3,
+          "cashDelta": 400,
+          "cashHeld": 700,
+          "seconds": 3000,
+          "multi": 3,
+          "streak": 10,
+          "awardSeed": "round"
+        },
+        "value": "3"
+      },
+      {
+        "key": "streak",
+        "player": {
+          "name": "B",
+          "steamId": "2",
+          "kills": 15,
+          "deaths": 3,
+          "cashDelta": 400,
+          "cashHeld": 700,
+          "seconds": 3000,
+          "multi": 3,
+          "streak": 10,
+          "awardSeed": "round"
+        },
+        "value": "10"
+      },
+      {
+        "key": "earned",
+        "player": {
+          "name": "B",
+          "steamId": "2",
+          "kills": 15,
+          "deaths": 3,
+          "cashDelta": 400,
+          "cashHeld": 700,
+          "seconds": 3000,
+          "multi": 3,
+          "streak": 10,
+          "awardSeed": "round"
+        },
+        "value": "400"
+      },
+      {
+        "key": "rich",
+        "player": {
+          "name": "A😀",
+          "steamId": "1",
+          "kills": 15,
+          "deaths": 3,
+          "cashDelta": 300,
+          "cashHeld": 800,
+          "seconds": 3000,
+          "multi": 3,
+          "streak": 10,
+          "awardSeed": "round"
+        },
+        "value": "800"
+      },
+      {
+        "key": "time",
+        "player": {
+          "name": "A😀",
+          "steamId": "1",
+          "kills": 15,
+          "deaths": 3,
+          "cashDelta": 300,
+          "cashHeld": 800,
+          "seconds": 3000,
+          "multi": 3,
+          "streak": 10,
+          "awardSeed": "round"
+        },
+        "value": "50.0"
+      }
+    ]
+  },
+  "match": {
+    "cfg": {
+      "endMessage": "{mvp} {top}",
+      "startMessage": "{map}",
+      "minPlayers": 1,
+      "awards": {
+        "enabled": true,
+        "templates": {
+          "mvp": "本局MVP：{name}，KD {value}（{kills}杀/{deaths}死）",
+          "multi": "最佳单次多杀：{name}，同一时间戳 {value} 杀",
+          "streak": "最佳一命连杀：{name}，{value} 杀",
+          "earned": "本场赚钱最多（观测净增）：{name}，${value}",
+          "rich": "本场最富玩家：{name}，赛末观测持有 ${value}",
+          "time": "在线最久：{name}，{value} 分钟"
+        }
+      }
+    },
+    "end": {
+      "map": "Europe",
+      "scores": [
+        {
+          "name": "Blue",
+          "score": 100
+        },
+        {
+          "name": "Red",
+          "score": 20
+        }
+      ],
+      "leaders": [
+        "Blue"
+      ],
+      "winner": "Blue"
+    },
+    "lines": [
+      {
+        "name": "A😀",
+        "steamId": "1",
+        "kills": 15,
+        "deaths": 3,
+        "cashDelta": 300,
+        "cashHeld": 800,
+        "seconds": 3000,
+        "multi": 3,
+        "streak": 10,
+        "awardSeed": "round"
+      },
+      {
+        "name": "B",
+        "steamId": "2",
+        "kills": 15,
+        "deaths": 3,
+        "cashDelta": 400,
+        "cashHeld": 700,
+        "seconds": 3000,
+        "multi": 3,
+        "streak": 10,
+        "awardSeed": "round"
+      },
+      {
+        "name": "C",
+        "steamId": "3",
+        "kills": 0,
+        "deaths": 0
+      }
+    ],
+    "vars": {
+      "map": "Valley"
+    },
+    "output": [
+      {
+        "stage": "end",
+        "message": "A😀 and B A😀 15 · B 15"
+      },
+      {
+        "stage": "award_mvp",
+        "message": "本局MVP：A😀，KD 5.00（15杀/3死）"
+      },
+      {
+        "stage": "award_multi",
+        "message": "最佳单次多杀：B，同一时间戳 3 杀"
+      },
+      {
+        "stage": "award_streak",
+        "message": "最佳一命连杀：B，10 杀"
+      },
+      {
+        "stage": "award_earned",
+        "message": "本场赚钱最多（观测净增）：B，$400"
+      },
+      {
+        "stage": "award_rich",
+        "message": "本场最富玩家：A😀，赛末观测持有 $800"
+      },
+      {
+        "stage": "award_time",
+        "message": "在线最久：A😀，50.0 分钟"
+      },
+      {
+        "stage": "start",
+        "message": "Valley"
+      }
+    ]
+  },
+  "restarted": [
+    {
+      "cfg": {
+        "leadMinutes": 10,
+        "repeatMinutes": 2,
+        "minPlayers": 1
+      },
+      "prev": null,
+      "startedAt": 1000,
+      "playerCount": 2,
+      "now": 1000,
+      "output": null
+    },
+    {
+      "cfg": {
+        "leadMinutes": 10,
+        "repeatMinutes": 2,
+        "minPlayers": 1
+      },
+      "prev": null,
+      "startedAt": 1000,
+      "playerCount": 2,
+      "now": 85800000,
+      "output": null
+    },
+    {
+      "cfg": {
+        "leadMinutes": 10,
+        "repeatMinutes": 2,
+        "minPlayers": 1
+      },
+      "prev": null,
+      "startedAt": 1000,
+      "playerCount": 2,
+      "now": 86100000,
+      "output": {
+        "stage": "lead",
+        "minutes": 5,
+        "state": {
+          "startedAt": 1000,
+          "leadAt": 86100000
+        }
+      }
+    },
+    {
+      "cfg": {
+        "leadMinutes": 10,
+        "repeatMinutes": 2,
+        "minPlayers": 1
+      },
+      "prev": {
+        "startedAt": 1000,
+        "leadAt": 86100000
+      },
+      "startedAt": 1000,
+      "playerCount": 2,
+      "now": 86401000,
+      "output": {
+        "stage": "due",
+        "minutes": 0,
+        "state": {
+          "startedAt": 1000,
+          "leadAt": 86100000,
+          "dueAt": 86401000
+        }
+      }
+    },
+    {
+      "cfg": {
+        "leadMinutes": 10,
+        "repeatMinutes": 2,
+        "minPlayers": 1
+      },
+      "prev": {
+        "startedAt": 1000,
+        "leadAt": 86100000,
+        "dueAt": 86401000
+      },
+      "startedAt": 1000,
+      "playerCount": 2,
+      "now": 86450000,
+      "output": null
+    },
+    {
+      "cfg": {
+        "leadMinutes": 10,
+        "repeatMinutes": 2,
+        "minPlayers": 1
+      },
+      "prev": {
+        "startedAt": 1000,
+        "leadAt": 86100000,
+        "dueAt": 86401000
+      },
+      "startedAt": 1000,
+      "playerCount": 2,
+      "now": 86530000,
+      "output": {
+        "stage": "due",
+        "minutes": 0,
+        "state": {
+          "startedAt": 1000,
+          "leadAt": 86100000,
+          "dueAt": 86530000
+        }
+      }
+    }
+  ],
+  "templates": [
+    {
+      "input": "{Name} {UNKNOWN} {map} xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "vars": {
+        "name": "玩家",
+        "map": "欧洲"
+      },
+      "output": "玩家 {UNKNOWN} 欧洲 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ]
+}

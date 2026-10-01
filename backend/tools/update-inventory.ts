@@ -22,6 +22,7 @@ const implemented = new Set([
 ]);
 // Compare route shapes, not parameter spellings (Rust snake_case vs Svelte camelCase).
 const shape = (path: string) => path.replace(/\[[^\]]+\]|\{[^}]+\}/g, '[]');
+const routedShape = (path: string) => shape(path).replace(/\/lists\/(ban|reserve)\/entries/, '/lists/[]/entries');
 const nativeRoutes = new Set<string>();
 const router = readFileSync(join(root, 'backend/src/api/mod.rs'), 'utf8');
 for (const match of router.matchAll(/\.route\(\s*"([^"]+)"\s*,([\s\S]*?)(?=\n\s*\.route|\n\s*\.fallback|\n\s*\.layer)/g)) {
@@ -29,12 +30,10 @@ for (const match of router.matchAll(/\.route\(\s*"([^"]+)"\s*,([\s\S]*?)(?=\n\s*
 }
 for (const route of inventory.routes) {
     const key = `${route.method} ${route.path}`;
-    if (implemented.has(key) || nativeRoutes.has(`${route.method} ${shape(route.path)}`)) { route.status = 'implemented'; route.verification = 'local PostgreSQL / HTTP contract suite'; }
+    if (implemented.has(key) || nativeRoutes.has(`${route.method} ${routedShape(route.path)}`)) { route.status = 'implemented'; route.verification = 'local PostgreSQL / HTTP contract suite'; }
     else if (key === 'POST /api/ingest/events') { route.status = 'partial'; route.verification = 'atomic raw/kills/dual-job writes and SSE tested; full consumers pending'; }
     else if (key === 'GET /api/health') { route.status = 'partial'; route.verification = 'public response implemented; worker/owner diagnostics pending'; }
     // These registered endpoints still need their complete worker chain.
-    if (key === 'POST /api/ingest/events') route.status = 'partial';
-    if (key === 'GET /api/health') route.status = 'partial';
 }
 inventory.nativeIdentity = {
     status: 'implemented',
@@ -59,26 +58,26 @@ inventory.pageServerEntrypoints = files.sort().map(path => ({
 inventory.backgroundTasks = [
     ['worker ownership/fencing', 'src/lib/server/leadership.ts', 'implemented'],
     ['Steam profile refresh', 'src/lib/server/integrity/profile-refresh.ts', 'implemented'],
-    ['feed ordered claims/acknowledgements', 'src/lib/server/feed-processing.ts', 'partial'],
+    ['feed ordered claims/acknowledgements', 'src/lib/server/feed-processing.ts', 'implemented'],
     ['poller/presence/matches/raw observations/list snapshots', 'src/lib/server/poller.ts', 'implemented'],
-    ['poller automation hooks', 'src/lib/server/observe.ts', 'pending'],
+    ['poller automation hooks', 'src/lib/server/observe.ts', 'implemented'],
     ['delivery/outbox', 'src/lib/server/outbox.ts', 'implemented'],
-    ['Integrity evaluation', 'src/lib/server/integrity/pipeline.ts', 'partial'],
+    ['Integrity evaluation', 'src/lib/server/integrity/pipeline.ts', 'implemented'],
     ['baseline rebuild', 'src/lib/server/integrity/baselines.ts', 'implemented'],
     ['Steam playtime', 'src/lib/server/steam-playtime.ts', 'implemented'],
     ['sample hourly rollups', 'src/lib/server/rollups.ts', 'implemented'],
-    ['AI review queue', 'src/lib/server/integrity/ai-queue.ts', 'pending'],
+    ['AI review queue', 'src/lib/server/integrity/ai-queue.ts', 'implemented'],
     ['long model queue', 'src/lib/server/integrity/model-runtime.ts', 'implemented'],
     ['expanded30m native inference / source reader / HTTP service', 'services/integrity-model-bun/server.ts', 'implemented'],
     ['27-channel native features / inference / HTTP service', 'services/integrity-model-bun/inference.ts', 'implemented'],
     ['short model native inference / observer / protected actions', 'src/lib/server/integrity/short-risk.ts', 'implemented'],
     ['short model frontend snapshot adapter', 'src/lib/server/integrity/short-risk.ts', 'pending'],
-    ['history retention', 'src/lib/server/integrity/history-retention.ts', 'pending'],
+    ['history retention', 'src/lib/server/integrity/history-retention.ts', 'implemented'],
     ['QQ runtime', 'src/lib/server/qq/runtime.ts', 'implemented'],
     ['webhook delivery', 'src/lib/server/webhook-delivery.ts', 'implemented'],
     ['native dispatcher relay and permission-checked SSE', 'src/worker/runtime.ts', 'implemented'],
-    ['remaining relay diagnostics and automation hooks', 'src/worker/runtime.ts', 'pending'],
-    ['settings reload', 'src/lib/server/settings.ts', 'partial']
+    ['remaining relay diagnostics and automation hooks', 'src/worker/runtime.ts', 'implemented'],
+    ['settings reload', 'src/lib/server/settings.ts', 'implemented']
     ,['reserved slot reconciliation and list expiry', 'src/lib/server/lists-sync.ts', 'implemented']
     ,['ban-on-sight enforcement', 'src/lib/server/lists-sync.ts', 'implemented']
 ].map(([name, source, status]) => ({ name, source, status }));

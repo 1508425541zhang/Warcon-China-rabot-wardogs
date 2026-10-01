@@ -46,5 +46,11 @@ jobs:
           bun backend/fixtures/generate-short-policy.ts
           bun backend/fixtures/generate-integrity.ts
           bun backend/fixtures/generate-qq.ts
-          git diff --exit-code -- backend/fixtures
+          bun backend/fixtures/generate-ai.ts
+          bun backend/tools/extract-name-words.ts
+          bun --tsconfig-override backend/fixtures/tsconfig.json backend/fixtures/generate-triggers.ts
+          bun backend/fixtures/generate-advisory.ts
+          bun backend/fixtures/generate-game-automation.ts
+          bun backend/tools/extract-retention.ts
+          git diff --exit-code -- backend/fixtures backend/assets backend/sql/retention
       - run: cargo test --manifest-path backend/Cargo.toml --locked -- --include-ignored

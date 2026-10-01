@@ -75,6 +75,59 @@ pub fn array(text: &str, section: &str, key: &str) -> Vec<String> {
     }
     values.into_iter().map(|v| unquote(&v).to_owned()).collect()
 }
+pub fn scalar(text: &str, section: &str, key: &str) -> Option<String> {
+    array(text, section, key).into_iter().next()
+}
+pub fn set_scalar(text: &str, section: &str, key: &str, value: &str) -> String {
+    let (mut lines, eol) = split(text);
+    if text.is_empty() {
+        lines.clear()
+    }
+    let rendered = format!("{key}={}", quote(value));
+    let Some(start) = lines
+        .iter()
+        .position(|l| header(l).is_some_and(|h| h.eq_ignore_ascii_case(section)))
+    else {
+        while lines.last().is_some_and(|l| l.trim().is_empty()) {
+            lines.pop();
+        }
+        if !lines.is_empty() {
+            lines.push(String::new())
+        }
+        lines.extend([format!("[{section}]"), rendered, String::new()]);
+        return lines.join(eol);
+    };
+    let end = lines
+        .iter()
+        .enumerate()
+        .skip(start + 1)
+        .find(|(_, l)| header(l).is_some())
+        .map(|(i, _)| i)
+        .unwrap_or(lines.len());
+    for line in &mut lines[start + 1..end] {
+        let trimmed = line.trim();
+        if comment(trimmed) || trimmed.starts_with(['+', '.', '!', '-']) {
+            continue;
+        }
+        if trimmed
+            .split_once('=')
+            .is_some_and(|(k, _)| k.trim().eq_ignore_ascii_case(key))
+        {
+            let indent = line
+                .chars()
+                .take_while(|c| c.is_whitespace())
+                .collect::<String>();
+            *line = format!("{indent}{rendered}");
+            return lines.join(eol);
+        }
+    }
+    let mut at = end;
+    while at > start + 1 && lines[at - 1].trim().is_empty() {
+        at -= 1
+    }
+    lines.insert(at, rendered);
+    lines.join(eol)
+}
 fn quote(value: &str) -> String {
     if value.is_empty() || (value.starts_with('"') && value.ends_with('"')) {
         return value.into();

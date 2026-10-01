@@ -32,6 +32,18 @@ async fn disposition(
     let Some(live) = live else {
         return Ok(Some(("skipped", "Server no longer polled.".into())));
     };
+    // A queued rule must not execute after its owner disabled, edited or deleted it.
+    if let Some(trigger) = row["triggerId"].as_str() {
+        let enabled:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM triggers WHERE id=$1 AND server_id=$2 AND enabled AND updated_at<= $3)").bind(trigger).bind(server).bind(date(&row["createdAt"])).fetch_one(&state.db).await?;
+        if !enabled {
+            return Ok(Some(("skipped", "规则已经关闭、变更或删除。".into())));
+        }
+    } else if row["triggerKind"]
+        .as_str()
+        .is_some_and(|k| crate::trigger_policy::KINDS.contains(&k))
+    {
+        return Ok(Some(("skipped", "规则已经删除。".into())));
+    }
     if date(&row["createdAt"]).is_none_or(|at| (Utc::now() - at).num_milliseconds() > max_age) {
         return Ok(Some(("skipped", "Queued action is stale.".into())));
     }

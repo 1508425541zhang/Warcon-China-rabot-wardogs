@@ -1,0 +1,1 @@
+SELECT e.id FROM list_entries e WHERE e.id IN (SELECT a.list_entry_id FROM integrity_actions a JOIN history_retention_targets h ON h.kind='action' AND h.raw_id=a.id UNION SELECT r.list_entry_id FROM integrity_model_runs r JOIN history_retention_targets h ON h.kind='long' AND h.raw_id=r.id) ORDER BY e.id FOR SHARE

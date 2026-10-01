@@ -16,6 +16,7 @@ use std::{
 };
 #[derive(Clone)]
 pub struct Memory {
+    pub automation: crate::trigger_engine::RuleMemory,
     pub id: String,
     pub org: String,
     pub name: String,
@@ -46,6 +47,7 @@ pub struct Memory {
     pub sample_at: i64,
     pub sample_key: String,
     pub lists_at: i64,
+    pub lists_loaded: bool,
     pub sync_at: i64,
     pub ban_retry: HashMap<String, Instant>,
 }
@@ -53,6 +55,7 @@ impl Memory {
     pub fn new(id: String, org: String, name: String, now: i64, idle: i64) -> Self {
         let offset = state::phase(&id, idle.min(30000).max(1) as u64) as i64;
         Self {
+            automation: Default::default(),
             id,
             org,
             name,
@@ -83,6 +86,7 @@ impl Memory {
             sample_at: 0,
             sample_key: String::new(),
             lists_at: 0,
+            lists_loaded: false,
             sync_at: 0,
             ban_retry: HashMap::new(),
         }
@@ -625,6 +629,8 @@ pub async fn observe(
             t.dirty = true
         }
     }
+    crate::trigger_engine::prepare(app, &mut next, &diff, trusted, players.is_some(), ts).await?;
+    crate::trigger_engine::accrue(&mut next, &diff, trusted, players.is_some(), gap);
     let mut tx = app.worker_transaction().await?;
     archive(&mut tx, &next.id, ts, &raw).await?;
     if players.is_some() {
@@ -686,6 +692,17 @@ pub async fn observe(
         next.sample_key = sample_key;
         next.sample_at = ts;
     }
+    crate::trigger_engine::evaluate(
+        &mut tx,
+        &mut next,
+        &diff,
+        trusted,
+        players.is_some(),
+        end.as_ref(),
+        previous_status,
+        ts,
+    )
+    .await?;
     let match_id = if let Some(look) = &look {
         Some(reconcile_match(&mut tx, &mut next, ts, look, end.as_ref(), previous_status).await?)
     } else {
@@ -706,9 +723,39 @@ pub async fn observe(
                 return Err(e);
             }
             tracing::warn!(server_id=%m.id, "Game list snapshot unavailable");
+        } else {
+            m.lists_loaded = true;
         }
     }
     if players.is_some() {
+        // Game effects occur after observation commit, still within the held lane.
+        for (name, result) in [
+            (
+                "faction_quota",
+                crate::faction_quota::run(app, &client, m, trusted, end.is_some()).await,
+            ),
+            (
+                "skill_balance",
+                crate::skill_balance::select(app, m, trusted, end.is_some()).await,
+            ),
+            (
+                "faction_lock",
+                crate::faction_lock::run(app, &client, m, &diff, trusted, end.is_some()).await,
+            ),
+            (
+                "numeric",
+                crate::game_automation::numeric(app, &client, m, trusted, end.is_some()).await,
+            ),
+            (
+                "weapons",
+                crate::game_automation::weapons(app, &client, m, end.is_some()).await,
+            ),
+        ] {
+            if let Err(error) = result {
+                app.runtime.check().await?;
+                tracing::warn!(server=%m.id,%name,%error,"automation failed");
+            }
+        }
         crate::ban_enforcement::enforce(
             app,
             &client,
