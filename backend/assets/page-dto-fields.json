@@ -1,0 +1,291 @@
+{
+  "src/routes/(app)/+layout.server.ts": [
+    "user",
+    "orgs",
+    "scope",
+    "canManage",
+    "canCreateOrg",
+    "servers",
+    "demoAllowed",
+    "enrolment",
+    "authPolicy",
+    "steamLookup"
+  ],
+  "src/routes/(app)/account/+page.server.ts": [
+    "sessions",
+    "discord",
+    "providers",
+    "hasPassword",
+    "steamId",
+    "defaultOrgId",
+    "passkeys",
+    "methods",
+    "enrolment",
+    "status",
+    "policy",
+    "recoveryKeyAt"
+  ],
+  "src/routes/(app)/admin/+layout.server.ts": [],
+  "src/routes/(app)/admin/+page.server.ts": [
+    "overview"
+  ],
+  "src/routes/(app)/admin/qq/+page.server.ts": [
+    "config",
+    "vips",
+    "servers",
+    "callback"
+  ],
+  "src/routes/(app)/admin/settings/+page.server.ts": [
+    "settings"
+  ],
+  "src/routes/(app)/admin/users/+page.server.ts": [
+    "users",
+    "servers",
+    "rolesByOrgId"
+  ],
+  "src/routes/(app)/audit/+page.server.ts": [
+    "entries",
+    "nextBefore",
+    "filters",
+    "actions",
+    "actors"
+  ],
+  "src/routes/(app)/orgs/+page.server.ts": [
+    "orgViews"
+  ],
+  "src/routes/(app)/orgs/[id]/+layout.server.ts": [
+    "org",
+    "orgServers",
+    "listsRole",
+    "lists"
+  ],
+  "src/routes/(app)/orgs/[id]/+page.server.ts": [
+    "members",
+    "invites",
+    "webhooks",
+    "roles",
+    "keys",
+    "webhookEvents",
+    "https",
+    "discord"
+  ],
+  "src/routes/(app)/orgs/[id]/access/+page.server.ts": [
+    "members",
+    "roles"
+  ],
+  "src/routes/(app)/orgs/[id]/bans/+page.server.ts": [
+    "entries"
+  ],
+  "src/routes/(app)/orgs/[id]/integrity/+page.server.ts": [
+    "modelConfig",
+    "modelRuns",
+    "orgId",
+    "ruleVersion",
+    "assessmentMode",
+    "comparison",
+    "imports",
+    "baselineSummary",
+    "ruleConfig",
+    "ruleDefaults",
+    "enforcement",
+    "weaponOverrides",
+    "weaponDefaults",
+    "weaponCategories"
+  ],
+  "src/routes/(app)/orgs/[id]/players/+page.server.ts": [
+    "players",
+    "total",
+    "filters",
+    "pageSize"
+  ],
+  "src/routes/(app)/orgs/[id]/reserved/+page.server.ts": [
+    "entries"
+  ],
+  "src/routes/(app)/orgs/[id]/roles/+page.server.ts": [
+    "roles"
+  ],
+  "src/routes/(app)/plugins/+page.server.ts": [
+    "plugins",
+    "catalog",
+    "pluginServers"
+  ],
+  "src/routes/(app)/plugins/[pluginId]/+page.server.ts": [
+    "plugin"
+  ],
+  "src/routes/(app)/qq-link/+page.server.ts": [
+    "links"
+  ],
+  "src/routes/(app)/server/[id]/+layout.server.ts": [
+    "server",
+    "catalog",
+    "features",
+    "reachable",
+    "problem",
+    "identity"
+  ],
+  "src/routes/(app)/server/[id]/automation/+page.server.ts": [
+    "factionQuota",
+    "factionScores",
+    "groupControl",
+    "numericLimits",
+    "skillBalance",
+    "factionLock",
+    "weaponRestriction",
+    "teams",
+    "triggers",
+    "steam",
+    "feed"
+  ],
+  "src/routes/(app)/server/[id]/bans/+page.server.ts": [
+    "listState",
+    "orgLists"
+  ],
+  "src/routes/(app)/server/[id]/discord/+page.server.ts": [],
+  "src/routes/(app)/server/[id]/faction-lock/+page.server.ts": [
+    "teams",
+    "rule",
+    "events"
+  ],
+  "src/routes/(app)/server/[id]/integrity/+page.server.ts": [
+    "longModelResults",
+    "distributions",
+    "shortRisk",
+    "aiJobs",
+    "aiAutoEnabled",
+    "reviewPenalties",
+    "cases",
+    "scores",
+    "reports",
+    "actions",
+    "actionsPagination",
+    "historyPolicy",
+    "historyPolicyRevision",
+    "historyLastCleanup",
+    "feedAt",
+    "feedConfigured",
+    "playersAt",
+    "feedRowsTruncated",
+    "feedMetricsAvailable",
+    "onlinePlayers",
+    "ruleVersion",
+    "assessmentMode",
+    "comparison",
+    "committeeShadow",
+    "labels",
+    "kpmBands",
+    "mode",
+    "canConfigure",
+    "orgIntegrityUrl"
+  ],
+  "src/routes/(app)/server/[id]/integrity/ai/+page.server.ts": [
+    "jobs",
+    "prompt",
+    "promptVersion",
+    "canConfigure",
+    "config",
+    "cases"
+  ],
+  "src/routes/(app)/server/[id]/integrity/cases/+page.server.ts": [
+    "view",
+    "page",
+    "pages",
+    "pageSize",
+    "total",
+    "before",
+    "cases",
+    "labels",
+    "aiJobs",
+    "aiAutoEnabled",
+    "canConfigure",
+    "reviewPenalties"
+  ],
+  "src/routes/(app)/server/[id]/matches/[matchId]/+page.server.ts": [
+    "match"
+  ],
+  "src/routes/(app)/server/[id]/players/[steamId]/+page.server.ts": [
+    "playerProgress",
+    "dossier",
+    "career",
+    "multiServer",
+    "integrity",
+    "weaponDistances"
+  ],
+  "src/routes/(app)/server/[id]/public/+page.server.ts": [],
+  "src/routes/(app)/server/[id]/qq-bindings/+page.server.ts": [
+    "bindings",
+    "canManage"
+  ],
+  "src/routes/(app)/server/[id]/settings/+page.server.ts": [
+    "owner",
+    "https",
+    "origin",
+    "channels"
+  ],
+  "src/routes/(app)/server/[id]/slots/+page.server.ts": [
+    "listState",
+    "orgLists"
+  ],
+  "src/routes/(app)/servers/+page.server.ts": [
+    "managed",
+    "ownedOrgs"
+  ],
+  "src/routes/(app)/settings/+page.server.ts": [],
+  "src/routes/(app)/users/+page.server.ts": [],
+  "src/routes/(auth)/join/[token]/+page.server.ts": [
+    "valid",
+    "problem",
+    "discord"
+  ],
+  "src/routes/(auth)/recover/+page.server.ts": [],
+  "src/routes/(auth)/setup/+page.server.ts": [
+    "tokenRequired"
+  ],
+  "src/routes/(auth)/sign-in/+page.server.ts": [
+    "discord",
+    "next",
+    "orgSignup"
+  ],
+  "src/routes/(auth)/sign-in/verify/+page.server.ts": [
+    "next"
+  ],
+  "src/routes/(auth)/sign-up/+page.server.ts": [
+    "discord",
+    "turnstileSiteKey",
+    "remaining"
+  ],
+  "src/routes/(public)/+layout.server.ts": [],
+  "src/routes/(public)/s/[id]/+page.server.ts": [
+    "view",
+    "heading"
+  ],
+  "src/routes/(public)/s/[id]/leaderboard/+page.server.ts": [
+    "board",
+    "orgScope",
+    "heading"
+  ],
+  "src/routes/(public)/s/[id]/matches/+page.server.ts": [
+    "list",
+    "heading"
+  ],
+  "src/routes/(public)/s/[id]/matches/[matchId]/+page.server.ts": [
+    "match",
+    "feed",
+    "more",
+    "heading"
+  ],
+  "src/routes/(public)/s/[id]/players/[steamId]/+page.server.ts": [
+    "career",
+    "combat",
+    "player",
+    "multiServer",
+    "heading"
+  ],
+  "src/routes/(public)/s/[id]/report/+page.server.ts": [
+    "heading",
+    "signedIn"
+  ],
+  "src/routes/+layout.server.ts": [
+    "user",
+    "appName"
+  ]
+}

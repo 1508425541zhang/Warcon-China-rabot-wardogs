@@ -1,0 +1,94 @@
+name: Rust backend contracts
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://postgres:fixture-only@127.0.0.1:5432/postgres
+      RUSTUP_TOOLCHAIN: 1.98.1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt
+      - run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+      - run: bun install --frozen-lockfile
+      - run: cargo fmt --manifest-path backend/Cargo.toml --check
+      - run: |
+          bun backend/fixtures/generate-committee.ts
+          bun --tsconfig-override backend/fixtures/tsconfig.json backend/fixtures/generate-feed.ts
+          bun backend/fixtures/generate-settings.ts
+          bun backend/fixtures/generate-analytics.ts
+          bun backend/fixtures/generate-model-features.ts
+          bun backend/fixtures/generate-matches.ts
+          bun backend/fixtures/generate-identity.ts
+          bun backend/fixtures/generate-actions.ts
+          bun backend/fixtures/generate-lists.ts
+          bun backend/fixtures/generate-plugins.ts
+          bun backend/fixtures/generate-leaderboards.ts
+          bun backend/fixtures/generate-live.ts
+          bun backend/fixtures/generate-observation.ts
+          bun backend/fixtures/generate-legacy-model.ts
+          bun backend/fixtures/generate-short-policy.ts
+          bun backend/fixtures/generate-integrity.ts
+          bun backend/fixtures/generate-qq.ts
+          bun backend/fixtures/generate-ai.ts
+          bun backend/tools/extract-name-words.ts
+          bun --tsconfig-override backend/fixtures/tsconfig.json backend/fixtures/generate-triggers.ts
+          bun backend/fixtures/generate-advisory.ts
+          bun backend/fixtures/generate-game-automation.ts
+          bun backend/fixtures/generate-demo.ts
+          bun backend/tools/extract-retention.ts
+          bun backend/tools/export-presentation-catalog.ts
+          bun backend/tools/extract-page-history.ts
+          bun backend/tools/page-dto-schema.ts
+          bun --tsconfig-override backend/fixtures/tsconfig.json backend/fixtures/generate-page-charts.ts
+          git diff --exit-code -- backend/fixtures backend/assets backend/sql
+      - run: cargo test --manifest-path backend/Cargo.toml --locked -- --include-ignored
+      - run: cargo build --manifest-path backend/Cargo.toml --locked --bins
+      - run: bun run check && bun run test && bun run build
+      - name: Native API, Worker, model and browser transport integration
+        env:
+          SMOKE_PSQL: psql
+          SMOKE_DATABASE_URL: postgres://postgres:fixture-only@127.0.0.1:5432/postgres
+          SMOKE_BIN_DIR: backend/target/debug
+          SMOKE_MODEL_ARTIFACTS: services/integrity-model-bun/artifacts-30m
+        run: node backend/tools/local-stack-smoke.mjs
+      - name: Development Compose and both runtime images
+        run: |
+          cp .env.rust.dev.example .env.rust.dev
+          docker compose --env-file .env.rust.dev.example -f compose.rust-dev.yml config > /dev/null
+          docker build -f Dockerfile.native -t warcon-cn-native:dev .
+          docker build -t warcon-cn-frontend:dev .
+      - name: Run the isolated development containers
+        run: |
+          umask 077
+          printf 'ORIGIN=http://localhost:4302\nPOSTGRES_PASSWORD=%s\nBETTER_AUTH_SECRET=%s\nENCRYPTION_KEY=%s\nRELAY_SECRET=%s\nRUST_FRONTEND_TOKEN=%s\nMODEL_API_TOKEN=%s\nMODEL_ARTIFACTS_PATH=./services/integrity-model-bun/artifacts-30m\nWARCON_SHORT_RISK_ENABLED=0\n' \
+            "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -base64 32)" \
+            "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env.rust.dev
+          docker compose --project-name warcon-rust-validation --env-file .env.rust.dev -f compose.rust-dev.yml --profile model up -d --no-build --wait
+          CONTAINER_SMOKE_NO_OVERRIDE=1 node backend/tools/container-stack-smoke.mjs
+      - name: Container diagnostics and cleanup
+        if: always()
+        run: |
+          if [ -f .env.rust.dev ]; then
+            docker compose --project-name warcon-rust-validation --env-file .env.rust.dev -f compose.rust-dev.yml --profile model logs --tail=80
+            docker compose --project-name warcon-rust-validation --env-file .env.rust.dev -f compose.rust-dev.yml --profile model down --volumes
+          fi

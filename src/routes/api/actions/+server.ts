@@ -1,13 +1,3 @@
-import { apiJson, route } from '$lib/server/http';
-import { requireUser } from '$lib/server/access';
-import { ACTIONS } from '$lib/server/actions';
+import { nativeProxy } from '$lib/native/transport.server';
 
-export const GET = route(async ({ locals }) => {
-	requireUser(locals);
-	return apiJson({
-		ok: true,
-		actions: Object.fromEntries(
-			Object.entries(ACTIONS).map(([k, v]) => [k, { cap: v.cap, mutating: v.mutating }])
-		)
-	});
-});
+export const GET = nativeProxy;

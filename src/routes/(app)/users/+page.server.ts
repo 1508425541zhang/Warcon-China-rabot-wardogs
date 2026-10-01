@@ -1,7 +1,4 @@
-import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import { pageLoad } from '$lib/native/transport.server';
 
-/** Users is a tab of the Admin page now. */
-export const load: PageServerLoad = () => {
-	redirect(301, '/admin/users');
-};
+export const load = (event: Parameters<typeof pageLoad>[0]) =>
+	pageLoad(event, 'src/routes/(app)/users/+page.server.ts');

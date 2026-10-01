@@ -1,0 +1,1594 @@
+{
+  "baseline": "current local checkout including existing uncommitted changes",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/actions",
+      "source": "src/routes/api/actions/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/overview",
+      "source": "src/routes/api/admin/overview/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/qq",
+      "source": "src/routes/api/admin/qq/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/qq",
+      "source": "src/routes/api/admin/qq/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/qq",
+      "source": "src/routes/api/admin/qq/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/qq/vips",
+      "source": "src/routes/api/admin/qq/vips/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/qq/vips",
+      "source": "src/routes/api/admin/qq/vips/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit",
+      "source": "src/routes/api/audit/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit/export",
+      "source": "src/routes/api/audit/export/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit/meta",
+      "source": "src/routes/api/audit/meta/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "source": "src/routes/api/health/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ingest/events",
+      "source": "src/routes/api/ingest/events/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/live",
+      "source": "src/routes/api/live/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/live/events",
+      "source": "src/routes/api/live/events/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs",
+      "source": "src/routes/api/orgs/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs",
+      "source": "src/routes/api/orgs/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/orgs/[id]",
+      "source": "src/routes/api/orgs/[id]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/orgs/[id]",
+      "source": "src/routes/api/orgs/[id]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/integrity/cases/[caseId]/labels",
+      "source": "src/routes/api/orgs/[id]/integrity/cases/[caseId]/labels/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/integrity/enforcement",
+      "source": "src/routes/api/orgs/[id]/integrity/enforcement/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/orgs/[id]/integrity/enforcement",
+      "source": "src/routes/api/orgs/[id]/integrity/enforcement/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/integrity/imports",
+      "source": "src/routes/api/orgs/[id]/integrity/imports/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/integrity/imports",
+      "source": "src/routes/api/orgs/[id]/integrity/imports/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/integrity/imports/[batchId]",
+      "source": "src/routes/api/orgs/[id]/integrity/imports/[batchId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/orgs/[id]/integrity/mode",
+      "source": "src/routes/api/orgs/[id]/integrity/mode/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/integrity/model",
+      "source": "src/routes/api/orgs/[id]/integrity/model/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/orgs/[id]/integrity/model",
+      "source": "src/routes/api/orgs/[id]/integrity/model/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/integrity/model",
+      "source": "src/routes/api/orgs/[id]/integrity/model/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/integrity/rules",
+      "source": "src/routes/api/orgs/[id]/integrity/rules/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/orgs/[id]/integrity/rules",
+      "source": "src/routes/api/orgs/[id]/integrity/rules/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/integrity/weapons",
+      "source": "src/routes/api/orgs/[id]/integrity/weapons/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/orgs/[id]/integrity/weapons",
+      "source": "src/routes/api/orgs/[id]/integrity/weapons/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/orgs/[id]/integrity/weapons",
+      "source": "src/routes/api/orgs/[id]/integrity/weapons/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/invites",
+      "source": "src/routes/api/orgs/[id]/invites/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/invites",
+      "source": "src/routes/api/orgs/[id]/invites/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/orgs/[id]/invites/[inviteId]",
+      "source": "src/routes/api/orgs/[id]/invites/[inviteId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/keys",
+      "source": "src/routes/api/orgs/[id]/keys/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/keys",
+      "source": "src/routes/api/orgs/[id]/keys/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/orgs/[id]/keys/[keyId]",
+      "source": "src/routes/api/orgs/[id]/keys/[keyId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/lists",
+      "source": "src/routes/api/orgs/[id]/lists/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/lists/[kind]/entries",
+      "source": "src/routes/api/orgs/[id]/lists/[kind]/entries/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/lists/[kind]/entries",
+      "source": "src/routes/api/orgs/[id]/lists/[kind]/entries/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/orgs/[id]/lists/[kind]/entries/[steamId]",
+      "source": "src/routes/api/orgs/[id]/lists/[kind]/entries/[steamId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/orgs/[id]/lists/[kind]/entries/[steamId]",
+      "source": "src/routes/api/orgs/[id]/lists/[kind]/entries/[steamId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/lists/import",
+      "source": "src/routes/api/orgs/[id]/lists/import/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/lists/import",
+      "source": "src/routes/api/orgs/[id]/lists/import/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/lists/sync",
+      "source": "src/routes/api/orgs/[id]/lists/sync/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/members",
+      "source": "src/routes/api/orgs/[id]/members/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/orgs/[id]/members/[userId]",
+      "source": "src/routes/api/orgs/[id]/members/[userId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/orgs/[id]/members/[userId]",
+      "source": "src/routes/api/orgs/[id]/members/[userId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/orgs/[id]/members/[userId]/grants",
+      "source": "src/routes/api/orgs/[id]/members/[userId]/grants/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/players",
+      "source": "src/routes/api/orgs/[id]/players/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/roles",
+      "source": "src/routes/api/orgs/[id]/roles/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/roles",
+      "source": "src/routes/api/orgs/[id]/roles/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/orgs/[id]/roles/[roleId]",
+      "source": "src/routes/api/orgs/[id]/roles/[roleId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/orgs/[id]/roles/[roleId]",
+      "source": "src/routes/api/orgs/[id]/roles/[roleId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/roles/[roleId]/reset",
+      "source": "src/routes/api/orgs/[id]/roles/[roleId]/reset/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orgs/[id]/webhooks",
+      "source": "src/routes/api/orgs/[id]/webhooks/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/webhooks",
+      "source": "src/routes/api/orgs/[id]/webhooks/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/orgs/[id]/webhooks/[webhookId]",
+      "source": "src/routes/api/orgs/[id]/webhooks/[webhookId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/orgs/[id]/webhooks/[webhookId]",
+      "source": "src/routes/api/orgs/[id]/webhooks/[webhookId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/webhooks/[webhookId]/card",
+      "source": "src/routes/api/orgs/[id]/webhooks/[webhookId]/card/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/[id]/webhooks/[webhookId]/test",
+      "source": "src/routes/api/orgs/[id]/webhooks/[webhookId]/test/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passkeys",
+      "source": "src/routes/api/passkeys/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passkeys",
+      "source": "src/routes/api/passkeys/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/passkeys/[id]",
+      "source": "src/routes/api/passkeys/[id]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passkeys/auth",
+      "source": "src/routes/api/passkeys/auth/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passkeys/auth-options",
+      "source": "src/routes/api/passkeys/auth-options/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passkeys/register-options",
+      "source": "src/routes/api/passkeys/register-options/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/plugins",
+      "source": "src/routes/api/plugins/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/plugins",
+      "source": "src/routes/api/plugins/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/plugins/[pluginId]",
+      "source": "src/routes/api/plugins/[pluginId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/plugins/[pluginId]",
+      "source": "src/routes/api/plugins/[pluginId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/plugins/[pluginId]",
+      "source": "src/routes/api/plugins/[pluginId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/plugins/[pluginId]/data",
+      "source": "src/routes/api/plugins/[pluginId]/data/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/servers/[id]",
+      "source": "src/routes/api/public/servers/[id]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/servers/[id]/leaderboard",
+      "source": "src/routes/api/public/servers/[id]/leaderboard/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/servers/[id]/matches",
+      "source": "src/routes/api/public/servers/[id]/matches/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/servers/[id]/matches/[matchId]",
+      "source": "src/routes/api/public/servers/[id]/matches/[matchId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/servers/[id]/players/[steamId]",
+      "source": "src/routes/api/public/servers/[id]/players/[steamId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/qq/webhook",
+      "source": "src/routes/api/qq/webhook/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/reports",
+      "source": "src/routes/api/reports/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/scope",
+      "source": "src/routes/api/scope/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/scope",
+      "source": "src/routes/api/scope/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/server/[id]/integrity/history-retention",
+      "source": "src/routes/api/server/[id]/integrity/history-retention/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers",
+      "source": "src/routes/api/servers/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers",
+      "source": "src/routes/api/servers/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/servers/[id]",
+      "source": "src/routes/api/servers/[id]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/servers/[id]",
+      "source": "src/routes/api/servers/[id]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/analytics",
+      "source": "src/routes/api/servers/[id]/analytics/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/cash",
+      "source": "src/routes/api/servers/[id]/cash/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/community",
+      "source": "src/routes/api/servers/[id]/community/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/community",
+      "source": "src/routes/api/servers/[id]/community/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/faction-lock",
+      "source": "src/routes/api/servers/[id]/faction-lock/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/faction-quota",
+      "source": "src/routes/api/servers/[id]/faction-quota/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/faction-quota",
+      "source": "src/routes/api/servers/[id]/faction-quota/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/feed",
+      "source": "src/routes/api/servers/[id]/feed/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/feed",
+      "source": "src/routes/api/servers/[id]/feed/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/servers/[id]/feed",
+      "source": "src/routes/api/servers/[id]/feed/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/grants",
+      "source": "src/routes/api/servers/[id]/grants/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/servers/[id]/grants",
+      "source": "src/routes/api/servers/[id]/grants/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/group-control",
+      "source": "src/routes/api/servers/[id]/group-control/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/integrity/ai",
+      "source": "src/routes/api/servers/[id]/integrity/ai/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/kills",
+      "source": "src/routes/api/servers/[id]/kills/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/leaderboard",
+      "source": "src/routes/api/servers/[id]/leaderboard/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/lists/ban/entries",
+      "source": "src/routes/api/servers/[id]/lists/ban/entries/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/servers/[id]/lists/ban/entries/[steamId]",
+      "source": "src/routes/api/servers/[id]/lists/ban/entries/[steamId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/servers/[id]/lists/ban/entries/[steamId]",
+      "source": "src/routes/api/servers/[id]/lists/ban/entries/[steamId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/lists/reserve/entries",
+      "source": "src/routes/api/servers/[id]/lists/reserve/entries/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/servers/[id]/lists/reserve/entries/[steamId]",
+      "source": "src/routes/api/servers/[id]/lists/reserve/entries/[steamId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/lists/state",
+      "source": "src/routes/api/servers/[id]/lists/state/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/lists/sync",
+      "source": "src/routes/api/servers/[id]/lists/sync/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/matches",
+      "source": "src/routes/api/servers/[id]/matches/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/matches/[matchId]",
+      "source": "src/routes/api/servers/[id]/matches/[matchId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/numeric-limits",
+      "source": "src/routes/api/servers/[id]/numeric-limits/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/outbox",
+      "source": "src/routes/api/servers/[id]/outbox/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/players/[steamId]",
+      "source": "src/routes/api/servers/[id]/players/[steamId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/players/[steamId]/career",
+      "source": "src/routes/api/servers/[id]/players/[steamId]/career/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/players/[steamId]/notes",
+      "source": "src/routes/api/servers/[id]/players/[steamId]/notes/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/servers/[id]/players/[steamId]/notes/[noteId]",
+      "source": "src/routes/api/servers/[id]/players/[steamId]/notes/[noteId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/players/[steamId]/steam",
+      "source": "src/routes/api/servers/[id]/players/[steamId]/steam/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/servers/[id]/players/[steamId]/watch",
+      "source": "src/routes/api/servers/[id]/players/[steamId]/watch/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/players/marks",
+      "source": "src/routes/api/servers/[id]/players/marks/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/players/seen",
+      "source": "src/routes/api/servers/[id]/players/seen/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/plugin-snapshot",
+      "source": "src/routes/api/servers/[id]/plugin-snapshot/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/qq-bindings",
+      "source": "src/routes/api/servers/[id]/qq-bindings/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/qq-bindings",
+      "source": "src/routes/api/servers/[id]/qq-bindings/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/rcon/[action]",
+      "source": "src/routes/api/servers/[id]/rcon/[action]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/rcon/[action]",
+      "source": "src/routes/api/servers/[id]/rcon/[action]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/skill-balance",
+      "source": "src/routes/api/servers/[id]/skill-balance/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/stats/purge",
+      "source": "src/routes/api/servers/[id]/stats/purge/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/summary",
+      "source": "src/routes/api/servers/[id]/summary/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/test",
+      "source": "src/routes/api/servers/[id]/test/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/servers/[id]/triggers",
+      "source": "src/routes/api/servers/[id]/triggers/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/triggers",
+      "source": "src/routes/api/servers/[id]/triggers/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/servers/[id]/triggers/[triggerId]",
+      "source": "src/routes/api/servers/[id]/triggers/[triggerId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/servers/[id]/triggers/[triggerId]",
+      "source": "src/routes/api/servers/[id]/triggers/[triggerId]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/triggers/dry-run",
+      "source": "src/routes/api/servers/[id]/triggers/dry-run/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/servers/[id]/weapon-restrictions",
+      "source": "src/routes/api/servers/[id]/weapon-restrictions/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "source": "src/routes/api/settings/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings",
+      "source": "src/routes/api/settings/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/profiles",
+      "source": "src/routes/api/steam/profiles/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "source": "src/routes/api/users/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users",
+      "source": "src/routes/api/users/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/users/[id]",
+      "source": "src/routes/api/users/[id]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/users/[id]",
+      "source": "src/routes/api/users/[id]/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/users/[id]/grants",
+      "source": "src/routes/api/users/[id]/grants/+server.ts",
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
+    }
+  ],
+  "pageServerEntrypoints": [
+    {
+      "source": "src/routes/(app)/+layout.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/account/+page.server.ts",
+      "entrypoints": [
+        "load",
+        "actions"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/admin/+layout.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/admin/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/admin/qq/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/admin/settings/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/admin/users/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/audit/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/orgs/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/orgs/[id]/+layout.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/orgs/[id]/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/orgs/[id]/access/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/orgs/[id]/bans/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/orgs/[id]/integrity/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/orgs/[id]/players/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/orgs/[id]/reserved/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/orgs/[id]/roles/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/plugins/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/plugins/[pluginId]/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/qq-link/+page.server.ts",
+      "entrypoints": [
+        "load",
+        "actions"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/+layout.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/automation/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/bans/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/discord/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/faction-lock/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/integrity/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/integrity/ai/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/integrity/cases/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/matches/[matchId]/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/players/[steamId]/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/public/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/qq-bindings/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/settings/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/server/[id]/slots/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/servers/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/settings/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(app)/users/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(auth)/join/[token]/+page.server.ts",
+      "entrypoints": [
+        "load",
+        "actions"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(auth)/recover/+page.server.ts",
+      "entrypoints": [
+        "load",
+        "actions"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(auth)/setup/+page.server.ts",
+      "entrypoints": [
+        "load",
+        "actions"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(auth)/sign-in/+page.server.ts",
+      "entrypoints": [
+        "load",
+        "actions"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(auth)/sign-in/verify/+page.server.ts",
+      "entrypoints": [
+        "load",
+        "actions"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(auth)/sign-up/+page.server.ts",
+      "entrypoints": [
+        "load",
+        "actions"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(public)/+layout.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(public)/s/[id]/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(public)/s/[id]/leaderboard/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(public)/s/[id]/matches/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(public)/s/[id]/matches/[matchId]/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(public)/s/[id]/players/[steamId]/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/(public)/s/[id]/report/+page.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    },
+    {
+      "source": "src/routes/+layout.server.ts",
+      "entrypoints": [
+        "load"
+      ],
+      "status": "implemented",
+      "verification": "PostgreSQL page queries, required DTO fields, independent deep-link permissions and browser SSR"
+    }
+  ],
+  "backgroundTasks": [
+    {
+      "name": "worker ownership/fencing",
+      "source": "src/lib/server/leadership.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "Steam profile refresh",
+      "source": "src/lib/server/integrity/profile-refresh.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "feed ordered claims/acknowledgements",
+      "source": "src/lib/server/feed-processing.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "poller/presence/matches/raw observations/list snapshots",
+      "source": "src/lib/server/poller.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "poller automation hooks",
+      "source": "src/lib/server/observe.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "delivery/outbox",
+      "source": "src/lib/server/outbox.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "Integrity evaluation",
+      "source": "src/lib/server/integrity/pipeline.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "baseline rebuild",
+      "source": "src/lib/server/integrity/baselines.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "Steam playtime",
+      "source": "src/lib/server/steam-playtime.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "sample hourly rollups",
+      "source": "src/lib/server/rollups.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "AI review queue",
+      "source": "src/lib/server/integrity/ai-queue.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "long model queue",
+      "source": "src/lib/server/integrity/model-runtime.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "expanded30m native inference / source reader / HTTP service",
+      "source": "services/integrity-model-bun/server.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "27-channel native features / inference / HTTP service",
+      "source": "services/integrity-model-bun/inference.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "short model native inference / observer / protected actions",
+      "source": "src/lib/server/integrity/short-risk.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "short model frontend snapshot adapter",
+      "source": "src/lib/server/integrity/short-risk.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "history retention",
+      "source": "src/lib/server/integrity/history-retention.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "QQ runtime",
+      "source": "src/lib/server/qq/runtime.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "webhook delivery",
+      "source": "src/lib/server/webhook-delivery.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "native dispatcher relay and permission-checked SSE",
+      "source": "src/worker/runtime.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "remaining relay diagnostics and automation hooks",
+      "source": "src/worker/runtime.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "settings reload",
+      "source": "src/lib/server/settings.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "reserved slot reconciliation and list expiry",
+      "source": "src/lib/server/lists-sync.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "ban-on-sight enforcement",
+      "source": "src/lib/server/lists-sync.ts",
+      "status": "implemented"
+    }
+  ],
+  "scope": "All business APIs, page server business loaders/actions and background tasks. Svelte UI stays.",
+  "activation": "Svelte renders and transports all requests to Rust; local development branch only, no production deployment",
+  "nativeIdentity": {
+    "status": "implemented",
+    "source": [
+      "backend/src/identity.rs",
+      "backend/src/identity_signup.rs",
+      "backend/src/oauth.rs",
+      "backend/src/passkeys.rs"
+    ],
+    "verification": "original scrypt / XChaCha / OTP fixtures; PostgreSQL login, factor, recovery, account and WebAuthn contracts",
+    "frontendActivation": "activated: native session hooks, all identity page loads/actions and cookie transport"
+  },
+  "upgradeVerification": "existing pre-0047 jobs migrated into independent consumers without replaying historical actions; all SQL migrations through 0075 applied locally",
+  "runtime": {
+    "frontend": "Node.js: Svelte presentation and transport",
+    "api": "Rust: warcon-api",
+    "worker": "Rust: warcon-worker",
+    "models": "Rust: warcon-model and native short observer"
+  }
+}

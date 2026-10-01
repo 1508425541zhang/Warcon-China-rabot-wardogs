@@ -2,12 +2,13 @@ import { env } from '$env/dynamic/private';
 import { z } from 'zod';
 import type { QqProvider } from '$lib/qq-providers';
 
-export const qqProviderSchema = z.enum(['napcat', 'llbot']);
+export const qqProviderSchema = z.enum(['official', 'napcat', 'llbot']);
 
 export const policySchema = z.object({
 	enabled: z.boolean().default(true),
+	antiCheatNotices: z.boolean().default(true),
 	serverId: z.string().min(1).max(100),
-	groups: z.array(z.string().regex(/^[1-9]\d{4,15}$/)).min(1),
+	groups: z.array(z.string().regex(/^(?:[1-9]\d{4,15}|[A-Za-z0-9_-]{16,128})$/)).min(1),
 	lowAt: z.number().int().min(1).max(200).default(20),
 	pointsPerMinute: z.number().int().min(1).max(100).default(1),
 	voteCost: z.number().int().min(1).max(100000).default(10),
@@ -52,7 +53,12 @@ export function environmentQqConfiguration(): QqConfiguration {
 		policies: parsePolicies(env.QQ_BOT_POLICIES || '[]')
 	};
 }
-export function validateQqConnection(urlValue: string, selfId: string) {
+export function validateQqConnection(urlValue: string, selfId: string, provider: QqProvider = 'napcat') {
+	if (provider === 'official') {
+		if (urlValue !== 'https://api.bot.qq.com' || !/^[1-9]\d{4,15}$/.test(selfId))
+			throw new Error('官方机器人请输入有效 AppID，接口地址必须为 https://api.bot.qq.com。');
+		return urlValue;
+	}
 	let url: URL;
 	try {
 		url = new URL(urlValue);
@@ -87,7 +93,7 @@ export const qqPolicy = (serverId: string) => qqPolicies().find((p) => p.serverI
 export function qqCredentials() {
 	if (stored)
 		return stored.enabled
-			? { url: stored.url, selfId: stored.selfId, token: stored.token, secret: stored.secret }
+			? { provider: stored.provider, url: stored.url, selfId: stored.selfId, token: stored.token, secret: stored.secret }
 			: null;
 	const values = [
 		env.ONEBOT_HTTP_URL,
@@ -98,6 +104,7 @@ export function qqCredentials() {
 	if (!values.some(Boolean)) return null;
 	if (!values.every(Boolean)) throw new Error('Complete all four ONEBOT settings.');
 	return {
+		provider: qqProviderSchema.parse(env.QQ_BOT_PROVIDER || 'napcat'),
 		url: validateQqConnection(env.ONEBOT_HTTP_URL!, env.ONEBOT_SELF_ID!),
 		token: env.ONEBOT_ACCESS_TOKEN!,
 		secret: env.ONEBOT_EVENT_SECRET!,

@@ -13,6 +13,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!.env.rust.dev.example
+backend/container-stack-smoke.json
 
 # Vite
 vite.config.js.timestamp-*
@@ -20,3 +22,14 @@ vite.config.ts.timestamp-*
 
 # Playwright MCP output
 .playwright-mcp
+
+# Rust backend build output and local model artifacts
+/backend/target
+/backend/target-*
+/backend/.env
+/backend/artifacts-local
+__pycache__/
+.env.rust.dev
+backend/*.log
+backend/local-stack-smoke.json
+/models/

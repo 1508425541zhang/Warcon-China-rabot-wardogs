@@ -10,3 +10,4 @@ pnpm-lock.yaml
 renovate.json
 /.*/worktrees/
 .playwright-mcp
+backend

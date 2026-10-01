@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+import { applyQqConfiguration, parsePolicies } from '$lib/server/qq/config';
 import type { Env } from '$lib/server/env';
 import {
 	integrityActions,
@@ -79,6 +80,7 @@ describe.skipIf(!hasTestDb)('Integrity delivery guard', () => {
 		await env.db
 			.update(integrityRules)
 			.set({
+				assessmentMode: 'legacy',
 				autoKickEnabled: true,
 				autoQuarantine24hEnabled: true,
 				autoQuarantine7dEnabled: true,
@@ -181,7 +183,7 @@ describe.skipIf(!hasTestDb)('Integrity delivery guard', () => {
 			expect((await actionOf(actionId)).effectiveAt).toBeNull();
 			expect(clientSpy).not.toHaveBeenCalled();
 		} finally {
-			await rule({ assessmentMode: 'statistical_shadow', version: 1 });
+			await rule({ assessmentMode: 'legacy', version: 1 });
 		}
 	});
 
@@ -207,6 +209,79 @@ describe.skipIf(!hasTestDb)('Integrity delivery guard', () => {
 			(await env.db.select().from(listEntries).where(eq(listEntries.id, entry.id)))[0].removedAt
 		).toBeNull();
 		expect(clientSpy).not.toHaveBeenCalled();
+	});
+
+	test('AUTO_ACTION allows delivery; review, closed cases and disabled rules still block', async () => {
+		await rule({});
+		const { row, caseId } = await created(826);
+		await env.db
+			.update(integrityCases)
+			.set({ status: 'AUTO_ACTION' })
+			.where(eq(integrityCases.id, caseId));
+		expect(await integrityDeliverySkipReason(env, row)).toBeNull();
+		await rule({ autoKickEnabled: false });
+		expect(await integrityDeliverySkipReason(env, row)).toContain('disabled');
+		await rule({});
+		await env.db
+			.update(integrityCases)
+			.set({ reviewedAt: new Date() })
+			.where(eq(integrityCases.id, caseId));
+		expect(await integrityDeliverySkipReason(env, row)).toContain('changed');
+		for (const status of ['REVIEWED', 'CLOSED', 'AI_ARCHIVED', 'AI_CLEARED']) {
+			await env.db
+				.update(integrityCases)
+				.set({ status, reviewedAt: null })
+				.where(eq(integrityCases.id, caseId));
+			expect(await integrityDeliverySkipReason(env, row)).toContain('changed');
+		}
+	});
+
+	test('confirmed RCON kick atomically records one notice; failed RCON records none', async () => {
+		await rule({});
+		applyQqConfiguration({
+			provider: 'llbot',
+			enabled: true,
+			url: 'http://127.0.0.1:3001',
+			token: 'test',
+			secret: 'test',
+			selfId: '12345',
+			policies: parsePolicies(
+				JSON.stringify([{ serverId: world.server.id, groups: ['23456'], maps: ['A', 'B'] }])
+			)
+		});
+		try {
+			const { row } = await created(827);
+			clientSpy.mockImplementation(async () => ({ json: async () => ({}), close: async () => {} }));
+			await deliverOne(env, row);
+			expect((await outboxOf(row.id)).state).toBe('delivered');
+			expect(
+				(
+					await env.db.execute(
+						sql`SELECT * FROM qq_integrity_notifications WHERE outbox_id=${row.id}`
+					)
+				).length
+			).toBe(1);
+			const failed = await created(828);
+			clientSpy.mockImplementation(async () => ({
+				json: async () => {
+					throw Error('RCON failure');
+				},
+				close: async () => {}
+			}));
+			await deliverOne(env, failed.row);
+			expect(
+				(
+					await env.db.execute(
+						sql`SELECT * FROM qq_integrity_notifications WHERE outbox_id=${failed.row.id}`
+					)
+				).length
+			).toBe(0);
+		} finally {
+			applyQqConfiguration(null);
+			clientSpy.mockImplementation(async () => {
+				throw Error('RCON must not be called');
+			});
+		}
 	});
 
 	test('mismatched case identity and reverted actions fail closed', async () => {

@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import type { DbOrTx } from '../db';
 import { integrityActions, type OutboxRow } from '../db/schema';
+import { recordModelDelivery } from './model-enforcement';
 
 export type IntegrityDeliveryState = 'pending' | 'delivered' | 'failed' | 'skipped' | 'unknown';
 export type EffectiveAction = 'KICK' | 'QUARANTINE_24H' | 'QUARANTINE_7D';
@@ -36,6 +37,7 @@ export async function recordIntegrityDelivery(
 	state: Exclude<IntegrityDeliveryState, 'pending'>,
 	at = new Date()
 ): Promise<void> {
+	if (row.triggerKind === 'model_integrity') return recordModelDelivery(db, row, state);
 	if (row.triggerKind !== 'integrity') return;
 	const detail = row.detail as Record<string, unknown> | null;
 	const actionId = detail?.actionId;

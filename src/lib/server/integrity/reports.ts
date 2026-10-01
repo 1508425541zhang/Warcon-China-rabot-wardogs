@@ -134,14 +134,16 @@ export async function submitReport(
 	actor: SessionUser,
 	input: { serverId: unknown; target: unknown; reason: unknown },
 	/** Internal adapter authorization, never read from an HTTP body. QQ group/server mapping is operator configured. */
-	qqServerId?: string
+	qqServerId?: string,
+	/** Internal QQ adapter only; never taken from public request fields. */
+	qqMemberId?: string
 ): Promise<{ id: number; targetSteamId: string }> {
 	const serverId = str(input.serverId, 100);
 	const reason = str(input.reason, 300);
 	const targetText = str(input.target, 200);
 	if (!serverId || !targetText || reason.length < 3)
 		throw new ApiError(400, 'Server, target and a reason of at least 3 characters are required.');
-	const [[visible], [verified]] = await Promise.all([
+	const [[visible], [steamAccount]] = await Promise.all([
 		env.db
 			.select({ server: servers, org: organizations })
 			.from(servers)
@@ -156,6 +158,13 @@ export async function submitReport(
 	]);
 	if (!visible) throw new ApiError(404, 'Server not found.');
 	const { server, org } = visible;
+	let verified: { steamId: string } | undefined = steamAccount;
+	if (qqServerId === server.id && qqMemberId && actor.id === `qq:${qqMemberId}`) {
+		const [binding] = await env.db.execute<{ steamId: string }>(
+			sql`SELECT steam_id AS "steamId" FROM qq_links WHERE server_id=${server.id} AND member_id=${qqMemberId} AND user_id IS NULL`
+		);
+		verified = binding ? { steamId: binding.steamId } : undefined;
+	}
 	// The public status switch is the same one used by public routes. Private servers need
 	// an actual server grant; knowing an ID does not grant the right to create reports.
 	if (!effectiveFeatures(org, server).status && qqServerId !== server.id) {

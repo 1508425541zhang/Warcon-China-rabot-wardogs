@@ -15,6 +15,7 @@ import {
 import { hasTestDb, testEnv } from './db';
 import { callLoad, stubGateway } from './call';
 import { seedWorld, type World } from './world';
+import { saveAssessmentMode } from '$lib/server/integrity/rules';
 import { loadPlayerIntegrity } from '$lib/server/integrity/player-view';
 
 const ROUTES = join(import.meta.dir, '..', 'routes', '(app)', 'server', '[id]');
@@ -40,6 +41,14 @@ describe.skipIf(!hasTestDb)('Integrity and Player Dossier page loads', () => {
 		env = await testEnv();
 		stubGateway();
 		world = await seedWorld(env);
+		await saveAssessmentMode(
+			env,
+			new Request('http://localhost/test'),
+			world.users.owner!,
+			world.org.id,
+			'legacy',
+			''
+		);
 	});
 	test('both pages load without a score or optional Integrity records', async () => {
 		const result = await loadBoth();
@@ -50,12 +59,10 @@ describe.skipIf(!hasTestDb)('Integrity and Player Dossier page loads', () => {
 		await env.db
 			.insert(steamProfiles)
 			.values({ steamId: PLAYER, vacBans: 1, daysSinceLastBan: 30 });
-		await env.db
-			.insert(serverLive)
-			.values({
-				serverId: world.server.id,
-				players: [{ steamId: PLAYER, name: 'VAC test', kills: 0, deaths: 0 }]
-			});
+		await env.db.insert(serverLive).values({
+			serverId: world.server.id,
+			players: [{ steamId: PLAYER, name: 'VAC test', kills: 0, deaths: 0 }]
+		});
 		try {
 			const result = await loadBoth();
 			expect(result.player.integrity.riskScore).toBe(8);
@@ -125,6 +132,7 @@ describe.skipIf(!hasTestDb)('Integrity and Player Dossier page loads', () => {
 			ruleVersion: 1,
 			riskScore: 55,
 			riskBreakdown: [],
+			statistical: { level: 'WATCH' },
 			snapshot: { behaviorReasons: ['kpm'] }
 		});
 		const result = await loadBoth();
@@ -133,7 +141,7 @@ describe.skipIf(!hasTestDb)('Integrity and Player Dossier page loads', () => {
 		expect(result.integrity.reports).toHaveLength(1);
 		expect(result.player.integrity.latestWindow.kpm180).toBe(4);
 	});
-	test('historical window count does not count an upgraded score twice', async () => {
+	test('history panel is removed while saved score upgrades remain available', async () => {
 		const [window] = await env.db
 			.select()
 			.from(integrityWindows)
@@ -152,9 +160,7 @@ describe.skipIf(!hasTestDb)('Integrity and Player Dossier page loads', () => {
 		});
 		const result = await loadBoth();
 		expect(result.integrity.scores).toHaveLength(2);
-		expect(
-			result.integrity.dryRun.every((period: { windows: number }) => period.windows === 1)
-		).toBe(true);
+		expect(result.integrity).not.toHaveProperty('dryRun');
 	});
 	test('player with no kills uses the server feed; another player advances the rolling clock', async () => {
 		const now = new Date();

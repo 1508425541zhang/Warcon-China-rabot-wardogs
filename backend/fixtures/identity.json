@@ -1,0 +1,3463 @@
+{
+  "authSecret": "identity-fixture-secret-longer-than-32-bytes",
+  "passwords": [
+    {
+      "password": "PasswordForTest123!",
+      "hash": "0123456789abcdef0123456789abcdef:43e1474ff11b0094f2fc35d4f2f35d3cfc8c148912bae8cd49577fbf3dcda6148937054e44ddc50c8fce5388aac9981c87dd7e99e3aeccae5a02a2a8c941c06a"
+    },
+    {
+      "password": "ＰａｓｓｗｏｒｄForTest１２３!",
+      "hash": "0123456789abcdef0123456789abcdef:43e1474ff11b0094f2fc35d4f2f35d3cfc8c148912bae8cd49577fbf3dcda6148937054e44ddc50c8fce5388aac9981c87dd7e99e3aeccae5a02a2a8c941c06a"
+    },
+    {
+      "password": "密碼ForTest123!",
+      "hash": "0123456789abcdef0123456789abcdef:7bb3a80c771a70e5d69f021bb2319d7f046adb06c372b338dd081d5bb727bd88ed00fc0a395322d05d29ce1071cc2d3796ffe93748b440e2abf3cfb5a01d2fdb"
+    }
+  ],
+  "plaintext": "SyntheticTotpSecret0123456789ABCD",
+  "factor": "000102030405060708090a0b0c0d0e0f101112131415161751d46e471028017d6a3ea3f3b7bbbdb6a34c3ee10bb395eb30c94eac8affd1eb1c7a05554f9c6cd9f0d700109fed7a1a8b",
+  "otp": [
+    {
+      "seconds": 59,
+      "code": "708110"
+    },
+    {
+      "seconds": 1111111109,
+      "code": "516897"
+    },
+    {
+      "seconds": 1234567890,
+      "code": "785693"
+    },
+    {
+      "seconds": 1790812800,
+      "code": "335677"
+    }
+  ],
+  "enrolments": [
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": false,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 6,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": false,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 0,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have no safe way in yet. Add a passkey or link Discord or Steam, then add a second one.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": false,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": false,
+        "problems": [
+          "Your password has no second factor. Turn on an authenticator app, or add a passkey and remove the password."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 1,
+        "complete": false,
+        "problems": [
+          "You have only one way in. Add a second: another passkey, a linked Discord or Steam account, or a recovery key.",
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 0,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 2,
+        "complete": false,
+        "problems": [
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 1,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 3,
+        "complete": false,
+        "problems": [
+          "Owners cannot be reset by anyone else, so link Discord or Steam or save a recovery key."
+        ]
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "credential"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 4,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": false
+      },
+      "result": {
+        "waysIn": 5,
+        "complete": true,
+        "problems": []
+      }
+    },
+    {
+      "owner": true,
+      "methods": {
+        "password": true,
+        "twoFactor": true,
+        "passkeys": 2,
+        "providers": [
+          "discord",
+          "steam"
+        ],
+        "recoveryKey": true
+      },
+      "result": {
+        "waysIn": 6,
+        "complete": true,
+        "problems": []
+      }
+    }
+  ],
+  "cookie": "warcon.session_token=fixture-session-token.mKbZoFwtBBXHVMeKhqceEvBOp8sD8KYed39vh93hrH8%3D",
+  "cookieToken": "fixture-session-token"
+}

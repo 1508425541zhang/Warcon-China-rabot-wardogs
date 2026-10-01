@@ -1,4 +1,10 @@
 export const qqProviders = {
+	official: {
+		name: '腾讯官方 QQ 机器人',
+		placeholder: 'https://api.bot.qq.com',
+		guide: 'https://bot.q.qq.com/wiki/develop/api-v2/',
+		setup: '使用 QQ 开放平台 AppID 与 AppSecret，直接连接腾讯官方 WebSocket 网关。群规则填写事件中的 group_openid；Webhook 回调也支持 Ed25519 验签。'
+	},
 	napcat: {
 		name: 'NapCat',
 		placeholder: 'http://127.0.0.1:3001',

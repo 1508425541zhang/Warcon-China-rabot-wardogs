@@ -1,0 +1,350 @@
+{
+  "sourceCheckpointSha256": "5290f9fe543fd92198fddf3333cdff4aa8586ad24e6fc5a7dd53dc53d50c7e2c",
+  "tensors": {
+    "embedding.value_embedding.tokenConv.weight": {
+      "shape": [
+        128,
+        27,
+        3
+      ],
+      "offset": 0,
+      "length": 10368
+    },
+    "embedding.position_embedding.pe": {
+      "shape": [
+        1,
+        60,
+        128
+      ],
+      "offset": 10368,
+      "length": 7680
+    },
+    "encoder.attn_layers.0.attention.norm.weight": {
+      "shape": [
+        128
+      ],
+      "offset": 18048,
+      "length": 128
+    },
+    "encoder.attn_layers.0.attention.norm.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 18176,
+      "length": 128
+    },
+    "encoder.attn_layers.0.attention.query_projection.weight": {
+      "shape": [
+        128,
+        128
+      ],
+      "offset": 18304,
+      "length": 16384
+    },
+    "encoder.attn_layers.0.attention.query_projection.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 34688,
+      "length": 128
+    },
+    "encoder.attn_layers.0.attention.key_projection.weight": {
+      "shape": [
+        128,
+        128
+      ],
+      "offset": 34816,
+      "length": 16384
+    },
+    "encoder.attn_layers.0.attention.key_projection.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 51200,
+      "length": 128
+    },
+    "encoder.attn_layers.0.attention.value_projection.weight": {
+      "shape": [
+        128,
+        128
+      ],
+      "offset": 51328,
+      "length": 16384
+    },
+    "encoder.attn_layers.0.attention.value_projection.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 67712,
+      "length": 128
+    },
+    "encoder.attn_layers.0.attention.sigma_projection.weight": {
+      "shape": [
+        4,
+        128
+      ],
+      "offset": 67840,
+      "length": 512
+    },
+    "encoder.attn_layers.0.attention.sigma_projection.bias": {
+      "shape": [
+        4
+      ],
+      "offset": 68352,
+      "length": 4
+    },
+    "encoder.attn_layers.0.attention.out_projection.weight": {
+      "shape": [
+        128,
+        128
+      ],
+      "offset": 68356,
+      "length": 16384
+    },
+    "encoder.attn_layers.0.attention.out_projection.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 84740,
+      "length": 128
+    },
+    "encoder.attn_layers.0.conv1.weight": {
+      "shape": [
+        256,
+        128,
+        1
+      ],
+      "offset": 84868,
+      "length": 32768
+    },
+    "encoder.attn_layers.0.conv1.bias": {
+      "shape": [
+        256
+      ],
+      "offset": 117636,
+      "length": 256
+    },
+    "encoder.attn_layers.0.conv2.weight": {
+      "shape": [
+        128,
+        256,
+        1
+      ],
+      "offset": 117892,
+      "length": 32768
+    },
+    "encoder.attn_layers.0.conv2.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 150660,
+      "length": 128
+    },
+    "encoder.attn_layers.0.norm1.weight": {
+      "shape": [
+        128
+      ],
+      "offset": 150788,
+      "length": 128
+    },
+    "encoder.attn_layers.0.norm1.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 150916,
+      "length": 128
+    },
+    "encoder.attn_layers.0.norm2.weight": {
+      "shape": [
+        128
+      ],
+      "offset": 151044,
+      "length": 128
+    },
+    "encoder.attn_layers.0.norm2.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 151172,
+      "length": 128
+    },
+    "encoder.attn_layers.1.attention.norm.weight": {
+      "shape": [
+        128
+      ],
+      "offset": 151300,
+      "length": 128
+    },
+    "encoder.attn_layers.1.attention.norm.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 151428,
+      "length": 128
+    },
+    "encoder.attn_layers.1.attention.query_projection.weight": {
+      "shape": [
+        128,
+        128
+      ],
+      "offset": 151556,
+      "length": 16384
+    },
+    "encoder.attn_layers.1.attention.query_projection.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 167940,
+      "length": 128
+    },
+    "encoder.attn_layers.1.attention.key_projection.weight": {
+      "shape": [
+        128,
+        128
+      ],
+      "offset": 168068,
+      "length": 16384
+    },
+    "encoder.attn_layers.1.attention.key_projection.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 184452,
+      "length": 128
+    },
+    "encoder.attn_layers.1.attention.value_projection.weight": {
+      "shape": [
+        128,
+        128
+      ],
+      "offset": 184580,
+      "length": 16384
+    },
+    "encoder.attn_layers.1.attention.value_projection.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 200964,
+      "length": 128
+    },
+    "encoder.attn_layers.1.attention.sigma_projection.weight": {
+      "shape": [
+        4,
+        128
+      ],
+      "offset": 201092,
+      "length": 512
+    },
+    "encoder.attn_layers.1.attention.sigma_projection.bias": {
+      "shape": [
+        4
+      ],
+      "offset": 201604,
+      "length": 4
+    },
+    "encoder.attn_layers.1.attention.out_projection.weight": {
+      "shape": [
+        128,
+        128
+      ],
+      "offset": 201608,
+      "length": 16384
+    },
+    "encoder.attn_layers.1.attention.out_projection.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 217992,
+      "length": 128
+    },
+    "encoder.attn_layers.1.conv1.weight": {
+      "shape": [
+        256,
+        128,
+        1
+      ],
+      "offset": 218120,
+      "length": 32768
+    },
+    "encoder.attn_layers.1.conv1.bias": {
+      "shape": [
+        256
+      ],
+      "offset": 250888,
+      "length": 256
+    },
+    "encoder.attn_layers.1.conv2.weight": {
+      "shape": [
+        128,
+        256,
+        1
+      ],
+      "offset": 251144,
+      "length": 32768
+    },
+    "encoder.attn_layers.1.conv2.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 283912,
+      "length": 128
+    },
+    "encoder.attn_layers.1.norm1.weight": {
+      "shape": [
+        128
+      ],
+      "offset": 284040,
+      "length": 128
+    },
+    "encoder.attn_layers.1.norm1.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 284168,
+      "length": 128
+    },
+    "encoder.attn_layers.1.norm2.weight": {
+      "shape": [
+        128
+      ],
+      "offset": 284296,
+      "length": 128
+    },
+    "encoder.attn_layers.1.norm2.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 284424,
+      "length": 128
+    },
+    "encoder.norm.weight": {
+      "shape": [
+        128
+      ],
+      "offset": 284552,
+      "length": 128
+    },
+    "encoder.norm.bias": {
+      "shape": [
+        128
+      ],
+      "offset": 284680,
+      "length": 128
+    },
+    "projection.weight": {
+      "shape": [
+        27,
+        128
+      ],
+      "offset": 284808,
+      "length": 3456
+    },
+    "projection.bias": {
+      "shape": [
+        27
+      ],
+      "offset": 288264,
+      "length": 27
+    }
+  }
+}

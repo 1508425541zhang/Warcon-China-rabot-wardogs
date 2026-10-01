@@ -1,0 +1,1966 @@
+[
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "测试插件",
+      "description": "",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [],
+      "renderer": "round-summary"
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "测试插件",
+      "description": "",
+      "version": "1.0.0",
+      "renderer": "round-summary",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": []
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "players",
+          "title": "名单",
+          "columns": [
+            "name",
+            "steamId"
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "测试插件",
+      "description": "",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "players",
+          "title": "名单",
+          "columns": [
+            "name",
+            "steamId"
+          ],
+          "limit": 10,
+          "sortBy": "kills"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "text",
+          "title": "说明",
+          "text": ""
+        }
+      ]
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "测试插件",
+      "description": "",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "text",
+          "title": "说明",
+          "text": ""
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": null,
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": false,
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": 0,
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "a",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "A",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "<script>",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": {},
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": [],
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": [
+        "invalid"
+      ],
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": null,
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": false,
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": 0,
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "a",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "a",
+      "description": "",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "A",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "A",
+      "description": "",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "<script>",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "<script>",
+      "description": "",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": {},
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": [],
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": [
+        "invalid"
+      ],
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "description": null
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "description": false
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "description": 0
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "description": ""
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "测试插件",
+      "description": "",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "description": "a"
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "测试插件",
+      "description": "a",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "description": "A"
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "测试插件",
+      "description": "A",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "description": "<script>"
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "测试插件",
+      "description": "<script>",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "description": {}
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "description": []
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "description": [
+        "invalid"
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "version": null
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "version": false
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "version": 0
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "version": ""
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "version": "a"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "version": "A"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "version": "<script>"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "version": {}
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "version": []
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "version": [
+        "invalid"
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "renderer": null
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "renderer": false
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "renderer": 0
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "renderer": ""
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "renderer": "a"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "renderer": "A"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "renderer": "<script>"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "renderer": {}
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "renderer": []
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "renderer": [
+        "invalid"
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": null,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": false,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 0,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": "",
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": "a",
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": "A",
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": "<script>",
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": {},
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": [],
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": [
+        "invalid"
+      ],
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": null
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": false
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": 0
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": ""
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": "a"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": "A"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": "<script>"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": {}
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": []
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        "invalid"
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": null
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": false
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": 0
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": ""
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": "a"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": "A"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": "<script>"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": {}
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "测试插件",
+      "description": "",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": []
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": [
+        "invalid"
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": {
+        "columns": 0
+      }
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": {
+        "columns": 3.5
+      }
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": {
+        "columns": 4
+      }
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": {
+        "columns": "2"
+      }
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": {
+        "accent": "#000000"
+      }
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "测试插件",
+      "description": "",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#000000",
+        "columns": 2,
+        "density": "comfortable"
+      },
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": {
+        "accent": "#000"
+      }
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": {
+        "density": "compact"
+      }
+    },
+    "valid": true,
+    "result": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": "测试插件",
+      "description": "",
+      "version": "1.0.0",
+      "renderer": "cards",
+      "style": {
+        "accent": "#69d6e3",
+        "columns": 2,
+        "density": "compact"
+      },
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": {
+        "density": "x"
+      }
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "style": {
+        "script": "evil"
+      }
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "x",
+          "metric": "password"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "text",
+          "title": "x",
+          "text": "x",
+          "html": "x"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "players",
+          "title": "x",
+          "columns": []
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "players",
+          "title": "x",
+          "columns": [
+            "name"
+          ],
+          "limit": 51
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "players",
+          "title": "x",
+          "columns": [
+            "name"
+          ],
+          "sortBy": "steamId"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ],
+      "html": "evil"
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": [
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        },
+        {
+          "type": "metric",
+          "title": "在线",
+          "metric": "online"
+        }
+      ]
+    },
+    "valid": false,
+    "result": null
+  },
+  {
+    "input": {
+      "apiVersion": 1,
+      "id": "test-plugin",
+      "name": " 测试插件 ",
+      "widgets": []
+    },
+    "valid": false,
+    "result": null
+  }
+]

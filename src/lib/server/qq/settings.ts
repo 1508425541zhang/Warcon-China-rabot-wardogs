@@ -6,6 +6,7 @@ import { siteSettings, servers } from '../db/schema';
 import { encryptSecret, decryptSecret } from '../crypto';
 import { ApiError } from '../http';
 import { qqProviders } from '$lib/qq-providers';
+import { OfficialQqClient } from './official';
 import {
 	applyQqConfiguration,
 	environmentQqConfiguration,
@@ -26,6 +27,7 @@ function decode(env: Env, value: Stored): QqConfiguration {
 	return {
 		...value,
 		provider: qqProviderSchema.parse(value.provider || 'napcat'),
+		policies: parsePolicies(JSON.stringify(value.policies)),
 		token: value.tokenEnc ? decryptSecret(env, value.tokenEnc) : '',
 		secret: value.secretEnc ? decryptSecret(env, value.secretEnc) : ''
 	};
@@ -78,7 +80,7 @@ export async function saveQqSettings(env: Env, input: unknown, userId: string) {
 			throw new ApiError(400, '密钥至少 16 个字符，且不能包含空白或控制字符。');
 	if (patch.url || patch.selfId || patch.enabled) {
 		try {
-			patch.url = validateQqConnection(patch.url, patch.selfId);
+			patch.url = validateQqConnection(patch.url, patch.selfId, patch.provider);
 		} catch (e) {
 			throw new ApiError(400, (e as Error).message);
 		}
@@ -89,9 +91,13 @@ export async function saveQqSettings(env: Env, input: unknown, userId: string) {
 		if (patch.revision !== (row ? (row.value as Stored).revision : 'environment'))
 			throw new ApiError(409, '配置已被其他管理员修改。请重新加载后再保存。');
 		const previous = row ? decode(env, row.value as Stored) : environmentQqConfiguration();
-		const token = patch.clearToken ? '' : patch.token || previous.token;
-		const secret = patch.clearSecret ? '' : patch.secret || previous.secret;
-		if (patch.enabled && (!token || !secret)) throw new ApiError(400, '启用前请填写两项密钥。');
+		const provider = patch.provider ?? previous.provider;
+		const same = provider === previous.provider && patch.selfId === previous.selfId;
+		const token = patch.clearToken ? '' : patch.token || (same ? previous.token : '');
+		const secret = patch.clearSecret ? '' : patch.secret || (same ? previous.secret : '');
+		if (patch.enabled && (!secret || (provider !== 'official' && !token))) throw new ApiError(400, provider === 'official' ? '启用前请填写 AppSecret。' : '启用前请填写两项密钥。');
+		if (provider === 'official' && policies.some(p => p.groups.some(g => !/^[A-Za-z0-9_-]{16,128}$/.test(g))))
+			throw new ApiError(400, '官方机器人群规则需要 group_openid，不能使用数字 QQ 群号。');
 		if (patch.enabled && !policies.some((p) => p.enabled))
 			throw new ApiError(400, '启用前请至少添加一项启用的服务器规则。');
 		const valid = new Set((await tx.select({ id: servers.id }).from(servers)).map((s) => s.id));
@@ -122,6 +128,12 @@ export async function saveQqSettings(env: Env, input: unknown, userId: string) {
 export async function testQqConnection(env: Env, fetcher: typeof fetch = fetch) {
 	const [row] = await env.db.select().from(siteSettings).where(eq(siteSettings.key, KEY));
 	const c = row ? decode(env, row.value as Stored) : environmentQqConfiguration();
+	if (c.provider === 'official') {
+		validateQqConnection(c.url, c.selfId, c.provider);
+		if (!c.secret || !(await new OfficialQqClient(c.selfId,c.secret,fetcher).loggedIn(c.selfId)))
+			throw new ApiError(502, '腾讯官方鉴权失败，请检查 AppID、AppSecret 和服务器 IP 白名单。');
+		return { ok: true, selfId:c.selfId, message:'腾讯官方 AppID 鉴权成功。群事件与回复需在授权群 @机器人 /帮助 验证。' };
+	}
 	if (!c.url || !c.selfId || !c.token)
 		throw new ApiError(400, '请先保存连接地址、QQ 号和 API 密钥。');
 	const url = validateQqConnection(c.url, c.selfId);

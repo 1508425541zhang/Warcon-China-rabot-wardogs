@@ -6,7 +6,14 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
 import type { Env } from '$lib/server/env';
-import { organizations, outbox, playerMarks, servers, triggers } from '$lib/server/db/schema';
+import {
+	organizations,
+	outbox,
+	playerMarks,
+	servers,
+	triggers,
+	trainingObservations
+} from '$lib/server/db/schema';
 import { newId } from '$lib/server/http';
 import { acquireOrRenew, releaseOwnership } from '$lib/server/leadership';
 import { forgetMemory, memoryFor, observeServer } from '$lib/server/observe';
@@ -101,6 +108,28 @@ describe.skipIf(!hasTestDb)('the risk kick rule on a live look', () => {
 			).filter((r) => r.action === 'kick');
 		return { m, look, kicksOf };
 	};
+
+	test('archives unchanged raw replies and keeps a status reply when player polling fails', async () => {
+		const { m, look } = await watch(w.server.id);
+		const archived = () =>
+			env.db
+				.select()
+				.from(trainingObservations)
+				.where(eq(trainingObservations.serverId, w.server.id));
+		const before = (await archived()).length;
+		await look(GOOD);
+		await look(GOOD);
+		const rows = (await archived()).slice(before);
+		expect(rows.length).toBe(4);
+		const raw = rows.find((r) => r.endpoint === '/v1/players')!.payload as any;
+		expect(raw.players[0].steamId).toBe(GOOD);
+		expect(raw.players[0]).not.toHaveProperty('deaths');
+		expect(raw.players[0]).not.toHaveProperty('cash');
+		lists.set(w.server.id, 'invalid-player-list' as any);
+		await observeServer(env, m, { status: true, players: true });
+		expect((await archived()).length).toBe(before + 5);
+		await look(GOOD);
+	});
 
 	test('kicks at the join, again at a reconnect inside the grace, and whoever was on first', async () => {
 		const { m, look, kicksOf } = await watch(w.server.id);

@@ -1,0 +1,10 @@
+import {writeFileSync} from 'node:fs';
+import {pluginManifestSchema} from '../../src/lib/plugins/sdk';
+const base={apiVersion:1,id:'test-plugin',name:' 测试插件 ',widgets:[{type:'metric',title:'在线',metric:'online'}]};
+const inputs:any[]=[base,{...base,renderer:'round-summary',widgets:[]},{...base,widgets:[{type:'players',title:'名单',columns:['name','steamId']}]},{...base,widgets:[{type:'text',title:'说明',text:''}]}];
+for(const field of ['id','name','description','version','renderer','apiVersion','widgets','style']) for(const value of [null,false,0,'','a','A','<script>',{},[],['invalid']])inputs.push({...base,[field]:value});
+for(const style of [{columns:0},{columns:3.5},{columns:4},{columns:'2'},{accent:'#000000'},{accent:'#000'},{density:'compact'},{density:'x'},{script:'evil'}])inputs.push({...base,style});
+for(const widget of [{type:'metric',title:'x',metric:'password'},{type:'text',title:'x',text:'x',html:'x'},{type:'players',title:'x',columns:[]},{type:'players',title:'x',columns:['name'],limit:51},{type:'players',title:'x',columns:['name'],sortBy:'steamId'}])inputs.push({...base,widgets:[widget]});
+inputs.push({...base,html:'evil'}, {...base,widgets:Array(13).fill(base.widgets[0])},{...base,widgets:[]});
+const cases=inputs.map(input=>{const p=pluginManifestSchema.safeParse(input);return{input,valid:p.success,result:p.success?p.data:null}});
+writeFileSync(new URL('./plugins.json',import.meta.url),JSON.stringify(cases,null,2)+'\n');console.log(JSON.stringify({cases:cases.length}));

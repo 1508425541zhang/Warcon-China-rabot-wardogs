@@ -6,7 +6,10 @@ import { addServerEntry } from '../lists';
 import { qqCredentials, qqPolicy } from './config';
 import { loadQqSettings } from './settings';
 import { closeVotes, command, communityServer } from './community';
-import { QqClient, type RosterPlayer } from './protocol';
+import { QqClient, type QqTransport, type RosterPlayer } from './protocol';
+import { OfficialQqClient, OfficialGateway, validQqIdentity } from './official';
+import { acceptOfficialEvent } from './official-inbox';
+import { processIntegrityNotice } from './integrity-notices';
 
 type Order = {
 	id: string;
@@ -116,15 +119,15 @@ export async function deliverOrder(env: Env, order: Order) {
 	);
 }
 
-export async function processMessage(env: Env, client: QqClient, selfId?: string) {
+export async function processMessage(env: Env, client: QqTransport, selfId?: string) {
 	const [message] = await env.db
 		.execute<Message>(sql`UPDATE qq_inbox SET state='processing',started_at=now()
 	 WHERE id=(SELECT id FROM qq_inbox WHERE state='pending' ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING *`);
 	if (!message) return;
 	if (
-		!message.id.startsWith('ob11:') ||
-		(selfId !== undefined && !message.id.startsWith(`ob11:${selfId}:`)) ||
-		!/^ob11:[1-9]\d+$/.test(message.member_id) ||
+		!(message.id.startsWith('ob11:') || message.id.startsWith('official:')) ||
+		(selfId !== undefined && !message.id.startsWith(`${client instanceof OfficialQqClient ? 'official' : 'ob11'}:${selfId}:`)) ||
+		!validQqIdentity(message.member_id) ||
 		Date.now() - new Date(message.created_at).getTime() > 240000 ||
 		!qqPolicy(message.server_id)?.groups.includes(message.group_id)
 	) {
@@ -159,6 +162,7 @@ declare global {
 	var __warconQq: ReturnType<typeof setInterval> | undefined;
 }
 let active: Promise<void> | null = null;
+let official: { fingerprint: string; client: OfficialQqClient; gateway: OfficialGateway } | null = null;
 
 export function startQq(env: Env) {
 	if (globalThis.__warconQq) clearInterval(globalThis.__warconQq);
@@ -167,8 +171,20 @@ export function startQq(env: Env) {
 		active = (async () => {
 			await loadQqSettings(env);
 			const credentials = qqCredentials();
-			if (credentials)
+			if (credentials?.provider === 'official') {
+				const fingerprint = credentials.selfId + ':' + credentials.secret;
+				if (official?.fingerprint !== fingerprint) {
+					official?.gateway.stop();
+					const client = new OfficialQqClient(credentials.selfId, credentials.secret);
+					const gateway = new OfficialGateway(client, (payload) => acceptOfficialEvent(env, payload, credentials.selfId));
+					official = { fingerprint, client, gateway }; gateway.start();
+				}
+				await pass(env, official.client, credentials.selfId);
+			} else {
+				official?.gateway.stop(); official = null;
+				if (credentials)
 				await pass(env, new QqClient(credentials.url, credentials.token), credentials.selfId);
+			}
 		})()
 			.catch((error) => {
 				console.error('[qq]', publicMessage(error));
@@ -179,12 +195,13 @@ export function startQq(env: Env) {
 	}, 1000);
 }
 export async function stopQq() {
+	official?.gateway.stop(); official = null;
 	if (globalThis.__warconQq) clearInterval(globalThis.__warconQq);
 	globalThis.__warconQq = undefined;
 	await active;
 }
 
-async function pass(env: Env, client: QqClient, selfId: string) {
+async function pass(env: Env, client: QqTransport, selfId: string) {
 	// Cross-process advisory lock: a slow recipient loop must never race another web replica.
 	const connection = await env.sql.reserve();
 	try {
@@ -205,6 +222,7 @@ async function pass(env: Env, client: QqClient, selfId: string) {
 				sql`UPDATE qq_inbox SET reply_state='unknown' WHERE reply_state='sending'`
 			);
 			await processMessage(env, client, selfId);
+			await processIntegrityNotice(env, client, selfId);
 			await closeVotes(env);
 			const [order] = await env.db.execute<Order>(
 				sql`UPDATE qq_orders SET state='processing',started_at=now() WHERE id=(SELECT id FROM qq_orders WHERE state='pending' ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING *`

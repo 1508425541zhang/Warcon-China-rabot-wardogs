@@ -1,3 +1,4 @@
+import { committeeEnabled } from '$lib/integrity-engines';
 import { and, eq, gte, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Env } from '../env';
 import { vipFor } from '../qq/vip';
@@ -125,6 +126,8 @@ export async function enforceIntegrityCase(
 			!(row.autoKickEnabled || row.autoQuarantine24hEnabled || row.autoQuarantine7dEnabled)
 		)
 			return { decision: 'OBSERVE' as IntegrityDecision, circuit: false };
+		if (row.assessmentMode !== 'legacy' && row.assessmentMode !== 'statistical')
+			return { decision: 'OBSERVE' as const, circuit: false };
 		const config = validateIntegrityRules(row.config as Record<string, unknown>);
 		const settings: EnforcementSettings = {
 			autoKickEnabled: row.autoKickEnabled,

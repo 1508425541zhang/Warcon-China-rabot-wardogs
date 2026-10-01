@@ -1,0 +1,117 @@
+import { writeFileSync } from 'node:fs';
+const production =
+	String.raw`# Native backend branch. Existing production data volume is preserved; this file is not executed remotely.
+x-native: &native
+  build:
+    context: .
+    dockerfile: Dockerfile.native
+  image: warcon-cn-native:dev
+  env_file: .env
+  environment: &native-env
+    PGHOST: db
+    PGPORT: 5432
+    PGUSER: warcon
+    PGPASSWORD: {POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    PGDATABASE: warcon
+    ORIGIN: {ORIGIN:-http://localhost:3000}
+  restart: unless-stopped
+  stop_grace_period: 20s
+services:
+  migrate:
+    <<: *native
+    command: [migrate, drizzle]
+    restart: 'no'
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    <<: *native
+    command: [warcon-api]
+    environment:
+      <<: *native-env
+      RUST_BACKEND_BIND: 0.0.0.0:4300
+      RELAY_URL: http://worker:7700
+      RELAY_SECRET: {RELAY_SECRET:?RELAY_SECRET must be set}
+      RUST_FRONTEND_TOKEN: {RUST_FRONTEND_TOKEN:?RUST_FRONTEND_TOKEN must be set}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      worker:
+        condition: service_healthy
+  worker:
+    <<: *native
+    command: [warcon-worker]
+    environment:
+      <<: *native-env
+      RUST_WORKER_BIND: 0.0.0.0:7700
+      RELAY_SECRET: {RELAY_SECRET:?RELAY_SECRET must be set}
+      RELAY_URL: ''
+      SHORT_RISK_MODEL_PATH: /app/short/isolation.json
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    healthcheck:
+      test: [CMD, warcon-health, http://127.0.0.1:7700/health]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  warcon:
+    build: .
+    image: warcon-cn-frontend:dev
+    restart: unless-stopped
+    environment:
+      ORIGIN: {ORIGIN:-http://localhost:3000}
+      RUST_BACKEND_URL: http://api:4300
+      RUST_FRONTEND_TOKEN: {RUST_FRONTEND_TOKEN:?RUST_FRONTEND_TOKEN must be set}
+      ADDRESS_HEADER: {ADDRESS_HEADER:-}
+      XFF_DEPTH: {XFF_DEPTH:-1}
+      BODY_SIZE_LIMIT: {BODY_SIZE_LIMIT:-16M}
+    ports: ['3000:3000']
+    depends_on:
+      api:
+        condition: service_healthy
+  model:
+    <<: *native
+    profiles: [model]
+    command: [warcon-model]
+    environment:
+      <<: *native-env
+      MODEL_ARTIFACTS_DIR: /models
+      MODEL_HOST: 0.0.0.0
+      MODEL_PORT: 8091
+      MODEL_API_TOKEN: {MODEL_API_TOKEN:-}
+    volumes:
+      - {MODEL_ARTIFACTS_PATH:-./models/long}:/models:ro
+    healthcheck:
+      test: [CMD, warcon-health, http://127.0.0.1:8091/v1/health, --model]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  db:
+    image: timescale/timescaledb:2.30.0-pg18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: warcon
+      POSTGRES_PASSWORD: {POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: warcon
+    volumes: [warcon-db:/var/lib/postgresql]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U warcon -d warcon]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  warcon-db:
+`.replaceAll('\u001b', '$');
+writeFileSync('docker-compose.yml', production);
+// Development uses a separate project, port and database volume. It cannot mount production data.
+const development = production
+	.replace('x-native:', 'name: warcon-rust-dev\nx-native:')
+	.replaceAll('env_file: .env', 'env_file: .env.rust.dev')
+	.replaceAll('warcon-db', 'warcon-rust-dev-db')
+	.replaceAll('timescale/timescaledb:2.30.0-pg18', 'postgres:17-bookworm')
+	.replaceAll('/var/lib/postgresql]', '/var/lib/postgresql/data]')
+	.replaceAll("ports: ['3000:3000']", "ports: ['127.0.0.1:4302:3000']")
+	.replaceAll('http://localhost:3000', 'http://localhost:4302');
+writeFileSync('compose.rust-dev.yml', development);

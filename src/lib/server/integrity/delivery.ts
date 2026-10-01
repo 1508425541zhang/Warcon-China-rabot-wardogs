@@ -1,3 +1,4 @@
+import { committeeEnabled } from '$lib/integrity-engines';
 import { and, eq } from 'drizzle-orm';
 import type { Env } from '../env';
 import { vipFor } from '../qq/vip';
@@ -50,7 +51,9 @@ export async function integrityDeliverySkipReason(
 		match.caseRow.serverId !== row.serverId ||
 		match.caseRow.steamId !== row.steamId ||
 		match.server.orgId !== match.action.orgId ||
-		(match.action.source === 'RULE' && match.caseRow.status !== 'OPEN')
+		// AUTO_ACTION marks a queued action, not a human cancellation.
+		(match.action.source === 'RULE' &&
+			(!['OPEN', 'AUTO_ACTION'].includes(match.caseRow.status) || !!match.caseRow.reviewedAt))
 	)
 		return 'Integrity action or case changed before delivery';
 	if (match.action.source === 'REVIEW') {
@@ -96,6 +99,8 @@ export async function integrityDeliverySkipReason(
 		.where(eq(integrityRules.orgId, match.action.orgId))
 		.limit(1);
 	if (!rules || rules.suspended || rules.version !== match.caseRow.ruleVersion) return DISABLED;
+	if (rules.assessmentMode !== 'legacy' && rules.assessmentMode !== 'statistical')
+		return '未选择旧规则或委员会，不执行其自动处罚';
 	if (rules.assessmentMode === 'statistical') {
 		const [state] = await env.db
 			.select()
