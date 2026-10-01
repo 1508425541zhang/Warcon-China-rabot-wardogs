@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MatchAwardEditor from '$lib/components/MatchAwardEditor.svelte';
+	import ScheduledTasks from '$lib/components/ScheduledTasks.svelte';
 	import { defaultAwards, type AwardsConfig } from '$lib/match-awards-policy';
 	import GroupControlSettings from '$lib/components/GroupControlSettings.svelte';
 	import NumericLimitSettings from '$lib/components/NumericLimitSettings.svelte';
@@ -32,6 +33,7 @@
 	let { data }: PageProps = $props();
 	let id = $derived(data.server.id);
 	let admin = $derived(can(data.server.caps, 'automation.manage'));
+	let scheduleOpen = $state(false);
 	let path = $derived(`/api/servers/${encodeURIComponent(id)}/triggers`);
 
 	/** A risk_kick rule's score threshold, 0 when off; rules saved with a level read as 20 or 50. */
@@ -810,6 +812,10 @@
 		<div class="mt-3">
 			<SkillBalanceSettings data={data.skillBalance} serverId={data.server.id} />
 		</div>
+	</details>
+	<details class="panel p-4" bind:open={scheduleOpen}>
+		<summary class="cursor-pointer font-semibold">计划任务 · {data.scheduledTasks.enabled ? '已启用' : '已暂停'}（点击设置）</summary>
+		{#if scheduleOpen}<div class="mt-4"><ScheduledTasks serverId={data.server.id} data={data.scheduledTasks} triggers={data.triggers} catalogue={data.weaponRestriction.catalogue} causes={data.weaponRestriction.rule.causes} groups={data.weaponRestriction.rule.groups} /></div>{/if}
 	</details>
 	<details class="panel p-4">
 		<summary class="cursor-pointer font-semibold"

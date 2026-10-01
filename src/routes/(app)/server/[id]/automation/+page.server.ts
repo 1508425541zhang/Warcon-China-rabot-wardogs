@@ -1,4 +1,5 @@
 import { groupControlView } from '$lib/server/group-control';
+import { scheduledTasksView } from '$lib/server/scheduled-tasks';
 import { numericLimitView } from '$lib/server/numeric-limits';
 import { skillBalanceView } from '$lib/server/skill-balance';
 import { factionLockView } from '$lib/server/faction-lock';
@@ -37,6 +38,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			]);
 		// What the kinds need before they can run here, so the Add menu and the editor can say so.
 		return {
+			scheduledTasks: await scheduledTasksView(env, server.id),
 			groupControl,
 			numericLimits,
 			skillBalance,

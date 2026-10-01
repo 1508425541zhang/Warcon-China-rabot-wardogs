@@ -4,6 +4,7 @@ import { qqPolicy } from './qq/config';
 import { runNumericLimits } from './numeric-limits';
 import { runSkillBalance } from './skill-balance';
 import { runWeaponRestrictions } from './weapon-restrictions';
+import { runScheduledTasks } from './scheduled-tasks';
 import { runFactionLock } from './faction-lock';
 import { recordPlayerProgress } from './player-progress';
 // One observation of one game server, and the worker's memory of every server it watches.
@@ -818,6 +819,10 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	if (players && saved && m.status && started - m.statusAt < 30_000)
 		await stage('progress', m, () =>
 			withOwnedTransaction(env, (tx) => recordPlayerProgress(tx, server.id, players!, ts))
+		);
+	if (look && saved && m.status && isOwner())
+		await stage('scheduled-tasks', m, () =>
+			runScheduledTasks(env, server, { now: ts, statusAt: m.statusAt, map: m.status!.map })
 		);
 	if (players && saved && m.status && isOwner())
 		await stage('faction-lock', m, () =>
