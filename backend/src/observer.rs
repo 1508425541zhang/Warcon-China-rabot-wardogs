@@ -631,6 +631,22 @@ pub async fn observe(
         let heartbeat = ts - next.heartbeat_at >= number(settings, "sessionHeartbeatMs", 30000);
         persist(&mut tx, &mut next, &diff, ts, heartbeat, &teams).await?;
         record_profiles(&mut tx, &next, ts).await?;
+        crate::qq_economy::warmth(
+            app,
+            &mut tx,
+            &next.id,
+            at(ts)
+                .ok_or_else(|| crate::error::ApiError::bad("Observation timestamp is invalid."))?,
+            &diff
+                .stayed
+                .iter()
+                .map(|p| p.steam_id.clone())
+                .collect::<Vec<_>>(),
+            gap,
+            next.players.len(),
+            trusted,
+        )
+        .await?;
         crate::steam::enqueue(
             &mut tx,
             &next

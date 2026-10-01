@@ -519,6 +519,20 @@
       "when": 1791072000000,
       "tag": "0073_rust_passkey_handles",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1791158400000,
+      "tag": "0074_rust_integrity_scores",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1791244800000,
+      "tag": "0075_rust_webhook_queue",
+      "breakpoints": true
     }
   ]
 }

@@ -66,10 +66,10 @@ Rust 不信任裸 `X-Forwarded-For`。
 
 ## Worker 当前接入情况
 
-`warcon-worker` 当前注册轮询、玩家会话、对局、原始观察归档、名单同步、Steam 档案、游戏时长和小时汇总任务，**还不能替代完整生产 Worker**。
+`warcon-worker` 当前注册轮询、玩家会话、对局、原始观察归档、名单同步、Steam 档案、游戏时长、小时汇总、Integrity 击杀消费、基线重建、长窗队列、处罚发送、Webhook 和 QQ 任务，**还不能替代完整生产 Worker**。
 它复用现有 `worker_ownership` 租约；其他 Worker 拥有数据库时会拒绝启动。
-Feed 的两个队列已有领取、排序、重试和确认基础，但完整评估和处罚消费者尚未接入，
-不会因为领到任务就把它标为处理完成。
+Integrity 队列先核对持久化事件身份和阵营前后快照，再进行评估与建案，业务成功后才确认任务。
+Legacy 消费者的自动化动作仍待迁移，它的待处理任务保持原状。
 
 ```sh
 export STEAM_API_KEY='your-development-key'
@@ -84,7 +84,29 @@ Worker 的唯一调度队列。动作不会因网络失败自动重发。排队�
 每五秒重新核对访问权限，掉线或撤权后关闭订阅。API 与 Worker 通过 PostgreSQL 通知通信。
 
 轮询测试覆盖原始日志、重连、计数重置、换图、限流、下线、租约失效和实时权限。
-自动化触发器、Integrity 消费链及其他后台任务仍在迁移清单中。
+自动化触发器、AI 审核、证据导入／保留、页面 load/actions 和前端切换仍在迁移清单中。
+
+## 风控、通知与 QQ
+
+Rust 已接入旧评分、五专家投票、逐案件地图／人数基线、个人历史、不可变案件证据和人工审核。
+人工确认违规的七天封禁与审核记录一起提交；自动处置保留人数、数据健康、VIP、冷却和频率保护。
+发送前持久化状态，超时或进程中断时标记结果未知，不重复发送。面板隔离已生效时，游戏踢出失败不会撤销隔离。
+
+基线以分页历史重放计算，每个案件只排除自身相关事件，样本按玩家和日期限制权重。
+新建案件会原子写入通知输入；Discord 排队发送、状态卡片、429 延后、撤权清理均由 Rust 完成。
+
+QQ 支持官方机器人及 OneBot 接口：签名接收、官方心跳／恢复、绑定和旧版迁移、暖服积分、地图投票、
+友方逐人广播、预留位兑换、举报和管理员订单结算。重复指令不重复扣分，结果未知的订单只允许人工核实。
+密钥沿用现有加密格式。`0074` 保留小数风险分，`0075` 增加通知输入和投递队列，不修改原始击杀数据。
+
+对照和数据库验证：
+
+```sh
+bun backend/fixtures/generate-integrity.ts
+bun backend/fixtures/generate-qq.ts
+cargo test --manifest-path backend/Cargo.toml --test integrity_parity --test qq_parity
+cargo test --manifest-path backend/Cargo.toml --test integrity_pipeline_contract --test integrity_consumer_contract --test webhook_contract --test qq_contract -- --include-ignored
+```
 
 ## 原生长窗模型服务
 

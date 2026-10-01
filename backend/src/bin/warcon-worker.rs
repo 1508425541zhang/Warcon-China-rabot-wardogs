@@ -53,6 +53,26 @@ async fn main() -> anyhow::Result<()> {
         }
     });
     let mut tasks = tokio::task::JoinSet::new();
+    macro_rules! task {
+        ($module:ident) => {{
+            let app = state.clone();
+            tasks.spawn(async move {
+                let result = warcon_backend::$module::run(app.clone()).await;
+                if result.is_err() {
+                    tracing::error!(task = stringify!($module), "Rust background task stopped");
+                    app.runtime.stop.cancel();
+                }
+            });
+        }};
+    }
+    task!(integrity_baseline_db);
+    task!(integrity_consumer);
+    task!(model_queue);
+    task!(outbox_worker);
+    task!(webhook_worker);
+    task!(webhook_status);
+    task!(qq_runtime);
+    task!(qq_gateway);
     if let Ok(path) = std::env::var("SHORT_RISK_MODEL_PATH") {
         let model = Arc::new(warcon_backend::short_model::Model::load(
             std::path::Path::new(&path),

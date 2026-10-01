@@ -211,6 +211,10 @@ pub struct Receipt {
     pub duplicates: usize,
 }
 pub async fn ingest(db: &PgPool, server: &str, body: Value, now: DateTime<Utc>) -> Result<Receipt> {
+    // Original JavaScript Date and KillView use milliseconds. Persist that same
+    // precision so a serialized event cutoff includes the event that established it.
+    let now = DateTime::from_timestamp_millis(now.timestamp_millis())
+        .ok_or_else(|| ApiError::bad("Invalid feed receipt time."))?;
     let batch = parse_batch(&body)?;
     let mut tx = db.begin().await?;
     sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")

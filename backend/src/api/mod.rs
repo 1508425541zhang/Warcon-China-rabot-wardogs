@@ -1,23 +1,31 @@
 pub mod activity;
 pub mod analytics;
 pub mod automation;
+pub mod community;
 pub mod feed_setup;
 pub mod ingest;
+pub mod integrity_cases;
+pub mod integrity_reports;
+pub mod integrity_settings;
 pub mod keys;
 pub mod kills;
 pub mod lists;
 pub mod live;
 pub mod matches;
+pub mod model_settings;
 pub mod notes;
 pub mod orgs;
 pub mod outbox;
 pub mod plugins;
 pub mod public;
+pub mod qq;
+pub mod qq_bindings;
 pub mod rcon_actions;
 pub mod roles;
 pub mod servers;
 pub mod settings;
 pub mod users;
+pub mod webhooks;
 use crate::config::AppState;
 use axum::{
     Json, Router,
@@ -55,6 +63,26 @@ pub fn router(state: AppState) -> Router {
         .route("/api/passkeys/auth",post(crate::passkeys::authenticate))
         .route("/api/passkeys/{id}",delete(crate::passkeys::delete))
         .route("/api/health",get(health))
+        .route("/api/admin/qq",get(qq::get).put(qq::put).post(qq::test))
+        .route("/api/qq/webhook",post(qq::webhook))
+        .route("/api/admin/qq/vips",get(qq::get_vips).put(qq::put_vips))
+        .route("/api/servers/{id}/qq-bindings",get(qq_bindings::get).post(qq_bindings::post))
+        .route("/api/servers/{id}/community",get(community::get).post(community::post))
+        .route("/api/account/qq",get(qq_bindings::account))
+        .route("/api/account/qq/bind",post(qq_bindings::bind))
+        .route("/api/account/qq/unbind",post(qq_bindings::unbind))
+        .route("/api/orgs/{id}/webhooks",get(webhooks::list).post(webhooks::create))
+        .route("/api/orgs/{id}/webhooks/{webhook_id}",axum::routing::patch(webhooks::update).delete(webhooks::delete))
+        .route("/api/orgs/{id}/webhooks/{webhook_id}/test",post(webhooks::test))
+        .route("/api/orgs/{id}/webhooks/{webhook_id}/card",post(webhooks::card))
+        .route("/api/orgs/{id}/integrity/rules",get(integrity_settings::get_rules).put(integrity_settings::put_rules))
+        .route("/api/orgs/{id}/integrity/model",get(model_settings::get).put(model_settings::put).post(model_settings::test))
+        .route("/api/orgs/{id}/integrity/cases/{case_id}/labels",post(integrity_cases::label))
+        .route("/api/integrity/reports",post(integrity_reports::post))
+        .route("/api/reports",post(integrity_reports::post))
+        .route("/api/orgs/{id}/integrity/mode",axum::routing::put(integrity_settings::put_mode))
+        .route("/api/orgs/{id}/integrity/enforcement",get(integrity_settings::get_enforcement).put(integrity_settings::put_enforcement))
+        .route("/api/orgs/{id}/integrity/weapons",get(integrity_settings::get_weapons).put(integrity_settings::put_weapon).delete(integrity_settings::delete_weapon))
         .route("/api/live",get(live::get))
         .route("/api/live/events",get(live::events))
         .route("/api/servers",get(servers::list).post(servers::create))

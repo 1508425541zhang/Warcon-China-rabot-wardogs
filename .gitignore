@@ -26,3 +26,4 @@ vite.config.ts.timestamp-*
 /backend/target-*
 /backend/.env
 /backend/artifacts-local
+__pycache__/

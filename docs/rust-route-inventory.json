@@ -18,31 +18,36 @@
       "method": "GET",
       "path": "/api/admin/qq",
       "source": "src/routes/api/admin/qq/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PUT",
       "path": "/api/admin/qq",
       "source": "src/routes/api/admin/qq/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/admin/qq",
       "source": "src/routes/api/admin/qq/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/admin/qq/vips",
       "source": "src/routes/api/admin/qq/vips/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PUT",
       "path": "/api/admin/qq/vips",
       "source": "src/routes/api/admin/qq/vips/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -125,19 +130,22 @@
       "method": "POST",
       "path": "/api/orgs/[id]/integrity/cases/[caseId]/labels",
       "source": "src/routes/api/orgs/[id]/integrity/cases/[caseId]/labels/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/orgs/[id]/integrity/enforcement",
       "source": "src/routes/api/orgs/[id]/integrity/enforcement/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PUT",
       "path": "/api/orgs/[id]/integrity/enforcement",
       "source": "src/routes/api/orgs/[id]/integrity/enforcement/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -161,55 +169,64 @@
       "method": "PUT",
       "path": "/api/orgs/[id]/integrity/mode",
       "source": "src/routes/api/orgs/[id]/integrity/mode/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/orgs/[id]/integrity/model",
       "source": "src/routes/api/orgs/[id]/integrity/model/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PUT",
       "path": "/api/orgs/[id]/integrity/model",
       "source": "src/routes/api/orgs/[id]/integrity/model/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/orgs/[id]/integrity/model",
       "source": "src/routes/api/orgs/[id]/integrity/model/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/orgs/[id]/integrity/rules",
       "source": "src/routes/api/orgs/[id]/integrity/rules/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PUT",
       "path": "/api/orgs/[id]/integrity/rules",
       "source": "src/routes/api/orgs/[id]/integrity/rules/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/orgs/[id]/integrity/weapons",
       "source": "src/routes/api/orgs/[id]/integrity/weapons/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PUT",
       "path": "/api/orgs/[id]/integrity/weapons",
       "source": "src/routes/api/orgs/[id]/integrity/weapons/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "DELETE",
       "path": "/api/orgs/[id]/integrity/weapons",
       "source": "src/routes/api/orgs/[id]/integrity/weapons/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -382,37 +399,43 @@
       "method": "GET",
       "path": "/api/orgs/[id]/webhooks",
       "source": "src/routes/api/orgs/[id]/webhooks/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/orgs/[id]/webhooks",
       "source": "src/routes/api/orgs/[id]/webhooks/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PATCH",
       "path": "/api/orgs/[id]/webhooks/[webhookId]",
       "source": "src/routes/api/orgs/[id]/webhooks/[webhookId]/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "DELETE",
       "path": "/api/orgs/[id]/webhooks/[webhookId]",
       "source": "src/routes/api/orgs/[id]/webhooks/[webhookId]/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/orgs/[id]/webhooks/[webhookId]/card",
       "source": "src/routes/api/orgs/[id]/webhooks/[webhookId]/card/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/orgs/[id]/webhooks/[webhookId]/test",
       "source": "src/routes/api/orgs/[id]/webhooks/[webhookId]/test/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -537,13 +560,15 @@
       "method": "POST",
       "path": "/api/qq/webhook",
       "source": "src/routes/api/qq/webhook/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/reports",
       "source": "src/routes/api/reports/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PUT",
@@ -611,13 +636,15 @@
       "method": "GET",
       "path": "/api/servers/[id]/community",
       "source": "src/routes/api/servers/[id]/community/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/servers/[id]/community",
       "source": "src/routes/api/servers/[id]/community/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
@@ -832,13 +859,15 @@
       "method": "GET",
       "path": "/api/servers/[id]/qq-bindings",
       "source": "src/routes/api/servers/[id]/qq-bindings/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "POST",
       "path": "/api/servers/[id]/qq-bindings",
       "source": "src/routes/api/servers/[id]/qq-bindings/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -1369,17 +1398,17 @@
     {
       "name": "delivery/outbox",
       "source": "src/lib/server/outbox.ts",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "name": "Integrity evaluation",
       "source": "src/lib/server/integrity/pipeline.ts",
-      "status": "pending"
+      "status": "partial"
     },
     {
       "name": "baseline rebuild",
       "source": "src/lib/server/integrity/baselines.ts",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "name": "Steam playtime",
@@ -1399,7 +1428,7 @@
     {
       "name": "long model queue",
       "source": "src/lib/server/integrity/model-runtime.ts",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "name": "expanded30m native inference / source reader / HTTP service",
@@ -1429,12 +1458,12 @@
     {
       "name": "QQ runtime",
       "source": "src/lib/server/qq/runtime.ts",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "name": "webhook delivery",
       "source": "src/lib/server/webhook-delivery.ts",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "name": "native dispatcher relay and permission-checked SSE",

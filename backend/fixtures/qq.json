@@ -1,0 +1,866 @@
+{
+  "now": 1790812800123,
+  "self": "123456",
+  "secret": "fixture-official-qq-secret",
+  "time": "1790812800",
+  "onebot": [
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "/积分"
+      },
+      "expected": {
+        "id": "ob11:123456:567890:-123",
+        "groupId": "567890",
+        "memberId": "ob11:876543",
+        "content": "/积分"
+      }
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": " [CQ:at,qq=123456] /投票 2"
+      },
+      "expected": {
+        "id": "ob11:123456:567890:-123",
+        "groupId": "567890",
+        "memberId": "ob11:876543",
+        "content": "/投票 2"
+      }
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "/友方广播 &#91;测试&#93; &amp;"
+      },
+      "expected": {
+        "id": "ob11:123456:567890:-123",
+        "groupId": "567890",
+        "memberId": "ob11:876543",
+        "content": "/友方广播 [测试] &"
+      }
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "not command"
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "/ 空格"
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "！！帮助"
+      },
+      "expected": {
+        "id": "ob11:123456:567890:-123",
+        "groupId": "567890",
+        "memberId": "ob11:876543",
+        "content": "！！帮助"
+      }
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "/x[CQ:image,file=x]"
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "/😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": [
+          {
+            "type": "at",
+            "data": {
+              "qq": "123456"
+            }
+          },
+          {
+            "type": "text",
+            "data": {
+              "text": "/战绩 玩家"
+            }
+          }
+        ]
+      },
+      "expected": {
+        "id": "ob11:123456:567890:-123",
+        "groupId": "567890",
+        "memberId": "ob11:876543",
+        "content": "/战绩 玩家"
+      }
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": [
+          {
+            "type": "image",
+            "data": {
+              "file": "x"
+            }
+          }
+        ]
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "/积分",
+        "anonymous": {}
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": "123456",
+        "message_id": -123,
+        "message": "/积分"
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "999999",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "/积分"
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "time": 1790812499,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "/积分"
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": "-99999999999999999999",
+        "message": "/积分"
+      },
+      "expected": {
+        "id": "ob11:123456:567890:-99999999999999999999",
+        "groupId": "567890",
+        "memberId": "ob11:876543",
+        "content": "/积分"
+      }
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "normal",
+        "group_id": "01234",
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "/积分"
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "time": 1790812800,
+        "self_id": "123456",
+        "post_type": "message",
+        "message_type": "group",
+        "sub_type": "anonymous",
+        "group_id": 567890,
+        "user_id": 876543,
+        "message_id": -123,
+        "message": "/积分"
+      },
+      "expected": null
+    }
+  ],
+  "official": [
+    {
+      "input": {
+        "op": 0,
+        "t": "GROUP_AT_MESSAGE_CREATE",
+        "d": {
+          "id": "id:消息_1",
+          "group_openid": "groupOpenID0123456789",
+          "author": {
+            "member_openid": "memberOpenID0123456789"
+          },
+          "timestamp": "2026-10-01T00:00:00.123Z",
+          "content": "<@!123456> /积分"
+        }
+      },
+      "expected": {
+        "id": "official:123456:groupOpenID0123456789:aWQ65raI5oGvXzE",
+        "groupId": "groupOpenID0123456789",
+        "memberId": "official:123456:memberOpenID0123456789",
+        "content": "/积分"
+      }
+    },
+    {
+      "input": {
+        "op": 0,
+        "t": "GROUP_AT_MESSAGE_CREATE",
+        "d": {
+          "id": "id:消息_1",
+          "group_openid": "groupOpenID0123456789",
+          "author": {
+            "member_openid": "memberOpenID0123456789"
+          },
+          "timestamp": "2026-10-01T00:00:00.123Z",
+          "content": "plain message"
+        }
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "op": 0,
+        "t": "GROUP_AT_MESSAGE_CREATE",
+        "d": {
+          "id": "id:消息_1",
+          "group_openid": "groupOpenID0123456789",
+          "author": {
+            "member_openid": "memberOpenID0123456789"
+          },
+          "timestamp": "2026-10-01T00:00:00.123Z",
+          "content": "<@!123456> /积分",
+          "attachments": [
+            {}
+          ]
+        }
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "op": 0,
+        "t": "GROUP_AT_MESSAGE_CREATE",
+        "d": {
+          "id": "id:消息_1",
+          "group_openid": "groupOpenID0123456789",
+          "author": {
+            "member_openid": "memberOpenID0123456789"
+          },
+          "timestamp": "2026-09-30T23:55:00.122Z",
+          "content": "<@!123456> /积分"
+        }
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "op": 0,
+        "t": "GROUP_AT_MESSAGE_CREATE",
+        "d": {
+          "id": "id:消息_1",
+          "group_openid": "groupOpenID0123456789",
+          "author": {
+            "member_openid": "memberOpenID0123456789",
+            "bot": true
+          },
+          "timestamp": "2026-10-01T00:00:00.123Z",
+          "content": "<@!123456> /积分"
+        }
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "op": 0,
+        "t": "GROUP_AT_MESSAGE_CREATE",
+        "d": {
+          "id": "id:消息_1",
+          "group_openid": "groupOpenID0123456789",
+          "author": {
+            "member_openid": "memberOpenID0123456789"
+          },
+          "timestamp": "2026-10-01T00:00:00.123Z",
+          "content": " /战绩 张三"
+        }
+      },
+      "expected": {
+        "id": "official:123456:groupOpenID0123456789:aWQ65raI5oGvXzE",
+        "groupId": "groupOpenID0123456789",
+        "memberId": "official:123456:memberOpenID0123456789",
+        "content": "/战绩 张三"
+      }
+    }
+  ],
+  "commands": [
+    {
+      "content": " /积分  ",
+      "expected": {
+        "name": "积分",
+        "arg": ""
+      }
+    },
+    {
+      "content": "！投票   2",
+      "expected": {
+        "name": "投票",
+        "arg": "2"
+      }
+    },
+    {
+      "content": "<@!123456> /战绩 小王",
+      "expected": {
+        "name": "战绩",
+        "arg": "小王"
+      }
+    },
+    {
+      "content": "!!帮助",
+      "expected": {
+        "name": "!帮助",
+        "arg": ""
+      }
+    },
+    {
+      "content": "/",
+      "expected": {
+        "name": "帮助",
+        "arg": ""
+      }
+    },
+    {
+      "content": " /友方广播 a\nb",
+      "expected": {
+        "name": "友方广播",
+        "arg": "a\nb"
+      }
+    }
+  ],
+  "battles": [
+    {
+      "status": {
+        "serverName": "测试服务器",
+        "map": "Europe",
+        "matchSeconds": 123,
+        "scoreCap": 100,
+        "scores": [
+          {
+            "name": "RED",
+            "score": 70,
+            "colorHex": "#ff0000"
+          },
+          {
+            "name": "BLU",
+            "score": 30,
+            "colorHex": "#0000ff"
+          },
+          {
+            "name": "GRN",
+            "score": 20,
+            "colorHex": "#00ff00"
+          }
+        ]
+      },
+      "roster": [
+        {
+          "steamId": "76561198000000001",
+          "name": "张三",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000002",
+          "name": "李四",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000003",
+          "name": "王五",
+          "faction": "GRN"
+        }
+      ],
+      "page": 1,
+      "expected": "测试服务器 · Europe\n已进行 2分3秒；在线 3 人\n阵营比分 / 获胜目标（每格10%）\n🟥 RED · 1人 · 70 / 100\n🟥🟥🟥🟥🟥🟥🟥▫️▫️▫️ 70%\n🟦 BLU · 1人 · 30 / 100\n🟦🟦🟦▫️▫️▫️▫️▫️▫️▫️ 30%\n🟩 GRN · 1人 · 20 / 100\n🟩🟩▫️▫️▫️▫️▫️▫️▫️▫️ 20%\n在线玩家 1/1页（每页25人）\n🟥 张三 · RED\n🟦 李四 · BLU\n🟩 王五 · GRN"
+    },
+    {
+      "status": {
+        "serverName": "测试服务器",
+        "map": "Europe",
+        "matchSeconds": null,
+        "scoreCap": null,
+        "scores": [
+          {
+            "name": "RED",
+            "score": 70,
+            "colorHex": "#ff0000"
+          },
+          {
+            "name": "BLU",
+            "score": 30,
+            "colorHex": "#0000ff"
+          },
+          {
+            "name": "GRN",
+            "score": 20,
+            "colorHex": "#00ff00"
+          }
+        ]
+      },
+      "roster": [],
+      "page": 1,
+      "expected": "测试服务器 · Europe\n已进行 未知；在线 0 人\n阵营比分 / 获胜目标（每格10%）\n🟥 RED · 0人 · 70 / 未知\n胜利进度未知（接口未提供有效比分或目标）\n🟦 BLU · 0人 · 30 / 未知\n胜利进度未知（接口未提供有效比分或目标）\n🟩 GRN · 0人 · 20 / 未知\n胜利进度未知（接口未提供有效比分或目标）\n在线玩家 1/1页（每页25人）\n当前无人在线。"
+    },
+    {
+      "status": {
+        "serverName": "测试服务器",
+        "map": "Europe",
+        "matchSeconds": 123,
+        "scoreCap": 100,
+        "scores": [
+          {
+            "name": "RED",
+            "score": 70,
+            "colorHex": "#ff0000"
+          },
+          {
+            "name": "BLU",
+            "score": 30,
+            "colorHex": "#0000ff"
+          },
+          {
+            "name": "GRN",
+            "score": 20,
+            "colorHex": "#00ff00"
+          }
+        ]
+      },
+      "roster": [
+        {
+          "steamId": "76561198000000001",
+          "name": "玩家 0",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000002",
+          "name": "玩家 1",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000003",
+          "name": "玩家 2",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000004",
+          "name": "玩家 3",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000005",
+          "name": "玩家 4",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000006",
+          "name": "玩家 5",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000007",
+          "name": "玩家 6",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000008",
+          "name": "玩家 7",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000009",
+          "name": "玩家 8",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000010",
+          "name": "玩家 9",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000011",
+          "name": "玩家 10",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000012",
+          "name": "玩家 11",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000013",
+          "name": "玩家 12",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000014",
+          "name": "玩家 13",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000015",
+          "name": "玩家 14",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000016",
+          "name": "玩家 15",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000017",
+          "name": "玩家 16",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000018",
+          "name": "玩家 17",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000019",
+          "name": "玩家 18",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000020",
+          "name": "玩家 19",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000021",
+          "name": "玩家 20",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000022",
+          "name": "玩家 21",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000023",
+          "name": "玩家 22",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000024",
+          "name": "玩家 23",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000025",
+          "name": "玩家 24",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000026",
+          "name": "玩家 25",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000027",
+          "name": "玩家 26",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000028",
+          "name": "玩家 27",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000029",
+          "name": "玩家 28",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000030",
+          "name": "玩家 29",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000031",
+          "name": "玩家 30",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000032",
+          "name": "玩家 31",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000033",
+          "name": "玩家 32",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000034",
+          "name": "玩家 33",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000035",
+          "name": "玩家 34",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000036",
+          "name": "玩家 35",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000037",
+          "name": "玩家 36",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000038",
+          "name": "玩家 37",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000039",
+          "name": "玩家 38",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000040",
+          "name": "玩家 39",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000041",
+          "name": "玩家 40",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000042",
+          "name": "玩家 41",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000043",
+          "name": "玩家 42",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000044",
+          "name": "玩家 43",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000045",
+          "name": "玩家 44",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000046",
+          "name": "玩家 45",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000047",
+          "name": "玩家 46",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000048",
+          "name": "玩家 47",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000049",
+          "name": "玩家 48",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000050",
+          "name": "玩家 49",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000051",
+          "name": "玩家 50",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000052",
+          "name": "玩家 51",
+          "faction": "RED"
+        },
+        {
+          "steamId": "76561198000000053",
+          "name": "玩家 52",
+          "faction": "BLU"
+        },
+        {
+          "steamId": "76561198000000054",
+          "name": "玩家 53",
+          "faction": "GRN"
+        },
+        {
+          "steamId": "76561198000000055",
+          "name": "玩家 54",
+          "faction": "RED"
+        }
+      ],
+      "page": 2,
+      "expected": "测试服务器 · Europe\n已进行 2分3秒；在线 55 人\n阵营比分 / 获胜目标（每格10%）\n🟥 RED · 19人 · 70 / 100\n🟥🟥🟥🟥🟥🟥🟥▫️▫️▫️ 70%\n🟦 BLU · 18人 · 30 / 100\n🟦🟦🟦▫️▫️▫️▫️▫️▫️▫️ 30%\n🟩 GRN · 18人 · 20 / 100\n🟩🟩▫️▫️▫️▫️▫️▫️▫️▫️ 20%\n在线玩家 2/3页（每页25人）\n🟦 玩家 19 · BLU\n🟦 玩家 22 · BLU\n🟦 玩家 25 · BLU\n🟦 玩家 28 · BLU\n🟦 玩家 31 · BLU\n🟦 玩家 34 · BLU\n🟦 玩家 37 · BLU\n🟦 玩家 40 · BLU\n🟦 玩家 43 · BLU\n🟦 玩家 46 · BLU\n🟦 玩家 49 · BLU\n🟦 玩家 52 · BLU\n🟩 玩家 2 · GRN\n🟩 玩家 5 · GRN\n🟩 玩家 8 · GRN\n🟩 玩家 11 · GRN\n🟩 玩家 14 · GRN\n🟩 玩家 17 · GRN\n🟩 玩家 20 · GRN\n🟩 玩家 23 · GRN\n🟩 玩家 26 · GRN\n🟩 玩家 29 · GRN\n🟩 玩家 32 · GRN\n🟩 玩家 35 · GRN\n🟩 玩家 38 · GRN\n查看其余玩家：/局势 页码（1–3）"
+    }
+  ],
+  "blocks": [
+    {
+      "name": "custom",
+      "hex": "#fc0100",
+      "expected": "🟥"
+    },
+    {
+      "name": "custom",
+      "hex": "#0304fe",
+      "expected": "🟦"
+    },
+    {
+      "name": "GRN",
+      "hex": "",
+      "expected": "🟩"
+    },
+    {
+      "name": "other",
+      "hex": "#444444",
+      "expected": "⬜"
+    }
+  ],
+  "hmac": {
+    "body": "{\"time\":1790812800,\"self_id\":\"123456\",\"post_type\":\"message\",\"message_type\":\"group\",\"sub_type\":\"normal\",\"group_id\":567890,\"user_id\":876543,\"message_id\":-123,\"message\":\"/积分\"}",
+    "signature": "sha1=91d11d3b5dc81f1eb33bd4c1309f7797dd2078ec"
+  },
+  "signed": {
+    "body": "{\"op\":0,\"t\":\"GROUP_AT_MESSAGE_CREATE\",\"d\":{\"id\":\"id:消息_1\",\"group_openid\":\"groupOpenID0123456789\",\"author\":{\"member_openid\":\"memberOpenID0123456789\"},\"timestamp\":\"2026-10-01T00:00:00.123Z\",\"content\":\"<@!123456> /积分\"}}",
+    "signature": "890a4c1a41ddd579cc1dce71811e90ed755da3a513853f53c6118a4cda86158f0d7a9b592d81297e8b6030ec11bbaf785c60f6e3bf8bf1a4a92f9cdf4c5bf809",
+    "expected": true
+  },
+  "validation": {
+    "plain_token": "challenge",
+    "signature": "d67f6435c0c6f01576ca60452e82191debc5d2f1fbe1a90bd3cb718655e14dbf046698074b202ca0b04db939057ab5bbe20055c7da3e58c64735c51c2548ec01"
+  }
+}
