@@ -106,7 +106,11 @@ export function warmAward(oldMs: number, gapMs: number, rate: number) {
 	return { totalMs, points: (Math.floor(totalMs / 60000) - Math.floor(oldMs / 60000)) * rate };
 }
 
-export class QqClient {
+export interface QqTransport {
+	loggedIn(selfId: string): Promise<boolean>;
+	reply(group: string, messageId: string, content: string): Promise<void>;
+}
+export class QqClient implements QqTransport {
 	constructor(
 		private url: string,
 		private token: string,

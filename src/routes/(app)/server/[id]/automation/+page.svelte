@@ -5,6 +5,7 @@
 	import NumericLimitSettings from '$lib/components/NumericLimitSettings.svelte';
 	import SkillBalanceSettings from '$lib/components/SkillBalanceSettings.svelte';
 	import FactionLockSettings from '$lib/components/FactionLockSettings.svelte';
+	import FactionQuotaSettings from '$lib/components/FactionQuotaSettings.svelte';
 	import WeaponRestrictionSettings from '$lib/components/WeaponRestrictionSettings.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { api, errorMessage } from '$lib/api';
@@ -791,6 +792,16 @@
 				)}>设置赛后公告与模板</button
 		>
 	</div>
+	<details class="panel p-4">
+		<summary class="cursor-pointer font-semibold"
+			>50V50 模式 · 阵营人数配额 · {data.factionQuota.config.enabled
+				? '已启用'
+				: '未启用'}（点击设置）</summary
+		>
+		<div class="mt-4">
+			<FactionQuotaSettings data={data.factionQuota} serverId={id} scores={data.factionScores} />
+		</div>
+	</details>
 	<details class="panel p-4">
 		<summary class="cursor-pointer font-semibold">组队控制 · 疑似大队识别（点击设置）</summary
 		><GroupControlSettings data={data.groupControl} serverId={id} />

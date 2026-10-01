@@ -338,7 +338,7 @@ export async function command(
 			input[2],
 			players
 		);
-		return `${result.already ? '已绑定' : '绑定成功'}：${result.steamId}。现在可以发送 /积分 或 /战绩。`;
+		return `${'migrated' in result && result.migrated ? '已迁移至官方机器人，原积分和 VIP 保留' : result.already ? '已绑定' : '绑定成功'}：${result.steamId}。现在可以发送 /积分 或 /战绩。`;
 	}
 	if (name === '解绑') {
 		await unbindQq(env, server.id, message.member_id);

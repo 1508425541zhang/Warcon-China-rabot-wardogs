@@ -22,6 +22,7 @@
 		['/rotation', '地图轮换'],
 		['/config', '服务器配置', 'config.apply'],
 		['/automation', '自动化', 'automation.manage'],
+		['/qq-bindings', 'QQ 绑定', 'players.moderate'],
 		['/integrity', '社区风控', 'integrity.view'],
 		['/analytics', '数据分析'],
 		['/leaderboard', '排行榜'],

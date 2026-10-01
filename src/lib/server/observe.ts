@@ -5,6 +5,7 @@ import { runNumericLimits } from './numeric-limits';
 import { runSkillBalance } from './skill-balance';
 import { runWeaponRestrictions } from './weapon-restrictions';
 import { runFactionLock } from './faction-lock';
+import { runFactionQuota } from './faction-quota';
 import { recordPlayerProgress } from './player-progress';
 // One observation of one game server, and the worker's memory of every server it watches.
 //
@@ -818,6 +819,18 @@ export async function observeServer(env: Env, m: ServerMemory, kinds: ObserveKin
 	if (players && saved && m.status && started - m.statusAt < 30_000)
 		await stage('progress', m, () =>
 			withOwnedTransaction(env, (tx) => recordPlayerProgress(tx, server.id, players!, ts))
+		);
+	if (players && saved && m.status && isOwner())
+		await stage('faction-quota', m, () =>
+			runFactionQuota(env, server, client, {
+				players: players!,
+				status: m.status!,
+				statusAt: m.statusAt,
+				trusted: joinsTrusted,
+				startupAt: m.startedAt,
+				boundary: !!matchEnd,
+				now: ts
+			})
 		);
 	if (players && saved && m.status && isOwner())
 		await stage('faction-lock', m, () =>

@@ -141,10 +141,18 @@
 </script>
 
 <svelte:head><title>QQ 机器人 · 站点管理 · {data.appName}</title></svelte:head>
+
+<section class="panel mb-5 p-5">
+	<h2 class="text-lg font-semibold">玩家绑定管理</h2>
+	<p class="note mt-2">按服务器查看绑定名单，手动补绑、更正或解绑。每次操作记录处理原因和操作人。</p>
+	<div class="mt-3 flex flex-wrap gap-2">
+		{#each data.servers as server}<a class="btn" href={`/server/${encodeURIComponent(server.id)}/qq-bindings`}>{server.orgName} · {server.name} · 绑定管理</a>{/each}
+	</div>
+</section>
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
 	<div>
 		<h2 class="text-xl font-semibold">QQ 机器人</h2>
-		<p class="mt-1 text-sm text-mist-400">连接 NapCat 或 LLBot，管理群查询、暖服积分和兑换规则。</p>
+		<p class="mt-1 text-sm text-mist-400">连接腾讯官方 QQ 机器人，管理群查询、暖服积分和兑换规则。</p>
 	</div>
 	<span class="rounded-full border border-white/15 px-3 py-1 text-sm"
 		>已保存状态：{saved.enabled ? '启用' : '停用'}</span
@@ -172,12 +180,13 @@
 			</p>
 			<label class="block space-y-1">
 				<span class="label-sm">机器人架构</span>
-				<select class="input w-full" bind:value={form.provider}>
+				<select class="input w-full" bind:value={form.provider} onchange={() => { if(form.provider === 'official') { form.url = 'https://api.bot.qq.com'; form.token = ''; } }}>
+					<option value="official">腾讯官方 QQ 机器人 · OpenAPI</option>
 					<option value="napcat">NapCat · OneBot 11</option>
 					<option value="llbot">LLBot（LuckyLilliaBot）· OneBot 11</option>
 				</select>
 				<span class="block text-xs text-mist-500"
-					>切换架构后请填写对应连接并保存。相同 QQ 号的绑定和积分继续使用。</span
+					>官方使用 OpenID 身份，首次使用需重新绑定 Steam；已有 Steam 积分保留。</span
 				>
 			</label>
 			<div class="grid gap-4 md:grid-cols-2">
@@ -193,16 +202,16 @@
 					></label
 				>
 				<label class="space-y-1"
-					><span class="label-sm">机器人 QQ 号</span><input
+					><span class="label-sm">{form.provider === 'official' ? '官方 AppID' : '机器人 QQ 号'}</span><input
 						class="input w-full"
 						bind:value={form.selfId}
 						inputmode="numeric"
 						pattern={'[1-9][0-9]{4,15}'}
-						placeholder="登录机器人的 QQ 号"
+						placeholder={form.provider === 'official' ? 'QQ 开放平台 AppID' : '登录机器人的 QQ 号'}
 						required={form.enabled}
 					/></label
 				>
-				<div class="space-y-2">
+				{#if form.provider !== 'official'}<div class="space-y-2">
 					<label class="block space-y-1"
 						><span class="label-sm"
 							>API 访问密钥 {saved.hasToken ? '（已设置）' : '（未设置）'}</span
@@ -218,11 +227,11 @@
 					><label class="flex items-center gap-2 text-xs text-mist-400"
 						><input type="checkbox" bind:checked={form.clearToken} />清除已保存的 API 密钥</label
 					>
-				</div>
+				</div>{/if}
 				<div class="space-y-2">
 					<label class="block space-y-1"
 						><span class="label-sm"
-							>事件签名密钥 {saved.hasSecret ? '（已设置）' : '（未设置）'}</span
+							>{form.provider === 'official' ? 'AppSecret' : '事件签名密钥'} {saved.hasSecret ? '（已设置）' : '（未设置）'}</span
 						><input
 							class="input w-full"
 							type="password"
@@ -241,7 +250,7 @@
 				<p class="mb-1 font-medium">{provider.name} 事件上报地址</p>
 				<code class="break-all select-all">{data.callback}</code>
 				<p class="mt-2 text-mist-400">
-					{provider.setup} QQ 登录与扫码在机器人中完成。
+					{provider.setup}
 				</p>
 				<a
 					class="mt-2 inline-block underline"
@@ -309,11 +318,11 @@
 					>
 					<div class="grid gap-4 md:grid-cols-2">
 						<label class="space-y-1"
-							><span class="label-sm">授权 QQ 群号</span><textarea
+							><span class="label-sm">{form.provider === 'official' ? '授权群 group_openid' : '授权 QQ 群号'}</span><textarea
 								class="min-h-28 input w-full"
 								bind:value={p.groupsText}
 								required
-								placeholder="每行一个数字群号，也可用逗号分隔"></textarea><span
+								placeholder={form.provider === 'official' ? '填写腾讯事件中的 group_openid，每行一个' : '每行一个数字群号，也可用逗号分隔'}></textarea><span
 								class="block text-xs text-mist-500"
 								>每个群只能关联一台服务器；群内可查询本服战绩及在线名单。</span
 							></label

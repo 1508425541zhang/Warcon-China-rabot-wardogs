@@ -193,6 +193,66 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 		expect(errors.length).toBe(1);
 		expect(JSON.stringify(errors)).not.toContain('private internal');
 	});
+	test('a configuration backlog is cancelled in bulk; an aged valid job is scored without punishment', async () => {
+		const config = await modelConfigView(env, w.org.id);
+		const player = '76561198000000881';
+		const oldIds = [crypto.randomUUID(), crypto.randomUUID()];
+		for (const id of oldIds)
+			await env.db
+				.execute(sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,threshold,created_at)
+      VALUES(${id},${w.org.id},${w.server.id},${id},${matchId},0,'obsolete',${MODEL_CALIBRATION.p98},now()-interval '10 minutes')`);
+		const id = crypto.randomUUID();
+		await env.db
+			.execute(sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,threshold,created_at)
+    VALUES(${id},${w.org.id},${w.server.id},${player},${matchId},0,${config.revision},${MODEL_CALIBRATION.p98},now()-interval '6 minutes')`);
+		const m = memoryFor((await getServer(env, w.server.id))!, (await getOrg(env, w.org.id))!);
+		m.ok = true;
+		m.playersAt = m.statusAt = Date.now();
+		m.players = [{ steamId: player, name: 'queued player' }] as typeof m.players;
+		expect(await acquireOrRenew(env, 'model-backlog-test')).toBe(true);
+		const mocked = spyOn(globalThis, 'fetch').mockImplementation((async (
+			_url: RequestInfo | URL,
+			init?: RequestInit
+		) => {
+			const body = JSON.parse(String(init?.body));
+			return Response.json({
+				modelId: MODEL_ID,
+				checkpointSha256: MODEL_SHA,
+				calibrationSha256: CALIBRATION_SHA,
+				schema: MODEL_SCHEMA,
+				requestId: body.requestId,
+				status: 'READY',
+				score: 0.2,
+				windowSeconds: 1800,
+				bucketSeconds: 30,
+				pointScores: Array(60).fill(0.2)
+			});
+		}) as unknown as typeof fetch);
+		try {
+			await processModelQueue(env);
+			expect(mocked).toHaveBeenCalledTimes(1);
+			const old = await env.db.execute(
+				sql`SELECT state,result->>'reason' AS reason FROM integrity_model_runs WHERE config_revision='obsolete' AND server_id=${w.server.id}`
+			);
+			expect(old.length).toBe(2);
+			expect(old.every((row) => row.state === 'superseded' && row.reason)).toBe(true);
+			const [run] = await env.db.execute(
+				sql`SELECT state,score,action_state,action_reason FROM integrity_model_runs WHERE id=${id}`
+			);
+			expect(run.state).toBe('READY');
+			expect(Number(run.score)).toBe(0.2);
+			expect(run.action_state).toBe('skipped');
+			expect(String(run.action_reason)).toContain('评分已过期');
+			const [actions] = await env.db.execute(
+				sql`SELECT count(*) AS n FROM outbox WHERE server_id=${w.server.id} AND steam_id=${player}`
+			);
+			expect(Number(actions.n)).toBe(0);
+		} finally {
+			mocked.mockRestore();
+			forgetMemory(w.server.id);
+			await releaseOwnership(env);
+		}
+	});
 	test('model-only pipeline retains measurements and queues without legacy or expert verdicts', async () => {
 		expect(await acquireOrRenew(env, 'model-alpha-test')).toBe(true);
 		const batch: KillView[] = Array.from({ length: 5 }, (_, i) => ({

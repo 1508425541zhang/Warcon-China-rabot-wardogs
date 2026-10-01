@@ -107,7 +107,7 @@ export async function enqueueIntegrityNotice(db: DbOrTx, row: OutboxRow, at = ne
 }
 
 /** Caller holds the existing cross-process QQ sender lock. Unknown sends are never replayed. */
-export async function processIntegrityNotice(env: Env, client: QqClient, selfId: string) {
+export async function processIntegrityNotice(env: Env, client: Pick<QqClient, 'loggedIn' | 'reply'>, selfId: string) {
 	await env.db.execute(
 		sql`UPDATE qq_integrity_notifications SET state='unknown',outcome='发送中断，结果未知，不自动重发' WHERE state='sending'`
 	);
@@ -148,6 +148,6 @@ export async function processIntegrityNotice(env: Env, client: QqClient, selfId:
 		state = 'unknown';
 	}
 	await env.db.execute(
-		sql`UPDATE qq_integrity_notifications SET state=${state},outcome=${state === 'delivered' ? 'OneBot确认发送' : '发送结果未知，不自动重发'},finished_at=now() WHERE outbox_id=${notice.outbox_id} AND group_id=${notice.group_id}`
+		sql`UPDATE qq_integrity_notifications SET state=${state},outcome=${state === 'delivered' ? 'QQ接口确认发送' : '发送结果未知，不自动重发'},finished_at=now() WHERE outbox_id=${notice.outbox_id} AND group_id=${notice.group_id}`
 	);
 }

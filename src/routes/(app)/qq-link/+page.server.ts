@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import { requireUser } from '$lib/server/access';
 import { getEnv } from '$lib/server/env';
 import { publicMessage } from '$lib/server/http';
-import { bindAccount } from '$lib/server/qq/identity';
+import { bindAccount, unbindAccount } from '$lib/server/qq/identity';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -30,9 +30,7 @@ export const actions: Actions = {
 	unbind: async ({ locals, request }) => {
 		const actor = requireUser(locals);
 		const serverId = String((await request.formData()).get('serverId') || '');
-		await getEnv().db.execute(
-			sql`DELETE FROM qq_links WHERE user_id=${actor.id} AND server_id=${serverId}`
-		);
+		await unbindAccount(getEnv(), serverId, actor.id);
 		return { message: '已解绑，Steam 账号的积分保留。' };
 	}
 };

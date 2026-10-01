@@ -1,8 +1,17 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { Predictor } from './inference';
+import { ExpandedPredictor } from './expanded-inference';
+import { expandedSourceReader } from './expanded-db';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const MAX_BODY = 8 * 1024 * 1024;
-export function serve(predictor: Predictor, token: string, port = 8091, hostname = '127.0.0.1') {
+export function serve(
+	predictor: Predictor | ExpandedPredictor,
+	token: string,
+	port = 8091,
+	hostname = '127.0.0.1'
+) {
 	if (token.length < 32 || /\s/.test(token))
 		throw new Error('MODEL_API_TOKEN must contain at least 32 characters without whitespace');
 	const expected = createHash('sha256')
@@ -44,7 +53,7 @@ export function serve(predictor: Predictor, token: string, port = 8091, hostname
 					return reply(400, { error: 'Invalid JSON' });
 				}
 				try {
-					return reply(200, predictor.assess(body));
+					return reply(200, await predictor.assess(body));
 				} catch {
 					return reply(400, { error: 'Invalid inference input' });
 				}
@@ -58,7 +67,12 @@ export function serve(predictor: Predictor, token: string, port = 8091, hostname
 	});
 }
 if (import.meta.main) {
-	const predictor = new Predictor(process.env.MODEL_ARTIFACTS_DIR);
+	const root = process.env.MODEL_ARTIFACTS_DIR || join(import.meta.dir, 'artifacts-30m');
+	const metadata = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8'));
+	const predictor =
+		metadata.channels > 27
+			? new ExpandedPredictor(root, expandedSourceReader(process.env.MODEL_DATABASE_URL || ''))
+			: new Predictor(root);
 	const server = serve(
 		predictor,
 		process.env.MODEL_API_TOKEN || '',

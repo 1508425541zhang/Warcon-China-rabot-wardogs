@@ -2,6 +2,7 @@ import { groupControlView } from '$lib/server/group-control';
 import { numericLimitView } from '$lib/server/numeric-limits';
 import { skillBalanceView } from '$lib/server/skill-balance';
 import { factionLockView } from '$lib/server/faction-lock';
+import { factionQuotaView } from '$lib/server/faction-quota';
 import { weaponRestrictionView } from '$lib/server/weapon-restrictions';
 import { serverLive } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -37,6 +38,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			]);
 		// What the kinds need before they can run here, so the Add menu and the editor can say so.
 		return {
+			factionQuota: await factionQuotaView(env, server.id),
+			factionScores: (live?.status as Status | null)?.scores ?? [],
 			groupControl,
 			numericLimits,
 			skillBalance,

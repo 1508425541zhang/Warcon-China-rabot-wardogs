@@ -74,6 +74,14 @@ export async function runPlayerModel(
 }
 
 export async function processModelQueue(env: Env) {
+	// Discard invalid configurations together so they cannot delay the current queue.
+	await env.db.execute(sql`UPDATE integrity_model_runs j
+  SET state='superseded',finished_at=now(),result=jsonb_build_object('reason','模型配置已更新或长时序评估已停用，未执行评分。')
+  WHERE j.state='pending' AND NOT EXISTS (
+    SELECT 1 FROM site_settings s JOIN integrity_rules r ON r.org_id=j.org_id
+    WHERE s.key='integrityModel:'||j.org_id AND s.value->>'developerEnabled'='true'
+    AND s.value->>'revision'=j.config_revision AND r.assessment_mode IN ('model_only','long_only')
+  )`);
 	const recover = await env.db.execute<{ id: string }>(
 		sql`SELECT id FROM integrity_model_runs WHERE state='READY' AND action_state IS NULL ORDER BY created_at LIMIT 5`
 	);
@@ -91,24 +99,21 @@ export async function processModelQueue(env: Env) {
 		created_at: Date;
 	}>(sql`
   UPDATE integrity_model_runs SET state='running' WHERE id=(SELECT id FROM integrity_model_runs WHERE state='pending' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING *`);
-	if (!job) return;
+	if (!job) return false;
 	const { id, org_id: orgId, server_id: serverId, steam_id: steamId, match_id: matchId } = job;
 	try {
 		const config = await modelConfig(env, orgId);
 		const active = await env.db.execute(
 			sql`SELECT 1 FROM integrity_rules WHERE org_id=${orgId} AND assessment_mode IN ('model_only','long_only')`
 		);
-		if (
-			!config.developerEnabled ||
-			config.revision !== job.config_revision ||
-			!active.length ||
-			Date.now() - new Date(job.created_at).getTime() > 300000
-		) {
+		if (!config.developerEnabled || config.revision !== job.config_revision || !active.length) {
 			await env.db.execute(
-				sql`UPDATE integrity_model_runs SET state='superseded',finished_at=now() WHERE id=${id}`
+				sql`UPDATE integrity_model_runs SET state='superseded',finished_at=now(),result=jsonb_build_object('reason','模型配置已更新或长时序评估已停用，未执行评分。') WHERE id=${id}`
 			);
-			return;
+			return true;
 		}
+		// Keep the queued observation window for reporting, even after a backlog.
+		// enforceModelRun independently prevents punishment from scores older than five minutes.
 		const sources = await modelSources(
 			env,
 			serverId,
@@ -125,8 +130,11 @@ export async function processModelQueue(env: Env) {
 			sql`SELECT 1 FROM integrity_rules WHERE org_id=${orgId} AND assessment_mode IN ('model_only','long_only')`
 		);
 		const stale = !current.developerEnabled || current.revision !== config.revision || !mode.length;
+		const detail = stale
+			? { ...output.detail, reason: '评分期间模型配置或评估模式已变更，结果不用于处罚。' }
+			: output.detail;
 		await env.db.execute(
-			sql`UPDATE integrity_model_runs SET state=${stale ? 'superseded' : output.status},score=${output.score},result=${JSON.stringify(output.detail)}::text::jsonb,finished_at=now() WHERE id=${id}`
+			sql`UPDATE integrity_model_runs SET state=${stale ? 'superseded' : output.status},score=${output.score},result=${JSON.stringify(detail)}::text::jsonb,finished_at=now() WHERE id=${id}`
 		);
 		if (!stale && output.status === 'READY') await enforceModelRun(env, id);
 	} catch {
@@ -134,6 +142,7 @@ export async function processModelQueue(env: Env) {
 			sql`UPDATE integrity_model_runs SET state='ERROR',result='{"message":"模型请求或处置失败，请检查处罚状态；未回退专家。"}'::jsonb,finished_at=now() WHERE id=${id} AND punished_at IS NULL`
 		);
 	}
+	return true;
 }
 
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -179,7 +188,9 @@ export function startModelQueue(env: Env) {
 					await scheduleOnlineModels(env);
 					lastSweep = Date.now();
 				}
-				for (let i = 0; i < 5; i++) await processModelQueue(env);
+				for (let i = 0; i < 20; i++) {
+					if (!(await processModelQueue(env))) break;
+				}
 			})()
 				.catch(() => {})
 				.finally(() => {

@@ -26,7 +26,8 @@ export class Network {
 		root: string,
 		weightsHash: string,
 		indexHash: string,
-		private steps = 200
+		private steps = 200,
+		private channels = 27
 	) {
 		const raw = readFileSync(join(root, 'weights.f32'));
 		const metadata = readFileSync(join(root, 'weights.json'));
@@ -115,18 +116,23 @@ export class Network {
 		return this.linear(y, width, width, prefix + '.out_projection');
 	}
 	forward(input: Float32Array) {
-		if (input.length !== this.steps * 27 || !input.every(Number.isFinite))
+		if (input.length !== this.steps * this.channels || !input.every(Number.isFinite))
 			throw new Error('Invalid model input');
-		const conv = this.tensor('embedding.value_embedding.tokenConv.weight', [width, 27, 3]);
+		const conv = this.tensor('embedding.value_embedding.tokenConv.weight', [
+			width,
+			this.channels,
+			3
+		]);
 		const pe = this.tensor('embedding.position_embedding.pe', [1, this.steps, width]);
 		let x = new Float32Array(this.steps * width);
 		for (let t = 0; t < this.steps; t++)
 			for (let o = 0; o < width; o++) {
 				let value = 0;
-				for (let i = 0; i < 27; i++)
+				for (let i = 0; i < this.channels; i++)
 					for (let k = 0; k < 3; k++)
 						value +=
-							input[((t + k - 1 + this.steps) % this.steps) * 27 + i] * conv[(o * 27 + i) * 3 + k];
+							input[((t + k - 1 + this.steps) % this.steps) * this.channels + i] *
+							conv[(o * this.channels + i) * 3 + k];
 				x[t * width + o] = f32(value) + pe[t * width + o];
 			}
 		for (let layer = 0; layer < 2; layer++) {
@@ -140,9 +146,10 @@ export class Network {
 			for (let i = 0; i < x.length; i++) x[i] += out[i];
 			x = this.norm(x, prefix + '.norm2');
 		}
-		return this.linear(this.norm(x, 'encoder.norm'), width, 27, 'projection');
+		return this.linear(this.norm(x, 'encoder.norm'), width, this.channels, 'projection');
 	}
 	score(input: Float32Array) {
+		if (this.channels !== 27) throw new Error('Legacy scoring requires 27 channels');
 		const pred = this.forward(input),
 			map = [0, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 		const points = new Float32Array(this.steps),

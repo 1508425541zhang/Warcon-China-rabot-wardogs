@@ -4,12 +4,14 @@ import { ApiError, route } from '$lib/server/http';
 import { qqCredentials, qqPolicies } from '$lib/server/qq/config';
 import { loadQqSettings } from '$lib/server/qq/settings';
 import { oneBotMessage, verifyQq } from '$lib/server/qq/protocol';
+import { verifyOfficial, officialValidation } from '$lib/server/qq/official';
+import { acceptOfficialEvent } from '$lib/server/qq/official-inbox';
 
 export const POST = route(async ({ request }) => {
 	await loadQqSettings(getEnv());
 	const credentials = qqCredentials();
 	if (!credentials) throw new ApiError(404, 'QQ 机器人未启用。');
-	if (request.headers.get('x-self-id') !== credentials.selfId)
+	if (request.headers.get(credentials.provider === 'official' ? 'x-bot-appid' : 'x-self-id') !== credentials.selfId)
 		throw new ApiError(401, 'Wrong bot application.');
 	const reader = request.body?.getReader();
 	if (!reader) throw new ApiError(400, 'Missing body.');
@@ -26,13 +28,23 @@ export const POST = route(async ({ request }) => {
 		chunks.push(chunk.value);
 	}
 	const raw = Buffer.concat(chunks);
-	if (!verifyQq(credentials.secret, request.headers, raw))
+	if (credentials.provider !== 'official' && !verifyQq(credentials.secret, request.headers, raw))
 		throw new ApiError(401, 'Invalid QQ signature.');
 	let payload: unknown;
 	try {
 		payload = JSON.parse(raw.toString('utf8'));
 	} catch {
 		throw new ApiError(400, 'Invalid JSON.');
+	}
+	if (credentials.provider === 'official') {
+		const p = payload as {op?:number;d?:{plain_token?:unknown;event_ts?:unknown}};
+		if (p.op === 13 && typeof p.d?.plain_token === 'string' && p.d.plain_token.length <= 2000 &&
+			typeof p.d.event_ts === 'string' && /^\d{10}$/.test(p.d.event_ts) && Math.abs(Date.now()/1000-Number(p.d.event_ts))<=300) {
+			return Response.json(officialValidation(credentials.secret,p.d.plain_token,p.d.event_ts));
+		}
+		if (!verifyOfficial(credentials.secret,request.headers,raw)) throw new ApiError(401,'Invalid official QQ signature.');
+		await acceptOfficialEvent(getEnv(),payload,credentials.selfId);
+		return Response.json({op:12});
 	}
 	const message = oneBotMessage(payload, credentials.selfId);
 	if (!message) return new Response(null, { status: 204 });
