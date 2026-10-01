@@ -12,7 +12,11 @@ import type { WardogsClient } from './rcon';
 import type { Player, Status } from '$lib/types';
 import { knownCauses, causeLabel } from '$lib/causes';
 import { mapId } from '$lib/format';
-import { restrictedCause, restrictionStage } from '$lib/weapon-restriction-policy';
+import {
+	restrictedCause,
+	restrictionStage,
+	restrictionClock
+} from '$lib/weapon-restriction-policy';
 import { ACTIONS } from './actions';
 import { isOwner, withOwnedTransaction } from './leadership';
 import { writeAudit } from './audit';
@@ -63,13 +67,7 @@ export async function runWeaponRestrictions(
 	input: { players: Player[]; status: Status; statusAt: number; boundary: boolean; now: Date }
 ) {
 	const { now, status } = input;
-	if (
-		!isOwner() ||
-		input.boundary ||
-		Date.now() - input.statusAt > 30000 ||
-		status.matchSeconds === null
-	)
-		return;
+	if (!isOwner() || input.boundary || Date.now() - input.statusAt > 30000) return;
 	const [rule] = await env.db
 		.select()
 		.from(weaponRestrictionRules)
@@ -112,6 +110,15 @@ export async function runWeaponRestrictions(
 		.orderBy(asc(kills.ts), asc(kills.eventTime), asc(kills.eventId))
 		.limit(2001);
 	if (rows.length > 2000) return; // Backlog/overload is not permission to punish on partial observations.
+	const anchor = [...rows].reverse().find((k) => mapId(k.map) === mapId(status.map));
+	const clock = restrictionClock(
+		status.matchSeconds,
+		input.statusAt,
+		now.getTime(),
+		anchor ? { eventClock: anchor.eventTime, receivedAt: anchor.ts.getTime() } : null
+	);
+	if (clock === null) return;
+	const currentClock = () => clock + Math.max(0, Date.now() - now.getTime()) / 1000;
 	const online = new Map(input.players.map((p) => [p.steamId, p]));
 	const acted = new Set<string>();
 	for (const k of rows) {
@@ -155,11 +162,7 @@ export async function runWeaponRestrictions(
 			if (prior.some((e) => e.id === id || e.state === 'executing')) return null;
 			const lastKick = prior.find((e) => e.action === 'kick' && e.state === 'delivered');
 			if (lastKick && k.ts.getTime() <= lastKick.updatedAt.getTime()) return null;
-			const action = restrictionStage(
-				k.eventTime,
-				status.matchSeconds! + Math.max(0, now.getTime() - input.statusAt) / 1000,
-				lastKick?.clock ?? null
-			);
+			const action = restrictionStage(k.eventTime, clock, lastKick?.clock ?? null);
 			if (!action) return null;
 			const [saved] = await tx
 				.insert(weaponRestrictionEvents)
@@ -175,7 +178,7 @@ export async function runWeaponRestrictions(
 					action,
 					state: 'executing',
 					reason: '等待执行',
-					clock: status.matchSeconds! + Math.max(0, Date.now() - input.statusAt) / 1000,
+					clock: currentClock(),
 					createdAt: now,
 					updatedAt: now
 				})
@@ -215,9 +218,7 @@ export async function runWeaponRestrictions(
 				state,
 				reason,
 				updatedAt: new Date(),
-				...(state === 'delivered'
-					? { clock: status.matchSeconds! + Math.max(0, Date.now() - input.statusAt) / 1000 }
-					: {})
+				...(state === 'delivered' ? { clock: currentClock() } : {})
 			})
 			.where(eq(weaponRestrictionEvents.id, id));
 		await writeAudit(env, null, {

@@ -91,6 +91,24 @@ describe.skipIf(!hasTestDb)('weapon restriction persisted delivery', () => {
 			}
 		};
 	}
+	test('live server without matchSeconds kicks on fresh same-round feed and deduplicates', async () => {
+		const s = await setup();
+		s.input.status.matchSeconds = null;
+		await s.add('live-no-clock', 590);
+		await s.run();
+		expect(s.calls).toHaveLength(1);
+		await s.run();
+		expect(s.calls).toHaveLength(1);
+	});
+	test('missing clock cannot use stale, previous-round, or other-map feed', async () => {
+		const s = await setup();
+		s.input.status.matchSeconds = null;
+		await s.add('stale-anchor', 590, { ts: new Date(Date.now() - 31000) });
+		await s.add('old-round', 590, { matchRow: s.round.id - 1 });
+		await s.add('other-map', 590, { map: 'OtherMap' });
+		await s.run();
+		expect(s.calls).toHaveLength(0);
+	});
 	test('first kill kicks, multi-kill and replay cannot kick twice; fresh kill after cooldown kicks again', async () => {
 		const s = await setup();
 		await s.add('one', 590);

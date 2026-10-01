@@ -31,3 +31,27 @@ export function restrictionStage(
 	if (lastKickClock !== null && eventClock < lastKickClock + 60) return null;
 	return 'kick';
 }
+
+/** Live builds may omit matchSeconds. Only fresh, same-round feed data may supply it. */
+export function restrictionClock(
+	statusClock: number | null,
+	statusAt: number,
+	now: number,
+	anchor: { eventClock: number; receivedAt: number } | null
+) {
+	if (!Number.isFinite(now) || !Number.isFinite(statusAt) || now - statusAt > 30000) return null;
+	if (statusClock !== null)
+		return Number.isFinite(statusClock) && statusClock >= 0
+			? statusClock + Math.max(0, now - statusAt) / 1000
+			: null;
+	if (
+		!anchor ||
+		!Number.isFinite(anchor.eventClock) ||
+		anchor.eventClock < 0 ||
+		!Number.isFinite(anchor.receivedAt) ||
+		now - anchor.receivedAt > 30000 ||
+		anchor.receivedAt - now > 5000
+	)
+		return null;
+	return anchor.eventClock + Math.max(0, now - anchor.receivedAt) / 1000;
+}
