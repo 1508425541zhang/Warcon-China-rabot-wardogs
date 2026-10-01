@@ -151,6 +151,7 @@ async fn every_original_registry_action_request_shape_and_permissions() {
         }
     });
     let state = AppState {
+        runtime: Default::default(),
         db: db.clone(),
         config: Config::for_test(),
     };

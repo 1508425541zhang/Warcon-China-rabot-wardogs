@@ -125,7 +125,7 @@ pub struct Client {
 impl Client {
     pub async fn for_server(state: &AppState, id: &str) -> Result<Self> {
         let row: Option<(String, i32, String, String, bool)> = sqlx::query_as(
-            "SELECT host,port,scheme,password_enc,allow_private FROM servers WHERE id=$1",
+            "SELECT s.host,s.port,s.scheme,s.password_enc,s.allow_private FROM servers s JOIN organizations o ON o.id=s.org_id WHERE s.id=$1 AND o.suspended_at IS NULL",
         )
         .bind(id)
         .fetch_optional(&state.db)
@@ -153,6 +153,7 @@ impl Client {
         body: Option<String>,
         mut headers: HashMap<String, String>,
     ) -> Result<GameResponse> {
+        self.state.runtime.check().await?;
         // A permit precedes every panel/balancer faction move, including raw actions.
         if method == "PATCH" {
             let parts: Vec<_> = path.split('/').collect();
@@ -168,7 +169,9 @@ impl Client {
                     .and_then(|v| v["faction"].as_str().map(str::to_owned))
                     .filter(|s| !s.is_empty() && s.encode_utf16().count() <= 100)
                 {
-                    sqlx::query("INSERT INTO faction_move_permits(server_id,steam_id,faction,expires_at) VALUES($1,$2,$3,now()+interval '120 seconds')").bind(&self.server).bind(parts[3]).bind(faction).execute(&self.state.db).await?;
+                    let mut tx = self.state.worker_transaction().await?;
+                    sqlx::query("INSERT INTO faction_move_permits(server_id,steam_id,faction,expires_at) VALUES($1,$2,$3,now()+interval '120 seconds')").bind(&self.server).bind(parts[3]).bind(faction).execute(&mut *tx).await?;
+                    tx.commit().await?;
                 }
             }
         }

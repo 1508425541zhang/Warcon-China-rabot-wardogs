@@ -12,6 +12,7 @@ base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 chacha20poly1305 = "0.10"
 hex = "0.4"
+futures-util = "0.3"
 hmac = "0.12"
 rand = "0.8"
 percent-encoding = "2"
@@ -46,6 +47,14 @@ strip = true
 
 [profile.dev.package.scrypt]
 opt-level = 3
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.test]
+debug = 0
+incremental = false
 
 [profile.dev.package.salsa20]
 opt-level = 3

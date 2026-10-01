@@ -30,6 +30,15 @@ impl Leadership {
         anyhow::ensure!(valid == Some(true), "Worker lease lost");
         Ok(tx)
     }
+    pub async fn valid(&self) -> Result<bool, sqlx::Error> {
+        Ok(sqlx::query_scalar::<_, bool>(
+            "SELECT token=$1 AND lease_until>now() FROM worker_ownership WHERE id=1",
+        )
+        .bind(&self.token)
+        .fetch_optional(&self.pool)
+        .await?
+        .unwrap_or(false))
+    }
     pub async fn release(&self) -> anyhow::Result<()> {
         sqlx::query(
             "UPDATE worker_ownership SET lease_until=to_timestamp(0) WHERE id=1 AND token=$1",

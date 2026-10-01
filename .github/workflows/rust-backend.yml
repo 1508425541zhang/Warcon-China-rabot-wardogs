@@ -40,5 +40,9 @@ jobs:
           bun backend/fixtures/generate-lists.ts
           bun backend/fixtures/generate-plugins.ts
           bun backend/fixtures/generate-leaderboards.ts
+          bun backend/fixtures/generate-live.ts
+          bun backend/fixtures/generate-observation.ts
+          bun backend/fixtures/generate-legacy-model.ts
+          bun backend/fixtures/generate-short-policy.ts
           git diff --exit-code -- backend/fixtures
       - run: cargo test --manifest-path backend/Cargo.toml --locked -- --include-ignored

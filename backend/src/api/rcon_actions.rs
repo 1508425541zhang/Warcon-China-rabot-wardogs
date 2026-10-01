@@ -4,7 +4,7 @@ use crate::{
     config::AppState,
     dispatcher,
     error::{ApiError, Result},
-    game::{self, Client},
+    game,
     http::{ApiJson, ApiQuery},
     ratelimit,
 };
@@ -99,7 +99,11 @@ async fn execute(
     }
     ratelimit::allow(format!("rcon:{}", actor.id), 120, true)?;
     let started = Instant::now();
-    let _lane = dispatcher::acquire(&id, 0, Duration::from_secs(30)).await?;
+    let _lane = if crate::gateway::remote(&state) {
+        None
+    } else {
+        Some(dispatcher::acquire(&id, 0, Duration::from_secs(30)).await?)
+    };
     // Permission may have changed while the request waited in its server's lane.
     let actor = auth::authenticate(&state, &headers, &method).await?;
     let scope = auth::server_scope(&state, &actor, &id, cap).await?;
@@ -116,10 +120,7 @@ async fn execute(
     } else {
         sqlx::query_scalar::<_,String>("SELECT r.name FROM server_grants g JOIN org_roles r ON r.id=g.role_id WHERE g.server_id=$1 AND g.user_id=$2").bind(&id).bind(&actor.id).fetch_optional(&state.db).await?.unwrap_or_default()
     };
-    let result = match Client::for_server(&state, &id).await {
-        Ok(client) => actions::run(&client, &name, &params).await,
-        Err(e) => Err(e),
-    };
+    let result = crate::gateway::run_held(&state, &id, &name, &params, 0, Some(&headers)).await;
     let audit_reads = std::env::var("AUDIT_LOG_READS").is_ok_and(|v| v == "true" || v == "1");
     let elapsed = started.elapsed().as_millis();
     match result {
@@ -160,7 +161,7 @@ async fn execute(
                     result["message"].as_str().unwrap_or(""),
                     elapsed,
                 )
-                .await?;
+                .await.unwrap_or_else(|_| tracing::error!(server_id=%id,action=%name,"RCON audit failed after successful delivery"));
             }
             Ok(Json(
                 json!({"ok":true,"action":name,"role":role,"result":result,"durationMs":elapsed}),
@@ -227,9 +228,12 @@ pub async fn system(
     if actions::definition(name).is_none() {
         return Err(ApiError::missing().into());
     }
-    let _lane = dispatcher::acquire(id, priority, Duration::from_secs(30)).await?;
-    let c = Client::for_server(state, id).await?;
-    actions::run(&c, name, params).await
+    let _lane = if crate::gateway::remote(state) {
+        None
+    } else {
+        Some(dispatcher::acquire(id, priority, Duration::from_secs(30)).await?)
+    };
+    crate::gateway::run_held(state, id, name, params, priority, None).await
 }
 async fn mirror(state: &AppState, id: &str, name: &str, params: &Value) -> Result<()> {
     let steam = params["steamId"].as_str().unwrap_or("");

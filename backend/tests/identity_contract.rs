@@ -83,6 +83,7 @@ async fn complete_password_otp_recovery_and_account_transactions() {
     let mut config = Config::for_test();
     config.identity.setup_token = Some("fixture-setup-token".into());
     let state = AppState {
+        runtime: Default::default(),
         db: db.clone(),
         config,
     };

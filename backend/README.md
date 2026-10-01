@@ -58,7 +58,7 @@ Rust 已实现密码登录、OTP／备用码、Steam／Discord OAuth、Passkey �
 
 用户、组织、成员、邀请、服务器、权限、名单、个人插件、公开状态／排行榜／生涯与对局接口
 已有原生实现；RCON 的 40 个动作按原版请求格式执行。名单只撤销面板管理的预留位，
-游戏服自有条目保留，组织封禁通过面板踢出执行。后台轮询尚未接入这条执行链。
+游戏服自有条目保留，组织封禁通过面板踢出执行，已接入原生轮询。
 
 前端尚未切换，这些接口目前由独立开发数据库和本地模拟游戏服验证。
 `RUST_FRONTEND_TOKEN` 是将来前端转发客户端地址所用的签名密钥，至少 32 字节；
@@ -66,21 +66,32 @@ Rust 不信任裸 `X-Forwarded-For`。
 
 ## Worker 当前接入情况
 
-`warcon-worker` 当前注册 Steam 档案、Steam 游戏时长和小时汇总任务，**还不能替代完整生产 Worker**。
+`warcon-worker` 当前注册轮询、玩家会话、对局、原始观察归档、名单同步、Steam 档案、游戏时长和小时汇总任务，**还不能替代完整生产 Worker**。
 它复用现有 `worker_ownership` 租约；其他 Worker 拥有数据库时会拒绝启动。
 Feed 的两个队列已有领取、排序、重试和确认基础，但完整评估和处罚消费者尚未接入，
 不会因为领到任务就把它标为处理完成。
 
 ```sh
 export STEAM_API_KEY='your-development-key'
+export RUST_WORKER_BIND='127.0.0.1:4301'
+export RELAY_SECRET='your-development-relay-secret-at-least-32-characters'
 cargo run --bin warcon-worker
 ```
 
+API 进程设置 `RELAY_URL=http://127.0.0.1:4301` 和相同 `RELAY_SECRET`，让游戏请求进入
+Worker 的唯一调度队列。动作不会因网络失败自动重发。排队后重新验证账号、权限和 Worker 租约。
+`GET /api/live` 读取缓存；`GET /api/live/events?servers=<id>` 提供命名 SSE 事件，
+每五秒重新核对访问权限，掉线或撤权后关闭订阅。API 与 Worker 通过 PostgreSQL 通知通信。
+
+轮询测试覆盖原始日志、重连、计数重置、换图、限流、下线、租约失效和实时权限。
+自动化触发器、Integrity 消费链及其他后台任务仍在迁移清单中。
+
 ## 原生长窗模型服务
 
-`warcon-model` 使用现有 expanded30m 模型的 Float32 权重和冻结的特征契约，
+`warcon-model` 支持现有 expanded30m 和原有 27 通道模型的 Float32 权重与冻结特征契约，
 不运行 Python 或 Bun。模型身份、文件哈希、30 分钟序列、30 秒时间桶和缺失掩码均保留。
-它只读取数据库中已经登记的 `integrity_model_runs`，不会自行写入处罚或完成任务。
+expanded30m 只读取数据库中已经登记的 `integrity_model_runs`；27 通道模型读取原版四表 JSON。
+推理服务不会自行写入处罚或完成任务。
 
 ```sh
 export MODEL_ARTIFACTS_DIR='/path/to/expanded30m/artifacts'
@@ -99,6 +110,28 @@ cargo run --release --bin warcon-model
 - 同时只处理一个推理，繁忙时返回 503；请求上限 8 MiB；数据库查询超时 10 秒。
 
 数据读取采用只读事务；建议另外限制数据库账号为 SELECT 权限。
-这里只支持已迁移的 expanded30m 契约，原有 27 通道模型及短窗模型尚待迁移。
+27 通道模型仍要求单个玩家、单局和带时区的时间戳，保留原有 60／200 个时间桶的检查。
+两份真实检查点的六组评分、十五组四表特征和五组完整响应已与原版 Bun 对照。
+
+## 原生短窗模型
+
+短窗 IsolationForest 与 XGBoost 由 Rust 直接解释 JSON 树文件，无需 Python 或 Bun 运行服务。
+`services/short-risk/artifacts-rust` 包含现有训练结果的原生导出、哈希及原检查点身份。
+24 项特征、60／120 秒窗口、双时钟过滤和缺失值处理保持原版含义。
+
+```sh
+export SHORT_RISK_MODEL_PATH='/path/to/services/short-risk/artifacts-rust/isolation.json'
+export WARCON_SHORT_RISK_ENABLED='1'
+cargo run --bin warcon-worker
+```
+
+Worker 每十秒独立读取当前对局数据，不领取 Feed 或长窗任务。
+P99.6 为警惕；实际踢出沿用现有连续五窗 P99.9、1:2:3:4:5 加权及人数、数据健康、VIP、频率保护。
+关闭执行开关时继续推理。状态写在开发数据库的 `rust:shortRiskSnapshot`，前端适配仍待完成。
+请求结果不确定时保存 `unknown`，同一玩家／场次的已尝试动作不会自动重发。
+
+`backend/tools/export-short-model.py` 只用于离线转换可信的本地训练文件；不属于部署依赖。
+它先核对原文件哈希，再生成树文件与数值对照；禁止对不可信 pickle/joblib 使用该转换工具。
+测试覆盖两种真实模型的 256 组评分、36 组特征，以及原版窗口、断流和自动处置行为。
 
 测试凭证均为合成值。不要把线上密码或密钥写进 Git。

@@ -1,0 +1,1154 @@
+[
+  {
+    "input": null,
+    "expected": null
+  },
+  {
+    "input": {},
+    "expected": null
+  },
+  {
+    "input": [],
+    "expected": null
+  },
+  {
+    "input": {
+      "serverName": "s",
+      "map": "m"
+    },
+    "expected": {
+      "serverName": "s",
+      "map": "m",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": "bad",
+    "expected": null
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": null,
+      "maxPlayers": null,
+      "matchSeconds": null,
+      "scoreTick": null,
+      "scoreCap": null,
+      "rotationNow": null,
+      "scores": [
+        {
+          "name": "Red",
+          "score": null,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "matchSeconds": 0,
+      "scoreTick": 0,
+      "scoreCap": 0,
+      "rotationNow": 0,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 0,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": 0,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": 0,
+      "matchSeconds": 0,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 0,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": 1,
+      "maxPlayers": 1,
+      "matchSeconds": 1,
+      "scoreTick": 1,
+      "scoreCap": 1,
+      "rotationNow": 1,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 1,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": 1,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": 1,
+      "matchSeconds": 1,
+      "playerCount": 1,
+      "maxPlayers": 1,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 1,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 1,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": -1,
+      "maxPlayers": -1,
+      "matchSeconds": -1,
+      "scoreTick": -1,
+      "scoreCap": -1,
+      "rotationNow": -1,
+      "scores": [
+        {
+          "name": "Red",
+          "score": -1,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": -1,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": -1,
+      "matchSeconds": -1,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Red",
+          "score": -1,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": -1,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": 1.2,
+      "maxPlayers": 1.2,
+      "matchSeconds": 1.2,
+      "scoreTick": 1.2,
+      "scoreCap": 1.2,
+      "rotationNow": 1.2,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 1.2,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": 1.2,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": 1.2,
+      "matchSeconds": 1.2,
+      "playerCount": 1.2,
+      "maxPlayers": 1.2,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 1.2,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 1.2,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": "0",
+      "maxPlayers": "0",
+      "matchSeconds": "0",
+      "scoreTick": "0",
+      "scoreCap": "0",
+      "rotationNow": "0",
+      "scores": [
+        {
+          "name": "Red",
+          "score": "0",
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": 0,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": 0,
+      "matchSeconds": 0,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 0,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": "-2",
+      "maxPlayers": "-2",
+      "matchSeconds": "-2",
+      "scoreTick": "-2",
+      "scoreCap": "-2",
+      "rotationNow": "-2",
+      "scores": [
+        {
+          "name": "Red",
+          "score": "-2",
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": -2,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": -2,
+      "matchSeconds": -2,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Red",
+          "score": -2,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": -2,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": "1.5",
+      "maxPlayers": "1.5",
+      "matchSeconds": "1.5",
+      "scoreTick": "1.5",
+      "scoreCap": "1.5",
+      "rotationNow": "1.5",
+      "scores": [
+        {
+          "name": "Red",
+          "score": "1.5",
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": 1.5,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": 1.5,
+      "matchSeconds": 1.5,
+      "playerCount": 1.5,
+      "maxPlayers": 1.5,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 1.5,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 1.5,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": "01",
+      "maxPlayers": "01",
+      "matchSeconds": "01",
+      "scoreTick": "01",
+      "scoreCap": "01",
+      "rotationNow": "01",
+      "scores": [
+        {
+          "name": "Red",
+          "score": "01",
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": 1,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": 1,
+      "matchSeconds": 1,
+      "playerCount": 1,
+      "maxPlayers": 1,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 1,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 1,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": " 1",
+      "maxPlayers": " 1",
+      "matchSeconds": " 1",
+      "scoreTick": " 1",
+      "scoreCap": " 1",
+      "rotationNow": " 1",
+      "scores": [
+        {
+          "name": "Red",
+          "score": " 1",
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": "1e3",
+      "maxPlayers": "1e3",
+      "matchSeconds": "1e3",
+      "scoreTick": "1e3",
+      "scoreCap": "1e3",
+      "rotationNow": "1e3",
+      "scores": [
+        {
+          "name": "Red",
+          "score": "1e3",
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": "1.",
+      "maxPlayers": "1.",
+      "matchSeconds": "1.",
+      "scoreTick": "1.",
+      "scoreCap": "1.",
+      "rotationNow": "1.",
+      "scores": [
+        {
+          "name": "Red",
+          "score": "1.",
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": "0x10",
+      "maxPlayers": "0x10",
+      "matchSeconds": "0x10",
+      "scoreTick": "0x10",
+      "scoreCap": "0x10",
+      "rotationNow": "0x10",
+      "scores": [
+        {
+          "name": "Red",
+          "score": "0x10",
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": true,
+      "maxPlayers": true,
+      "matchSeconds": true,
+      "scoreTick": true,
+      "scoreCap": true,
+      "rotationNow": true,
+      "scores": [
+        {
+          "name": "Red",
+          "score": true,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": {},
+      "maxPlayers": {},
+      "matchSeconds": {},
+      "scoreTick": {},
+      "scoreCap": {},
+      "rotationNow": {},
+      "scores": [
+        {
+          "name": "Red",
+          "score": {},
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": [],
+      "maxPlayers": [],
+      "matchSeconds": [],
+      "scoreTick": [],
+      "scoreCap": [],
+      "rotationNow": [],
+      "scores": [
+        {
+          "name": "Red",
+          "score": [],
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "Server",
+      "map": "Map",
+      "playerCount": 1e+308,
+      "maxPlayers": 1e+308,
+      "matchSeconds": 1e+308,
+      "scoreTick": 1e+308,
+      "scoreCap": 1e+308,
+      "rotationNow": 1e+308,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 1e+308,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "bad"
+        },
+        {
+          "name": "",
+          "score": 3
+        }
+      ]
+    },
+    "expected": {
+      "serverName": "Server",
+      "map": "Map",
+      "experiences": [],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": 1e+308,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": 1e+308,
+      "matchSeconds": 1e+308,
+      "playerCount": 1e+308,
+      "maxPlayers": 1e+308,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 1e+308,
+          "colorHex": "#a1B2c3"
+        },
+        {
+          "name": "Green",
+          "score": 1,
+          "colorHex": "#888888"
+        }
+      ],
+      "rotationNow": 1e+308,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "服务器",
+      "map": "测试",
+      "experiences": [
+        "a",
+        null,
+        3,
+        "b"
+      ],
+      "scores": null,
+      "lighting": 3,
+      "alternator": []
+    },
+    "expected": {
+      "serverName": "服务器",
+      "map": "测试",
+      "experiences": [
+        "a",
+        "b"
+      ],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "服务器",
+      "map": "测试",
+      "experiences": [
+        "a",
+        null,
+        3,
+        "b"
+      ],
+      "scores": [],
+      "lighting": 3,
+      "alternator": []
+    },
+    "expected": {
+      "serverName": "服务器",
+      "map": "测试",
+      "experiences": [
+        "a",
+        "b"
+      ],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "服务器",
+      "map": "测试",
+      "experiences": [
+        "a",
+        null,
+        3,
+        "b"
+      ],
+      "scores": {},
+      "lighting": 3,
+      "alternator": []
+    },
+    "expected": {
+      "serverName": "服务器",
+      "map": "测试",
+      "experiences": [
+        "a",
+        "b"
+      ],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "服务器",
+      "map": "测试",
+      "experiences": [
+        "a",
+        null,
+        3,
+        "b"
+      ],
+      "scores": [
+        null,
+        1,
+        {}
+      ],
+      "lighting": 3,
+      "alternator": []
+    },
+    "expected": {
+      "serverName": "服务器",
+      "map": "测试",
+      "experiences": [
+        "a",
+        "b"
+      ],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  },
+  {
+    "input": {
+      "serverName": "服务器",
+      "map": "测试",
+      "experiences": [
+        "a",
+        null,
+        3,
+        "b"
+      ],
+      "scores": [
+        {
+          "name": "Red",
+          "score": "10",
+          "colorHex": "#123456"
+        },
+        {
+          "name": "Red",
+          "score": 2,
+          "colorHex": "#ffffff"
+        }
+      ],
+      "lighting": 3,
+      "alternator": []
+    },
+    "expected": {
+      "serverName": "服务器",
+      "map": "测试",
+      "experiences": [
+        "a",
+        "b"
+      ],
+      "lighting": "",
+      "alternator": "",
+      "scoreTick": null,
+      "scoreTickMin": null,
+      "scoreTickMax": null,
+      "scoreCap": null,
+      "matchSeconds": null,
+      "playerCount": 0,
+      "maxPlayers": 0,
+      "scores": [
+        {
+          "name": "Red",
+          "score": 10,
+          "colorHex": "#123456"
+        },
+        {
+          "name": "Red",
+          "score": 2,
+          "colorHex": "#123456"
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 0
+    }
+  }
+]

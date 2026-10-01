@@ -187,6 +187,7 @@ mod tests {
     async fn client_address_requires_signed_fresh_proof() {
         let config = crate::config::Config::for_test();
         let mut state = crate::config::AppState {
+            runtime: Default::default(),
             db: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgresql://postgres@127.0.0.1/test")
                 .unwrap(),

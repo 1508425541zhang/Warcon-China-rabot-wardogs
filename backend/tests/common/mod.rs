@@ -36,6 +36,7 @@ impl Db {
         .await
         .unwrap();
         let state = AppState {
+            runtime: Default::default(),
             db,
             config: Config::for_test(),
         };

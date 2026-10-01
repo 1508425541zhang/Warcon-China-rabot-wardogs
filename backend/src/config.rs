@@ -12,6 +12,13 @@ pub struct Config {
     pub encryption_key: String,
     pub identity: IdentityConfig,
     pub organizations: OrganizationConfig,
+    pub worker: WorkerConfig,
+}
+#[derive(Clone, Default)]
+pub struct WorkerConfig {
+    pub relay_url: Option<String>,
+    pub relay_secret: Option<String>,
+    pub listen: Option<SocketAddr>,
 }
 #[derive(Clone)]
 pub struct OrganizationConfig {
@@ -62,6 +69,7 @@ impl Config {
             origin,
             auth_secret,
             encryption_key,
+            worker: WorkerConfig::from_env()?,
             organizations: OrganizationConfig {
                 max_per_user: env::var("MAX_ORGS_PER_USER")
                     .ok()
@@ -98,6 +106,7 @@ impl Config {
             origin: "http://localhost:3000".into(),
             auth_secret: "test-secret-longer-than-thirty-two-bytes".into(),
             encryption_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".into(),
+            worker: WorkerConfig::default(),
             organizations: OrganizationConfig::default(),
             identity: IdentityConfig {
                 app_name: "Warcon".into(),
@@ -110,6 +119,7 @@ impl Config {
 pub struct AppState {
     pub db: PgPool,
     pub config: Config,
+    pub runtime: std::sync::Arc<crate::runtime::Runtime>,
 }
 impl AppState {
     pub async fn connect(config: Config) -> anyhow::Result<Self> {
@@ -118,6 +128,56 @@ impl AppState {
             .acquire_timeout(std::time::Duration::from_secs(10))
             .connect(&env::var("DATABASE_URL")?)
             .await?;
-        Ok(Self { db, config })
+        Ok(Self {
+            db,
+            config,
+            runtime: Default::default(),
+        })
+    }
+    pub async fn worker_transaction(
+        &self,
+    ) -> crate::error::Result<sqlx::Transaction<'_, sqlx::Postgres>> {
+        if let Some(leader) = self.runtime.leader.get() {
+            leader
+                .transaction()
+                .await
+                .map_err(|_| crate::runtime::lost())
+        } else {
+            Ok(self.db.begin().await?)
+        }
+    }
+}
+impl WorkerConfig {
+    fn from_env() -> anyhow::Result<Self> {
+        let relay_url = env::var("RELAY_URL").ok().filter(|s| !s.is_empty());
+        let relay_secret = env::var("RELAY_SECRET").ok().filter(|s| !s.is_empty());
+        let listen = env::var("RUST_WORKER_BIND")
+            .ok()
+            .map(|s| s.parse())
+            .transpose()?;
+        if let Some(raw) = &relay_url {
+            let url = url::Url::parse(raw)?;
+            anyhow::ensure!(
+                matches!(url.scheme(), "http" | "https")
+                    && url.host_str().is_some()
+                    && url.username().is_empty()
+                    && url.password().is_none()
+                    && url.query().is_none()
+                    && url.fragment().is_none()
+                    && url.path() == "/",
+                "RELAY_URL must be a plain HTTP(S) origin"
+            );
+        }
+        if relay_url.is_some() || listen.is_some() {
+            anyhow::ensure!(
+                relay_secret.as_ref().is_some_and(|s| s.len() >= 32),
+                "RELAY_SECRET must be at least 32 bytes"
+            );
+        }
+        Ok(Self {
+            relay_url,
+            relay_secret,
+            listen,
+        })
     }
 }

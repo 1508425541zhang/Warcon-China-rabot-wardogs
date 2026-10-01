@@ -292,6 +292,18 @@ pub async fn ingest(db: &PgPool, server: &str, body: Value, now: DateTime<Utc>) 
         }
     }
     sqlx::query("INSERT INTO server_live(server_id,feed_at) VALUES($1,$2) ON CONFLICT(server_id) DO UPDATE SET feed_at=excluded.feed_at WHERE server_live.feed_at IS NULL OR server_live.feed_at<excluded.feed_at-interval '10 seconds'").bind(server).bind(now).execute(&mut *tx).await?;
+    if !accepted.is_empty() {
+        // PostgreSQL limits NOTIFY payloads to 8 KB. Each hint contains IDs, never raw events.
+        for ids in accepted.chunks(16) {
+            sqlx::query("SELECT pg_notify('warcon_events',$1)")
+                .bind(
+                    serde_json::json!({"type":"kills","serverId":server,"eventIds":ids,"ts":now})
+                        .to_string(),
+                )
+                .execute(&mut *tx)
+                .await?;
+        }
+    }
     tx.commit().await?;
     Ok(Receipt {
         accepted: accepted.len(),

@@ -1,8 +1,8 @@
 //! Rust worker under the same database lease as the existing worker.
 //! Only migrated jobs are registered here; the route/job inventory records remaining work.
 use std::sync::Arc;
-use tokio_util::sync::CancellationToken;
 use warcon_backend::{
+    config::{AppState, Config},
     leadership::Leadership,
     shutdown,
     steam::{SteamClient, process_next},
@@ -12,10 +12,12 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter("warcon_backend=info")
         .init();
-    let pool = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&std::env::var("DATABASE_URL")?)
-        .await?;
+    let mut config = Config::from_env()?;
+    // The relay process is the authoritative game client, never another relay's caller.
+    config.worker.relay_url = None;
+    let listen = config.worker.listen;
+    let state = AppState::connect(config).await?;
+    let pool = state.db.clone();
     let steam = std::env::var("STEAM_API_KEY")
         .ok()
         .filter(|s| !s.trim().is_empty())
@@ -27,7 +29,12 @@ async fn main() -> anyhow::Result<()> {
         leader.renew().await?,
         "Another worker owns this database; Rust worker did not start"
     );
-    let stop = CancellationToken::new();
+    state
+        .runtime
+        .leader
+        .set(leader.clone())
+        .map_err(|_| anyhow::anyhow!("Worker already started"))?;
+    let stop = state.runtime.stop.clone();
     let signal_stop = stop.clone();
     let signal = tokio::spawn(async move {
         shutdown::signal().await;
@@ -46,6 +53,46 @@ async fn main() -> anyhow::Result<()> {
         }
     });
     let mut tasks = tokio::task::JoinSet::new();
+    if let Ok(path) = std::env::var("SHORT_RISK_MODEL_PATH") {
+        let model = Arc::new(warcon_backend::short_model::Model::load(
+            std::path::Path::new(&path),
+        )?);
+        let short_state = state.clone();
+        let execute = std::env::var("WARCON_SHORT_RISK_ENABLED").is_ok_and(|v| v == "1");
+        tasks.spawn(async move {
+            if warcon_backend::short_observer::run(short_state.clone(), model, execute)
+                .await
+                .is_err()
+            {
+                tracing::error!("Native short window observer stopped");
+                short_state.runtime.stop.cancel();
+            }
+        });
+    }
+    let poll_state = state.clone();
+    tasks.spawn(async move {
+        if warcon_backend::poller::run(poll_state.clone())
+            .await
+            .is_err()
+        {
+            tracing::error!("Game poller stopped");
+            poll_state.runtime.stop.cancel();
+        }
+    });
+    if let Some(listen) = listen {
+        let socket = tokio::net::TcpListener::bind(listen).await?;
+        let relay_stop = stop.clone();
+        let app = warcon_backend::relay::router(state.clone());
+        tasks.spawn(async move {
+            if axum::serve(socket, app)
+                .with_graceful_shutdown(relay_stop.cancelled_owned())
+                .await
+                .is_err()
+            {
+                tracing::error!("Worker relay stopped");
+            }
+        });
+    }
     if let Some(steam) = steam {
         let profile_stop = stop.clone();
         let profile_leader = leader.clone();

@@ -14,14 +14,22 @@ async fn main() -> anyhow::Result<()> {
     let listen = config.listen;
     let state = AppState::connect(config).await?;
     let pool = state.db.clone();
+    let events_state = state.clone();
+    let event_task =
+        tokio::spawn(async move { warcon_backend::runtime::listen(events_state).await });
+    let stop = state.runtime.stop.clone();
     let socket = tokio::net::TcpListener::bind(listen).await?;
     tracing::info!(address=%listen,"Rust backend listening");
     axum::serve(
         socket,
         api::router(state).into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
-    .with_graceful_shutdown(warcon_backend::shutdown::signal())
+    .with_graceful_shutdown(async move {
+        warcon_backend::shutdown::signal().await;
+        stop.cancel()
+    })
     .await?;
+    event_task.abort();
     pool.close().await;
     Ok(())
 }

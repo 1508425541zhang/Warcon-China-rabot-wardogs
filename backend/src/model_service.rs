@@ -18,13 +18,31 @@ use tokio::sync::Semaphore;
 const MAX_BODY: usize = 8 * 1024 * 1024;
 #[derive(Clone)]
 pub struct ModelState {
-    pub predictor: Arc<Predictor>,
-    pub pool: PgPool,
+    pub predictor: Arc<Engine>,
+    pub pool: Option<PgPool>,
     authorization: [u8; 32],
     pub busy: Arc<Semaphore>,
 }
+pub enum Engine {
+    Expanded(Predictor),
+    Legacy(crate::legacy_model::Predictor),
+}
+impl Engine {
+    pub fn manifest(&self) -> &Value {
+        match self {
+            Self::Expanded(p) => &p.manifest_json,
+            Self::Legacy(p) => &p.manifest,
+        }
+    }
+}
 impl ModelState {
     pub fn new(predictor: Predictor, pool: PgPool, token: &str) -> Result<Self> {
+        Self::with_engine(Engine::Expanded(predictor), Some(pool), token)
+    }
+    pub fn legacy(predictor: crate::legacy_model::Predictor, token: &str) -> Result<Self> {
+        Self::with_engine(Engine::Legacy(predictor), None, token)
+    }
+    fn with_engine(predictor: Engine, pool: Option<PgPool>, token: &str) -> Result<Self> {
         ensure!(
             token.encode_utf16().count() >= 32 && !token.chars().any(char::is_whitespace),
             "Invalid MODEL_API_TOKEN"
@@ -64,7 +82,7 @@ async fn handle(State(state): State<ModelState>, request: Request) -> Response {
         return reply(StatusCode::UNAUTHORIZED, json!({"error":"Unauthorized"}));
     }
     if request.method() == Method::GET && request.uri().path() == "/v1/health" {
-        let mut metadata = state.predictor.manifest_json.clone();
+        let mut metadata = state.predictor.manifest().clone();
         metadata["ok"] = json!(true);
         return reply(StatusCode::OK, metadata);
     }
@@ -96,26 +114,39 @@ async fn handle(State(state): State<ModelState>, request: Request) -> Response {
         Err(_) => return reply(StatusCode::BAD_REQUEST, json!({"error":"Invalid JSON"})),
     };
     let predictor = state.predictor.clone();
-    if body["schema"] != predictor.manifest.feature_schema || !body["requestId"].is_string() {
+    if body["schema"] != predictor.manifest()["feature_schema"] {
         return reply(
             StatusCode::BAD_REQUEST,
             json!({"error":"Invalid inference input"}),
         );
     }
-    let source = match read_source(&state.pool, &body).await {
-        Ok(s) => s,
-        Err(_) => {
-            return reply(
-                StatusCode::BAD_REQUEST,
-                json!({"error":"Invalid inference input"}),
-            );
-        }
+    let source = match predictor.as_ref() {
+        Engine::Expanded(_) => match read_source(
+            state.pool.as_ref().expect("Expanded engine database"),
+            &body,
+        )
+        .await
+        {
+            Ok(s) => Some(s),
+            Err(_) => {
+                return reply(
+                    StatusCode::BAD_REQUEST,
+                    json!({"error":"Invalid inference input"}),
+                );
+            }
+        },
+        Engine::Legacy(_) => None,
     };
     // Move the permit into the blocking job so disconnecting a request cannot
     // release capacity while its CPU inference is still running.
     match tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        assess_source(&predictor, &body, &source)
+        match predictor.as_ref() {
+            Engine::Expanded(p) => {
+                assess_source(p, &body, source.as_ref().expect("Expanded engine source"))
+            }
+            Engine::Legacy(p) => p.assess(&body),
+        }
     })
     .await
     {

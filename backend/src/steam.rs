@@ -198,9 +198,16 @@ pub async fn save(tx: &mut Transaction<'_, Postgres>, p: &Profile) -> anyhow::Re
         .bind(&p.steam_id).bind(&p.persona).bind(&p.avatar).bind(&p.profile_url).bind(p.public).bind(p.created).bind(p.vac_bans).bind(p.game_bans).bind(p.days_since_last_ban).bind(p.community_banned).bind(&p.economy_ban).bind(&p.error).execute(&mut **tx).await?;
     Ok(())
 }
+pub async fn enqueue(
+    tx: &mut Transaction<'_, Postgres>,
+    ids: &[String],
+) -> Result<(), sqlx::Error> {
+    sqlx::query("INSERT INTO integrity_profile_refresh_jobs(steam_id,state,next_at) SELECT DISTINCT id,'pending',now() FROM unnest($1::text[]) AS id WHERE NOT EXISTS(SELECT 1 FROM steam_profiles p WHERE p.steam_id=id AND p.fetched_at>now()-interval '24 hours') ON CONFLICT(steam_id) DO UPDATE SET state='pending',next_at=now(),lease_until=NULL,attempts=0 WHERE integrity_profile_refresh_jobs.state NOT IN ('pending','processing')").bind(ids).execute(&mut **tx).await?;
+    Ok(())
+}
 pub async fn process_next(leader: &Leadership, client: &SteamClient) -> anyhow::Result<bool> {
     let mut tx = leader.transaction().await?;
-    let job:Option<(String,i32,DateTime<Utc>)>=sqlx::query_as("UPDATE integrity_profile_refresh_jobs SET state='processing',attempts=attempts+1,lease_until=now()+interval '2 minutes' WHERE steam_id=(SELECT steam_id FROM integrity_profile_refresh_jobs WHERE next_at<=now() AND (state='pending' OR (state='processing' AND lease_until<=now())) AND EXISTS(SELECT 1 FROM integrity_scores s JOIN integrity_rules r ON r.org_id=s.org_id WHERE s.steam_id=integrity_profile_refresh_jobs.steam_id AND r.assessment_mode IN ('legacy','statistical','statistical_shadow')) ORDER BY next_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING steam_id,attempts,lease_until").fetch_optional(&mut *tx).await?;
+    let job:Option<(String,i32,DateTime<Utc>)>=sqlx::query_as("UPDATE integrity_profile_refresh_jobs SET state='processing',attempts=attempts+1,lease_until=now()+interval '2 minutes' WHERE steam_id=(SELECT steam_id FROM integrity_profile_refresh_jobs j WHERE next_at<=now() AND (state='pending' OR (state='processing' AND lease_until<=now())) AND (EXISTS(SELECT 1 FROM integrity_scores s JOIN integrity_rules r ON r.org_id=s.org_id WHERE s.steam_id=j.steam_id AND r.assessment_mode IN ('legacy','statistical','statistical_shadow')) OR EXISTS(SELECT 1 FROM player_sessions ps JOIN servers s ON s.id=ps.server_id JOIN organizations o ON o.id=s.org_id WHERE ps.steam_id=j.steam_id AND ps.left_at IS NULL AND o.suspended_at IS NULL)) ORDER BY next_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING steam_id,attempts,lease_until").fetch_optional(&mut *tx).await?;
     tx.commit().await?;
     let Some((id, attempt, lease)) = job else {
         return Ok(false);

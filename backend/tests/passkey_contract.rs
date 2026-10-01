@@ -149,6 +149,7 @@ async fn native_passkeys_register_verify_replay_and_upgrade_random_legacy_handle
     .await
     .unwrap();
     let state = AppState {
+        runtime: Default::default(),
         db: db.clone(),
         config: Config::for_test(),
     };

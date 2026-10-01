@@ -61,7 +61,7 @@ pub struct Score {
     pub point_scores: Vec<f64>,
 }
 
-fn checked_file(root: &Path, name: &str, hash: &str) -> Result<Vec<u8>> {
+pub(crate) fn checked_file(root: &Path, name: &str, hash: &str) -> Result<Vec<u8>> {
     let bytes = fs::read(root.join(name))?;
     ensure!(
         hex::encode(Sha256::digest(&bytes)) == hash,
@@ -180,7 +180,26 @@ fn gelu(x: f64) -> f32 {
 }
 impl Network {
     fn load(root: &Path, m: &Manifest) -> Result<Self> {
-        let raw = checked_file(root, "weights.f32", &m.weights_sha256)?;
+        Self::load_dimensions(
+            root,
+            &m.weights_sha256,
+            &m.weights_index_sha256,
+            m.window_steps,
+            m.channels,
+        )
+    }
+    pub(crate) fn load_dimensions(
+        root: &Path,
+        weights_hash: &str,
+        index_hash: &str,
+        steps: usize,
+        channels: usize,
+    ) -> Result<Self> {
+        ensure!(
+            (1..=200).contains(&steps) && (1..=2048).contains(&channels),
+            "Invalid model dimensions"
+        );
+        let raw = checked_file(root, "weights.f32", weights_hash)?;
         ensure!(raw.len() % 4 == 0, "Invalid Float32 artifact length");
         let weights: Vec<f32> = raw
             .chunks_exact(4)
@@ -190,11 +209,8 @@ impl Network {
             weights.iter().all(|v| v.is_finite()),
             "Nonfinite model weights"
         );
-        let index: Index = serde_json::from_slice(&checked_file(
-            root,
-            "weights.json",
-            &m.weights_index_sha256,
-        )?)?;
+        let index: Index =
+            serde_json::from_slice(&checked_file(root, "weights.json", index_hash)?)?;
         for t in index.tensors.values() {
             ensure!(
                 t.shape.iter().try_fold(1usize, |a, b| a.checked_mul(*b)) == Some(t.length)
@@ -207,8 +223,8 @@ impl Network {
         Ok(Self {
             weights,
             index: index.tensors,
-            steps: m.window_steps,
-            channels: m.channels,
+            steps,
+            channels,
         })
     }
     fn tensor(&self, name: &str, shape: &[usize]) -> Result<&[f32]> {
@@ -310,7 +326,7 @@ impl Network {
         }
         self.linear(&y, WIDTH, WIDTH, &format!("{prefix}.out_projection"), false)
     }
-    fn forward(&self, input: &[f32]) -> Result<Vec<f32>> {
+    pub(crate) fn forward(&self, input: &[f32]) -> Result<Vec<f32>> {
         ensure!(
             input.len() == self.steps * self.channels && input.iter().all(|v| v.is_finite()),
             "Invalid model input"

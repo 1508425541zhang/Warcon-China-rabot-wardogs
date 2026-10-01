@@ -88,6 +88,7 @@ async fn ownership_grants_invite_quota_and_atomic_revocation() {
     config.identity.allow_signup = true;
     config.organizations.max_per_user = 1;
     let app = api::router(AppState {
+        runtime: Default::default(),
         db: db.clone(),
         config,
     });

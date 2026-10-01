@@ -85,7 +85,7 @@ pub async fn status_view(state: &AppState, ps: &Value) -> Result<Value> {
             .fetch_optional(&state.db)
             .await?;
     let l = live.unwrap_or(Value::Null);
-    let s = &l["status"];
+    let s = crate::live::status(&l["status"]);
     let ok = l["ok"] == true && s.is_object();
     let links = ps["features"]["leaderboards"] == true;
     let mut roster = if ok {

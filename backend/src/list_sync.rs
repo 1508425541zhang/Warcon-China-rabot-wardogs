@@ -88,6 +88,48 @@ pub async fn desired_for(
 fn base(id: &str, name: &str) -> Value {
     json!({"serverId":id,"serverName":name,"ok":false,"added":0,"removed":0,"failed":0,"pending":false,"error":""})
 }
+/// Refresh the two observed game lists on an already-held dispatcher lane.
+/// Both reads must succeed before replacing either cached list.
+pub async fn snapshot_held(state: &AppState, client: &Client, id: &str) -> Result<()> {
+    let bans = actions::run(client, "bans", &json!({}))
+        .await
+        .map_err(|e| ApiError::bad(message(&e)))?;
+    let reserved = actions::run(client, "reserved", &json!({}))
+        .await
+        .map_err(|e| ApiError::bad(message(&e)))?;
+    let valid = |v: &str| v.len() == 17 && v.bytes().all(|b| b.is_ascii_digit());
+    let mut seen = HashSet::new();
+    let bans = bans["bans"].as_array().into_iter().flatten().filter(|b| b["steamId"].as_str().is_some_and(|s|valid(s)&&seen.insert(s.to_owned()))).map(|b|json!({"steam_id":b["steamId"],"reason":b["reason"].as_str().unwrap_or(""),"banned_by":b["bannedBy"].as_str().unwrap_or(""),"banned_at_utc":b["bannedAtUtc"].as_str().unwrap_or("")})).collect::<Vec<_>>();
+    let reserved = reserved["reserved"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter(|s| valid(s))
+        .map(str::to_owned)
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let ids = bans
+        .iter()
+        .filter_map(|b| b["steam_id"].as_str().map(str::to_owned))
+        .collect::<Vec<_>>();
+    let mut tx = state.worker_transaction().await?;
+    sqlx::query("DELETE FROM server_bans WHERE server_id=$1 AND NOT(steam_id=ANY($2))")
+        .bind(id)
+        .bind(&ids)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("INSERT INTO server_bans(server_id,steam_id,reason,banned_by,banned_at_utc,seen_at) SELECT $1,b.steam_id,b.reason,b.banned_by,b.banned_at_utc,now() FROM jsonb_to_recordset($2) b(steam_id text,reason text,banned_by text,banned_at_utc text) ON CONFLICT(server_id,steam_id) DO UPDATE SET reason=excluded.reason,banned_by=excluded.banned_by,banned_at_utc=excluded.banned_at_utc,seen_at=excluded.seen_at").bind(id).bind(json!(bans)).execute(&mut *tx).await?;
+    sqlx::query("DELETE FROM server_reserved WHERE server_id=$1 AND NOT(steam_id=ANY($2))")
+        .bind(id)
+        .bind(&reserved)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("INSERT INTO server_reserved(server_id,steam_id,seen_at) SELECT $1,unnest($2::text[]),now() ON CONFLICT(server_id,steam_id) DO UPDATE SET seen_at=excluded.seen_at").bind(id).bind(&reserved).execute(&mut *tx).await?;
+    tx.commit().await?;
+    Ok(())
+}
 fn message(e: &game::Error) -> String {
     match e {
         game::Error::Api(e) => e.message.clone(),
@@ -95,7 +137,9 @@ fn message(e: &game::Error) -> String {
     }
 }
 async fn bookkeep(state: &AppState, id: &str, error: &str, success: bool) -> Result<()> {
-    sqlx::query("INSERT INTO server_list_sync(server_id,synced_at,last_error,updated_at) VALUES($1,CASE WHEN $3 THEN now() ELSE NULL END,$2,now()) ON CONFLICT(server_id) DO UPDATE SET synced_at=CASE WHEN $3 THEN now() ELSE server_list_sync.synced_at END,last_error=$2,updated_at=now()").bind(id).bind(error).bind(success).execute(&state.db).await?;
+    let mut tx = state.worker_transaction().await?;
+    sqlx::query("INSERT INTO server_list_sync(server_id,synced_at,last_error,updated_at) VALUES($1,CASE WHEN $3 THEN now() ELSE NULL END,$2,now()) ON CONFLICT(server_id) DO UPDATE SET synced_at=CASE WHEN $3 THEN now() ELSE server_list_sync.synced_at END,last_error=$2,updated_at=now()").bind(id).bind(error).bind(success).execute(&mut *tx).await?;
+    tx.commit().await?;
     Ok(())
 }
 async fn applied(
@@ -109,6 +153,22 @@ async fn applied(
     Ok(())
 }
 pub async fn reconcile(state: &AppState, id: &str, priority: u8) -> Result<Value> {
+    if crate::gateway::remote(state) {
+        return crate::gateway::call(
+            state,
+            "sync-server",
+            json!({"serverId":id,"priority":priority}),
+        )
+        .await
+        .map_err(|e| match e {
+            game::Error::Api(e) => e,
+            game::Error::Game(_) => ApiError::new(
+                axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                "worker_unavailable",
+                "List sync worker unavailable.",
+            ),
+        });
+    }
     let row:Option<(String,String,bool,Option<chrono::DateTime<chrono::Utc>>)>=sqlx::query_as("SELECT s.name,s.org_id,o.members_reserved,o.suspended_at FROM servers s JOIN organizations o ON o.id=s.org_id WHERE s.id=$1").bind(id).fetch_optional(&state.db).await?;
     let (name, org, members, suspended) = row.ok_or_else(ApiError::missing)?;
     let mut summary = base(id, &name);
@@ -259,7 +319,7 @@ pub async fn reconcile(state: &AppState, id: &str, priority: u8) -> Result<Value
             }
         }
     }
-    let mut tx = state.db.begin().await?;
+    let mut tx = state.worker_transaction().await?;
     for (steam, list) in &succeeded_add {
         applied(&mut tx, id, steam, Some(list), "").await?
     }
@@ -329,6 +389,18 @@ pub async fn reconcile(state: &AppState, id: &str, priority: u8) -> Result<Value
     Ok(summary)
 }
 pub async fn sync_org(state: &AppState, org: &str) -> Result<Value> {
+    if crate::gateway::remote(state) {
+        return crate::gateway::call(state, "sync-org", json!({"orgId":org}))
+            .await
+            .map_err(|e| match e {
+                game::Error::Api(e) => e,
+                game::Error::Game(_) => ApiError::new(
+                    axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                    "worker_unavailable",
+                    "List sync worker unavailable.",
+                ),
+            });
+    }
     expire_entries(state).await?;
     let rows: Vec<(String, String)> =
         sqlx::query_as("SELECT id,name FROM servers WHERE org_id=$1 ORDER BY sort_order,name")
@@ -373,7 +445,7 @@ pub async fn sync_org(state: &AppState, org: &str) -> Result<Value> {
 
 /// Lift expired entries atomically with their audit records. Never delete their history.
 pub async fn expire_entries(state: &AppState) -> Result<Value> {
-    let mut tx = state.db.begin().await?;
+    let mut tx = state.worker_transaction().await?;
     let rows:Vec<(String,String)> = sqlx::query_as("UPDATE list_entries SET removed_at=now(),removed_by_name='expiry',removal='expired' WHERE removed_at IS NULL AND expires_at<=now() RETURNING list_id,steam_id").fetch_all(&mut *tx).await?;
     let list_ids = rows
         .iter()

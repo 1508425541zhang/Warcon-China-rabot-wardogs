@@ -1,3 +1,4 @@
+pub mod activity;
 pub mod analytics;
 pub mod automation;
 pub mod feed_setup;
@@ -5,6 +6,7 @@ pub mod ingest;
 pub mod keys;
 pub mod kills;
 pub mod lists;
+pub mod live;
 pub mod matches;
 pub mod notes;
 pub mod orgs;
@@ -29,6 +31,11 @@ use serde_json::{Value, json};
 
 pub fn router(state: AppState) -> Router {
     Router::new()
+        .route("/api/actions",get(activity::actions))
+        .route("/api/scope",axum::routing::put(activity::set_scope).delete(activity::clear_scope))
+        .route("/api/audit",get(activity::audit))
+        .route("/api/audit/meta",get(activity::meta))
+        .route("/api/audit/export",get(activity::export))
         .route("/api/identity/configuration",get(crate::identity::configuration))
         .route("/api/identity/session",get(crate::identity::session))
         .route("/api/identity/setup",post(crate::identity::setup))
@@ -48,6 +55,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/passkeys/auth",post(crate::passkeys::authenticate))
         .route("/api/passkeys/{id}",delete(crate::passkeys::delete))
         .route("/api/health",get(health))
+        .route("/api/live",get(live::get))
+        .route("/api/live/events",get(live::events))
         .route("/api/servers",get(servers::list).post(servers::create))
         .route("/api/servers/{id}",axum::routing::patch(servers::update).delete(servers::delete))
         .route("/api/servers/{id}/grants",get(servers::grants).put(servers::set_grants))

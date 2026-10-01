@@ -30,7 +30,7 @@ for (const match of router.matchAll(/\.route\(\s*"([^"]+)"\s*,([\s\S]*?)(?=\n\s*
 for (const route of inventory.routes) {
     const key = `${route.method} ${route.path}`;
     if (implemented.has(key) || nativeRoutes.has(`${route.method} ${shape(route.path)}`)) { route.status = 'implemented'; route.verification = 'local PostgreSQL / HTTP contract suite'; }
-    else if (key === 'POST /api/ingest/events') { route.status = 'partial'; route.verification = 'atomic raw/kills/dual-job writes tested; SSE and full consumers pending'; }
+    else if (key === 'POST /api/ingest/events') { route.status = 'partial'; route.verification = 'atomic raw/kills/dual-job writes and SSE tested; full consumers pending'; }
     else if (key === 'GET /api/health') { route.status = 'partial'; route.verification = 'public response implemented; worker/owner diagnostics pending'; }
     // These registered endpoints still need their complete worker chain.
     if (key === 'POST /api/ingest/events') route.status = 'partial';
@@ -60,7 +60,8 @@ inventory.backgroundTasks = [
     ['worker ownership/fencing', 'src/lib/server/leadership.ts', 'implemented'],
     ['Steam profile refresh', 'src/lib/server/integrity/profile-refresh.ts', 'implemented'],
     ['feed ordered claims/acknowledgements', 'src/lib/server/feed-processing.ts', 'partial'],
-    ['poller/observation/automation', 'src/lib/server/poller.ts', 'pending'],
+    ['poller/presence/matches/raw observations/list snapshots', 'src/lib/server/poller.ts', 'implemented'],
+    ['poller automation hooks', 'src/lib/server/observe.ts', 'pending'],
     ['delivery/outbox', 'src/lib/server/outbox.ts', 'pending'],
     ['Integrity evaluation', 'src/lib/server/integrity/pipeline.ts', 'pending'],
     ['baseline rebuild', 'src/lib/server/integrity/baselines.ts', 'pending'],
@@ -69,14 +70,17 @@ inventory.backgroundTasks = [
     ['AI review queue', 'src/lib/server/integrity/ai-queue.ts', 'pending'],
     ['long model queue', 'src/lib/server/integrity/model-runtime.ts', 'pending'],
     ['expanded30m native inference / source reader / HTTP service', 'services/integrity-model-bun/server.ts', 'implemented'],
-    ['short model', 'src/lib/server/integrity/short-risk.ts', 'pending'],
+    ['27-channel native features / inference / HTTP service', 'services/integrity-model-bun/inference.ts', 'implemented'],
+    ['short model native inference / observer / protected actions', 'src/lib/server/integrity/short-risk.ts', 'implemented'],
+    ['short model frontend snapshot adapter', 'src/lib/server/integrity/short-risk.ts', 'pending'],
     ['history retention', 'src/lib/server/integrity/history-retention.ts', 'pending'],
     ['QQ runtime', 'src/lib/server/qq/runtime.ts', 'pending'],
     ['webhook delivery', 'src/lib/server/webhook-delivery.ts', 'pending'],
-    ['worker relay/SSE', 'src/worker/runtime.ts', 'pending'],
+    ['native dispatcher relay and permission-checked SSE', 'src/worker/runtime.ts', 'implemented'],
+    ['remaining relay diagnostics and automation hooks', 'src/worker/runtime.ts', 'pending'],
     ['settings reload', 'src/lib/server/settings.ts', 'partial']
     ,['reserved slot reconciliation and list expiry', 'src/lib/server/lists-sync.ts', 'implemented']
-    ,['ban-on-sight enforcement', 'src/lib/server/lists-sync.ts', 'partial']
+    ,['ban-on-sight enforcement', 'src/lib/server/lists-sync.ts', 'implemented']
 ].map(([name, source, status]) => ({ name, source, status }));
 inventory.scope = 'All business APIs, page server business loaders/actions and background tasks. Svelte UI stays.';
 inventory.activation = 'local development only; not connected to production or Svelte request routing';

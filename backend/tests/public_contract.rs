@@ -37,7 +37,7 @@ async fn public_feature_gates_private_field_redaction_board_and_career() {
     let db = Db::new().await;
     sqlx::query("INSERT INTO organizations(id,name,slug,allow_public_status,allow_public_leaderboards) VALUES('org','Org','org',true,true)").execute(&db.state.db).await.unwrap();
     sqlx::query("INSERT INTO servers(id,org_id,name,host,port,password_enc,public_status,public_leaderboards) VALUES('server','org','Server','hidden-host.invalid',123,'private-secret',true,false),('hidden','org','Hidden','hidden-host.invalid',123,'private-secret',false,false)").execute(&db.state.db).await.unwrap();
-    let status = json!({"map":"MapA","experiences":[],"lighting":"Day","playerCount":1,"maxPlayers":100,"scores":[{"name":"Red","colorHex":"ff0000","score":60}],"scoreCap":100,"matchSeconds":60});
+    let status = json!({"serverName":"Server","map":"MapA","experiences":[],"lighting":"Day","playerCount":1,"maxPlayers":100,"scores":[{"name":"Red","colorHex":"ff0000","score":60}],"scoreCap":100,"matchSeconds":60});
     let players = json!([{"steamId":"76561198000000001","name":"Player","faction":"Red","kills":3,"deaths":1,"cash":9999,"ping":123,"ip":"sensitive"}]);
     sqlx::query("INSERT INTO server_live(server_id,ok,status,players,players_at,status_at,observed_at,build,error) VALUES('server',true,$1,$2,now(),now(),now(),'private-build','private-error')").bind(&status).bind(players).execute(&db.state.db).await.unwrap();
     let (s, v) = db

@@ -5,7 +5,8 @@
       "method": "GET",
       "path": "/api/actions",
       "source": "src/routes/api/actions/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -47,19 +48,22 @@
       "method": "GET",
       "path": "/api/audit",
       "source": "src/routes/api/audit/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/audit/export",
       "source": "src/routes/api/audit/export/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/audit/meta",
       "source": "src/routes/api/audit/meta/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -79,13 +83,15 @@
       "method": "GET",
       "path": "/api/live",
       "source": "src/routes/api/live/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
       "path": "/api/live/events",
       "source": "src/routes/api/live/events/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "GET",
@@ -543,13 +549,15 @@
       "method": "PUT",
       "path": "/api/scope",
       "source": "src/routes/api/scope/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "DELETE",
       "path": "/api/scope",
       "source": "src/routes/api/scope/+server.ts",
-      "status": "pending"
+      "status": "implemented",
+      "verification": "local PostgreSQL / HTTP contract suite"
     },
     {
       "method": "PUT",
@@ -1349,8 +1357,13 @@
       "status": "partial"
     },
     {
-      "name": "poller/observation/automation",
+      "name": "poller/presence/matches/raw observations/list snapshots",
       "source": "src/lib/server/poller.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "poller automation hooks",
+      "source": "src/lib/server/observe.ts",
       "status": "pending"
     },
     {
@@ -1394,7 +1407,17 @@
       "status": "implemented"
     },
     {
-      "name": "short model",
+      "name": "27-channel native features / inference / HTTP service",
+      "source": "services/integrity-model-bun/inference.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "short model native inference / observer / protected actions",
+      "source": "src/lib/server/integrity/short-risk.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "short model frontend snapshot adapter",
       "source": "src/lib/server/integrity/short-risk.ts",
       "status": "pending"
     },
@@ -1414,7 +1437,12 @@
       "status": "pending"
     },
     {
-      "name": "worker relay/SSE",
+      "name": "native dispatcher relay and permission-checked SSE",
+      "source": "src/worker/runtime.ts",
+      "status": "implemented"
+    },
+    {
+      "name": "remaining relay diagnostics and automation hooks",
       "source": "src/worker/runtime.ts",
       "status": "pending"
     },
@@ -1431,7 +1459,7 @@
     {
       "name": "ban-on-sight enforcement",
       "source": "src/lib/server/lists-sync.ts",
-      "status": "partial"
+      "status": "implemented"
     }
   ],
   "scope": "All business APIs, page server business loaders/actions and background tasks. Svelte UI stays.",

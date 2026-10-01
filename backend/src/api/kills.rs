@@ -174,7 +174,7 @@ fn conditions(
         _ => {}
     }
 }
-fn view(r: Value) -> Value {
+pub fn view(r: Value) -> Value {
     let date = |name: &str| {
         r.get(name)
             .and_then(Value::as_str)

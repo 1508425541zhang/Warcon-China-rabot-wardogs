@@ -66,6 +66,7 @@ async fn original_schema_auth_pagination_transactions_and_worker_fencing() {
     let key = crypto::mint_token();
     sqlx::query("INSERT INTO api_keys(id,org_id,label,key_hash,hint,capabilities) VALUES('test-key','org-a','fixture',$1,'test',$2)").bind(crypto::hash_token(&key)).bind(json!(["server.view","players.notes"])).execute(&db).await.unwrap();
     let state = AppState {
+        runtime: Default::default(),
         db: db.clone(),
         config: Config::for_test(),
     };

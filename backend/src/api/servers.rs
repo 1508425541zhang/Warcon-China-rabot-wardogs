@@ -276,26 +276,13 @@ pub async fn test(
 ) -> Result<Json<Value>> {
     let (actor, scope) = manager(&state, &headers, &Method::POST, &id).await?;
     let started = std::time::Instant::now();
-    let _lane = crate::dispatcher::acquire(&id, 0, std::time::Duration::from_secs(30)).await?;
+    let _lane = if crate::gateway::remote(&state) {
+        None
+    } else {
+        Some(crate::dispatcher::acquire(&id, 0, std::time::Duration::from_secs(30)).await?)
+    };
     manager(&state, &headers, &Method::POST, &id).await?;
-    let work = async {
-        let client = crate::game::Client::for_server(&state, &id).await?;
-        let status = crate::actions::run(&client, "status", &json!({"raw":true})).await?;
-        let capabilities = crate::actions::run(&client, "capabilities", &json!({}))
-            .await
-            .unwrap_or(Value::Null);
-        let server_id = if capabilities["features"]["serverId"] == true {
-            crate::actions::run(&client, "serverId", &json!({}))
-                .await
-                .ok()
-                .and_then(|v| v["serverId"].as_str().map(str::to_owned))
-                .unwrap_or_default()
-        } else {
-            String::new()
-        };
-        Ok::<_, crate::game::Error>((status, capabilities, server_id))
-    }
-    .await;
+    let work = crate::gateway::test_held(&state, &id, Some(&headers)).await;
     let duration = started.elapsed().as_millis() as i64;
     let (out, ok, status, message) = match work {
         Ok((status, capabilities, server_id)) => (

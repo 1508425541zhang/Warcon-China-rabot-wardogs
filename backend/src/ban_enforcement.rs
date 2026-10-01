@@ -55,7 +55,9 @@ pub async fn enforce(
             Err(game::Error::Api(_)) => break,
         };
         retry.insert(steam.clone(), Instant::now() + Duration::from_secs(30));
-        sqlx::query("INSERT INTO audit_log(actor_name,server_id,server_name,org_id,category,action,target,outcome,status,message,detail) VALUES('ban list',$1,$2,$3,'system','ban.enforce',$4,$5,$6,$7,$8)").bind(id).bind(&name).bind(&org).bind(steam).bind(if error.is_empty(){"ok"}else{"error"}).bind(if error.is_empty(){200}else{502}).bind(if error.is_empty(){"Banned player removed".into()}else{format!("Could not remove a banned player: {}",crate::feed::truncate(&error,500))}).bind(json!({"banId":ban_message::uid(&facts.entry_id)})).execute(&state.db).await?;
+        let mut tx = state.worker_transaction().await?;
+        sqlx::query("INSERT INTO audit_log(actor_name,server_id,server_name,org_id,category,action,target,outcome,status,message,detail) VALUES('ban list',$1,$2,$3,'system','ban.enforce',$4,$5,$6,$7,$8)").bind(id).bind(&name).bind(&org).bind(steam).bind(if error.is_empty(){"ok"}else{"error"}).bind(if error.is_empty(){200}else{502}).bind(if error.is_empty(){"Banned player removed".into()}else{format!("Could not remove a banned player: {}",crate::feed::truncate(&error,500))}).bind(json!({"banId":ban_message::uid(&facts.entry_id)})).execute(&mut *tx).await?;
+        tx.commit().await?;
     }
     Ok(kicked)
 }
