@@ -283,6 +283,7 @@ pub async fn test(
     };
     manager(&state, &headers, &Method::POST, &id).await?;
     let work = crate::gateway::test_held(&state, &id, Some(&headers)).await;
+    crate::pages::invalidate_catalog(&state, &id).await;
     let duration = started.elapsed().as_millis() as i64;
     let (out, ok, status, message) = match work {
         Ok((status, capabilities, server_id)) => (
@@ -366,6 +367,9 @@ pub async fn update(
         observe(&mut tx, &id, true).await?
     }
     tx.commit().await?;
+    if moved || rotated {
+        crate::pages::invalidate_catalog(&state, &id).await;
+    }
     Ok(Json(json!({"ok":true})))
 }
 pub async fn delete(
@@ -394,6 +398,7 @@ pub async fn delete(
         .await?;
     observe(&mut tx, &id, true).await?;
     tx.commit().await?;
+    crate::pages::invalidate_catalog(&state, &id).await;
     Ok(Json(json!({"ok":true})))
 }
 pub async fn grants(

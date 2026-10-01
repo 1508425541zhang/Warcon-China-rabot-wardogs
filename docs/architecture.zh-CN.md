@@ -4,7 +4,7 @@
 
 ## 1. 系统边界
 
-Warcon China 是基于 Warcon 的 WARDOGS 社区服务器管理项目。它复用 `src/lib/server/rcon.ts`、`transport.ts` 和 `docs/wardogs-api.md` 所描述的现有 RCON 接口，不重写协议客户端。系统只分析服务器提供的状态、会话与 Kill Feed，以及已授权获取的公开资料；不扫描客户端进程、硬件或本地文件。
+Warcon China 是基于 Warcon 的 WARDOGS 社区服务器管理项目。本开发分支的原生客户端在 `backend/src/rcon.rs`、`game.rs` 和 `gateway.rs`，保持 `docs/wardogs-api.md` 描述的现有 RCON 接口。系统只分析服务器提供的状态、会话与 Kill Feed，以及已授权获取的公开资料；不扫描客户端进程、硬件或本地文件。
 
 当前社区风控默认仅记录。组织所有者可在组织设置中逐项开启实验性自动踢出、24 小时或 7 天本服临时隔离。规则接口仍不接受旧的通用 `enforce` 模式；自动处置由单独的开关和证据门槛控制。原 Warcon 的入服账号风险自动化有独立配置与风险来源。
 
@@ -12,27 +12,28 @@ Warcon China 是基于 Warcon 的 WARDOGS 社区服务器管理项目。它复�
 
 ```mermaid
 flowchart LR
-    A[管理员浏览器] -->|HTTPS / 会话| B[SvelteKit 网页与 API]
+    A[管理员浏览器] -->|HTTPS / 会话| UI[SvelteKit / Node 渲染与传输]
+    UI --> B[Rust API]
     B -->|权限、规则、案件| D[(PostgreSQL / TimescaleDB)]
-    B -->|命令中继| C[Worker]
+    B -->|命令中继| C[Rust Worker]
     C -->|现有 WARDOGS RCON| G[游戏服务器]
     G -->|已验证 Kill Feed| B
     C -->|观察、档案、评分| D
     C -->|可选案件提醒| H[Discord Webhook]
 ```
 
-`docker-compose.yml` 默认启动 `migrate`、`warcon`、`worker`、`db`。迁移先执行；网页处理身份、权限和 API；Worker 负责轮询、事件观察和后台递送。数据库使用 Drizzle schema 与 `drizzle/` 迁移。浏览器不直接持有 RCON 密码，密码加密存储。
+`docker-compose.yml` 默认启动 `migrate`、`warcon`、`api`、`worker`、`db`。迁移先执行；Node 只渲染和传输，Rust API 处理身份、权限、API 和页面业务；Rust Worker 负责轮询、事件观察和后台递送。数据库保持 `drizzle/` SQL 迁移。浏览器不直接持有 RCON 密码，密码加密存储。开发使用独立 `compose.rust-dev.yml`；详见 [迁移记录](rust-backend.zh-CN.md)。
 
 关键代码路径：
 
-| 领域 | 主要代码 |
-| --- | --- |
-| RCON 与命令审计 | `src/lib/server/rcon.ts`、`transport.ts`、`rcon-run.ts`、`dispatcher.ts` |
-| Worker、租约、出站队列 | `src/worker/`、`src/lib/server/leadership.ts`、`outbox.ts` |
-| Kill Feed 接收与持久化 | `src/routes/api/ingest/events/+server.ts`、`src/lib/server/feed*.ts` |
-| 纯步兵分类、窗口、评分、证据、举报 | `src/lib/server/integrity/` |
-| 组织权限与审计 | `src/lib/server/access.ts`、`src/lib/capabilities.ts`、`audit.ts` |
-| 管理页面 | `src/routes/(app)/server/[id]/integrity/` |
+| 领域                               | 主要代码                                                                              |
+| ---------------------------------- | ------------------------------------------------------------------------------------- |
+| RCON 与命令审计                    | `backend/src/rcon.rs`、`game.rs`、`actions.rs`、`dispatcher.rs`                       |
+| Worker、租约、出站队列             | `backend/src/bin/warcon-worker.rs`、`leadership.rs`、`outbox_worker.rs`               |
+| Kill Feed 接收与持久化             | `backend/src/feed.rs`、`api/ingest.rs`、`integrity_consumer.rs`、`legacy_consumer.rs` |
+| 纯步兵分类、窗口、评分、证据、举报 | `backend/src/integrity_*`、`api/integrity_*`                                          |
+| 组织权限与审计                     | `backend/src/auth.rs`、`audit.rs`、`api/orgs.rs`                                      |
+| 管理页面                           | `src/routes/(app)/server/[id]/integrity/`                                             |
 
 ## 3. 从 Kill Feed 到案件（Legacy 路径）
 
@@ -46,22 +47,22 @@ flowchart LR
 
 ### 默认 KPM 与风险区间
 
-| KPM 区间 | 对总分的贡献 |
-| --- | ---: |
-| `< 4.00` | 0 |
-| `4.00 ≤ KPM < 4.50` | +18 |
-| `4.50 ≤ KPM < 5.00` | +24 |
-| `5.00 ≤ KPM < 6.00` | +32 |
-| `6.00 ≤ KPM < 8.00` | +42 |
-| `KPM ≥ 8.00` | +52 |
+| KPM 区间            | 对总分的贡献 |
+| ------------------- | -----------: |
+| `< 4.00`            |            0 |
+| `4.00 ≤ KPM < 4.50` |          +18 |
+| `4.50 ≤ KPM < 5.00` |          +24 |
+| `5.00 ≤ KPM < 6.00` |          +32 |
+| `6.00 ≤ KPM < 8.00` |          +42 |
+| `KPM ≥ 8.00`        |          +52 |
 
-| 所有分项合计后的风险总分 | 显示等级 |
-| ---: | --- |
-| 0–19 | 正常 |
-| 20–39 | 被动观察 |
-| 40–53 | 主动观察 |
-| 54–63 | 达到移出阈值 |
-| 64–100 | 达到隔离资格阈值 |
+| 所有分项合计后的风险总分 | 显示等级         |
+| -----------------------: | ---------------- |
+|                     0–19 | 正常             |
+|                    20–39 | 被动观察         |
+|                    40–53 | 主动观察         |
+|                    54–63 | 达到移出阈值     |
+|                   64–100 | 达到隔离资格阈值 |
 
 KPM 分项只是总分的一部分，不能把 KPM 区间直接当成风险等级。默认风险门槛为 20/40/54/64；达到分数阈值不等于已经执行；Legacy 动作还受组织显式开关与执行保护约束。统计委员会三票可疑及以上或两票极可能作弊建案件；三票极可能作弊以及 KPM＞4＋另一位专家可疑可进入踢出通道，详见 v3 文档。
 

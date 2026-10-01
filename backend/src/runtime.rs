@@ -14,6 +14,7 @@ pub struct Runtime {
     pub stop: CancellationToken,
     pub events: broadcast::Sender<Value>,
     pub poller: Mutex<Value>,
+    settings: Mutex<(serde_json::Map<String, Value>, u64)>,
     interest: Mutex<HashMap<String, Instant>>,
 }
 impl Default for Runtime {
@@ -23,6 +24,7 @@ impl Default for Runtime {
             stop: CancellationToken::new(),
             events: broadcast::channel(4096).0,
             poller: Mutex::new(Value::Null),
+            settings: Mutex::new((crate::settings::defaults(), 0)),
             interest: Mutex::new(HashMap::new()),
         }
     }
@@ -35,6 +37,14 @@ pub fn lost() -> ApiError {
     )
 }
 impl Runtime {
+    pub fn track_settings(&self, values: &serde_json::Map<String, Value>) -> u64 {
+        let mut current = self.settings.lock().unwrap_or_else(|e| e.into_inner());
+        if current.0 != *values {
+            current.0 = values.clone();
+            current.1 += 1;
+        }
+        current.1
+    }
     pub fn interest(&self, ids: &[String], lease_ms: u64) {
         let now = Instant::now();
         let mut map = self.interest.lock().unwrap_or_else(|e| e.into_inner());

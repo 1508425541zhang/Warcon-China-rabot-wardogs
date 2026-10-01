@@ -1,0 +1,134 @@
+[
+  {
+    "cause": "Id.Item.A91",
+    "label": "A-91"
+  },
+  {
+    "cause": "Id.Item.AK74M",
+    "label": "AK-74M"
+  },
+  {
+    "cause": "Id.Buildable.BarbedWire",
+    "label": "Barbed wire"
+  },
+  {
+    "cause": "Id.Buildable.BremmerWall",
+    "label": "Bremer wall"
+  },
+  {
+    "cause": "Id.Item.C4Explosive",
+    "label": "C4"
+  },
+  {
+    "cause": "Id.Item.CombatBow",
+    "label": "Combat bow"
+  },
+  {
+    "cause": "Id.Item.Defibrillator.Standard",
+    "label": "Defibrillator"
+  },
+  {
+    "cause": "Id.Item.WEPN_029",
+    "label": "Galil"
+  },
+  {
+    "cause": "Id.Item.Glock17",
+    "label": "Glock 17"
+  },
+  {
+    "cause": "ID.Item.BuildTool.Hammer.Large",
+    "label": "Hammer (large)"
+  },
+  {
+    "cause": "ID.Item.BuildTool.Hammer.Medium",
+    "label": "Hammer (medium)"
+  },
+  {
+    "cause": "Id.Item.KH2002",
+    "label": "KH2002"
+  },
+  {
+    "cause": "Vehicle.Variant.Land.Wheeled.Kodiak.MachineGun",
+    "label": "Kodiak (machine gun)"
+  },
+  {
+    "cause": "Vehicle.Variant.Land.Wheeled.Kodiak.Pickup",
+    "label": "Kodiak pickup"
+  },
+  {
+    "cause": "Vehicle.Variant.Air.Rotary.Littlebird.MountedMachineGuns",
+    "label": "Littlebird (mounted MGs)"
+  },
+  {
+    "cause": "Vehicle.Variant.Land.Tracked.SpawnVehicle.Lonestar",
+    "label": "Lonestar"
+  },
+  {
+    "cause": "Id.Item.M4",
+    "label": "M4"
+  },
+  {
+    "cause": "Id.Item.M500",
+    "label": "M500"
+  },
+  {
+    "cause": "Id.Item.M67Grenade",
+    "label": "M67 grenade"
+  },
+  {
+    "cause": "Id.Item.MK22",
+    "label": "MK 22"
+  },
+  {
+    "cause": "Id.Item.MP43",
+    "label": "MP43"
+  },
+  {
+    "cause": "Id.Vehicle.WeaponExtension.ROT_02.122mm",
+    "label": "ROT 02 122 mm"
+  },
+  {
+    "cause": "Id.Vehicle.WeaponExtension.ROT_02.30mmCannon",
+    "label": "ROT 02 30 mm cannon"
+  },
+  {
+    "cause": "Id.Vehicle.WeaponExtension.ROT_03.MountedMachineGun",
+    "label": "ROT 03 mounted MG"
+  },
+  {
+    "cause": "Id.Item.RPG7",
+    "label": "RPG-7"
+  },
+  {
+    "cause": "Id.Item.SKS",
+    "label": "SKS"
+  },
+  {
+    "cause": "Id.Vehicle.WeaponExtension.STN_01.MistralAA",
+    "label": "STN 01 Mistral AA"
+  },
+  {
+    "cause": "Id.Vehicle.WeaponExtension.STN_02.MainCannon",
+    "label": "STN 02 main cannon"
+  },
+  {
+    "cause": "Id.Vehicle.WeaponExtension.STN_03.MainBarrel",
+    "label": "STN 03 main gun"
+  },
+  {
+    "cause": "Id.Vehicle.WeaponExtension.WHL_02.SUV.RingTurret",
+    "label": "SUV ring turret"
+  },
+  {
+    "cause": "Id.Item.SV98",
+    "label": "SV-98"
+  },
+  {
+    "cause": "Id.Item.SVDM",
+    "label": "SVDM"
+  },
+  {
+    "cause": "Id.Item.TAR21",
+    "label": "TAR-21"
+  }
+]

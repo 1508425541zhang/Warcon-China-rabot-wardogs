@@ -1,26 +1,21 @@
-# Warcon: Bun + SvelteKit; the database is Postgres/TimescaleDB (see docker-compose.yml).
-FROM oven/bun:1.4.2 AS build
+# Svelte rendering and transport. All business runs in Dockerfile.native.
+FROM node:24-bookworm-slim AS frontend-build
 WORKDIR /app
+RUN npm install --global bun@1.4.2
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts
 COPY . .
-RUN bun run build
+RUN bun backend/tools/export-presentation-catalog.ts
+RUN node node_modules/vite/bin/vite.js build
+RUN bun install --frozen-lockfile --production --ignore-scripts
 
-FROM oven/bun:1.4.2-slim
+FROM node:24-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --production && rm -rf ~/.bun/install/cache
-COPY --from=build /app/build ./build
-COPY drizzle ./drizzle
-COPY docker-entrypoint.sh ./
-USER bun
-EXPOSE 3000 7700
-# The web (and single-process) roles answer on 3000; the worker on WORKER_PORT (7700). Probing every
-# 2 s while starting lets a rolling deploy switch to a new container seconds after it is ready.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --start-interval=2s CMD bun -e "const w = (process.env.WARCON_ROLE || 'all') === 'worker'; fetch(w ? 'http://127.0.0.1:' + (process.env.WORKER_PORT || 7700) + '/health' : 'http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
-# The commit shown on the Admin overview is read from .git during the build (build/commit). This
-# argument is only for a context that arrives without .git; last, so it re-uses every layer above.
-ARG WARCON_COMMIT=""
-ENV WARCON_COMMIT=$WARCON_COMMIT
-CMD ["./docker-entrypoint.sh"]
+COPY --from=frontend-build /app/package.json ./package.json
+COPY --from=frontend-build /app/build ./build
+COPY --from=frontend-build /app/node_modules ./node_modules
+USER node
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD node -e "fetch('http://127.0.0.1:3000/sign-in',{redirect:'manual'}).then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "build/index.js"]

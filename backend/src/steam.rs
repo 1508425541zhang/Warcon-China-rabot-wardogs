@@ -366,7 +366,7 @@ pub async fn enqueue(
 }
 pub async fn process_next(leader: &Leadership, client: &SteamClient) -> anyhow::Result<bool> {
     let mut tx = leader.transaction().await?;
-    let job:Option<(String,i32,DateTime<Utc>)>=sqlx::query_as("UPDATE integrity_profile_refresh_jobs SET state='processing',attempts=attempts+1,lease_until=now()+interval '2 minutes' WHERE steam_id=(SELECT steam_id FROM integrity_profile_refresh_jobs j WHERE next_at<=now() AND (state='pending' OR (state='processing' AND lease_until<=now())) AND (EXISTS(SELECT 1 FROM integrity_scores s JOIN integrity_rules r ON r.org_id=s.org_id WHERE s.steam_id=j.steam_id AND r.assessment_mode IN ('legacy','statistical','statistical_shadow')) OR EXISTS(SELECT 1 FROM player_sessions ps JOIN servers s ON s.id=ps.server_id JOIN organizations o ON o.id=s.org_id WHERE ps.steam_id=j.steam_id AND ps.left_at IS NULL AND o.suspended_at IS NULL)) ORDER BY next_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING steam_id,attempts,lease_until").fetch_optional(&mut *tx).await?;
+    let job:Option<(String,i32,DateTime<Utc>)>=sqlx::query_as("UPDATE integrity_profile_refresh_jobs SET state='processing',attempts=attempts+1,lease_until=now()+interval '2 minutes' WHERE steam_id=(SELECT steam_id FROM integrity_profile_refresh_jobs j WHERE next_at<=now() AND (state='pending' OR (state='processing' AND lease_until<=now())) ORDER BY next_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING steam_id,attempts,lease_until").fetch_optional(&mut *tx).await?;
     tx.commit().await?;
     let Some((id, attempt, lease)) = job else {
         return Ok(false);

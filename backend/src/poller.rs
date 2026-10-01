@@ -38,6 +38,7 @@ pub async fn run(app: AppState) -> Result<()> {
     let mut beat = tokio::time::interval(Duration::from_millis(250));
     beat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut settings = crate::settings::load(&app.db).await?;
+    app.runtime.track_settings(&settings);
     let mut memories: HashMap<String, Memory> = HashMap::new();
     let mut in_flight = HashMap::<String, bool>::new();
     let mut flight_started = HashMap::<String, i64>::new();
@@ -81,7 +82,12 @@ pub async fn run(app: AppState) -> Result<()> {
           for m in memories.values(){let tier=m.tier(&app);tiers[tier]=json!(tiers[tier].as_u64().unwrap_or(0)+1);let(p,s)=m.cadence(&settings,tier);if m.players_due.min(m.status_due)>0&&now-m.players_due.min(m.status_due).max(m.hold)>p.min(s){behind+=1}}
           for(id,offline)in &in_flight{let tier=if *offline{"offline"}else if app.runtime.watched(id){"watched"}else if last_players.get(id).copied().unwrap_or(0)>0{"hot"}else{"idle"};tiers[tier]=json!(tiers[tier].as_u64().unwrap_or(0)+1);}
           *app.runtime.poller.lock().unwrap_or_else(|e|e.into_inner())=json!({"enabled":true,"servers":present.len(),"players":last_players.iter().filter(|(id,_)|present.contains(*id)).map(|(_,n)|n).sum::<usize>(),"tiers":tiers,"active":in_flight.len(),"behind":behind,"stuck":flight_started.values().filter(|t|now-**t>120000).count(),"launched":launched,"beatAt":now});
-          if now-settings_at>=10000{settings_at=now;if let Ok(next)=crate::settings::load(&app.db).await{settings=next;}}
+          if now-settings_at>=10000{settings_at=now;if let Ok(next)=crate::settings::load(&app.db).await{
+            if next!=settings{
+                settings=next;app.runtime.track_settings(&settings);
+                for m in memories.values_mut(){let(pc,sc)=m.cadence(&settings,m.tier(&app));m.players_due=m.players_due.max(now).min(now+pc).max(m.hold);m.status_due=m.status_due.max(now).min(now+sc).max(m.hold);}
+            }
+          }}
           if now-roster_at>=5000{
            roster_at=now;
            let rows:Vec<(String,String,String,String)>=match sqlx::query_as("SELECT s.id,s.org_id,s.name,md5(s.host||':'||s.port::text||':'||s.scheme||':'||s.password_enc||':'||s.allow_private::text) FROM servers s JOIN organizations o ON o.id=s.org_id WHERE o.suspended_at IS NULL ORDER BY s.sort_order,s.name,s.id").fetch_all(&app.db).await{Ok(rows)=>rows,Err(_)=>{tracing::warn!("Server roster unavailable; pausing observations");continue}};

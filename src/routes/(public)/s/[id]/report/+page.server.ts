@@ -1,9 +1,4 @@
-import type { PageServerLoad } from './$types';
-import { getEnv } from '$lib/server/env';
-import { publicHeading, publicLoad, requirePublicServer } from '$lib/server/public';
+import { pageLoad } from '$lib/native/transport.server';
 
-export const load: PageServerLoad = (event) =>
-	publicLoad(event, async () => {
-		const server = await requirePublicServer(getEnv(), event.params.id, 'status');
-		return { heading: publicHeading(server), signedIn: !!event.locals.user };
-	});
+export const load = (event: Parameters<typeof pageLoad>[0]) =>
+	pageLoad(event, 'src/routes/(public)/s/[id]/report/+page.server.ts');

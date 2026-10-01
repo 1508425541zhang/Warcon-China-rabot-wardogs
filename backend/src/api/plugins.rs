@@ -234,11 +234,9 @@ async fn save(
     {
         return Err(invalid());
     }
-    let compiled: Value = serde_json::from_str(include_str!(
-        "../../../src/lib/plugins/extensions/round-summary/manifest.json"
-    ))
-    .unwrap();
-    if m["renderer"] != "cards" && m["renderer"] != compiled["renderer"] {
+    let compiled: Vec<Value> = serde_json::from_str(include_str!("../../assets/code-plugins.json"))
+        .expect("build-time plugin catalogue");
+    if m["renderer"] != "cards" && !compiled.iter().any(|p| p["renderer"] == m["renderer"]) {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
             "unknown_renderer",

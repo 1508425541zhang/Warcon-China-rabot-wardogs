@@ -1,5 +1,5 @@
 //! Rust worker under the same database lease as the existing worker.
-//! Only migrated jobs are registered here; the route/job inventory records remaining work.
+//! Registers native observation, integrity, automation, model, notification and retention jobs.
 use std::sync::Arc;
 use warcon_backend::{
     config::{AppState, Config},

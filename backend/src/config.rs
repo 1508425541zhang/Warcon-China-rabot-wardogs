@@ -126,7 +126,7 @@ impl AppState {
         let db = PgPoolOptions::new()
             .max_connections(10)
             .acquire_timeout(std::time::Duration::from_secs(10))
-            .connect(&env::var("DATABASE_URL")?)
+            .connect_with(crate::database::options("DATABASE_URL")?)
             .await?;
         Ok(Self {
             db,

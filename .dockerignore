@@ -4,6 +4,7 @@ build
 .env
 .env.*
 !.env.example
+!.env.rust.dev.example
 .playwright-mcp
 # Of .git only what names the commit being built, for the build shown on the Admin overview.
 .git/*
@@ -18,3 +19,6 @@ backend/target
 backend/target-*
 backend/.env
 backend/artifacts-local
+backend/*.log
+backend/local-stack-smoke.json
+models

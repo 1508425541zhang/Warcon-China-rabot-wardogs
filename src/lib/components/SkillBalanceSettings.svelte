@@ -4,8 +4,11 @@
 	import { invalidateAll } from '$app/navigation';
 	import { fmtTime } from '$lib/format';
 	import type { skillBalanceView } from '$lib/server/skill-balance';
-	let { data, serverId }: { data: Awaited<ReturnType<typeof skillBalanceView>>; serverId: string } =
-		$props();
+	import type { Wire } from '$lib/native/types';
+	let {
+		data,
+		serverId
+	}: { data: Wire<Awaited<ReturnType<typeof skillBalanceView>>>; serverId: string } = $props();
 	let grace = $state(untrack(() => data.rule.graceSeconds)),
 		lead = $state(untrack(() => data.rule.leadPoints));
 	let busy = $state(false),

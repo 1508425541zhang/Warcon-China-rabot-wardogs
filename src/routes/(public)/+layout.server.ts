@@ -1,5 +1,4 @@
-// The public route group: no session, no redirect. Each page checks its own server; the shell
-// shows what the page reports as `heading`.
-import type { LayoutServerLoad } from './$types';
+import { pageLoad } from '$lib/native/transport.server';
 
-export const load: LayoutServerLoad = async () => ({});
+export const load = (event: Parameters<typeof pageLoad>[0]) =>
+	pageLoad(event, 'src/routes/(public)/+layout.server.ts');

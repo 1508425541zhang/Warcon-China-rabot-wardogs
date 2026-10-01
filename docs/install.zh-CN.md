@@ -43,17 +43,20 @@ cp .env.example .env
 nano .env
 ```
 
-现在编辑器里打开的 `.env` 是你的私有配置。找到下面五个名字，只改等号右边：
+本 Rust 开发分支的隔离安装步骤见 [Rust 开发指南](rust-development.zh-CN.md)。下面的主 Compose 保留原数据库卷；已有部署应先备份并在独立环境升级演练。
 
-| 名字 | 本机体验时填什么 | 是什么 |
-| --- | --- | --- |
-| `BETTER_AUTH_SECRET` | 随机字符串 A | 登录会话密钥 |
-| `ENCRYPTION_KEY` | 随机字符串 B | 加密游戏服 RCON 密码的密钥，以后不要随意更换 |
-| `RELAY_SECRET` | 随机字符串 C | 网页和 Worker 的内部通信密钥 |
-| `POSTGRES_PASSWORD` | 随机字符串 D | 数据库密码，**不是网页登录密码** |
-| `ORIGIN` | `http://localhost:3000` | 你稍后在浏览器打开的精确地址 |
+现在编辑器里打开的 `.env` 是你的私有配置。找到下面六个名字，只改等号右边：
 
-**A、B、C、D 每个都必须不同。**Windows PowerShell 运行下面整段四次，每次把显示的结果复制到不同设置后面：
+| 名字                  | 本机体验时填什么        | 是什么                                       |
+| --------------------- | ----------------------- | -------------------------------------------- |
+| `BETTER_AUTH_SECRET`  | 随机字符串 A            | 登录会话密钥                                 |
+| `ENCRYPTION_KEY`      | 随机字符串 B            | 加密游戏服 RCON 密码的密钥，以后不要随意更换 |
+| `RELAY_SECRET`        | 随机字符串 C            | 网页和 Worker 的内部通信密钥                 |
+| `POSTGRES_PASSWORD`   | 随机字符串 D            | 数据库密码，**不是网页登录密码**             |
+| `RUST_FRONTEND_TOKEN` | 随机字符串 E            | Node 渲染服务向 Rust 证明客户端地址的密钥    |
+| `ORIGIN`              | `http://localhost:3000` | 你稍后在浏览器打开的精确地址                 |
+
+**A、B、C、D、E 每个都必须不同。**Windows PowerShell 运行下面整段五次，每次把显示的结果复制到不同设置后面：
 
 ```powershell
 $bytes = New-Object byte[] 32
@@ -63,13 +66,13 @@ $rng.GetBytes($bytes)
 $rng.Dispose()
 ```
 
-macOS/Linux 运行下面一行四次：
+macOS/Linux 运行下面一行五次：
 
 ```bash
 openssl rand -base64 32
 ```
 
-不要真的填写字母 `A`、`B`、`C`、`D`，也不要沿用示例里的 `change-me` 或 `replace-with-...`。等号两侧不要加空格。记事本按 `Ctrl+S` 保存；`nano` 按 `Ctrl+O`、回车、`Ctrl+X` 保存退出。**不要把 `.env` 提交到 GitHub，也不要把它发给别人。**使用本指南的内置数据库时，不要取消 `DATABASE_URL` 那行的注释。
+不要真的填写字母 `A`、`B`、`C`、`D`、`E`，也不要沿用示例里的 `change-me` 或 `replace-with-...`。等号两侧不要加空格。记事本按 `Ctrl+S` 保存；`nano` 按 `Ctrl+O`、回车、`Ctrl+X` 保存退出。**不要把 `.env` 提交到 GitHub，也不要把它发给别人。**使用本指南的内置数据库时，不要取消 `DATABASE_URL` 那行的注释。
 
 ## 第 3 步：检查配置并启动
 
@@ -91,9 +94,9 @@ docker compose up -d --build
 docker compose ps -a
 ```
 
-预期结果：`db` 显示 **healthy**，`warcon` 和 `worker` 显示 **running**；`migrate` 显示 **exited (0)** 是正常的，因为它只负责更新数据库结构。浏览器直接打开 `http://localhost:3000/api/health` 也应该得到正常响应。
+预期结果：`db` 显示 **healthy**，`api`、`warcon` 和 `worker` 显示 **running**；`migrate` 显示 **exited (0)** 是正常的，因为它只负责更新数据库结构。浏览器直接打开 `http://localhost:3000/api/health` 也应该得到正常响应。
 
-这里的四项分别是数据库 `db`、数据库迁移 `migrate`、网页 `warcon`、处理游戏服事件的 `worker`。浏览器不会直接连接游戏 RCON。
+这里的五项分别是数据库 `db`、数据库迁移 `migrate`、网页渲染 `warcon`、原生业务 `api`、处理游戏服事件的原生 `worker`。浏览器不会直接连接游戏 RCON。
 
 ## 第 4 步：创建第一个网页登录账号
 
@@ -111,13 +114,13 @@ http://localhost:3000/setup
 
 登录后，创建或打开一个组织，然后进入 **服务器 → 添加服务器**。按下表填：
 
-| 字段 | 值 |
-| --- | --- |
-| 名称 | `演示服务器` |
-| 主机地址 | `demo` |
-| 端口 | `1` |
-| 协议 | `http` |
-| RCON 密码 | `demo` |
+| 字段      | 值           |
+| --------- | ------------ |
+| 名称      | `演示服务器` |
+| 主机地址  | `demo`       |
+| 端口      | `1`          |
+| 协议      | `http`       |
+| RCON 密码 | `demo`       |
 
 主机地址和密码里的 `demo` 都必须是英文。保存后即可看面板，不需要真实游戏服。模拟数据不等于真实玩家历史：统计风控基线样本不足时会显示 `INSUFFICIENT_DATA`，不会编造分位数或因此自动处置。
 
@@ -145,7 +148,7 @@ RCON 测试成功只说明“面板能连接游戏服”。Kill Feed 的方向�
 
 社区风控默认是**统计影子模式**：同时保存旧评分和真实历史百分位，实际自动处置仍由旧规则决定；自动处置开关初始关闭。统计基线需要最近 30 天足够多的有效纯步兵击杀事件。没有足够样本时页面会明确说明，而不是显示假的曲线。
 
-统计委员会规则见[五专家 v3](committee-v3.zh-CN.md)。默认影子模式不等于委员会自动执行；切换统计模式及开启自动踢出前，应检查页面的数据健康、基线与保护状态。普通投票只建案件，KPM＞4 且另一独立专家至少可疑才可能直接踢出。
+统计委员会规则见[五专家 v3](committee-v3.zh-CN.md)。默认影子模式不等于委员会自动执行；切换统计模式及开启自动踢出前，应检查页面的数据健康、基线与保护状态。至少三票极可能作弊，或 KPM＞4 且另一独立专家至少可疑，才可在开启执行且保护通过后直接踢出。
 
 可选设置：
 
@@ -157,13 +160,13 @@ RCON 测试成功只说明“面板能连接游戏服”。Kill Feed 的方向�
 
 每次先确认 Docker Desktop 正在运行。下面的命令仍在项目目录执行：
 
-| 目的 | 命令 |
-| --- | --- |
-| 查看服务 | `docker compose ps -a` |
-| 看网页日志 | `docker compose logs --tail=80 warcon` |
-| 看 Worker 日志 | `docker compose logs --tail=80 worker` |
-| 停止，保留数据 | `docker compose down` |
-| 再启动 | `docker compose up -d` |
+| 目的           | 命令                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------- |
+| 查看服务       | `docker compose ps -a`                                                                |
+| 看网页日志     | `docker compose logs --tail=80 warcon`                                                |
+| 看 Worker 日志 | `docker compose logs --tail=80 worker`                                                |
+| 停止，保留数据 | `docker compose down`                                                                 |
+| 再启动         | `docker compose up -d`                                                                |
 | 更新代码和容器 | `git pull --ff-only origin main`，随后 `docker compose up -d --build`（先按下文备份） |
 
 **不要执行 `docker compose down -v`**：`-v` 会删除数据库卷。更新前备份 `.env` 和数据库；具体备份命令见下一节。
@@ -189,7 +192,7 @@ docker compose cp db:/tmp/warcon-backup.dump ./warcon-backup.dump
 git pull --ff-only origin main
 docker compose up -d --build
 docker compose ps -a
-docker compose logs --tail=80 migrate warcon worker
+docker compose logs --tail=80 migrate api warcon worker
 ```
 
 如果 Git 提示有本地修改或分支不能快进，先保留修改并解决差异，不要直接强制重置。下载 ZIP 安装的用户可解压新版本到新目录，保留原配置和数据库，避免因项目目录名改变而误连一个新空卷。数据库迁移可能不可逆，回退镜像并不等于回退数据库。
@@ -203,7 +206,7 @@ docker compose logs --tail=80 migrate warcon worker
 ## 出问题时按顺序检查
 
 1. `docker` 找不到或无法连接：确认 Docker 已安装并启动，重新打开终端，再跑第 0 步的版本检查。
-2. 启动失败：运行 `docker compose ps -a`，再运行 `docker compose logs --tail=80 migrate warcon worker db`。`migrate` 必须成功退出。
+2. 启动失败：运行 `docker compose ps -a`，再运行 `docker compose logs --tail=80 migrate api warcon worker db`。`migrate` 必须成功退出。
 3. 浏览器打不开：确认第 3 步的启动命令已结束，`warcon` 正在运行，且本机 `3000` 端口没有被其他程序占用。
 4. 登录页面能打开却无法登录：浏览器地址必须与 `.env` 中的 `ORIGIN` 完全一致；`localhost` 与 `127.0.0.1` 不要混用。修改 `.env` 后重新运行 `docker compose up -d`。
 5. `/setup` 跳到 `/sign-in`：数据库已有所有者。网页登录密码是创建账号时设置的，不是数据库密码。
@@ -215,7 +218,7 @@ docker compose logs --tail=80 migrate warcon worker
 有主机管理权限的人可为**已有用户名**生成一次性临时密码。下例的 `admin` 必须换成你实际创建的用户名。这个命令会退出该用户的旧会话，并清除其验证器、通行密钥和恢复密钥；先确认这一影响：
 
 ```text
-docker compose run --rm worker bun ./build/reset-auth.js admin
+docker compose run --rm worker reset-auth admin
 ```
 
 终端只显示一次临时密码；保存好，在 `/sign-in` 登录后按提示修改。不要把它写进 README、提交到 GitHub 或发到公开频道。

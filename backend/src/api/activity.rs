@@ -114,6 +114,42 @@ pub struct Filters {
     limit: Option<String>,
     format: Option<String>,
 }
+pub fn filter_view(raw: &str) -> Value {
+    let fields: std::collections::HashMap<String, String> =
+        url::form_urlencoded::parse(raw.trim_start_matches('?').as_bytes())
+            .map(|(k, v)| (k.into_owned(), v.into_owned()))
+            .collect();
+    let mut result = serde_json::Map::new();
+    for (name, max) in [
+        ("server", 64),
+        ("actor", 64),
+        ("category", 32),
+        ("action", 64),
+        ("q", 200),
+        ("from", 40),
+        ("to", 40),
+    ] {
+        let value = string(&json!(fields.get(name)), max);
+        if !value.is_empty() {
+            result.insert(name.into(), json!(value));
+        }
+    }
+    if let Some(v) = fields
+        .get("outcome")
+        .filter(|v| ["ok", "error", "denied"].contains(&v.as_str()))
+    {
+        result.insert("outcome".into(), json!(v));
+    }
+    let before = integer(&json!(fields.get("before")), 0, 0, i64::MAX);
+    if before > 0 {
+        result.insert("before".into(), json!(before));
+    }
+    result.insert(
+        "limit".into(),
+        json!(integer(&json!(fields.get("limit")), 100, 1, 500)),
+    );
+    Value::Object(result)
+}
 fn filter(q: &mut QueryBuilder<'_, Postgres>, v: &Visibility) {
     if !v.owner {
         q.push(" AND (actor_id=")

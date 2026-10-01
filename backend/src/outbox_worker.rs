@@ -13,11 +13,13 @@ use std::{collections::HashMap, time::Duration};
 pub async fn claim(state: &AppState, lease: i64) -> Result<Vec<Value>> {
     let mut tx = state.worker_transaction().await?;
     let expired:Vec<Value>=sqlx::query_scalar("UPDATE outbox SET state='unknown',outcome='The worker stopped while sending; the game may have acted.',done_at=now(),lease_until=NULL WHERE state='sending' AND lease_until<now() RETURNING to_jsonb(outbox)").fetch_all(&mut *tx).await?;
+    let expired_count = expired.len() as u64;
     for row in expired {
         integrity_delivery::record(&mut tx, &camel_row(row), "unknown").await?;
     }
     let rows:Vec<Value>=sqlx::query_scalar("UPDATE outbox SET state='sending',lease_until=now()+($1::bigint*interval '1 millisecond'),attempts=attempts+1 WHERE id IN (SELECT id FROM outbox WHERE state='pending' AND not_before<=now() ORDER BY id LIMIT 50 FOR UPDATE SKIP LOCKED) RETURNING to_jsonb(outbox)").bind(lease).fetch_all(&mut *tx).await?;
     tx.commit().await?;
+    crate::diagnostics::delivery("unknown", expired_count);
     let mut rows: Vec<_> = rows.into_iter().map(camel_row).collect();
     rows.sort_by_key(|r| r["id"].as_i64());
     Ok(rows)
@@ -102,8 +104,18 @@ async fn finish_tx(
 }
 pub async fn finish(state: &AppState, row: &Value, result: &str, message: &str) -> Result<()> {
     let mut tx = state.worker_transaction().await?;
-    finish_tx(state, &mut tx, row, result, message).await?;
+    let applied = finish_tx(state, &mut tx, row, result, message).await?;
+    commit_finished(tx, applied, result).await
+}
+async fn commit_finished(
+    tx: sqlx::Transaction<'_, sqlx::Postgres>,
+    applied: bool,
+    result: &str,
+) -> Result<()> {
     tx.commit().await?;
+    if applied {
+        crate::diagnostics::delivery(result, 1);
+    }
     Ok(())
 }
 async fn wait(state: &AppState, row: &Value) -> Result<()> {
@@ -119,9 +131,8 @@ async fn seed(state: &AppState, row: &Value) -> Result<()> {
         .fetch_optional(&mut *tx)
         .await?;
     let Some(org) = org else {
-        finish_tx(state, &mut tx, row, "skipped", "Server no longer exists.").await?;
-        tx.commit().await?;
-        return Ok(());
+        let applied = finish_tx(state, &mut tx, row, "skipped", "Server no longer exists.").await?;
+        return commit_finished(tx, applied, "skipped").await;
     };
     let p = &row["params"];
     let steam = p["steamId"].as_str().unwrap_or("");
@@ -131,7 +142,7 @@ async fn seed(state: &AppState, row: &Value) -> Result<()> {
         || days <= 0.
         || days > 3650.
     {
-        finish_tx(
+        let applied = finish_tx(
             state,
             &mut tx,
             row,
@@ -139,8 +150,7 @@ async fn seed(state: &AppState, row: &Value) -> Result<()> {
             "Invalid reserved slot grant.",
         )
         .await?;
-        tx.commit().await?;
-        return Ok(());
+        return commit_finished(tx, applied, "failed").await;
     }
     let server = if p["scope"] == "server" {
         row["serverId"].as_str()
@@ -152,7 +162,7 @@ async fn seed(state: &AppState, row: &Value) -> Result<()> {
     if old.as_ref().is_some_and(|e| {
         e["expires_at"].is_null() || date(&e["expires_at"]).is_some_and(|d| d > Utc::now())
     }) {
-        finish_tx(
+        let applied = finish_tx(
             state,
             &mut tx,
             row,
@@ -160,8 +170,7 @@ async fn seed(state: &AppState, row: &Value) -> Result<()> {
             "Player already has a reserved slot.",
         )
         .await?;
-        tx.commit().await?;
-        return Ok(());
+        return commit_finished(tx, applied, "skipped").await;
     }
     if let Some(old) = old {
         sqlx::query("UPDATE list_entries SET removed_at=now(),removal='expired' WHERE id=$1")
@@ -175,7 +184,7 @@ async fn seed(state: &AppState, row: &Value) -> Result<()> {
         .bind(list)
         .execute(&mut *tx)
         .await?;
-    finish_tx(
+    let applied = finish_tx(
         state,
         &mut tx,
         row,
@@ -183,8 +192,7 @@ async fn seed(state: &AppState, row: &Value) -> Result<()> {
         &format!("Reserved a slot until {}.", expires.format("%Y-%m-%d")),
     )
     .await?;
-    tx.commit().await?;
-    Ok(())
+    commit_finished(tx, applied, "delivered").await
 }
 async fn execute(client: &game::Client, row: &Value) -> game::Result<Value> {
     let action = row["action"].as_str().unwrap_or("");
@@ -305,6 +313,7 @@ pub async fn pass(state: &AppState) -> Result<usize> {
     }
     let results = futures_util::future::join_all(servers.into_values().map(|rows| async move {
         for row in rows {
+            let _active = crate::diagnostics::delivery_active();
             deliver(state, &row, lease, age).await?;
         }
         Ok::<_, ApiError>(())
@@ -319,6 +328,6 @@ pub async fn run(state: AppState) -> anyhow::Result<()> {
     let mut tick = tokio::time::interval(Duration::from_secs(1));
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
-        tokio::select! {_=state.runtime.stop.cancelled()=>return Ok(()),_=tick.tick()=>{state.runtime.check().await?;if pass(&state).await.is_err(){tracing::warn!("RCON outbox pass failed; claimed actions remain protected by their lease");}}}
+        tokio::select! {_=state.runtime.stop.cancelled()=>return Ok(()),_=tick.tick()=>{state.runtime.check().await?;crate::diagnostics::delivery_pass();if pass(&state).await.is_err(){tracing::warn!("RCON outbox pass failed; claimed actions remain protected by their lease");}}}
     }
 }

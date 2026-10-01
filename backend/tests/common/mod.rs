@@ -20,6 +20,9 @@ pub struct Db {
 }
 impl Db {
     pub async fn new() -> Self {
+        Self::new_at(usize::MAX).await
+    }
+    pub async fn new_at(count: usize) -> Self {
         let options: PgConnectOptions =
             std::env::var("TEST_DATABASE_URL").unwrap().parse().unwrap();
         let admin = PgPool::connect_with(options.clone()).await.unwrap();
@@ -29,12 +32,26 @@ impl Db {
             .await
             .unwrap();
         let db = PgPool::connect_with(options.database(&name)).await.unwrap();
-        migrations::migrate(
-            &db,
-            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../drizzle"),
-        )
-        .await
-        .unwrap();
+        let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../drizzle");
+        if count == usize::MAX {
+            migrations::migrate(&db, &folder).await.unwrap();
+        } else {
+            let scratch = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("target-native")
+                .join(format!("journal-{name}"));
+            std::fs::create_dir_all(scratch.join("meta")).unwrap();
+            let mut journal: Value =
+                serde_json::from_slice(&std::fs::read(folder.join("meta/_journal.json")).unwrap())
+                    .unwrap();
+            journal["entries"].as_array_mut().unwrap().truncate(count);
+            for e in journal["entries"].as_array().unwrap() {
+                let file = format!("{}.sql", e["tag"].as_str().unwrap());
+                std::fs::copy(folder.join(&file), scratch.join(&file)).unwrap();
+            }
+            std::fs::write(scratch.join("meta/_journal.json"), journal.to_string()).unwrap();
+            migrations::migrate(&db, &scratch).await.unwrap();
+            std::fs::remove_dir_all(&scratch).unwrap();
+        }
         let state = AppState {
             runtime: Default::default(),
             db,

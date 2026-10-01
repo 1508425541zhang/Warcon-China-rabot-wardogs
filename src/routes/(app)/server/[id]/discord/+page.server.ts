@@ -1,7 +1,4 @@
-import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import { pageLoad } from '$lib/native/transport.server';
 
-/** Moved into the Settings tab; old links and bookmarks still land there. */
-export const load: PageServerLoad = ({ params }) => {
-	redirect(301, `/server/${encodeURIComponent(params.id)}/settings`);
-};
+export const load = (event: Parameters<typeof pageLoad>[0]) =>
+	pageLoad(event, 'src/routes/(app)/server/[id]/discord/+page.server.ts');

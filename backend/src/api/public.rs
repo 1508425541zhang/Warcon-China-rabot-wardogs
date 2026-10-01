@@ -21,7 +21,7 @@ fn cache(value: Value, seconds: u32) -> Response {
     );
     r
 }
-fn limit(state: &AppState, peer: Peer, headers: &HeaderMap) -> Result<()> {
+pub fn limit(state: &AppState, peer: Peer, headers: &HeaderMap) -> Result<()> {
     crate::ratelimit::allow(
         format!(
             "public:{}",
@@ -241,7 +241,7 @@ pub async fn player(
         .filter(|n| !n.is_empty())
         .ok_or_else(ApiError::missing)?;
     Ok(cache(
-        json!({"ok":true,"player":{"steamId":steam,"name":name},"career":leaderboards::career(&state,&id,&ids,&names,&steam).await?}),
+        json!({"ok":true,"player":{"steamId":steam,"name":name,"avatar":sqlx::query_scalar::<_,Option<String>>("SELECT avatar FROM steam_profiles WHERE steam_id=$1").bind(&steam).fetch_optional(&state.db).await?.flatten().unwrap_or_default()},"career":leaderboards::career(&state,&id,&ids,&names,&steam).await?,"combat":crate::player_views::combat(&state,&ids,&names,&steam,false).await?,"multiServer":ids.len()>1}),
         30,
     ))
 }

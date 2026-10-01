@@ -45,6 +45,11 @@ use axum::{
 use serde_json::json;
 
 pub fn router(state: AppState) -> Router {
+    business_router(state.clone()).merge(crate::pages::router(state))
+}
+/// Internal page controllers dispatch through the same native authorization and DTO handlers.
+/// This router deliberately excludes page controllers, avoiding recursive service construction.
+pub fn business_router(state: AppState) -> Router {
     Router::new()
         .route("/api/actions",get(activity::actions))
         .route("/api/scope",axum::routing::put(activity::set_scope).delete(activity::clear_scope))

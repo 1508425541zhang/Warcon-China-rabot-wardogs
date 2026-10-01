@@ -31,7 +31,14 @@ struct Counters {
     feed_rate: u64,
     feed: [u64; 6],
     http: HashMap<(String, String, u16), u64>,
+    delivery: [u64; 4],
+    delivery_active: u64,
+    delivery_at: i64,
+    observation_buckets: [u64; 9],
+    http_seconds: HashMap<String, (u64, f64, [u64; 10])>,
 }
+const OBSERVATION_BUCKETS: [f64; 9] = [0.05, 0.1, 0.25, 0.5, 1., 2.5, 5., 10., 30.];
+const HTTP_BUCKETS: [f64; 10] = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1., 2.5, 5.];
 fn counters() -> &'static Mutex<Counters> {
     static C: OnceLock<Mutex<Counters>> = OnceLock::new();
     C.get_or_init(Default::default)
@@ -44,6 +51,9 @@ pub fn observation(ok: bool, seconds: f64) {
         c.failed += 1
     }
     c.observation_seconds += seconds;
+    for (count, bound) in c.observation_buckets.iter_mut().zip(OBSERVATION_BUCKETS) {
+        *count += u64::from(seconds <= bound);
+    }
 }
 pub fn limited(feed: bool) {
     let mut c = counters().lock().unwrap_or_else(|e| e.into_inner());
@@ -58,6 +68,39 @@ pub fn feed(accepted: u64, skipped: u64, duplicates: u64) {
     c.feed[4] += skipped;
     c.feed[5] += duplicates;
 }
+pub fn delivery(outcome: &str, count: u64) {
+    let index = match outcome {
+        "delivered" => 0,
+        "failed" => 1,
+        "skipped" => 2,
+        "unknown" => 3,
+        _ => return,
+    };
+    counters()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .delivery[index] += count;
+}
+pub fn delivery_pass() {
+    counters()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .delivery_at = Utc::now().timestamp_millis();
+}
+pub struct DeliveryGuard;
+pub fn delivery_active() -> DeliveryGuard {
+    counters()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .delivery_active += 1;
+    DeliveryGuard
+}
+impl Drop for DeliveryGuard {
+    fn drop(&mut self) {
+        let mut c = counters().lock().unwrap_or_else(|e| e.into_inner());
+        c.delivery_active = c.delivery_active.saturating_sub(1);
+    }
+}
 pub fn process() -> Value {
     let c = counters().lock().unwrap_or_else(|e| e.into_inner());
     let rss = std::fs::read_to_string("/proc/self/status")
@@ -70,7 +113,7 @@ pub fn process() -> Value {
             })
         })
         .map(|n| n * 1024);
-    json!({"at":Utc::now().timestamp_millis(),"build":{"version":env!("CARGO_PKG_VERSION"),"commit":option_env!("WARCON_COMMIT").unwrap_or("unknown")},"observations":{"ok":c.ok,"failed":c.failed,"seconds":c.observation_seconds},"requests":{"total":c.requests,"public":c.public,"errors":c.errors,"seconds":c.seconds},"feed":{"posts":c.feed[0],"unauthorized":c.feed[1],"rejected":c.feed[2],"kills":c.feed[3],"skipped":c.feed[4],"duplicates":c.feed[5]},"rateLimited":{"total":c.rate,"feed":c.feed_rate},"rssBytes":rss,"eventLoopLagP99":null})
+    json!({"at":Utc::now().timestamp_millis(),"build":{"version":env!("CARGO_PKG_VERSION"),"commit":std::env::var("WARCON_COMMIT").ok().filter(|s|!s.is_empty()).unwrap_or_else(||option_env!("WARCON_COMMIT").unwrap_or("unknown").into())},"observations":{"ok":c.ok,"failed":c.failed,"seconds":c.observation_seconds},"requests":{"total":c.requests,"public":c.public,"errors":c.errors,"seconds":c.seconds},"feed":{"posts":c.feed[0],"unauthorized":c.feed[1],"rejected":c.feed[2],"kills":c.feed[3],"skipped":c.feed[4],"duplicates":c.feed[5]},"rateLimited":{"total":c.rate,"feed":c.feed_rate},"rssBytes":rss,"eventLoopLagP99":null})
 }
 pub async fn record(r: Request, next: Next) -> Response {
     let now = Instant::now();
@@ -83,11 +126,20 @@ pub async fn record(r: Request, next: Next) -> Response {
     let method = r.method().to_string();
     let res = next.run(r).await;
     let status = res.status().as_u16();
+    let seconds = now.elapsed().as_secs_f64();
     let mut c = counters().lock().unwrap_or_else(|e| e.into_inner());
     c.requests += 1;
     c.public += u64::from(path.starts_with("/api/public/"));
     c.errors += u64::from(status >= 500);
-    c.seconds += now.elapsed().as_secs_f64();
+    c.seconds += seconds;
+    if c.http_seconds.len() < 2000 || c.http_seconds.contains_key(&route) {
+        let histogram = c.http_seconds.entry(route.clone()).or_default();
+        histogram.0 += 1;
+        histogram.1 += seconds;
+        for (count, bound) in histogram.2.iter_mut().zip(HTTP_BUCKETS) {
+            *count += u64::from(seconds <= bound);
+        }
+    }
     if c.http.len() < 2000
         || c.http
             .contains_key(&(route.clone(), method.clone(), status))
@@ -142,9 +194,23 @@ pub async fn stats(state: &AppState) -> Result<Value> {
     v["owner"] = json!(owner);
     v["lanes"] = crate::dispatcher::stats();
     v["delivery"] = depth;
+    {
+        let c = counters().lock().unwrap_or_else(|e| e.into_inner());
+        for (i, key) in ["delivered", "failed", "skipped", "unknown"]
+            .iter()
+            .enumerate()
+        {
+            v["delivery"][*key] = json!(c.delivery[i]);
+        }
+        v["delivery"]["inFlight"] = json!(c.delivery_active);
+        v["delivery"]["lastPassAt"] = json!(c.delivery_at);
+    }
     v["concurrency"] = set["concurrency"].clone();
-    v["settingsVersion"] = json!(0);
-    v["ownership"] = json!({"owner":owner,"stopping":state.runtime.stop.is_cancelled()});
+    v["settingsVersion"] = json!(state.runtime.track_settings(&set));
+    let lease:Option<Value> = sqlx::query_scalar("SELECT jsonb_build_object('token',left(token,8),'since',extract(epoch FROM acquired_at)*1000,'lastRenewAt',extract(epoch FROM lease_until-interval '15 seconds')*1000) FROM worker_ownership WHERE id=1").fetch_optional(&state.db).await?;
+    v["ownership"] = lease.unwrap_or(json!({"token":"","since":0,"lastRenewAt":0}));
+    v["ownership"]["owner"] = json!(owner);
+    v["ownership"]["stopping"] = json!(state.runtime.stop.is_cancelled());
     v["process"] = process();
     v["cadence"] = json!({"watched":{"players":set["watchedPlayersMs"],"status":set["watchedStatusMs"]},"hot":{"players":set["hotPlayersMs"],"status":set["hotStatusMs"]},"idle":{"players":set["idleMs"],"status":set["idleMs"]}});
     Ok(v)
@@ -241,8 +307,85 @@ pub async fn metrics(State(state): State<AppState>, h: HeaderMap) -> Result<Resp
     let process = process();
     let stats = stats(&state).await?;
     let mut body = String::new();
+    fn escape(s: &str) -> String {
+        s.replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n")
+    }
+    fn histogram(
+        body: &mut String,
+        name: &str,
+        labels: &str,
+        bounds: &[f64],
+        buckets: &[u64],
+        count: u64,
+        sum: f64,
+    ) {
+        for (bound, value) in bounds.iter().zip(buckets) {
+            body.push_str(&format!(
+                "{name}_bucket{{{labels}le=\"{bound}\"}} {value}\n"
+            ));
+        }
+        body.push_str(&format!("{name}_bucket{{{labels}le=\"+Inf\"}} {count}\n"));
+        let labels = labels.trim_end_matches(',');
+        let labels = if labels.is_empty() {
+            String::new()
+        } else {
+            format!("{{{labels}}}")
+        };
+        body.push_str(&format!(
+            "{name}_sum{labels} {sum}\n{name}_count{labels} {count}\n"
+        ));
+    }
     {
         let c = counters().lock().unwrap_or_else(|e| e.into_inner());
+        body.push_str(&format!(
+            "warcon_build_info{{version=\"{}\",commit=\"{}\"}} 1\n",
+            escape(process["build"]["version"].as_str().unwrap_or("")),
+            escape(process["build"]["commit"].as_str().unwrap_or(""))
+        ));
+        histogram(
+            &mut body,
+            "warcon_observation_seconds",
+            "",
+            &OBSERVATION_BUCKETS,
+            &c.observation_buckets,
+            c.ok + c.failed,
+            c.observation_seconds,
+        );
+        for (route, (count, sum, buckets)) in &c.http_seconds {
+            histogram(
+                &mut body,
+                "warcon_http_request_seconds",
+                &format!("route=\"{}\",", escape(route)),
+                &HTTP_BUCKETS,
+                buckets,
+                *count,
+                *sum,
+            );
+        }
+        for (i, outcome) in ["delivered", "failed", "skipped", "unknown"]
+            .iter()
+            .enumerate()
+        {
+            body.push_str(&format!(
+                "warcon_deliveries_total{{outcome=\"{outcome}\"}} {}\n",
+                c.delivery[i]
+            ));
+        }
+        for (i, outcome) in ["accepted", "unauthorized", "rejected"].iter().enumerate() {
+            body.push_str(&format!(
+                "warcon_feed_posts_total{{outcome=\"{outcome}\"}} {}\n",
+                c.feed[i]
+            ));
+        }
+        for (i, result) in ["accepted", "skipped", "duplicate"].iter().enumerate() {
+            body.push_str(&format!(
+                "warcon_feed_kills_total{{result=\"{result}\"}} {}\n",
+                c.feed[3 + i]
+            ));
+        }
+        body.push_str(&format!("warcon_rate_limited_total{{scope=\"feed\"}} {}\nwarcon_rate_limited_total{{scope=\"other\"}} {}\n",c.feed_rate,c.rate.saturating_sub(c.feed_rate)));
         for ((r, m, s), n) in &c.http {
             let escape = |s: &str| {
                 s.replace('\\', "\\\\")
@@ -257,6 +400,19 @@ pub async fn metrics(State(state): State<AppState>, h: HeaderMap) -> Result<Resp
                 n
             ));
         }
+    }
+    for tier in ["watched", "hot", "idle", "offline"] {
+        body.push_str(&format!(
+            "warcon_servers{{tier=\"{tier}\"}} {}\n",
+            stats["tiers"][tier].as_u64().unwrap_or(0)
+        ));
+    }
+    if let Some(ms) = stats["delivery"]["oldestMs"].as_f64() {
+        body.push_str(&format!("warcon_outbox_oldest_seconds {}\n", ms / 1000.));
+    }
+    let fleet:Vec<(String,i64)>=sqlx::query_as("SELECT 'organizations',count(*)FROM organizations UNION ALL SELECT 'users',count(*)FROM \"user\" UNION ALL SELECT 'servers',count(*)FROM servers UNION ALL SELECT 'org_members',count(*)FROM org_members UNION ALL SELECT 'webhooks',count(*)FROM webhooks UNION ALL SELECT 'triggers',count(*)FROM triggers").fetch_all(&state.db).await?;
+    for (table, count) in fleet {
+        body.push_str(&format!("warcon_fleet{{table=\"{table}\"}} {count}\n"));
     }
     for (name, v) in [
         ("process_resident_memory_bytes", process["rssBytes"].clone()),

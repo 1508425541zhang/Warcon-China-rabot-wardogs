@@ -14,7 +14,7 @@ async fn main() -> anyhow::Result<()> {
             sqlx::postgres::PgPoolOptions::new()
                 .max_connections(2)
                 .acquire_timeout(std::time::Duration::from_secs(10))
-                .connect(&env::var("MODEL_DATABASE_URL")?)
+                .connect_with(warcon_backend::database::options("MODEL_DATABASE_URL")?)
                 .await?,
         )
     } else {

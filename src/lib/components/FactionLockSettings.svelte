@@ -5,8 +5,12 @@
 	import { onMount, untrack } from 'svelte';
 	import { refreshVisible } from '$lib/refresh-visible';
 	import type { factionLockView } from '$lib/server/faction-lock';
+	import type { Wire } from '$lib/native/types';
 	type PageProps = {
-		data: Awaited<ReturnType<typeof factionLockView>> & { teams: string[]; server: { id: string } };
+		data: Wire<Awaited<ReturnType<typeof factionLockView>>> & {
+			teams: string[];
+			server: { id: string };
+		};
 	};
 	let { data }: PageProps = $props();
 	let enabled = $state(untrack(() => data.rule.enabled)),

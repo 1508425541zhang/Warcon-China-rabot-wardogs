@@ -13,6 +13,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!.env.rust.dev.example
 
 # Vite
 vite.config.js.timestamp-*
@@ -27,3 +28,7 @@ vite.config.ts.timestamp-*
 /backend/.env
 /backend/artifacts-local
 __pycache__/
+.env.rust.dev
+backend/*.log
+backend/local-stack-smoke.json
+/models/

@@ -1,0 +1,246 @@
+[
+  {
+    "source": "src/routes/(app)/+layout.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/account/+page.server.ts",
+    "actions": [
+      "defaultOrg",
+      "steam",
+      "password",
+      "removePassword",
+      "totpStart",
+      "totpConfirm",
+      "totpDisable",
+      "backupCodes",
+      "recoveryKey",
+      "recoveryKeyClear",
+      "revoke",
+      "linkDiscord",
+      "unlinkDiscord",
+      "linkSteam",
+      "unlinkSteam",
+      "deleteAccount"
+    ]
+  },
+  {
+    "source": "src/routes/(app)/admin/+layout.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/admin/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/admin/qq/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/admin/settings/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/admin/users/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/audit/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/orgs/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/orgs/[id]/+layout.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/orgs/[id]/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/orgs/[id]/access/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/orgs/[id]/bans/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/orgs/[id]/integrity/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/orgs/[id]/players/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/orgs/[id]/reserved/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/orgs/[id]/roles/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/plugins/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/plugins/[pluginId]/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/qq-link/+page.server.ts",
+    "actions": [
+      "bind",
+      "unbind"
+    ]
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/+layout.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/automation/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/bans/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/discord/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/faction-lock/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/integrity/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/integrity/ai/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/integrity/cases/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/matches/[matchId]/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/players/[steamId]/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/public/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/qq-bindings/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/settings/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/server/[id]/slots/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/servers/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/settings/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(app)/users/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(auth)/join/[token]/+page.server.ts",
+    "actions": [
+      "discord",
+      "steam",
+      "register",
+      "join"
+    ]
+  },
+  {
+    "source": "src/routes/(auth)/recover/+page.server.ts",
+    "actions": [
+      "default"
+    ]
+  },
+  {
+    "source": "src/routes/(auth)/setup/+page.server.ts",
+    "actions": [
+      "password"
+    ]
+  },
+  {
+    "source": "src/routes/(auth)/sign-in/+page.server.ts",
+    "actions": [
+      "password",
+      "steam",
+      "discord"
+    ]
+  },
+  {
+    "source": "src/routes/(auth)/sign-in/verify/+page.server.ts",
+    "actions": [
+      "default"
+    ]
+  },
+  {
+    "source": "src/routes/(auth)/sign-up/+page.server.ts",
+    "actions": [
+      "discord",
+      "steam",
+      "register",
+      "create"
+    ]
+  },
+  {
+    "source": "src/routes/(public)/+layout.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(public)/s/[id]/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(public)/s/[id]/leaderboard/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(public)/s/[id]/matches/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(public)/s/[id]/matches/[matchId]/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(public)/s/[id]/players/[steamId]/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/(public)/s/[id]/report/+page.server.ts",
+    "actions": []
+  },
+  {
+    "source": "src/routes/+layout.server.ts",
+    "actions": []
+  }
+]
