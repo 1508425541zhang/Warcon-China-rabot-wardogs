@@ -66,7 +66,7 @@ export async function runPlayerModel(
 	const slot = Math.floor(at.getTime() / (config.intervalSeconds * 1000));
 	await env.db
 		.execute(sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,threshold)
-  SELECT ${id},${orgId},${serverId},${steamId},${matchId},${slot},${config.revision},${MODEL_CALIBRATION.p98}
+  SELECT ${id},${orgId},${serverId},${steamId},${matchId},${slot},${config.revision},${MODEL_CALIBRATION.p99}
   WHERE EXISTS(SELECT 1 FROM servers s JOIN integrity_rules r ON r.org_id=s.org_id WHERE s.id=${serverId} AND s.org_id=${orgId} AND r.assessment_mode IN ('model_only','long_only'))
   AND EXISTS(SELECT 1 FROM matches WHERE id=${matchId} AND server_id=${serverId} AND started_at<=${at.toISOString()}::timestamptz-interval '30 minutes')
   AND NOT EXISTS(SELECT 1 FROM integrity_model_runs WHERE server_id=${serverId} AND steam_id=${steamId} AND match_id=${matchId} AND config_revision=${config.revision} AND created_at>${at.toISOString()}::timestamptz-(${config.intervalSeconds}*interval '1 second'))

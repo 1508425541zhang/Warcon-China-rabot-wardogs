@@ -80,9 +80,13 @@ export async function integrityActionPage(
 			threshold: r.threshold,
 			percentileLabel:
 				r.source === 'LONG_MODEL'
-					? r.action === 'QUARANTINE_24H'
+					? r.action === 'QUARANTINE_30M'
+						? 'P99.9'
+						: r.action === 'QUARANTINE_24H'
 						? 'P99'
-						: r.threshold === MODEL_CALIBRATION.p98
+						: r.threshold === MODEL_CALIBRATION.p99
+							? 'P99'
+							: r.threshold === MODEL_CALIBRATION.p98
 							? 'P98'
 							: r.threshold === MODEL_CALIBRATION.p97
 								? 'P97'

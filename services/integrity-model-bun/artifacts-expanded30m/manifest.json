@@ -1,0 +1,16 @@
+{
+  "model_id": "warcon-at268-continued-epoch151-30m-v2",
+  "checkpoint_sha256": "4ef1dcc55fab54ef6d30456a6153cf4f49febe6d071810924cac6ad0dc8e81b1",
+  "feature_schema": "warcon-raw-30s-v1",
+  "epoch": 151,
+  "window_steps": 60,
+  "bucket_seconds": 30,
+  "channels": 536,
+  "features": 268,
+  "runtime": "bun",
+  "initialization": "continued",
+  "weights_sha256": "a665ecb162cb4c56cc2b1c8dd91e66348f0b304112b9aa1ac49ec375e8ecddce",
+  "weights_index_sha256": "c8f9bbc401f6c8df7e8b45eaa00f10c6d42ef5b6cdb06978170cef2fa20231f2",
+  "scaler_sha256": "3e7a81bd4a9ca4b8abb7bbd320755ddceb60da1a7875f4ab6e2054aea4484669",
+  "calibration_sha256": "cf3548b50c11c471c02a74e11bbf5708574280055c3bca3aa606240341f9f784"
+}

@@ -39,7 +39,7 @@ export async function enqueueIntegrityNotice(db: DbOrTx, row: OutboxRow, at = ne
 		}>(
 			sql`SELECT action,score,threshold,result FROM integrity_model_runs WHERE id=${String(detail.runId ?? '')} AND server_id=${row.serverId} AND steam_id=${row.steamId} AND state='READY' AND action_state='delivered'`
 		);
-		if (!run || !['KICK', 'QUARANTINE_24H'].includes(run.action))
+		if (!run || !['KICK', 'QUARANTINE_24H', 'QUARANTINE_30M'].includes(run.action))
 			throw Error('Missing confirmed model kick identity');
 		const calibration =
 			detail.modelCalibration ??
@@ -47,19 +47,24 @@ export async function enqueueIntegrityNotice(db: DbOrTx, row: OutboxRow, at = ne
 		const p95 = number(calibration?.p95),
 			p97 = number(calibration?.p97),
 			p98 = number(calibration?.p98),
-			p99 = number(calibration?.p99);
+			p99 = number(calibration?.p99),
+			p999 = number(calibration?.p999);
 		source = 'AI 自动决策（30 分钟时序模型）';
 		percentile =
-			run.action === 'QUARANTINE_24H'
+			run.action === 'QUARANTINE_30M'
+				? 'P99.9 · 隔离30分钟并踢出'
+				: run.action === 'QUARANTINE_24H'
 				? 'P99 · 隔离24小时并踢出'
-				: p98 === Number(run.threshold)
+				: p99 === Number(run.threshold)
+					? 'P99 · 自动踢出'
+					: p98 === Number(run.threshold)
 					? 'P98 · 自动踢出'
 					: p97 === Number(run.threshold)
 						? 'P97 · 自动踢出'
 						: p95 === Number(run.threshold)
 							? 'P95 · 自动踢出'
 							: '自动踢出（历史阈值）';
-		reference = `异常分数：${Number(run.score).toFixed(6)}\n踢出阈值：${Number(run.threshold).toFixed(6)}${p95 !== null ? '\n参考 P95：' + p95.toFixed(6) : ''}${p97 !== null ? ' · P97：' + p97.toFixed(6) : ''}${p98 !== null ? ' · P98：' + p98.toFixed(6) : ''}${p99 !== null ? ' · P99：' + p99.toFixed(6) : ''}\n异常分数不是作弊概率。`;
+		reference = `异常分数：${Number(run.score).toFixed(6)}\n处罚阈值：${Number(run.threshold).toFixed(6)}${p95 !== null ? '\n参考 P95：' + p95.toFixed(6) : ''}${p97 !== null ? ' · P97：' + p97.toFixed(6) : ''}${p98 !== null ? ' · P98：' + p98.toFixed(6) : ''}${p99 !== null ? ' · P99：' + p99.toFixed(6) : ''}${p999 !== null ? ' · P99.9：' + p999.toFixed(6) : ''}\n异常分数不是作弊概率。`;
 		identity = '模型记录：' + clean(detail.runId, 100);
 	} else {
 		const [action] = await db.execute<{ source: string }>(

@@ -5,8 +5,8 @@ import type { Env } from '../env';
 import { siteSettings } from '../db/schema';
 import { encryptSecret, decryptSecret } from '../crypto';
 import { ApiError } from '../http';
-import calibration from '../../../../services/integrity-model-bun/artifacts-30m/calibration.json';
-import manifest from '../../../../services/integrity-model-bun/artifacts-30m/manifest.json';
+import calibration from '../../../../services/integrity-model-bun/artifacts-expanded30m/calibration.json';
+import manifest from '../../../../services/integrity-model-bun/artifacts-expanded30m/manifest.json';
 export const MODEL_CALIBRATION = calibration;
 export const CALIBRATION_SHA = manifest.calibration_sha256;
 
@@ -62,7 +62,8 @@ export async function modelConfigView(env: Env, orgId: string) {
 		p95: calibration.p95,
 		p97: calibration.p97,
 		p98: calibration.p98,
-		p99: calibration.p99
+		p99: calibration.p99,
+		p999: calibration.p999
 	};
 }
 const configSchema = z.object({

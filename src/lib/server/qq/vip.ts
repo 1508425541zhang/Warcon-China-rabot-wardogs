@@ -111,7 +111,7 @@ export async function vipAutomaticBanExempt(
 		return false;
 	if (entry.addedByName === 'Model A-test rule') {
 		const rows = await env.db.execute(
-			sql`SELECT 1 FROM integrity_model_runs WHERE server_id=${serverId} AND steam_id=${entry.steamId} AND list_entry_id=${entry.id} AND action='QUARANTINE_24H' LIMIT 1`
+			sql`SELECT 1 FROM integrity_model_runs WHERE server_id=${serverId} AND steam_id=${entry.steamId} AND list_entry_id=${entry.id} AND action IN ('QUARANTINE_24H','QUARANTINE_30M') LIMIT 1`
 		);
 		return rows.length > 0;
 	}

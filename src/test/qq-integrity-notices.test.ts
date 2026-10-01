@@ -128,11 +128,16 @@ describe.skipIf(!hasTestDb)('Confirmed anti-cheat QQ notices', () => {
 			.insert(matches)
 			.values({ serverId: 'notice-server', map: 'A', startedAt: new Date() })
 			.returning();
-		for (const action of ['KICK', 'QUARANTINE_24H']) {
+		for (const [action, threshold, label] of [
+			['KICK', MODEL_CALIBRATION.p98, 'P98 · 自动踢出'],
+			['QUARANTINE_24H', MODEL_CALIBRATION.p98, 'P99 · 隔离24小时'],
+			['KICK', MODEL_CALIBRATION.p99, 'P99 · 自动踢出'],
+			['QUARANTINE_30M', MODEL_CALIBRATION.p999, 'P99.9 · 隔离30分钟']
+		] as const) {
 			const row = await create('model_integrity');
 			const run = crypto.randomUUID();
 			await env.db.execute(
-				sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,state,score,threshold,result,action,action_state) VALUES(${run},'notice-org','notice-server',${steam},${match.id},${row.id},'test','READY',0.1,${MODEL_CALIBRATION.p98},${JSON.stringify({ calibrationSha256: CALIBRATION_SHA })}::jsonb,${action},'delivered')`
+				sql`INSERT INTO integrity_model_runs(id,org_id,server_id,steam_id,match_id,slot,config_revision,state,score,threshold,result,action,action_state) VALUES(${run},'notice-org','notice-server',${steam},${match.id},${row.id},'test','READY',0.1,${threshold},${JSON.stringify({ calibrationSha256: CALIBRATION_SHA })}::jsonb,${action},'delivered')`
 			);
 			row.detail = { runId: run, modelCalibration: MODEL_CALIBRATION, playerName: '模型玩家' };
 			await env.db.update(outbox).set({ detail: row.detail }).where(eq(outbox.id, row.id));
@@ -140,7 +145,8 @@ describe.skipIf(!hasTestDb)('Confirmed anti-cheat QQ notices', () => {
 			const text = (await queued()).at(-1)!.content;
 			expect(text).toContain('AI 自动决策');
 			expect(text).toContain('参考 P95');
-			expect(text).toContain(action === 'KICK' ? 'P98 · 自动踢出' : 'P99 · 隔离24小时');
+			expect(text).toContain(label);
+			expect(text).toContain('P99.9：');
 		}
 	});
 	test('disabled notices never enqueue', async () => {

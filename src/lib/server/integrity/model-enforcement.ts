@@ -33,14 +33,14 @@ type ModelRun = {
 };
 export function modelDecision(score: number) {
 	if (!Number.isFinite(score) || score < 0) return null;
-	return score >= MODEL_CALIBRATION.p99
-		? 'QUARANTINE_24H'
-		: score >= MODEL_CALIBRATION.p98
+	return score >= MODEL_CALIBRATION.p999
+		? 'QUARANTINE_30M'
+		: score >= MODEL_CALIBRATION.p99
 			? 'KICK'
 			: null;
 }
 
-/** Fixed P98/P99 of the pinned model, with no expert votes or legacy-score dependency. */
+/** Fixed P99/P99.9 of the pinned model, with no expert votes or legacy-score dependency. */
 export async function enforceModelRun(env: Env, id: string) {
 	if (!isOwner()) return;
 	const [candidate] = await env.db.execute<ModelRun>(
@@ -86,7 +86,7 @@ export async function enforceModelRun(env: Env, id: string) {
 		if (validated.status !== 'READY' || validated.score !== Number(run.score))
 			return skip('模型结果无效');
 		const action = modelDecision(validated.score!);
-		if (!action) return skip('低于 P98');
+		if (!action) return skip('低于 P99');
 		const m = memoryOf(run.server_id);
 		if (
 			!m?.ok ||
@@ -109,16 +109,16 @@ export async function enforceModelRun(env: Env, id: string) {
 		);
 		if (Number(recent.n) >= config.maxActionsPerHour) return skip('达到每小时自动处罚上限');
 		const [cooldown] = await tx.execute(
-			sql`SELECT 1 FROM integrity_model_runs WHERE server_id=${run.server_id} AND steam_id=${run.steam_id} AND punished_at>now()-(${config.cooldownSeconds}*interval '1 second') AND (action='QUARANTINE_24H' OR ${action}='KICK') LIMIT 1`
+			sql`SELECT 1 FROM integrity_model_runs WHERE server_id=${run.server_id} AND steam_id=${run.steam_id} AND punished_at>now()-(${config.cooldownSeconds}*interval '1 second') AND (action IN ('QUARANTINE_24H','QUARANTINE_30M') OR ${action}='KICK') LIMIT 1`
 		);
 		if (cooldown) return skip('玩家处罚冷却中');
 		const [ban] = await tx.execute(
 			sql`SELECT 1 FROM list_entries e JOIN server_lists sl ON sl.list_id=e.list_id JOIN lists l ON l.id=e.list_id WHERE sl.server_id=${run.server_id} AND l.kind='ban' AND e.steam_id=${run.steam_id} AND e.removed_at IS NULL AND (e.expires_at IS NULL OR e.expires_at>now()) LIMIT 1`
 		);
 		if (ban) return skip('已有有效封禁，保留原记录');
-		const expires = action === 'QUARANTINE_24H' ? new Date(Date.now() + 86400000) : null;
+		const expires = action === 'QUARANTINE_30M' ? new Date(Date.now() + 1800000) : null;
 		const entryId = expires ? randomUUID() : null;
-		const reason = `模型 A测：异常分数达到 ${expires ? 'P99，临时隔离24小时' : 'P98，自动踢出'}。记录 ${id}，可联系管理员复核。`;
+		const reason = `模型 A测：异常分数达到 ${expires ? 'P99.9，临时隔离30分钟' : 'P99，自动踢出'}。记录 ${id}，可联系管理员复核。`;
 		if (entryId)
 			await tx.insert(listEntries).values({
 				id: entryId,
@@ -130,7 +130,7 @@ export async function enforceModelRun(env: Env, id: string) {
 			});
 		await tx.insert(outbox).values({
 			serverId: run.server_id,
-			triggerName: '模型 A测 P98/P99',
+			triggerName: '模型 A测 P99/P99.9',
 			triggerKind: 'model_integrity',
 			action: 'kick',
 			params: { steamId: run.steam_id, reason },
@@ -145,7 +145,7 @@ export async function enforceModelRun(env: Env, id: string) {
 			dedupeKey: `model:${id}:kick`
 		});
 		await tx.execute(
-			sql`UPDATE integrity_model_runs SET action=${action},action_state='pending',action_reason=${reason},punished_at=now(),expires_at=${expires},list_entry_id=${entryId} WHERE id=${id}`
+			sql`UPDATE integrity_model_runs SET action=${action},threshold=${expires ? MODEL_CALIBRATION.p999 : MODEL_CALIBRATION.p99},action_state='pending',action_reason=${reason},punished_at=now(),expires_at=${expires},list_entry_id=${entryId} WHERE id=${id}`
 		);
 		return action;
 	});
@@ -164,7 +164,9 @@ export async function enforceModelRun(env: Env, id: string) {
 				decision,
 				score: candidate.score,
 				p98: MODEL_CALIBRATION.p98,
-				p99: MODEL_CALIBRATION.p99
+				p99: MODEL_CALIBRATION.p99,
+				p999: MODEL_CALIBRATION.p999,
+				quarantineMinutes: 30
 			}
 		});
 }
@@ -179,6 +181,7 @@ export async function modelDeliverySkipReason(
 		sql`SELECT * FROM integrity_model_runs WHERE id=${runId || ''} AND server_id=${row.serverId} AND steam_id=${row.steamId}`
 	);
 	if (!run || !run.action) return '模型处罚记录缺失';
+	if (modelDecision(Number(run.score)) !== run.action) return '长时序模型处罚档位已改变';
 	const config = await modelConfig(env, run.org_id);
 	const [mode] = await env.db.execute(
 		sql`SELECT 1 FROM integrity_rules WHERE org_id=${run.org_id} AND assessment_mode IN ('model_only','long_only')`

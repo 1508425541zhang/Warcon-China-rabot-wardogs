@@ -1,0 +1,15 @@
+{
+  "model_id": "warcon-at268-continued-epoch151-30m-v2",
+  "checkpoint_sha256": "4ef1dcc55fab54ef6d30456a6153cf4f49febe6d071810924cac6ad0dc8e81b1",
+  "feature_schema": "warcon-raw-30s-v1",
+  "sample_count": 2169,
+  "score_kind": "masked_group_huber_numeric_mean_0.7_feature_tail_0.3",
+  "reference": "Whole-match reference rounds34-36, quarantined rounds excluded; overlapping unlabeled windows, not cheating probabilities.",
+  "method": "numpy quantile higher",
+  "p95": 0.2527044117450714,
+  "p97": 0.3385293781757355,
+  "p98": 0.4103153347969055,
+  "p99": 0.5334136486053467,
+  "p996": 0.8865687251091003,
+  "p999": 1.0026865005493164
+}

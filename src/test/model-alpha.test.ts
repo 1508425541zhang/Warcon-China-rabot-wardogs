@@ -65,7 +65,7 @@ test('model identity and finite scores are mandatory; redirects and credential U
 		)
 	).toThrow();
 	expect(modelDecision(MODEL_CALIBRATION.p98 - 1e-8)).toBeNull();
-	expect(modelDecision(MODEL_CALIBRATION.p98)).toBe('KICK');
+	expect(modelDecision(MODEL_CALIBRATION.p98)).toBeNull();
 	expect(MODEL_CALIBRATION.p98).toBeGreaterThan(MODEL_CALIBRATION.p95);
 	expect(MODEL_CALIBRATION.p98).toBeGreaterThan(MODEL_CALIBRATION.p97);
 	expect(modelDecision(MODEL_CALIBRATION.p97)).toBeNull();
@@ -73,7 +73,12 @@ test('model identity and finite scores are mandatory; redirects and credential U
 	expect(MODEL_CALIBRATION.p98).toBeLessThan(MODEL_CALIBRATION.p99);
 	expect(modelDecision(MODEL_CALIBRATION.p95)).toBeNull();
 	expect(modelDecision((MODEL_CALIBRATION.p95 + MODEL_CALIBRATION.p98) / 2)).toBeNull();
-	expect(modelDecision(MODEL_CALIBRATION.p99)).toBe('QUARANTINE_24H');
+	expect(modelDecision(MODEL_CALIBRATION.p99 - 1e-8)).toBeNull();
+	expect(modelDecision(MODEL_CALIBRATION.p99)).toBe('KICK');
+	expect(modelDecision(MODEL_CALIBRATION.p999 - 1e-8)).toBe('KICK');
+	expect(modelDecision(MODEL_CALIBRATION.p999)).toBe('QUARANTINE_30M');
+	expect(modelDecision(Infinity)).toBeNull();
+	expect(modelDecision(NaN)).toBeNull();
 });
 
 describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
@@ -258,13 +263,13 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 			forgetMemory(w.server.id);
 		}
 	});
-	test('P98 kicks, P99 creates a 24h ban, dedupe and late VIP exemption preserve manual bans', async () => {
+	test('P99 kicks, P99.9 creates a 30m ban, dedupe and late VIP exemption preserve manual bans', async () => {
 		const server = (await getServer(env, w.server.id))!,
 			org = (await getOrg(env, w.org.id))!;
 		const m = memoryFor(server, org);
 		m.ok = true;
 		m.playersAt = m.statusAt = Date.now();
-		const ids = ['76561198000000101', '76561198000000102'];
+		const ids = ['76561198000000101', '76561198000000102', '76561198000000103'];
 		m.players = ids.map((steamId) => ({ steamId, name: 'model test' })) as typeof m.players;
 		expect(await acquireOrRenew(env, 'model-enforcement-test')).toBe(true);
 		const config = await modelConfigView(env, w.org.id);
@@ -288,7 +293,12 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 			return id;
 		};
 		try {
-			const kick = await makeRun(0, MODEL_CALIBRATION.p98);
+			const below = await makeRun(2, MODEL_CALIBRATION.p98);
+			await enforceModelRun(env, below);
+			const [skipped] = await env.db.execute(sql`SELECT action,action_state FROM integrity_model_runs WHERE id=${below}`);
+			expect(skipped.action).toBeNull();
+			expect(skipped.action_state).toBe('skipped');
+			const kick = await makeRun(0, MODEL_CALIBRATION.p99);
 			await enforceModelRun(env, kick);
 			await enforceModelRun(env, kick);
 			const [k] = await env.db.execute(
@@ -296,25 +306,28 @@ describe.skipIf(!hasTestDb)('A测 HTTP model', () => {
 			);
 			expect(k.action).toBe('KICK');
 			expect(k.list_entry_id).toBeNull();
-			const quarantine = await makeRun(1, MODEL_CALIBRATION.p99);
+			const quarantine = await makeRun(1, MODEL_CALIBRATION.p999);
 			await enforceModelRun(env, quarantine);
 			await enforceModelRun(env, quarantine);
 			const [q] = await env.db.execute(
 				sql`SELECT action,list_entry_id,expires_at,punished_at FROM integrity_model_runs WHERE id=${quarantine}`
 			);
-			expect(q.action).toBe('QUARANTINE_24H');
+			expect(q.action).toBe('QUARANTINE_30M');
 			expect(q.list_entry_id).toBeTruthy();
 			expect(
 				Math.abs(
 					new Date(q.expires_at as string).getTime() -
 						new Date(q.punished_at as string).getTime() -
-						86400000
+						1800000
 				)
 			).toBeLessThan(1000);
 			const messages = await env.db.select().from(outbox).where(eq(outbox.serverId, w.server.id));
 			expect(messages.filter((x) => x.triggerKind === 'model_integrity').length).toBe(2);
 			const msg = messages.find((x) => x.steamId === ids[1])!;
 			expect(await modelDeliverySkipReason(env, msg)).toBeNull();
+			await env.db.execute(sql`UPDATE integrity_model_runs SET action='QUARANTINE_24H' WHERE id=${quarantine}`);
+			expect(await modelDeliverySkipReason(env, msg)).toContain('档位已改变');
+			await env.db.execute(sql`UPDATE integrity_model_runs SET action='QUARANTINE_30M' WHERE id=${quarantine}`);
 			const previous = await vipSettings(env);
 			await saveVips(
 				env,

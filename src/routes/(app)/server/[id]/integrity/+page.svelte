@@ -355,7 +355,7 @@
 	<section class="mb-6 panel p-4">
 		<h3 class="font-semibold">长时序模型 · 30 分钟窗口</h3>
 		<p class="mt-2 text-sm text-mist-300">
-			30 秒采样 · P98 自动踢出 · P99 隔离 24 小时。实际处罚及执行结果见下方统一记录。
+			30 秒采样 · P99 自动踢出 · P99.9 隔离 30 分钟。实际处罚及执行结果见下方统一记录。
 		</p>
 		{#if data.longModelResults.length}<details class="mt-3">
 				<summary class="cursor-pointer text-sm">最近评估状态</summary>
