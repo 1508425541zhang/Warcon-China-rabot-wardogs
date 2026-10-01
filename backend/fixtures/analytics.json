@@ -1,0 +1,1079 @@
+{
+  "limits": [
+    {
+      "input": {
+        "enabled": false,
+        "kpm": null,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 59,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": null,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 60,
+        "minKills": 10
+      },
+      "valid": true
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": null,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "valid": true
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": null,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 900,
+        "minKills": 10
+      },
+      "valid": true
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": null,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 901,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": -1,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 59,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": -1,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 60,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": -1,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": -1,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 900,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": -1,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 901,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 0,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 59,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 0,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 60,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 0,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 0,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 900,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 0,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 901,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 2,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 59,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 2,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 60,
+        "minKills": 10
+      },
+      "valid": true
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 2,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "valid": true
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 2,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 900,
+        "minKills": 10
+      },
+      "valid": true
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 2,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 901,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 1000000000,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 59,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 1000000000,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 60,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 1000000000,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 1000000000,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 900,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": false,
+        "kpm": 1000000000,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 901,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": null,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 59,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": null,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 60,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": null,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": null,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 900,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": null,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 901,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": -1,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 59,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": -1,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 60,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": -1,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": -1,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 900,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": -1,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 901,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 0,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 59,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 0,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 60,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 0,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 0,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 900,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 0,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 901,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 2,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 59,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 2,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 60,
+        "minKills": 10
+      },
+      "valid": true
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 2,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "valid": true
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 2,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 900,
+        "minKills": 10
+      },
+      "valid": true
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 2,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 901,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 1000000000,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 59,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 1000000000,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 60,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 1000000000,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 1000000000,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 900,
+        "minKills": 10
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "enabled": true,
+        "kpm": 1000000000,
+        "kd": null,
+        "cash": null,
+        "windowSeconds": 901,
+        "minKills": 10
+      },
+      "valid": false
+    }
+  ],
+  "breaches": [
+    {
+      "rule": {
+        "enabled": true,
+        "kpm": 4,
+        "kd": 3,
+        "cash": 1000,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "points": [],
+      "expected": []
+    },
+    {
+      "rule": {
+        "enabled": true,
+        "kpm": 4,
+        "kd": 3,
+        "cash": 1000,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "points": [
+        {
+          "at": 0,
+          "kills": 0,
+          "deaths": 0,
+          "cash": 0
+        },
+        {
+          "at": 60000,
+          "kills": 6,
+          "deaths": 1,
+          "cash": 2000
+        },
+        {
+          "at": 120000,
+          "kills": 12,
+          "deaths": 2,
+          "cash": 4000
+        },
+        {
+          "at": 180000,
+          "kills": 18,
+          "deaths": 3,
+          "cash": 6000
+        }
+      ],
+      "expected": [
+        {
+          "metric": "kpm",
+          "value": 6,
+          "limit": 4
+        },
+        {
+          "metric": "kd",
+          "value": 6,
+          "limit": 3
+        },
+        {
+          "metric": "cash",
+          "value": 2000,
+          "limit": 1000
+        }
+      ]
+    },
+    {
+      "rule": {
+        "enabled": true,
+        "kpm": 4,
+        "kd": 3,
+        "cash": 1000,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "points": [
+        {
+          "at": 0,
+          "kills": 0,
+          "deaths": 0,
+          "cash": 0
+        }
+      ],
+      "expected": []
+    },
+    {
+      "rule": {
+        "enabled": true,
+        "kpm": 4,
+        "kd": 3,
+        "cash": 1000,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "points": [
+        {
+          "at": 0,
+          "kills": 0,
+          "deaths": 0,
+          "cash": 0
+        },
+        {
+          "at": 60000,
+          "kills": 6,
+          "deaths": 1,
+          "cash": 2000
+        },
+        {
+          "at": 120000,
+          "kills": 12,
+          "deaths": 2,
+          "cash": 4000
+        }
+      ],
+      "expected": []
+    },
+    {
+      "rule": {
+        "enabled": true,
+        "kpm": 4,
+        "kd": 3,
+        "cash": 1000,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "points": [
+        {
+          "at": 0,
+          "kills": 0,
+          "deaths": 0,
+          "cash": 0
+        },
+        {
+          "at": 60000,
+          "kills": 2,
+          "deaths": 1,
+          "cash": 2000
+        },
+        {
+          "at": 120000,
+          "kills": 4,
+          "deaths": 2,
+          "cash": 4000
+        },
+        {
+          "at": 180000,
+          "kills": 6,
+          "deaths": 3,
+          "cash": 6000
+        }
+      ],
+      "expected": [
+        {
+          "metric": "cash",
+          "value": 2000,
+          "limit": 1000
+        }
+      ]
+    },
+    {
+      "rule": {
+        "enabled": true,
+        "kpm": 4,
+        "kd": 3,
+        "cash": 1000,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "points": [
+        {
+          "at": 0,
+          "kills": 0,
+          "deaths": 0,
+          "cash": 0
+        },
+        {
+          "at": 60000,
+          "kills": 6,
+          "deaths": 1,
+          "cash": -10
+        },
+        {
+          "at": 120000,
+          "kills": 12,
+          "deaths": 2,
+          "cash": -20
+        },
+        {
+          "at": 180000,
+          "kills": 18,
+          "deaths": 3,
+          "cash": -30
+        }
+      ],
+      "expected": [
+        {
+          "metric": "kpm",
+          "value": 6,
+          "limit": 4
+        },
+        {
+          "metric": "kd",
+          "value": 6,
+          "limit": 3
+        }
+      ]
+    },
+    {
+      "rule": {
+        "enabled": true,
+        "kpm": 4,
+        "kd": 3,
+        "cash": 1000,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "points": [
+        {
+          "at": 0,
+          "kills": 0,
+          "deaths": 0,
+          "cash": 0
+        },
+        {
+          "at": 60000,
+          "kills": 6,
+          "deaths": 1,
+          "cash": 2000
+        },
+        {
+          "at": 120000,
+          "kills": 12,
+          "deaths": 2,
+          "cash": 4000
+        },
+        {
+          "at": 180000,
+          "kills": 1,
+          "deaths": 3,
+          "cash": 6000
+        }
+      ],
+      "expected": []
+    },
+    {
+      "rule": {
+        "enabled": true,
+        "kpm": 4,
+        "kd": 3,
+        "cash": 1000,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "points": [
+        {
+          "at": 0,
+          "kills": 0,
+          "deaths": 0,
+          "cash": 0
+        },
+        {
+          "at": 60000,
+          "kills": 6,
+          "deaths": 1,
+          "cash": 2000
+        },
+        {
+          "at": 140000,
+          "kills": 12,
+          "deaths": 2,
+          "cash": 4000
+        },
+        {
+          "at": 180000,
+          "kills": 18,
+          "deaths": 3,
+          "cash": 6000
+        }
+      ],
+      "expected": []
+    },
+    {
+      "rule": {
+        "enabled": true,
+        "kpm": 4,
+        "kd": 3,
+        "cash": 1000,
+        "windowSeconds": 180,
+        "minKills": 10
+      },
+      "points": [
+        {
+          "at": 0,
+          "kills": 0,
+          "deaths": 0,
+          "cash": 0
+        },
+        {
+          "at": 60000,
+          "kills": 6,
+          "deaths": 0,
+          "cash": 2000
+        },
+        {
+          "at": 120000,
+          "kills": 12,
+          "deaths": 0,
+          "cash": 4000
+        },
+        {
+          "at": 180000,
+          "kills": 18,
+          "deaths": 0,
+          "cash": 6000
+        }
+      ],
+      "expected": [
+        {
+          "metric": "kpm",
+          "value": 6,
+          "limit": 4
+        },
+        {
+          "metric": "kd",
+          "value": 18,
+          "limit": 3
+        },
+        {
+          "metric": "cash",
+          "value": 2000,
+          "limit": 1000
+        }
+      ]
+    }
+  ],
+  "playtime": [
+    {
+      "groups": [],
+      "expected": {
+        "enabled": true,
+        "total": 0,
+        "available": 0,
+        "unknown": 0,
+        "p80Minutes": null,
+        "bins": [],
+        "pending": 0,
+        "errors": 0
+      }
+    },
+    {
+      "groups": [
+        {
+          "minutes": null,
+          "state": "unavailable",
+          "count": 2
+        }
+      ],
+      "expected": {
+        "enabled": true,
+        "total": 2,
+        "available": 0,
+        "unknown": 2,
+        "p80Minutes": null,
+        "bins": [],
+        "pending": 0,
+        "errors": 0
+      }
+    },
+    {
+      "groups": [
+        {
+          "minutes": 0,
+          "state": "known",
+          "count": 1
+        },
+        {
+          "minutes": 600,
+          "state": "known",
+          "count": 7
+        },
+        {
+          "minutes": 12000,
+          "state": "known",
+          "count": 2
+        },
+        {
+          "minutes": null,
+          "state": "error",
+          "count": 1
+        },
+        {
+          "minutes": 600,
+          "state": "pending",
+          "count": 3
+        }
+      ],
+      "expected": {
+        "enabled": true,
+        "total": 14,
+        "available": 10,
+        "unknown": 4,
+        "p80Minutes": 600,
+        "bins": [
+          {
+            "from": 0,
+            "to": 25,
+            "count": 8,
+            "percent": 80,
+            "cumulative": 80
+          },
+          {
+            "from": 25,
+            "to": 50,
+            "count": 0,
+            "percent": 0,
+            "cumulative": 80
+          },
+          {
+            "from": 50,
+            "to": 75,
+            "count": 0,
+            "percent": 0,
+            "cumulative": 80
+          },
+          {
+            "from": 75,
+            "to": 100,
+            "count": 0,
+            "percent": 0,
+            "cumulative": 80
+          },
+          {
+            "from": 100,
+            "to": 125,
+            "count": 0,
+            "percent": 0,
+            "cumulative": 80
+          },
+          {
+            "from": 125,
+            "to": 150,
+            "count": 0,
+            "percent": 0,
+            "cumulative": 80
+          },
+          {
+            "from": 150,
+            "to": 175,
+            "count": 0,
+            "percent": 0,
+            "cumulative": 80
+          },
+          {
+            "from": 175,
+            "to": 200,
+            "count": 0,
+            "percent": 0,
+            "cumulative": 80
+          },
+          {
+            "from": 200,
+            "to": 225,
+            "count": 2,
+            "percent": 20,
+            "cumulative": 100
+          }
+        ],
+        "pending": 3,
+        "errors": 1
+      }
+    },
+    {
+      "groups": [
+        {
+          "minutes": 2147483647,
+          "state": "known",
+          "count": 1
+        },
+        {
+          "minutes": 30,
+          "state": "known",
+          "count": 9
+        }
+      ],
+      "expected": {
+        "enabled": true,
+        "total": 10,
+        "available": 10,
+        "unknown": 0,
+        "p80Minutes": 30,
+        "bins": [
+          {
+            "from": 0,
+            "to": 10000000,
+            "count": 9,
+            "percent": 90,
+            "cumulative": 90
+          },
+          {
+            "from": 10000000,
+            "to": 20000000,
+            "count": 0,
+            "percent": 0,
+            "cumulative": 90
+          },
+          {
+            "from": 20000000,
+            "to": 30000000,
+            "count": 0,
+            "percent": 0,
+            "cumulative": 90
+          },
+          {
+            "from": 30000000,
+            "to": 40000000,
+            "count": 1,
+            "percent": 10,
+            "cumulative": 100
+          }
+        ],
+        "pending": 0,
+        "errors": 0
+      }
+    }
+  ]
+}

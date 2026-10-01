@@ -1,0 +1,832 @@
+[
+  {
+    "input": {
+      "serverId": "boot",
+      "serverName": "Test",
+      "events": []
+    },
+    "expected": {
+      "instanceId": "boot",
+      "serverName": "Test",
+      "kills": [],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "serverId": "boot",
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 15000
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "boot",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": 150,
+          "distanceInvalid": false,
+          "rawDistanceCm": 15000,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "KO",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 15000
+        },
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 15000
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": 150,
+          "distanceInvalid": false,
+          "rawDistanceCm": 15000,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 1
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "broken",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 15000
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": null,
+          "killerName": null,
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": 150,
+          "distanceInvalid": false,
+          "rawDistanceCm": 15000,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": "10",
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 15000
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [],
+      "skipped": 1
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198000000001",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 15000
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198000000001",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": 150,
+          "distanceInvalid": false,
+          "rawDistanceCm": 15000,
+          "headshot": true,
+          "suicide": true,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Local.Kill",
+            "Headshot",
+            "Headshot",
+            "Suicide",
+            "RoadKill"
+          ],
+          "distance": 15000
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": 150,
+          "distanceInvalid": false,
+          "rawDistanceCm": 15000,
+          "headshot": true,
+          "suicide": true,
+          "tags": [
+            "RoadKill"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "ozeti",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 15000
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "Europe",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": 150,
+          "distanceInvalid": false,
+          "rawDistanceCm": 15000,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": null
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": null,
+          "distanceInvalid": false,
+          "rawDistanceCm": null,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": "100"
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": null,
+          "distanceInvalid": false,
+          "rawDistanceCm": null,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 0
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": null,
+          "distanceInvalid": true,
+          "rawDistanceCm": 0,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": -1
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": null,
+          "distanceInvalid": true,
+          "rawDistanceCm": -1,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 1
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": 0.01,
+          "distanceInvalid": false,
+          "rawDistanceCm": 1,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 0.49
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": 0,
+          "distanceInvalid": false,
+          "rawDistanceCm": 0.49,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 499999
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": 4999.99,
+          "distanceInvalid": false,
+          "rawDistanceCm": 499999,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 500000
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": null,
+          "distanceInvalid": true,
+          "rawDistanceCm": 500000,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  },
+  {
+    "input": {
+      "events": [
+        {
+          "type": "killed",
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "mapName": "Zestafona",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "contextTags": [
+            "Meta.PlayerKillFlag.Player.Headshot",
+            "Meta.Progression.Context.Player.KillContext.Penetration",
+            "Local.Kill",
+            "Local.Death"
+          ],
+          "distance": 1e+100
+        }
+      ]
+    },
+    "expected": {
+      "instanceId": "",
+      "serverName": "",
+      "kills": [
+        {
+          "eventId": "kill-1",
+          "matchId": "round",
+          "eventTime": 10,
+          "map": "NorthAmerica",
+          "killerSteamId": "76561198388453389",
+          "killerName": "玩家",
+          "victimSteamId": "76561198000000001",
+          "victimName": "Victim",
+          "cause": "Id.Item.AK74M",
+          "distanceM": null,
+          "distanceInvalid": true,
+          "rawDistanceCm": 1e+100,
+          "headshot": true,
+          "suicide": false,
+          "tags": [
+            "Penetration"
+          ]
+        }
+      ],
+      "skipped": 0
+    }
+  }
+]

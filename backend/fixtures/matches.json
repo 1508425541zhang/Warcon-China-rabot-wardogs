@@ -1,0 +1,323 @@
+[
+  {
+    "lines": [],
+    "duration": 1800,
+    "expected": []
+  },
+  {
+    "lines": [
+      {
+        "steamId": "early",
+        "name": "early",
+        "faction": "Red",
+        "kills": 10,
+        "deaths": 3,
+        "seconds": 1800,
+        "cashDelta": 1234567,
+        "headshots": 1,
+        "teamKills": 0,
+        "suicides": 0,
+        "vehicleKills": 0,
+        "longestM": 120.5,
+        "killStreak": 3,
+        "deathStreak": 0,
+        "result": "win"
+      }
+    ],
+    "duration": 1199,
+    "expected": []
+  },
+  {
+    "lines": [
+      {
+        "steamId": "winner",
+        "name": "winner",
+        "faction": "Red",
+        "kills": 17,
+        "deaths": 8,
+        "seconds": 1800,
+        "cashDelta": 1234567,
+        "headshots": 1,
+        "teamKills": 0,
+        "suicides": 0,
+        "vehicleKills": 0,
+        "longestM": 120.5,
+        "killStreak": 3,
+        "deathStreak": 0,
+        "result": "win"
+      },
+      {
+        "steamId": "tie",
+        "name": "tie",
+        "faction": "Red",
+        "kills": 17,
+        "deaths": 8,
+        "seconds": 1800,
+        "cashDelta": 1234567,
+        "headshots": 1,
+        "teamKills": 0,
+        "suicides": 0,
+        "vehicleKills": 0,
+        "longestM": 120.5,
+        "killStreak": 3,
+        "deathStreak": 0,
+        "result": "win"
+      }
+    ],
+    "duration": 1200,
+    "expected": [
+      {
+        "key": "kills",
+        "label": "Most kills",
+        "steamId": "winner",
+        "name": "winner",
+        "value": "17"
+      },
+      {
+        "key": "kd",
+        "label": "Best K/D",
+        "steamId": "winner",
+        "name": "winner",
+        "value": "2.13"
+      },
+      {
+        "key": "longest",
+        "label": "Longest shot",
+        "steamId": "winner",
+        "name": "winner",
+        "value": "121 m"
+      },
+      {
+        "key": "streak",
+        "label": "Best streak",
+        "steamId": "winner",
+        "name": "winner",
+        "value": "3"
+      },
+      {
+        "key": "cash",
+        "label": "Richest match",
+        "steamId": "winner",
+        "name": "winner",
+        "value": "+$1,234,567"
+      }
+    ]
+  },
+  {
+    "lines": [
+      {
+        "steamId": "binary-round",
+        "name": "binary-round",
+        "faction": "Red",
+        "kills": 107,
+        "deaths": 40,
+        "seconds": 1800,
+        "cashDelta": 1234567,
+        "headshots": 1,
+        "teamKills": 0,
+        "suicides": 0,
+        "vehicleKills": 0,
+        "longestM": 120.5,
+        "killStreak": 3,
+        "deathStreak": 0,
+        "result": "win"
+      }
+    ],
+    "duration": 1800,
+    "expected": [
+      {
+        "key": "kills",
+        "label": "Most kills",
+        "steamId": "binary-round",
+        "name": "binary-round",
+        "value": "107"
+      },
+      {
+        "key": "kd",
+        "label": "Best K/D",
+        "steamId": "binary-round",
+        "name": "binary-round",
+        "value": "2.67"
+      },
+      {
+        "key": "longest",
+        "label": "Longest shot",
+        "steamId": "binary-round",
+        "name": "binary-round",
+        "value": "121 m"
+      },
+      {
+        "key": "streak",
+        "label": "Best streak",
+        "steamId": "binary-round",
+        "name": "binary-round",
+        "value": "3"
+      },
+      {
+        "key": "cash",
+        "label": "Richest match",
+        "steamId": "binary-round",
+        "name": "binary-round",
+        "value": "+$1,234,567"
+      }
+    ]
+  },
+  {
+    "lines": [
+      {
+        "steamId": "no-deaths",
+        "name": "no-deaths",
+        "faction": "Red",
+        "kills": 10,
+        "deaths": 0,
+        "seconds": 1800,
+        "cashDelta": 1234567,
+        "headshots": 1,
+        "teamKills": 0,
+        "suicides": 0,
+        "vehicleKills": 0,
+        "longestM": 120.5,
+        "killStreak": 3,
+        "deathStreak": 0,
+        "result": "win"
+      }
+    ],
+    "duration": 1800,
+    "expected": [
+      {
+        "key": "kills",
+        "label": "Most kills",
+        "steamId": "no-deaths",
+        "name": "no-deaths",
+        "value": "10"
+      },
+      {
+        "key": "kd",
+        "label": "Best K/D",
+        "steamId": "no-deaths",
+        "name": "no-deaths",
+        "value": "10.00"
+      },
+      {
+        "key": "longest",
+        "label": "Longest shot",
+        "steamId": "no-deaths",
+        "name": "no-deaths",
+        "value": "121 m"
+      },
+      {
+        "key": "streak",
+        "label": "Best streak",
+        "steamId": "no-deaths",
+        "name": "no-deaths",
+        "value": "3"
+      },
+      {
+        "key": "cash",
+        "label": "Richest match",
+        "steamId": "no-deaths",
+        "name": "no-deaths",
+        "value": "+$1,234,567"
+      }
+    ]
+  },
+  {
+    "lines": [
+      {
+        "steamId": "no-kills",
+        "name": "no-kills",
+        "faction": "Red",
+        "kills": 0,
+        "deaths": 0,
+        "seconds": 1800,
+        "cashDelta": -1,
+        "headshots": 1,
+        "teamKills": 0,
+        "suicides": 0,
+        "vehicleKills": 0,
+        "longestM": null,
+        "killStreak": 2,
+        "deathStreak": 0,
+        "result": "win"
+      }
+    ],
+    "duration": 1800,
+    "expected": []
+  },
+  {
+    "lines": [
+      {
+        "steamId": "low",
+        "name": "low",
+        "faction": "Red",
+        "kills": 9,
+        "deaths": 1,
+        "seconds": 1800,
+        "cashDelta": 1234567,
+        "headshots": 1,
+        "teamKills": 0,
+        "suicides": 0,
+        "vehicleKills": 0,
+        "longestM": 120.5,
+        "killStreak": 3,
+        "deathStreak": 0,
+        "result": "win"
+      },
+      {
+        "steamId": "winner",
+        "name": "winner",
+        "faction": "Red",
+        "kills": 10,
+        "deaths": 3,
+        "seconds": 1800,
+        "cashDelta": 123,
+        "headshots": 1,
+        "teamKills": 0,
+        "suicides": 0,
+        "vehicleKills": 0,
+        "longestM": 90,
+        "killStreak": 3,
+        "deathStreak": 0,
+        "result": "win"
+      }
+    ],
+    "duration": 1800,
+    "expected": [
+      {
+        "key": "kills",
+        "label": "Most kills",
+        "steamId": "winner",
+        "name": "winner",
+        "value": "10"
+      },
+      {
+        "key": "kd",
+        "label": "Best K/D",
+        "steamId": "winner",
+        "name": "winner",
+        "value": "3.33"
+      },
+      {
+        "key": "longest",
+        "label": "Longest shot",
+        "steamId": "low",
+        "name": "low",
+        "value": "121 m"
+      },
+      {
+        "key": "streak",
+        "label": "Best streak",
+        "steamId": "low",
+        "name": "low",
+        "value": "3"
+      },
+      {
+        "key": "cash",
+        "label": "Richest match",
+        "steamId": "low",
+        "name": "low",
+        "value": "+$1,234,567"
+      }
+    ]
+  }
+]

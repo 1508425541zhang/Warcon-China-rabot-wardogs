@@ -1,0 +1,37 @@
+name: Rust backend contracts
+on:
+  pull_request:
+    paths: ['backend/**', 'drizzle/**', 'src/lib/**', 'services/integrity-model-bun/**', '.github/workflows/rust-backend.yml']
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://postgres:fixture-only@127.0.0.1:5432/postgres
+      RUSTUP_TOOLCHAIN: 1.98.1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt
+      - run: cargo fmt --manifest-path backend/Cargo.toml --check
+      - run: |
+          bun backend/fixtures/generate-committee.ts
+          bun --tsconfig-override backend/fixtures/tsconfig.json backend/fixtures/generate-feed.ts
+          bun backend/fixtures/generate-settings.ts
+          bun backend/fixtures/generate-analytics.ts
+          bun backend/fixtures/generate-model-features.ts
+          bun backend/fixtures/generate-matches.ts
+          git diff --exit-code -- backend/fixtures/committee.json backend/fixtures/feed.json backend/fixtures/settings.json backend/fixtures/analytics.json backend/fixtures/model-features.json backend/fixtures/matches.json
+      - run: cargo test --manifest-path backend/Cargo.toml --locked -- --include-ignored

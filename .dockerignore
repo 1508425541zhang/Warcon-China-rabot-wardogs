@@ -14,3 +14,7 @@ build
 !.git/refs/heads
 docs
 *.md
+backend/target
+backend/target-*
+backend/.env
+backend/artifacts-local
