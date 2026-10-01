@@ -75,7 +75,7 @@ fn name(raw: &Value) -> Result<String> {
     }
     Ok(value)
 }
-fn builtin_caps(kind: &str) -> Value {
+pub(crate) fn builtin_caps(kind: &str) -> Value {
     match kind {
         "viewer" => json!(["server.view"]),
         "operator" => json!([

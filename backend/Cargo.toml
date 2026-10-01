@@ -10,6 +10,7 @@ anyhow = "1"
 axum = { version = "0.8", features = ["ws", "macros"] }
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
+chacha20poly1305 = "0.10"
 hex = "0.4"
 hmac = "0.12"
 rand = "0.8"
@@ -17,6 +18,9 @@ percent-encoding = "2"
 reqwest = { version = "0.12", default-features = false, features = ["native-tls", "json", "stream"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_cbor_2 = "0.13"
+scrypt = "0.11"
+sha1 = "0.10"
 sha2 = "0.10"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-native-tls", "postgres", "chrono", "json", "uuid"] }
 subtle = "2"
@@ -27,14 +31,24 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2"
 uuid = { version = "1", features = ["v4", "serde"] }
+unicode-normalization = "0.1"
+webauthn-rs = { version = "0.5.5", features = ["danger-allow-state-serialisation", "danger-credential-internals", "conditional-ui"] }
+webauthn-rs-core = "0.5.5"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
+openssl = "0.10"
 
 [profile.release]
 lto = "thin"
 codegen-units = 1
 strip = true
+
+[profile.dev.package.scrypt]
+opt-level = 3
+
+[profile.dev.package.salsa20]
+opt-level = 3
 
 [[bin]]
 name = "warcon-api"

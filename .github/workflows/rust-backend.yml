@@ -25,6 +25,8 @@ jobs:
         with:
           bun-version: 1.4.2
       - run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt
+      - run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+      - run: bun install --frozen-lockfile
       - run: cargo fmt --manifest-path backend/Cargo.toml --check
       - run: |
           bun backend/fixtures/generate-committee.ts
@@ -33,5 +35,10 @@ jobs:
           bun backend/fixtures/generate-analytics.ts
           bun backend/fixtures/generate-model-features.ts
           bun backend/fixtures/generate-matches.ts
-          git diff --exit-code -- backend/fixtures/committee.json backend/fixtures/feed.json backend/fixtures/settings.json backend/fixtures/analytics.json backend/fixtures/model-features.json backend/fixtures/matches.json
+          bun backend/fixtures/generate-identity.ts
+          bun backend/fixtures/generate-actions.ts
+          bun backend/fixtures/generate-lists.ts
+          bun backend/fixtures/generate-plugins.ts
+          bun backend/fixtures/generate-leaderboards.ts
+          git diff --exit-code -- backend/fixtures
       - run: cargo test --manifest-path backend/Cargo.toml --locked -- --include-ignored

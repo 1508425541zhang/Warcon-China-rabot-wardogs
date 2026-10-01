@@ -50,7 +50,21 @@ bun backend/fixtures/generate-matches.ts
 cargo test --manifest-path backend/Cargo.toml --locked
 ```
 
-## Worker
+## 已迁移的账号与管理接口
+
+Rust 已实现密码登录、OTP／备用码、Steam／Discord OAuth、Passkey 和恢复密钥。
+原有 scrypt 密码、OTP 密文与签名 Cookie 可继续读取，不要求重新设置所有账号。
+旧 Passkey 首次验证成功后绑定原有 userHandle，新增的迁移 `0073` 只增加可空列。
+
+用户、组织、成员、邀请、服务器、权限、名单、个人插件、公开状态／排行榜／生涯与对局接口
+已有原生实现；RCON 的 40 个动作按原版请求格式执行。名单只撤销面板管理的预留位，
+游戏服自有条目保留，组织封禁通过面板踢出执行。后台轮询尚未接入这条执行链。
+
+前端尚未切换，这些接口目前由独立开发数据库和本地模拟游戏服验证。
+`RUST_FRONTEND_TOKEN` 是将来前端转发客户端地址所用的签名密钥，至少 32 字节；
+Rust 不信任裸 `X-Forwarded-For`。
+
+## Worker 当前接入情况
 
 `warcon-worker` 当前注册 Steam 档案、Steam 游戏时长和小时汇总任务，**还不能替代完整生产 Worker**。
 它复用现有 `worker_ownership` 租约；其他 Worker 拥有数据库时会拒绝启动。

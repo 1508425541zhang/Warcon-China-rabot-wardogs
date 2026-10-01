@@ -114,6 +114,56 @@ where
     }
 }
 pub struct ApiQuery<T>(pub T);
+#[derive(Clone, Copy)]
+pub struct Peer(pub Option<std::net::SocketAddr>);
+impl<S: Send + Sync> FromRequestParts<S> for Peer {
+    type Rejection = std::convert::Infallible;
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        Ok(Self(
+            parts
+                .extensions
+                .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+                .map(|v| v.0),
+        ))
+    }
+}
+/// A frontend may forward its resolved client address only with a short-lived signed proof.
+pub fn client_address(
+    state: &crate::config::AppState,
+    peer: Peer,
+    headers: &axum::http::HeaderMap,
+) -> Option<std::net::IpAddr> {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    if let Some(secret) = &state.config.identity.frontend_token {
+        let ip = headers
+            .get("x-warcon-client-ip")
+            .and_then(|h| h.to_str().ok());
+        let stamp = headers
+            .get("x-warcon-client-time")
+            .and_then(|h| h.to_str().ok());
+        let proof = headers
+            .get("x-warcon-client-proof")
+            .and_then(|h| h.to_str().ok());
+        if let (Some(ip), Some(stamp), Some(proof)) = (ip, stamp, proof) {
+            if let (Ok(address), Ok(seconds), Ok(proof)) = (
+                ip.parse::<std::net::IpAddr>(),
+                stamp.parse::<i64>(),
+                hex::decode(proof),
+            ) {
+                if seconds.abs_diff(chrono::Utc::now().timestamp()) <= 30 {
+                    if let Ok(mut mac) = Hmac::<Sha256>::new_from_slice(secret.as_bytes()) {
+                        mac.update(format!("{stamp}\n{ip}").as_bytes());
+                        if mac.verify_slice(&proof).is_ok() {
+                            return Some(address);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    peer.0.map(|p| p.ip())
+}
 impl<S, T> FromRequestParts<S> for ApiQuery<T>
 where
     S: Send + Sync,
@@ -125,5 +175,70 @@ where
             .await
             .map_err(|_| ApiError::bad("Invalid query parameters."))?;
         Ok(Self(value))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    #[tokio::test]
+    async fn client_address_requires_signed_fresh_proof() {
+        let config = crate::config::Config::for_test();
+        let mut state = crate::config::AppState {
+            db: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgresql://postgres@127.0.0.1/test")
+                .unwrap(),
+            config,
+        };
+        let peer = Peer(Some("127.0.0.1:1234".parse().unwrap()));
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("x-forwarded-for", "203.0.113.7".parse().unwrap());
+        assert_eq!(
+            client_address(&state, peer, &headers).unwrap().to_string(),
+            "127.0.0.1"
+        );
+        state.config.identity.frontend_token =
+            Some("frontend-test-secret-at-least-32-bytes".into());
+        let stamp = chrono::Utc::now().timestamp().to_string();
+        headers.insert("x-warcon-client-ip", "203.0.113.7".parse().unwrap());
+        headers.insert("x-warcon-client-time", stamp.parse().unwrap());
+        let mut mac = Hmac::<Sha256>::new_from_slice(
+            state
+                .config
+                .identity
+                .frontend_token
+                .as_ref()
+                .unwrap()
+                .as_bytes(),
+        )
+        .unwrap();
+        mac.update(format!("{stamp}\n203.0.113.7").as_bytes());
+        headers.insert(
+            "x-warcon-client-proof",
+            hex::encode(mac.finalize().into_bytes()).parse().unwrap(),
+        );
+        assert_eq!(
+            client_address(&state, peer, &headers).unwrap().to_string(),
+            "203.0.113.7"
+        );
+        headers.insert("x-warcon-client-ip", "203.0.113.8".parse().unwrap());
+        assert_eq!(
+            client_address(&state, peer, &headers).unwrap().to_string(),
+            "127.0.0.1"
+        );
+        headers.insert("x-warcon-client-ip", "203.0.113.7".parse().unwrap());
+        headers.insert(
+            "x-warcon-client-time",
+            (chrono::Utc::now().timestamp() - 60)
+                .to_string()
+                .parse()
+                .unwrap(),
+        );
+        assert_eq!(
+            client_address(&state, peer, &headers).unwrap().to_string(),
+            "127.0.0.1"
+        );
     }
 }

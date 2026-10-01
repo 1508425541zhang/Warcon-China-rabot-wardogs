@@ -24,14 +24,21 @@ pub async fn list(
 ) -> Result<Json<Value>> {
     let actor = authenticate(&state, &headers, &Method::GET).await?;
     server_scope(&state, &actor, &id, "server.view").await?;
-    let page = query
-        .page
-        .as_deref()
+    Ok(Json(
+        list_view(&state, &id, query.page.as_deref(), 50).await?,
+    ))
+}
+pub async fn list_view(
+    state: &AppState,
+    id: &str,
+    raw_page: Option<&str>,
+    page_size: i64,
+) -> Result<Value> {
+    let page = raw_page
         .and_then(|v| v.trim().parse::<f64>().ok())
         .filter(|n| n.is_finite() && n.fract() == 0. && *n >= 1.)
         .map(|n| n.min(100_000.) as i64)
         .unwrap_or(1);
-    let page_size = 50i64;
     let total: i64 = sqlx::query_scalar("SELECT count(*) FROM matches WHERE server_id=$1")
         .bind(&id)
         .fetch_one(&state.db)
@@ -52,9 +59,9 @@ pub async fn list(
             .await?
             .flatten();
     let live:Vec<Value>=status.as_ref().and_then(|s|s.get("scores")).and_then(Value::as_array).map(|scores|scores.iter().map(|f|json!({"name":f.get("name"),"colorHex":f.get("colorHex").filter(|v|v.as_str()!=Some("")),"score":f.get("score").and_then(Value::as_f64).unwrap_or(0.0)})).collect()).unwrap_or_default();
-    Ok(Json(
+    Ok(
         json!({"ok":true,"matches":matches,"live":live,"page":page,"pageSize":page_size,"total":total,"pages":((total+page_size-1)/page_size).max(1)}),
-    ))
+    )
 }
 
 pub fn normalize_scores(value: &Value) -> Value {

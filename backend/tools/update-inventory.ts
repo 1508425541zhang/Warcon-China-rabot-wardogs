@@ -20,12 +20,28 @@ const implemented = new Set([
     'GET /api/servers/[id]/analytics', 'GET /api/servers/[id]/cash',
     'GET /api/settings', 'PUT /api/settings'
 ]);
+// Compare route shapes, not parameter spellings (Rust snake_case vs Svelte camelCase).
+const shape = (path: string) => path.replace(/\[[^\]]+\]|\{[^}]+\}/g, '[]');
+const nativeRoutes = new Set<string>();
+const router = readFileSync(join(root, 'backend/src/api/mod.rs'), 'utf8');
+for (const match of router.matchAll(/\.route\(\s*"([^"]+)"\s*,([\s\S]*?)(?=\n\s*\.route|\n\s*\.fallback|\n\s*\.layer)/g)) {
+    for (const method of match[2].matchAll(/\b(get|post|put|patch|delete)\s*\(/g)) nativeRoutes.add(`${method[1].toUpperCase()} ${shape(match[1])}`);
+}
 for (const route of inventory.routes) {
     const key = `${route.method} ${route.path}`;
-    if (implemented.has(key)) { route.status = 'implemented'; route.verification = 'local PostgreSQL / HTTP contract suite'; }
+    if (implemented.has(key) || nativeRoutes.has(`${route.method} ${shape(route.path)}`)) { route.status = 'implemented'; route.verification = 'local PostgreSQL / HTTP contract suite'; }
     else if (key === 'POST /api/ingest/events') { route.status = 'partial'; route.verification = 'atomic raw/kills/dual-job writes tested; SSE and full consumers pending'; }
     else if (key === 'GET /api/health') { route.status = 'partial'; route.verification = 'public response implemented; worker/owner diagnostics pending'; }
+    // These registered endpoints still need their complete worker chain.
+    if (key === 'POST /api/ingest/events') route.status = 'partial';
+    if (key === 'GET /api/health') route.status = 'partial';
 }
+inventory.nativeIdentity = {
+    status: 'implemented',
+    source: ['backend/src/identity.rs', 'backend/src/identity_signup.rs', 'backend/src/oauth.rs', 'backend/src/passkeys.rs'],
+    verification: 'original scrypt / XChaCha / OTP fixtures; PostgreSQL login, factor, recovery, account and WebAuthn contracts',
+    frontendActivation: 'pending page adapters'
+};
 const files: string[] = [];
 function walk(folder: string) {
     for (const entry of readdirSync(folder, { withFileTypes: true })) {
@@ -59,6 +75,8 @@ inventory.backgroundTasks = [
     ['webhook delivery', 'src/lib/server/webhook-delivery.ts', 'pending'],
     ['worker relay/SSE', 'src/worker/runtime.ts', 'pending'],
     ['settings reload', 'src/lib/server/settings.ts', 'partial']
+    ,['reserved slot reconciliation and list expiry', 'src/lib/server/lists-sync.ts', 'implemented']
+    ,['ban-on-sight enforcement', 'src/lib/server/lists-sync.ts', 'partial']
 ].map(([name, source, status]) => ({ name, source, status }));
 inventory.scope = 'All business APIs, page server business loaders/actions and background tasks. Svelte UI stays.';
 inventory.activation = 'local development only; not connected to production or Svelte request routing';

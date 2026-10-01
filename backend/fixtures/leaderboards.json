@@ -1,0 +1,2932 @@
+{
+  "queries": [
+    {
+      "raw": "scope=server&range=7d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=7d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=30d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=90d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=all&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=server&range=x&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=7d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "7d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=30d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=90d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "90d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=all&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "all",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=org&range=x&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "org",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=7d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "7d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=30d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=90d&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "90d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=all&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "all",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=&sort=kd&dir=asc&minMinutes=",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=0&sort=kd&dir=asc&minMinutes=0",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=-1&sort=kd&dir=asc&minMinutes=-1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 0
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=1&sort=kd&dir=asc&minMinutes=1",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=1.5&sort=kd&dir=asc&minMinutes=1.5",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 1
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=0x10&sort=kd&dir=asc&minMinutes=0x10",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 16,
+        "minMinutes": 16
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 20,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=200000&sort=kd&dir=asc&minMinutes=200000",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kd",
+        "dir": "asc",
+        "page": 100000,
+        "minMinutes": 100000
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 20,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    },
+    {
+      "raw": "scope=x&range=x&page=bad&sort=DROP+TABLE&dir=asc&minMinutes=bad",
+      "max": 100000,
+      "result": {
+        "scope": "server",
+        "range": "30d",
+        "sort": "kills",
+        "dir": "asc",
+        "page": 1,
+        "minMinutes": 60
+      }
+    }
+  ],
+  "group": {
+    "lines": [
+      {
+        "key": "MapA",
+        "result": "win",
+        "kills": 3,
+        "deaths": 1
+      },
+      {
+        "key": "MapB",
+        "result": null,
+        "kills": 5,
+        "deaths": 2
+      },
+      {
+        "key": "MapA",
+        "result": "loss",
+        "kills": 1,
+        "deaths": 2
+      },
+      {
+        "key": null,
+        "result": "draw",
+        "kills": 0,
+        "deaths": 0
+      }
+    ],
+    "result": [
+      {
+        "key": "MapA",
+        "matches": 2,
+        "wins": 1,
+        "losses": 1,
+        "draws": 0,
+        "kills": 4,
+        "deaths": 3
+      },
+      {
+        "key": "MapB",
+        "matches": 1,
+        "wins": 0,
+        "losses": 0,
+        "draws": 0,
+        "kills": 5,
+        "deaths": 2
+      }
+    ]
+  }
+}

@@ -165,7 +165,8 @@ export const passkey = pgTable(
 		backedUp: boolean('backed_up').notNull(),
 		transports: text('transports'),
 		createdAt: ts('created_at'),
-		aaguid: text('aaguid')
+		aaguid: text('aaguid'),
+		rustUserHandle: text('rust_user_handle')
 	},
 	(t) => [
 		index('passkey_user_id_idx').on(t.userId),

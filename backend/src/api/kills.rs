@@ -29,7 +29,7 @@ pub struct KillQuery {
     #[serde(rename = "match")]
     pub match_id: Option<i64>,
 }
-fn parse_query(raw: Option<String>) -> Result<KillQuery> {
+pub fn parse_query(raw: Option<String>) -> Result<KillQuery> {
     let mut fields = std::collections::HashMap::new();
     for (key, value) in url::form_urlencoded::parse(raw.as_deref().unwrap_or("").as_bytes()) {
         fields.entry(key.into_owned()).or_insert(value.into_owned());
@@ -194,6 +194,9 @@ pub async fn list(
     let f = parse_query(raw)?;
     let actor = authenticate(&state, &headers, &Method::GET).await?;
     server_scope(&state, &actor, &id, "server.view").await?;
+    Ok(Json(load(&state, &id, &f).await?))
+}
+pub async fn load(state: &AppState, id: &str, f: &KillQuery) -> Result<Value> {
     if f.before_time.is_some_and(|n| !n.is_finite()) {
         return Err(ApiError::bad("beforeTime must be a number."));
     }
@@ -235,7 +238,7 @@ pub async fn list(
     };
     let row=sqlx::query("SELECT s.feed_token_hash,l.feed_at FROM servers s LEFT JOIN server_live l ON l.server_id=s.id WHERE s.id=$1").bind(&id).fetch_one(&state.db).await?;
     let feed: Option<DateTime<Utc>> = row.try_get("feed_at")?;
-    Ok(Json(
+    Ok(
         json!({"ok":true,"configured":row.try_get::<Option<String>,_>("feed_token_hash")?.is_some(),"feedAt":feed.map(|t|t.to_rfc3339_opts(SecondsFormat::Millis,true)),"kills":kills,"total":total}),
-    ))
+    )
 }

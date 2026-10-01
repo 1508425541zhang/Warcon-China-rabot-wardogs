@@ -512,6 +512,13 @@
       "when": 1790985600000,
       "tag": "0072_integrity_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1791072000000,
+      "tag": "0073_rust_passkey_handles",
+      "breakpoints": true
     }
   ]
 }

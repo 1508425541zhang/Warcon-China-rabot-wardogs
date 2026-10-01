@@ -1,0 +1,2428 @@
+[
+  {
+    "name": "capabilities",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/capabilities",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"routes\":[\"PATCH /v1/players/{steamId}\",\"PUT /v1/config\",\"POST /v1/reserved-slots\",\"POST /v1/rotation/entries\",\"POST /v1/rotation/entries/:index/move\",\"POST /v1/rotation/save\",\"PATCH /v1/settings\",\"GET /v1/server-id\"],\"config\":{\"writable\":true}}"
+        }
+      }
+    ],
+    "result": {
+      "routes": [
+        "PATCH /v1/players/{steamId}",
+        "PUT /v1/config",
+        "POST /v1/reserved-slots",
+        "POST /v1/rotation/entries",
+        "POST /v1/rotation/entries/:index/move",
+        "POST /v1/rotation/save",
+        "PATCH /v1/settings",
+        "GET /v1/server-id"
+      ],
+      "features": {
+        "changeTeam": true,
+        "configDocument": true,
+        "reservedSlots": true,
+        "rotationEdit": true,
+        "rotationSave": true,
+        "liveSettings": true,
+        "serverId": true
+      },
+      "raw": {
+        "routes": [
+          "PATCH /v1/players/{steamId}",
+          "PUT /v1/config",
+          "POST /v1/reserved-slots",
+          "POST /v1/rotation/entries",
+          "POST /v1/rotation/entries/:index/move",
+          "POST /v1/rotation/save",
+          "PATCH /v1/settings",
+          "GET /v1/server-id"
+        ],
+        "config": {
+          "writable": true
+        }
+      }
+    }
+  },
+  {
+    "name": "status",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/status",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"serverName\":\"测试游戏服\",\"map\":\"map-one\",\"experiences\":[\"CTF\"],\"lighting\":\"Day\",\"alternator\":\"A\",\"scoreTick\":{\"current\":24,\"min\":1,\"max\":600},\"scoreCap\":200,\"matchSeconds\":80,\"players\":{\"current\":20,\"max\":100},\"factionScores\":[{\"name\":\"red\",\"score\":100,\"colorHex\":\"ff0000\"}],\"rotation\":{\"nowIndex\":0,\"nextIndex\":1}}"
+        }
+      }
+    ],
+    "result": {
+      "serverName": "测试游戏服",
+      "map": "map-one",
+      "experiences": [
+        "CTF"
+      ],
+      "lighting": "Day",
+      "alternator": "A",
+      "scoreTick": 24,
+      "scoreTickMin": 1,
+      "scoreTickMax": 600,
+      "scoreCap": 200,
+      "matchSeconds": 80,
+      "playerCount": 20,
+      "maxPlayers": 100,
+      "scores": [
+        {
+          "name": "red",
+          "colorHex": "ff0000",
+          "score": 100
+        }
+      ],
+      "rotationNow": 0,
+      "rotationNext": 1,
+      "raw": {
+        "serverName": "测试游戏服",
+        "map": "map-one",
+        "experiences": [
+          "CTF"
+        ],
+        "lighting": "Day",
+        "alternator": "A",
+        "scoreTick": {
+          "current": 24,
+          "min": 1,
+          "max": 600
+        },
+        "scoreCap": 200,
+        "matchSeconds": 80,
+        "players": {
+          "current": 20,
+          "max": 100
+        },
+        "factionScores": [
+          {
+            "name": "red",
+            "score": 100,
+            "colorHex": "ff0000"
+          }
+        ],
+        "rotation": {
+          "nowIndex": 0,
+          "nextIndex": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "health",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/health",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"status\":\"running\",\"uptimeSeconds\":123}"
+        }
+      }
+    ],
+    "result": {
+      "status": "running",
+      "uptimeSeconds": 123
+    }
+  },
+  {
+    "name": "serverId",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/server-id",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"serverId\":\"join-test\"}"
+        }
+      }
+    ],
+    "result": {
+      "serverId": "join-test"
+    }
+  },
+  {
+    "name": "players",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/players",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"players\":[{\"name\":\"测试玩家\",\"steamId\":\"76561198388453389\",\"faction\":\"red\",\"kills\":9,\"deaths\":2,\"cash\":999,\"pingMs\":24}]}"
+        }
+      }
+    ],
+    "result": {
+      "players": [
+        {
+          "name": "测试玩家",
+          "steamId": "76561198388453389",
+          "faction": "red",
+          "kills": 9,
+          "deaths": 2,
+          "cash": 999,
+          "ping": 24
+        }
+      ]
+    }
+  },
+  {
+    "name": "maps",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/catalog/maps",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"maps\":[{\"id\":\"map-one\",\"displayName\":\"One\"},{\"id\":\"map-two\",\"displayName\":\"Two\"}]}"
+        }
+      }
+    ],
+    "result": {
+      "maps": [
+        {
+          "id": "map-one",
+          "display": "One"
+        },
+        {
+          "id": "map-two",
+          "display": "Two"
+        }
+      ]
+    }
+  },
+  {
+    "name": "lightings",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/catalog/lightings",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"lightings\":[{\"id\":\"Day\",\"displayName\":\"白天\"}]}"
+        }
+      }
+    ],
+    "result": {
+      "lightings": [
+        {
+          "id": "Day",
+          "display": "白天"
+        }
+      ]
+    }
+  },
+  {
+    "name": "experiences",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/catalog/experiences",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"experiences\":[{\"id\":\"CTF\",\"displayName\":\"Flag\"}]}"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/v1/catalog/maps/map-one/experiences",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"experiences\":[\"CTF\",\"other\"]}"
+        }
+      }
+    ],
+    "result": {
+      "experiences": [
+        {
+          "id": "CTF",
+          "display": "Flag"
+        },
+        {
+          "id": "other",
+          "display": "other"
+        }
+      ]
+    }
+  },
+  {
+    "name": "alternators",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/catalog/maps/map-one/alternators",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"alternators\":[{\"tag\":\"A\",\"displayName\":\"Alpha\"}]}"
+        }
+      }
+    ],
+    "result": {
+      "alternators": [
+        {
+          "tag": "A",
+          "display": "Alpha"
+        }
+      ]
+    }
+  },
+  {
+    "name": "catalog",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/catalog/maps",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"maps\":[{\"id\":\"map-one\",\"displayName\":\"One\"},{\"id\":\"map-two\",\"displayName\":\"Two\"}]}"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/v1/catalog/lightings",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"lightings\":[{\"id\":\"Day\",\"displayName\":\"白天\"}]}"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/v1/catalog/experiences",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"experiences\":[{\"id\":\"CTF\",\"displayName\":\"Flag\"}]}"
+        }
+      }
+    ],
+    "result": {
+      "maps": [
+        {
+          "id": "map-one",
+          "display": "One"
+        },
+        {
+          "id": "map-two",
+          "display": "Two"
+        }
+      ],
+      "lightings": [
+        {
+          "id": "Day",
+          "display": "白天"
+        }
+      ],
+      "experiences": [
+        {
+          "id": "CTF",
+          "display": "Flag"
+        }
+      ]
+    }
+  },
+  {
+    "name": "rotation",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/rotation",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"enabled\":true,\"mode\":\"ORDERED\",\"entries\":[{\"map\":\"map-one\",\"experiences\":[\"CTF\"],\"lighting\":\"Day\",\"zoneAlternator\":\"None\",\"status\":\"now\",\"denied\":false},{\"map\":\"map-two\",\"experiences\":[\"CTF\"],\"lighting\":\"Day\",\"zoneAlternator\":\"None\",\"status\":\"next\",\"denied\":false}]}"
+        }
+      }
+    ],
+    "result": {
+      "enabled": true,
+      "mode": "ordered",
+      "nowIndex": 0,
+      "nextIndex": 1,
+      "entries": [
+        {
+          "map": "map-one",
+          "experiences": [
+            "CTF"
+          ],
+          "lighting": "Day",
+          "zoneAlternator": "None",
+          "denied": false,
+          "status": "now"
+        },
+        {
+          "map": "map-two",
+          "experiences": [
+            "CTF"
+          ],
+          "lighting": "Day",
+          "zoneAlternator": "None",
+          "denied": false,
+          "status": "next"
+        }
+      ]
+    }
+  },
+  {
+    "name": "bans",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/bans",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"bans\":[{\"steamId\":\"76561198388453389\",\"bannedAtUtc\":\"0001-01-01T00:00:00Z\",\"bannedBy\":\"config\",\"reason\":\"test\"}]}"
+        }
+      }
+    ],
+    "result": {
+      "bans": [
+        {
+          "steamId": "76561198388453389",
+          "bannedAtUtc": "",
+          "bannedBy": "config",
+          "reason": "test"
+        }
+      ]
+    }
+  },
+  {
+    "name": "reserved",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/reserved-slots",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"reservedSlots\":[\"76561198388453389\"]}"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/v1/config",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"text\":\"[RCON]\\r\\nPassword=\\\"fixture-password\\\"\\r\\n;Token=fixture-token\\r\\n[/Script/WDGame.WDGameSession]\\r\\nMaxPlayers=100\\r\\n!DefaultReservedPlayerIds=ClearArray\\r\\n.DefaultReservedPlayerIds=76561198000000001\\r\\n\",\"revision\":\"r1\",\"writable\":true,\"sections\":[{\"name\":\"RCON\"}],\"warnings\":[\"Token=fixture-token\"]}"
+        }
+      }
+    ],
+    "result": {
+      "reserved": [
+        "76561198388453389"
+      ],
+      "document": [
+        "76561198000000001"
+      ]
+    }
+  },
+  {
+    "name": "sponsor",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/sponsor",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"imageUrl\":\"https://example.test/cover.png\"}"
+        }
+      }
+    ],
+    "result": {
+      "imageUrl": "https://example.test/cover.png"
+    }
+  },
+  {
+    "name": "serverLog",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/audit?limit=40",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"entries\":[{\"timestampUtc\":\"2026-10-01T00:00:00Z\",\"peer\":\"127.0.0.1:123\",\"sessionId\":\"test-session\",\"event\":\"AUTH_OK\",\"detail\":\"test\"}]}"
+        }
+      }
+    ],
+    "result": {
+      "entries": [
+        {
+          "timestampUtc": "2026-10-01T00:00:00Z",
+          "peer": "127.0.0.1:123",
+          "sessionId": "test-session",
+          "event": "AUTH_OK",
+          "detail": "test"
+        }
+      ]
+    }
+  },
+  {
+    "name": "config",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/config",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"text\":\"[RCON]\\r\\nPassword=\\\"fixture-password\\\"\\r\\n;Token=fixture-token\\r\\n[/Script/WDGame.WDGameSession]\\r\\nMaxPlayers=100\\r\\n!DefaultReservedPlayerIds=ClearArray\\r\\n.DefaultReservedPlayerIds=76561198000000001\\r\\n\",\"revision\":\"r1\",\"writable\":true,\"sections\":[{\"name\":\"RCON\"}],\"warnings\":[\"Token=fixture-token\"]}"
+        }
+      }
+    ],
+    "result": {
+      "revision": "r1",
+      "writable": true,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "sections": [
+        {
+          "name": "RCON"
+        }
+      ],
+      "warnings": [
+        "Token=(hidden)"
+      ]
+    }
+  },
+  {
+    "name": "broadcast",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/broadcast",
+        "body": "{\"message\":\"测试消息\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "whisper",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/players/76561198388453389/message",
+        "body": "{\"message\":\"测试消息\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "kick",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/players/76561198388453389/kick",
+        "body": "{\"reason\":\"test\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "kill",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/players/76561198388453389/kill",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "changeTeam",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "PATCH",
+        "path": "/v1/players/76561198388453389",
+        "body": "{\"faction\":\"blue\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/v1/players/76561198388453389/kill",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "Moved to blue and killed, so they respawn on the new side.",
+      "respawned": true
+    }
+  },
+  {
+    "name": "endMatch",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/match/end",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "restartMatch",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/match/restart",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "changeMap",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/match/map",
+        "body": "{\"map\":\"map-one\",\"experiences\":[\"CTF\"],\"lighting\":\"Day\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "setWeather",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "PUT",
+        "path": "/v1/world/lighting",
+        "body": "{\"lighting\":\"Day\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "setNextMap",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/rotation",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"enabled\":true,\"mode\":\"ORDERED\",\"entries\":[{\"map\":\"map-one\",\"experiences\":[\"CTF\"],\"lighting\":\"Day\",\"zoneAlternator\":\"None\",\"status\":\"now\",\"denied\":false},{\"map\":\"map-two\",\"experiences\":[\"CTF\"],\"lighting\":\"Day\",\"zoneAlternator\":\"None\",\"status\":\"next\",\"denied\":false}]}"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/v1/rotation/entries",
+        "body": "{\"map\":\"map-one\",\"experiences\":[\"CTF\"],\"lighting\":\"Day\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/v1/rotation/entries/2/move",
+        "body": "{\"direction\":\"up\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "Next map set to map-one (rotation entry 2)."
+    }
+  },
+  {
+    "name": "rotationAdd",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/rotation/entries",
+        "body": "{\"map\":\"map-one\",\"experiences\":[\"CTF\"],\"lighting\":\"Day\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "rotationRemove",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "DELETE",
+        "path": "/v1/rotation/entries/1",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "rotationMove",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/rotation/entries/1/move",
+        "body": "{\"direction\":\"up\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "rotationReorder",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/rotation/entries/1/move",
+        "body": "{\"direction\":\"up\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "Moved rotation entry 2 to position 1."
+    }
+  },
+  {
+    "name": "ban",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/bans",
+        "body": "{\"steamId\":\"76561198388453389\",\"reason\":\"test\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "unban",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "DELETE",
+        "path": "/v1/bans/76561198388453389",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "reservedAdd",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/reserved-slots",
+        "body": "{\"steamId\":\"76561198388453389\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "reservedRemove",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "DELETE",
+        "path": "/v1/reserved-slots/76561198388453389",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "rotationSave",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "POST",
+        "path": "/v1/rotation/save",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "rotationSettings",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "PATCH",
+        "path": "/v1/settings",
+        "body": "{\"rotationEnabled\":true,\"rotationMode\":\"random\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "settings",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "PATCH",
+        "path": "/v1/settings",
+        "body": "{\"rotationEnabled\":true,\"rotationMode\":\"random\",\"scoreTick\":27}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"message\":\"ok\"}"
+        }
+      }
+    ],
+    "result": {
+      "message": "ok"
+    }
+  },
+  {
+    "name": "configValidate",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/config",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"text\":\"[RCON]\\r\\nPassword=\\\"fixture-password\\\"\\r\\n;Token=fixture-token\\r\\n[/Script/WDGame.WDGameSession]\\r\\nMaxPlayers=100\\r\\n!DefaultReservedPlayerIds=ClearArray\\r\\n.DefaultReservedPlayerIds=76561198000000001\\r\\n\",\"revision\":\"r1\",\"writable\":true,\"sections\":[{\"name\":\"RCON\"}],\"warnings\":[\"Token=fixture-token\"]}"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/v1/config/validate",
+        "body": "[RCON]\r\nPassword=\"fixture-password\"\r\n;Token=fixture-token\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+        "headers": {
+          "Content-Type": "text/plain"
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "etag": "\"r2\""
+          },
+          "text": "{\"ok\":true,\"revision\":\"r2\",\"changed\":[\"Password=\\\"fixture-password\\\"\"],\"warnings\":[\"fixture-token\"],\"outcomes\":[],\"errors\":[]}"
+        }
+      }
+    ],
+    "result": {
+      "ok": true,
+      "status": 200,
+      "conflict": false,
+      "revision": "r2",
+      "errorCode": "",
+      "errorMessage": "",
+      "outcomes": [],
+      "shadowed": [],
+      "stripped": [],
+      "errors": [],
+      "changed": [
+        "Password=(hidden)"
+      ],
+      "conflictDeltas": [],
+      "warnings": [
+        "(hidden)"
+      ],
+      "timingsMs": null
+    }
+  },
+  {
+    "name": "configApply",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/config",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"text\":\"[RCON]\\r\\nPassword=\\\"fixture-password\\\"\\r\\n;Token=fixture-token\\r\\n[/Script/WDGame.WDGameSession]\\r\\nMaxPlayers=100\\r\\n!DefaultReservedPlayerIds=ClearArray\\r\\n.DefaultReservedPlayerIds=76561198000000001\\r\\n\",\"revision\":\"r1\",\"writable\":true,\"sections\":[{\"name\":\"RCON\"}],\"warnings\":[\"Token=fixture-token\"]}"
+        }
+      },
+      {
+        "method": "PUT",
+        "path": "/v1/config",
+        "body": "[RCON]\r\nPassword=\"fixture-password\"\r\n;Token=fixture-token\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+        "headers": {
+          "Content-Type": "text/plain",
+          "If-Match": "\"r1\""
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "etag": "\"r2\""
+          },
+          "text": "{\"ok\":true,\"revision\":\"r2\",\"changed\":[\"Password=\\\"fixture-password\\\"\"],\"warnings\":[\"fixture-token\"],\"outcomes\":[],\"errors\":[]}"
+        }
+      }
+    ],
+    "result": {
+      "ok": true,
+      "status": 200,
+      "conflict": false,
+      "revision": "r2",
+      "errorCode": "",
+      "errorMessage": "",
+      "outcomes": [],
+      "shadowed": [],
+      "stripped": [],
+      "errors": [],
+      "changed": [
+        "Password=(hidden)"
+      ],
+      "conflictDeltas": [],
+      "warnings": [
+        "(hidden)"
+      ],
+      "timingsMs": null
+    }
+  },
+  {
+    "name": "raw",
+    "params": {
+      "steamId": "76561198388453389",
+      "message": "测试消息",
+      "reason": "test",
+      "faction": "blue",
+      "map": "map-one",
+      "lighting": "Day",
+      "experiences": [
+        "CTF"
+      ],
+      "index": 1,
+      "direction": "up",
+      "from": 1,
+      "to": 0,
+      "limit": 40,
+      "document": 1,
+      "text": "[RCON]\r\nPassword=(hidden)\r\n;Token=(hidden)\r\n[/Script/WDGame.WDGameSession]\r\nMaxPlayers=100\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198000000001\r\n",
+      "revision": "r1",
+      "rotationEnabled": "on",
+      "rotationMode": "random",
+      "scoreTick": 27,
+      "method": "GET",
+      "path": "/v1/health",
+      "raw": true
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/v1/health",
+        "body": null,
+        "headers": {},
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": {
+            "content-type": "application/json",
+            "etag": "\"r1\"",
+            "location": "https://private.test",
+            "via": "private"
+          },
+          "text": "{\"status\":\"running\",\"uptimeSeconds\":123}"
+        }
+      }
+    ],
+    "result": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "etag": "\"r1\""
+      },
+      "body": {
+        "status": "running",
+        "uptimeSeconds": 123
+      }
+    }
+  }
+]

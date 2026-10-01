@@ -4,11 +4,18 @@ pub mod feed_setup;
 pub mod ingest;
 pub mod keys;
 pub mod kills;
+pub mod lists;
 pub mod matches;
 pub mod notes;
+pub mod orgs;
 pub mod outbox;
+pub mod plugins;
+pub mod public;
+pub mod rcon_actions;
 pub mod roles;
+pub mod servers;
 pub mod settings;
+pub mod users;
 use crate::config::AppState;
 use axum::{
     Json, Router,
@@ -22,8 +29,60 @@ use serde_json::{Value, json};
 
 pub fn router(state: AppState) -> Router {
     Router::new()
+        .route("/api/identity/configuration",get(crate::identity::configuration))
+        .route("/api/identity/session",get(crate::identity::session))
+        .route("/api/identity/setup",post(crate::identity::setup))
+        .route("/api/identity/register",post(crate::identity_signup::register))
+        .route("/api/identity/login",post(crate::identity::login))
+        .route("/api/identity/verify",post(crate::identity::verify))
+        .route("/api/identity/recover",post(crate::identity::recover))
+        .route("/api/identity/logout",post(crate::identity::logout))
+        .route("/api/identity/account",get(crate::identity::account))
+        .route("/api/identity/account/{action}",post(crate::identity::account_action))
+        .route("/api/identity/providers/{provider}",post(crate::oauth::begin))
+        .route("/auth/steam/callback",get(crate::oauth::steam_callback))
+        .route("/api/auth/callback/discord",get(crate::oauth::discord_callback))
+        .route("/api/passkeys",get(crate::passkeys::list).post(crate::passkeys::register))
+        .route("/api/passkeys/auth-options",post(crate::passkeys::auth_options))
+        .route("/api/passkeys/register-options",post(crate::passkeys::register_options))
+        .route("/api/passkeys/auth",post(crate::passkeys::authenticate))
+        .route("/api/passkeys/{id}",delete(crate::passkeys::delete))
         .route("/api/health",get(health))
+        .route("/api/servers",get(servers::list).post(servers::create))
+        .route("/api/servers/{id}",axum::routing::patch(servers::update).delete(servers::delete))
+        .route("/api/servers/{id}/grants",get(servers::grants).put(servers::set_grants))
+        .route("/api/servers/{id}/test",post(servers::test))
+        .route("/api/servers/{id}/rcon/{action}",get(rcon_actions::get).post(rcon_actions::post))
+        .route("/api/orgs/{id}/lists",get(lists::org_view))
+        .route("/api/orgs/{id}/lists/{kind}/entries",get(lists::entries).post(lists::add))
+        .route("/api/orgs/{id}/lists/{kind}/entries/{steam_id}",axum::routing::patch(lists::update).delete(lists::remove))
+        .route("/api/orgs/{id}/lists/sync",post(lists::sync))
+        .route("/api/orgs/{id}/lists/import",get(lists::import_get).post(lists::import_post))
+        .route("/api/servers/{id}/lists/{kind}/entries",post(lists::server_add))
+        .route("/api/servers/{id}/lists/{kind}/entries/{steam_id}",axum::routing::patch(lists::server_update).delete(lists::server_remove))
+        .route("/api/servers/{id}/lists/state",get(lists::server_state))
+        .route("/api/servers/{id}/lists/sync",post(lists::server_sync))
+        .route("/api/users",get(users::list).post(users::create))
+        .route("/api/users/{id}",axum::routing::patch(users::update).delete(users::delete))
+        .route("/api/users/{id}/grants",axum::routing::put(users::grants))
+        .route("/api/orgs",get(orgs::list).post(orgs::create))
+        .route("/api/orgs/{id}",axum::routing::patch(orgs::update).delete(orgs::delete))
+        .route("/api/orgs/{id}/members",get(orgs::members))
+        .route("/api/orgs/{id}/members/{user_id}",axum::routing::patch(orgs::member_role).delete(orgs::remove_member))
+        .route("/api/orgs/{id}/members/{user_id}/grants",axum::routing::put(orgs::member_grants))
+        .route("/api/orgs/{id}/invites",get(orgs::invites).post(orgs::create_invite))
+        .route("/api/orgs/{id}/invites/{invite_id}",delete(orgs::revoke_invite))
+        .route("/api/identity/invites/{token}",get(orgs::invite_view).post(orgs::join))
         .route("/api/settings",get(settings::get).put(settings::put))
+        .route("/api/plugins",get(plugins::list).post(plugins::create))
+        .route("/api/plugins/{id}",get(plugins::get).put(plugins::update).delete(plugins::delete))
+        .route("/api/plugins/{id}/data",get(plugins::data))
+        .route("/api/servers/{id}/leaderboard",get(public::private_board))
+        .route("/api/public/servers/{id}",get(public::status))
+        .route("/api/public/servers/{id}/leaderboard",get(public::board))
+        .route("/api/public/servers/{id}/players/{steam_id}",get(public::player))
+        .route("/api/public/servers/{id}/matches",get(public::matches))
+        .route("/api/public/servers/{id}/matches/{match_id}",get(public::match_detail))
         .route("/api/ingest/events",post(ingest::post))
         .route("/api/orgs/{id}/roles",get(roles::list).post(roles::create))
         .route("/api/orgs/{id}/keys",get(keys::list).post(keys::create))
@@ -50,9 +109,11 @@ pub fn router(state: AppState) -> Router {
 }
 async fn response_headers(request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
-    response
-        .headers_mut()
-        .insert("cache-control", HeaderValue::from_static("no-store"));
+    if !response.headers().contains_key("cache-control") {
+        response
+            .headers_mut()
+            .insert("cache-control", HeaderValue::from_static("no-store"));
+    }
     response.headers_mut().insert(
         "x-content-type-options",
         HeaderValue::from_static("nosniff"),

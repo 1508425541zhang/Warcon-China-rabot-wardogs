@@ -79,6 +79,25 @@ pub fn session_cookie(headers: &HeaderMap, secret: &str) -> Option<String> {
     None
 }
 pub async fn authenticate(state: &AppState, headers: &HeaderMap, method: &Method) -> Result<Actor> {
+    authenticate_inner(state, headers, method, false).await
+}
+/// Security settings must remain accessible while enrolment or password change is required.
+pub async fn authenticate_account(
+    state: &AppState,
+    headers: &HeaderMap,
+    method: &Method,
+) -> Result<Actor> {
+    if headers.contains_key("authorization") {
+        return Err(ApiError::forbidden());
+    }
+    authenticate_inner(state, headers, method, true).await
+}
+async fn authenticate_inner(
+    state: &AppState,
+    headers: &HeaderMap,
+    method: &Method,
+    account: bool,
+) -> Result<Actor> {
     if let Some(header) = field(headers, "authorization") {
         let token = parse_bearer(header).ok_or_else(ApiError::unauthorized)?;
         let row=sqlx::query("SELECT k.id,k.label,k.org_id,k.capabilities,k.server_ids,k.expires_at,k.revoked_at,o.suspended_at FROM api_keys k JOIN organizations o ON o.id=k.org_id WHERE k.key_hash=$1")
@@ -143,14 +162,17 @@ pub async fn authenticate(state: &AppState, headers: &HeaderMap, method: &Method
     if banned.unwrap_or(false) && ban_expires.is_none_or(|e| e > Utc::now()) {
         return Err(ApiError::unauthorized());
     }
-    if row.try_get::<bool, _>("must_change_password")? {
+    if !account && row.try_get::<bool, _>("must_change_password")? {
         return Err(ApiError::new(
             StatusCode::FORBIDDEN,
             "password_change_required",
             "Change password first.",
         ));
     }
-    if !row.try_get::<bool, _>("auth_complete")? && enrolment_due(&state.db, &row).await? {
+    if !account
+        && !row.try_get::<bool, _>("auth_complete")?
+        && enrolment_due(&state.db, &row).await?
+    {
         return Err(ApiError::new(
             StatusCode::FORBIDDEN,
             "enrolment_required",
@@ -164,7 +186,7 @@ pub async fn authenticate(state: &AppState, headers: &HeaderMap, method: &Method
         key: None,
     })
 }
-async fn enrolment_due(db: &sqlx::PgPool, user: &sqlx::postgres::PgRow) -> Result<bool> {
+pub async fn enrolment_due(db: &sqlx::PgPool, user: &sqlx::postgres::PgRow) -> Result<bool> {
     let settings = crate::settings::load(db).await?;
     let setting = |name: &str, default: i64, max: i64| {
         settings
