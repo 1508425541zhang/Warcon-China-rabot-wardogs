@@ -54,6 +54,7 @@ jobs:
           bun --tsconfig-override backend/fixtures/tsconfig.json backend/fixtures/generate-triggers.ts
           bun backend/fixtures/generate-advisory.ts
           bun backend/fixtures/generate-game-automation.ts
+          bun backend/fixtures/generate-demo.ts
           bun backend/tools/extract-retention.ts
           bun backend/tools/export-presentation-catalog.ts
           bun backend/tools/extract-page-history.ts
@@ -79,16 +80,15 @@ jobs:
       - name: Run the isolated development containers
         run: |
           umask 077
-          printf 'ORIGIN=http://localhost:4302\nPOSTGRES_PASSWORD=%s\nBETTER_AUTH_SECRET=%s\nENCRYPTION_KEY=%s\nRELAY_SECRET=%s\nRUST_FRONTEND_TOKEN=%s\nWARCON_SHORT_RISK_ENABLED=0\n' \
+          printf 'ORIGIN=http://localhost:4302\nPOSTGRES_PASSWORD=%s\nBETTER_AUTH_SECRET=%s\nENCRYPTION_KEY=%s\nRELAY_SECRET=%s\nRUST_FRONTEND_TOKEN=%s\nMODEL_API_TOKEN=%s\nMODEL_ARTIFACTS_PATH=./services/integrity-model-bun/artifacts-30m\nWARCON_SHORT_RISK_ENABLED=0\n' \
             "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -base64 32)" \
-            "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env.rust.dev
-          docker compose --env-file .env.rust.dev -f compose.rust-dev.yml up -d --no-build --wait
-          curl --fail --silent http://localhost:4302/api/health > /dev/null
-          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:4302/setup)" = 200
+            "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env.rust.dev
+          docker compose --project-name warcon-rust-validation --env-file .env.rust.dev -f compose.rust-dev.yml --profile model up -d --no-build --wait
+          CONTAINER_SMOKE_NO_OVERRIDE=1 node backend/tools/container-stack-smoke.mjs
       - name: Container diagnostics and cleanup
         if: always()
         run: |
           if [ -f .env.rust.dev ]; then
-            docker compose --env-file .env.rust.dev -f compose.rust-dev.yml logs --tail=80
-            docker compose --env-file .env.rust.dev -f compose.rust-dev.yml down --volumes
+            docker compose --project-name warcon-rust-validation --env-file .env.rust.dev -f compose.rust-dev.yml --profile model logs --tail=80
+            docker compose --project-name warcon-rust-validation --env-file .env.rust.dev -f compose.rust-dev.yml --profile model down --volumes
           fi

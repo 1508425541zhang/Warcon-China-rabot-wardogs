@@ -121,6 +121,7 @@ pub struct Client {
     target: GameTarget,
     key: String,
     insecure: bool,
+    demo: bool,
 }
 impl Client {
     pub async fn for_server(state: &AppState, id: &str) -> Result<Self> {
@@ -132,9 +133,19 @@ impl Client {
         .await?;
         let (host, port, scheme, blob, allow_private) = row.ok_or_else(ApiError::missing)?;
         let port = u16::try_from(port).map_err(|_| ApiError::bad("Invalid RCON port."))?;
-        let target = rcon::resolve_target(&host, port, &scheme, allow_private)
-            .await
-            .map_err(|_| ApiError::bad("Game server target is not permitted."))?;
+        let demo = crate::mockgame::is_demo(&host);
+        let target = if demo {
+            GameTarget {
+                host: "demo".into(),
+                port,
+                scheme,
+                addresses: None,
+            }
+        } else {
+            rcon::resolve_target(&host, port, &scheme, allow_private)
+                .await
+                .map_err(|_| ApiError::bad("Game server target is not permitted."))?
+        };
         let key = crypto::decrypt_secret(&state.config.encryption_key, &blob)
             .map_err(|_| ApiError::bad("Could not decrypt the stored RCON password."))?;
         let insecure = std::env::var("GAME_TLS_INSECURE").is_ok_and(|v| v == "true" || v == "1");
@@ -144,6 +155,7 @@ impl Client {
             target,
             key,
             insecure,
+            demo,
         })
     }
     pub async fn raw(
@@ -176,6 +188,17 @@ impl Client {
             }
         }
         headers.insert("authorization".into(), format!("Bearer {}", self.key));
+        if self.demo {
+            return Ok(crate::mockgame::request(
+                &self.state.runtime,
+                &self.server,
+                &self.key,
+                method,
+                path,
+                &headers,
+                body.as_deref(),
+            ));
+        }
         rcon::game_request(
             &self.target,
             &GameRequest {

@@ -46,6 +46,12 @@ docker compose --env-file .env.rust.dev -f compose.rust-dev.yml ps -a
 
 预期：`db`、`worker`、`api`、`warcon` 健康，`migrate` 成功退出。打开 `http://localhost:4302/setup` 创建首个账号；项目没有默认网页登录密码。开发使用专属 `warcon-rust-dev-db` 卷，页面只绑定本机 4302，数据库和内部服务端口不公开。
 
+如果 Windows 报套接字访问权限错误，可用 `netsh interface ipv4 show excludedportrange protocol=tcp` 检查 Hyper-V／WSL 保留端口。选择空闲端口，例如在 `.env.rust.dev` 同时设置 `RUST_FRONTEND_PORT=14302` 和 `ORIGIN=http://localhost:14302`，再启动。不要只改其中一个；浏览器地址必须与 `ORIGIN` 一致。
+
+没有游戏服务器时，可在组织中添加主机 `demo`、端口 `7776`、RCON 密码 `demo` 的演示服务器。这是独立于网页登录的模拟 RCON 凭据。模拟玩家、对局、配置和操作均由 Rust Worker 实现，内存状态随 Worker 重启重置。默认允许演示服务器，设置 `ALLOW_DEMO_SERVER=false` 可关闭。要查看模拟击杀和 KPM，先在该服务器配置页创建并启用 Kill Feed 令牌；Worker 会把模拟事件送入相同的原生消费链。演示事件仅属于明确添加的演示服务器，不会灌入真实服务器。
+
+`MOCK_LIVE_BUILD=true` 可复现原版指定游戏构建缺少部分接口、启动参数锁定配置的表现；`MOCK_RATE_LIMIT_EVERY=N` 每 N 次模拟请求返回 429。这些仅供开发验证。
+
 ```sh
 docker compose --env-file .env.rust.dev -f compose.rust-dev.yml logs --tail=80 api worker warcon
 docker compose --env-file .env.rust.dev -f compose.rust-dev.yml down
@@ -213,4 +219,6 @@ docker compose --env-file .env.rust.dev -f compose.rust-dev.yml run --rm worker 
 
 ## 6. 当前验证边界
 
-已完成本地原生服务、数据库迁移、模型数值及 Node 页面联调。Docker 镜像构建与隔离容器运行已配置为 CI 必须通过的检查；当前本机没有可用 Docker 引擎，尚未本地执行该容器检查。Steam／Discord、QQ、AI 的真实账号连接需在独立环境补充验证。
+已完成本地原生服务、数据库迁移、模型数值及 Node 页面联调；两个 Docker 镜像也已实际构建，独立容器环境的 10 项端到端检查通过，包含真实长窗模型、演示玩家和击杀双消费链。验证记录见 [迁移与验证记录](rust-backend.zh-CN.md)。CI 使用相同检查，尚未推送运行；Steam／Discord、QQ、AI 的真实账号连接需在独立环境补充验证。
+
+`backend/tools/local-stack-smoke.mjs` 可用 `SMOKE_BASE_PORT` 指定连续四个联调端口，默认 4310–4313；例如 Windows 下设置 `$env:SMOKE_BASE_PORT='18100'` 再运行。`container-stack-smoke.mjs` 仅用于新建的 `warcon-rust-validation` 空数据库，会创建随机临时账号，不用于已有数据。不要针对生产 Compose 运行这类初始化测试。

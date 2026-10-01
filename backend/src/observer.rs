@@ -715,6 +715,10 @@ pub async fn observe(
     }
     tx.commit().await?;
     *m = next;
+    if let Err(error) = crate::mockgame::ingest_queued(app, &m.id).await {
+        app.runtime.check().await?;
+        tracing::warn!(server_id=%m.id,%error,"Demo feed ingestion failed");
+    }
     if ts - m.lists_at >= number(settings, "listsSnapshotMs", 300000) {
         // An unsupported list endpoint must not undo healthy presence/kill observations.
         m.lists_at = ts;

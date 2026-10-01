@@ -21,4 +21,5 @@ backend/.env
 backend/artifacts-local
 backend/*.log
 backend/local-stack-smoke.json
+backend/container-stack-smoke.json
 models

@@ -1,0 +1,511 @@
+{
+  "fixed": 1780000000000,
+  "seed": {
+    "serverName": "fixture",
+    "maxPlayers": 32,
+    "scoreTick": 24,
+    "scoreCap": 100,
+    "factions": [
+      {
+        "name": "Valkyra",
+        "colorHex": "#D86060",
+        "score": 34,
+        "rate": 0.55
+      },
+      {
+        "name": "Lonestar",
+        "colorHex": "#5B95D8",
+        "score": 27,
+        "rate": 0.42
+      },
+      {
+        "name": "Manticore",
+        "colorHex": "#7BC462",
+        "score": 30,
+        "rate": 0.48
+      }
+    ],
+    "current": {
+      "map": "Kavkazi",
+      "experiences": [
+        "Bakurani_KOTH_01"
+      ],
+      "lighting": "DayLateClear",
+      "alternator": "ZoneAlternator.Factory.Circle"
+    },
+    "players": [
+      {
+        "name": "Ghostpepper",
+        "steamId": "76561198100000101",
+        "faction": "Valkyra",
+        "kills": 14,
+        "deaths": 6,
+        "cash": 5200,
+        "pingMs": 31
+      },
+      {
+        "name": "Mad Marmalade",
+        "steamId": "76561198100000102",
+        "faction": "Valkyra",
+        "kills": 9,
+        "deaths": 11,
+        "cash": 3100,
+        "pingMs": 48
+      },
+      {
+        "name": "T0XIC_AVENGER",
+        "steamId": "76561198100000103",
+        "faction": "Valkyra",
+        "kills": 6,
+        "deaths": 4,
+        "cash": 2650,
+        "pingMs": 22
+      },
+      {
+        "name": "Nomad",
+        "steamId": "76561198100000105",
+        "faction": "Lonestar",
+        "kills": 17,
+        "deaths": 8,
+        "cash": 6800,
+        "pingMs": 27
+      },
+      {
+        "name": "Willowisp",
+        "steamId": "76561198100000106",
+        "faction": "Lonestar",
+        "kills": 11,
+        "deaths": 10,
+        "cash": 4100,
+        "pingMs": 64
+      },
+      {
+        "name": "KillustratorPro",
+        "steamId": "76561198100000107",
+        "faction": "Lonestar",
+        "kills": 8,
+        "deaths": 5,
+        "cash": 3300,
+        "pingMs": 41
+      },
+      {
+        "name": "QuietStorm",
+        "steamId": "76561198100000109",
+        "faction": "Manticore",
+        "kills": 13,
+        "deaths": 7,
+        "cash": 5000,
+        "pingMs": 33
+      },
+      {
+        "name": "Dutchie",
+        "steamId": "76561198100000110",
+        "faction": "Manticore",
+        "kills": 10,
+        "deaths": 10,
+        "cash": 3800,
+        "pingMs": 55
+      },
+      {
+        "name": "Rooikat",
+        "steamId": "76561198100000111",
+        "faction": "Manticore",
+        "kills": 7,
+        "deaths": 3,
+        "cash": 2900,
+        "pingMs": 73
+      }
+    ],
+    "bans": [
+      {
+        "steamId": "76561198100000301",
+        "bannedAtUtc": "2026-08-09 21:14:02Z",
+        "bannedBy": "joe",
+        "reason": "Cheating - aimbot"
+      },
+      {
+        "steamId": "76561198100000302",
+        "bannedAtUtc": "2026-08-10 09:41:55Z",
+        "bannedBy": "console",
+        "reason": "Griefing teammates"
+      }
+    ],
+    "reserved": [
+      "76561198100000201",
+      "76561198100000202"
+    ],
+    "sponsorUrl": "https://i.postimg.cc/5N5ynGcY/Server-Browser-Image.jpg",
+    "rotation": {
+      "enabled": true,
+      "mode": "ordered",
+      "nowIndex": 0,
+      "nextIndex": 1,
+      "entries": [
+        {
+          "map": "Kavkazi",
+          "experiences": [
+            "Bakurani_KOTH_01"
+          ],
+          "lighting": "DayLateClear",
+          "zoneAlternator": "ZoneAlternator.Factory.Circle",
+          "denied": false
+        },
+        {
+          "map": "Europe",
+          "experiences": [
+            "KOTH_InfantryOnly"
+          ],
+          "lighting": "DayEarlyFog",
+          "zoneAlternator": "",
+          "denied": false
+        },
+        {
+          "map": "NorthAmerica",
+          "experiences": [
+            "Detroit_KOTH_01"
+          ],
+          "lighting": "DayEndClear",
+          "zoneAlternator": "",
+          "denied": false
+        }
+      ]
+    },
+    "audit": [
+      {
+        "timestampUtc": "2026-05-28 19:41:40Z",
+        "peer": "127.0.0.1:51022",
+        "sessionId": "9f3ab1c2",
+        "event": "ACCEPT",
+        "detail": "-"
+      },
+      {
+        "timestampUtc": "2026-05-28 19:42:40Z",
+        "peer": "127.0.0.1:51022",
+        "sessionId": "9f3ab1c2",
+        "event": "AUTH_FAIL",
+        "detail": "bad password"
+      },
+      {
+        "timestampUtc": "2026-05-28 19:43:40Z",
+        "peer": "127.0.0.1:51022",
+        "sessionId": "9f3ab1c2",
+        "event": "AUTH_OK",
+        "detail": "-"
+      },
+      {
+        "timestampUtc": "2026-05-28 20:01:40Z",
+        "peer": "127.0.0.1:51022",
+        "sessionId": "9f3ab1c2",
+        "event": "COMMAND",
+        "detail": "changemap Kavkazi Bakurani_KOTH_01 DayLateClear"
+      },
+      {
+        "timestampUtc": "2026-05-28 20:14:40Z",
+        "peer": "127.0.0.1:51139",
+        "sessionId": "c41d09aa",
+        "event": "REJECT",
+        "detail": "rate limited"
+      }
+    ],
+    "matchStart": 1779993688000,
+    "lastScoreAt": 1780000000000,
+    "nextJoiner": 0,
+    "configText": "[/Script/WDGame.WDGameSession]\r\nServerName=fixture\r\nServerPassword=\r\nServerImageURL=https://i.postimg.cc/5N5ynGcY/Server-Browser-Image.jpg\r\nMaxReservedSlots=2\r\n!DefaultReservedPlayerIds=ClearArray\r\n.DefaultReservedPlayerIds=76561198100000201\r\n.DefaultReservedPlayerIds=76561198100000202\r\n+DefaultBannedPlayerIds=\"76561198100000301\"\r\n+DefaultBannedPlayerIds=\"76561198100000302\"\r\n\r\n[/Script/Engine.GameSession]\r\nMaxPlayers=32\r\n\r\n[MatchState.PreMatch.WaitingForPlayers.PlayerCount]\r\nMinimumRequiredPlayers=60\r\n\r\n[MatchState.Playing.KOTH]\r\nScorePeriod=24\r\n\r\n[/Script/WDGame.WDGameStateSession]\r\nbLockOverpopulatedTeamsConfig=true\r\nOverpopulatedTeamThresholdConfig=2\r\n\r\n[/Script/WDGame.WDServerMapRotationSettings]\r\nbEnabled=true\r\nRotationMode=Ordered\r\n+RotationEntries=(Map=\"Kavkazi\",Experiences=\"Bakurani_KOTH_01\",Lighting=\"DayLateClear\",ZoneAlternator=\"ZoneAlternator.Factory.Circle\")\r\n+RotationEntries=(Map=\"Europe\",Experiences=\"KOTH_InfantryOnly\",Lighting=\"DayEarlyFog\")\r\n+RotationEntries=(Map=\"NorthAmerica\",Experiences=\"Detroit_KOTH_01\",Lighting=\"DayEndClear\")\r\n\r\n[/Script/WDRCON.WDRCONSettings]\r\nbEnabled=true\r\nBindAddress=0.0.0.0\r\nPort=7776\r\nbWriteAuditLogFile=false\r\n",
+    "configRevision": 1,
+    "feed": []
+  },
+  "MAPS": [
+    {
+      "id": "Kavkazi",
+      "displayName": "Bakurani"
+    },
+    {
+      "id": "Europe",
+      "displayName": "Ozeti"
+    },
+    {
+      "id": "NorthAmerica",
+      "displayName": "Zestafona"
+    }
+  ],
+  "EXPERIENCES": [
+    {
+      "id": "Bakurani_KOTH_01",
+      "displayName": "King of the Hill"
+    },
+    {
+      "id": "Madrid_KOTH_01",
+      "displayName": "King of the Hill"
+    },
+    {
+      "id": "Detroit_KOTH_01",
+      "displayName": "King of the Hill"
+    },
+    {
+      "id": "KOTH_InfantryOnly",
+      "displayName": "Infantry"
+    },
+    {
+      "id": "KOTH_Hardcore",
+      "displayName": "Hardcore"
+    }
+  ],
+  "EXPERIENCES_BY_MAP": {
+    "Kavkazi": [
+      "Bakurani_KOTH_01",
+      "KOTH_InfantryOnly",
+      "KOTH_Hardcore"
+    ],
+    "Europe": [
+      "Madrid_KOTH_01",
+      "KOTH_InfantryOnly",
+      "KOTH_Hardcore"
+    ],
+    "NorthAmerica": [
+      "Detroit_KOTH_01",
+      "KOTH_InfantryOnly",
+      "KOTH_Hardcore"
+    ]
+  },
+  "LIGHTINGS": [
+    {
+      "id": "DayStartClear",
+      "displayName": "Day Start Clear"
+    },
+    {
+      "id": "DayEarlyClear",
+      "displayName": "Day Early Clear"
+    },
+    {
+      "id": "DayEarlyFog",
+      "displayName": "Day Early Fog"
+    },
+    {
+      "id": "DayClear",
+      "displayName": "Day Clear"
+    },
+    {
+      "id": "DayLateClear",
+      "displayName": "Day Late Clear"
+    },
+    {
+      "id": "DayLateGray",
+      "displayName": "Day Late Gray"
+    },
+    {
+      "id": "DayLateGrayFog",
+      "displayName": "Day Late Gray Fog"
+    },
+    {
+      "id": "DayEndClear",
+      "displayName": "Day End Clear"
+    }
+  ],
+  "ALTERNATORS_BY_MAP": {
+    "Kavkazi": [
+      {
+        "tag": "ZoneAlternator.Factory.Circle",
+        "displayName": "Bakurani Factory Circle"
+      },
+      {
+        "tag": "ZoneAlternator.Factory.Split",
+        "displayName": "Bakurani Factory Split"
+      }
+    ]
+  },
+  "JOINERS": [
+    "Copperhead",
+    "Late_to_the_party",
+    "VelvetThunder",
+    "Brick",
+    "Saltmine",
+    "Ostrich Wrangler",
+    "0xDEADBEEF",
+    "Pretty Average",
+    "Whistler",
+    "Junkrat Jane"
+  ],
+  "FEED_CAUSES": [
+    "Id.Item.AK74M",
+    "Id.Item.WEPN_029",
+    "Id.Item.Mosin",
+    "Id.Item.SKS",
+    "Id.Item.SVDM",
+    "Id.Item.M4",
+    "Id.Item.M67Grenade",
+    "Id.Vehicle.WeaponExtension.STN_03.MainBarrel",
+    "Vehicle.Variant.Air.Rotary.Littlebird.Default"
+  ],
+  "CAPABILITY_ROUTES": [
+    "GET /v1/capabilities",
+    "GET /v1/health",
+    "GET /v1/server-id",
+    "GET /v1/status",
+    "GET /v1/players",
+    "POST /v1/players/{steamId}/kick",
+    "POST /v1/players/{steamId}/kill",
+    "POST /v1/players/{steamId}/message",
+    "PATCH /v1/players/{steamId}",
+    "GET /v1/bans",
+    "POST /v1/bans",
+    "DELETE /v1/bans/{steamId}",
+    "POST /v1/broadcast",
+    "GET /v1/catalog/maps",
+    "GET /v1/catalog/lightings",
+    "GET /v1/catalog/experiences",
+    "GET /v1/catalog/maps/{map}/experiences",
+    "GET /v1/catalog/maps/{map}/alternators",
+    "POST /v1/match/map",
+    "POST /v1/match/end",
+    "POST /v1/match/restart",
+    "PUT /v1/world/lighting",
+    "GET /v1/rotation",
+    "POST /v1/rotation/entries",
+    "DELETE /v1/rotation/entries/{index}",
+    "POST /v1/rotation/entries/{index}/move",
+    "POST /v1/rotation/save",
+    "PATCH /v1/settings",
+    "GET /v1/reserved-slots",
+    "POST /v1/reserved-slots",
+    "DELETE /v1/reserved-slots/{steamId}",
+    "GET /v1/sponsor",
+    "GET /v1/audit",
+    "GET /v1/config",
+    "POST /v1/config/validate",
+    "PUT /v1/config"
+  ],
+  "LIVE_BUILD_MISSING": [
+    "POST /v1/reserved-slots",
+    "DELETE /v1/reserved-slots/{steamId}",
+    "POST /v1/rotation/entries",
+    "DELETE /v1/rotation/entries/{index}",
+    "POST /v1/rotation/entries/{index}/move",
+    "POST /v1/rotation/save",
+    "PATCH /v1/settings"
+  ],
+  "CONFIG_SECTIONS": [
+    {
+      "section": "/Script/WDGame.WDGameSession",
+      "appliesWhen": "applied",
+      "description": "Server identity, bans, reserved slots and the sponsor banner.",
+      "allowedKeys": [
+        "DefaultBannedPlayerIds",
+        "DefaultReservedPlayerIds",
+        "MaxReservedSlots",
+        "PlayerIdentityEntries",
+        "ServerImageURL",
+        "ServerMaxPlayerCash",
+        "ServerMaxPlayerLevel",
+        "ServerMinPlayerCash",
+        "ServerMinPlayerLevel",
+        "ServerName",
+        "ServerPassword"
+      ],
+      "keyOverrides": [
+        {
+          "key": "ServerPassword",
+          "appliesWhen": "applied",
+          "description": "Sent on the session update this apply triggers, so it gates new joins at once. Players already in are not rechecked."
+        },
+        {
+          "key": "ServerMinPlayerCash",
+          "appliesWhen": "applied",
+          "description": "Sent on the session update this apply triggers, so new joins are checked against it at once. Players already connected are not re-checked or removed."
+        },
+        {
+          "key": "ServerMaxPlayerCash",
+          "appliesWhen": "applied",
+          "description": "Sent on the session update this apply triggers, so new joins are checked against it at once. Players already connected are not re-checked or removed."
+        },
+        {
+          "key": "ServerMinPlayerLevel",
+          "appliesWhen": "applied",
+          "description": "Sent on the session update this apply triggers, so new joins are checked against it at once. Players already connected are not re-checked or removed."
+        },
+        {
+          "key": "ServerMaxPlayerLevel",
+          "appliesWhen": "applied",
+          "description": "Sent on the session update this apply triggers, so new joins are checked against it at once. Players already connected are not re-checked or removed."
+        },
+        {
+          "key": "ServerImageURL",
+          "appliesWhen": "pending",
+          "description": "Fetched and validated off-thread before the banner is advertised."
+        }
+      ]
+    },
+    {
+      "section": "/Script/Engine.GameSession",
+      "appliesWhen": "next-restart",
+      "description": "Player slot count. Not applied to a running server by choice, so a change takes effect on restart.",
+      "allowedKeys": [
+        "MaxPlayers"
+      ],
+      "keyOverrides": []
+    },
+    {
+      "section": "/Script/WDGame.WDGameStateSession",
+      "appliesWhen": "next-match",
+      "description": "Team balance rules. The running match keeps its current values; the config values are read when a match starts.",
+      "allowedKeys": [
+        "bLockOverpopulatedTeamsConfig",
+        "OverpopulatedTeamThresholdConfig"
+      ],
+      "keyOverrides": []
+    },
+    {
+      "section": "/Script/WDGame.WDServerMapRotationSettings",
+      "appliesWhen": "applied",
+      "description": "Map rotation order and mode. Rebuilt immediately; used from the next map change.",
+      "allowedKeys": [
+        "bEnabled",
+        "RotationEntries",
+        "RotationMode"
+      ],
+      "keyOverrides": []
+    },
+    {
+      "section": "MatchState.Playing.KOTH",
+      "appliesWhen": "next-match",
+      "description": "KOTH scoring. The match in progress keeps its current values; scoring cadence never changes mid-round.",
+      "allowedKeys": [
+        "ScorePeriod"
+      ],
+      "keyOverrides": []
+    },
+    {
+      "section": "MatchState.PreMatch.WaitingForPlayers.PlayerCount",
+      "appliesWhen": "next-match",
+      "description": "Minimum players before a match starts. Read when the next pre-match begins.",
+      "allowedKeys": [
+        "MinimumRequiredPlayers"
+      ],
+      "keyOverrides": []
+    },
+    {
+      "section": "/Script/WDRCON.WDRCONSettings",
+      "appliesWhen": "next-restart",
+      "description": "RCON listener. Written now, read at startup.",
+      "allowedKeys": [
+        "AllowedOrigins",
+        "bEnabled",
+        "BindAddress",
+        "bWriteAuditLogFile",
+        "Password",
+        "PasswordHash",
+        "Port"
+      ],
+      "keyOverrides": []
+    },
+    {
+      "section": "WDServerFeed",
+      "appliesWhen": "next-restart",
+      "description": "Kill-event feed endpoint and its ingest token. Written now, read at startup.",
+      "allowedKeys": [
+        "Token",
+        "Url"
+      ],
+      "keyOverrides": []
+    }
+  ]
+}

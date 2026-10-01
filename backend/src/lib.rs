@@ -57,6 +57,7 @@ pub mod list_sync;
 pub mod live;
 pub mod match_feed;
 pub mod migrations;
+pub mod mockgame;
 pub mod model;
 pub mod model_features;
 pub mod model_http;

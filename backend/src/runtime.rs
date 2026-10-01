@@ -14,6 +14,7 @@ pub struct Runtime {
     pub stop: CancellationToken,
     pub events: broadcast::Sender<Value>,
     pub poller: Mutex<Value>,
+    pub demo: Mutex<HashMap<String, crate::mockgame::DemoState>>,
     settings: Mutex<(serde_json::Map<String, Value>, u64)>,
     interest: Mutex<HashMap<String, Instant>>,
 }
@@ -24,6 +25,7 @@ impl Default for Runtime {
             stop: CancellationToken::new(),
             events: broadcast::channel(4096).0,
             poller: Mutex::new(Value::Null),
+            demo: Mutex::new(HashMap::new()),
             settings: Mutex::new((crate::settings::defaults(), 0)),
             interest: Mutex::new(HashMap::new()),
         }

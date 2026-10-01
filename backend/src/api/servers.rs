@@ -47,7 +47,7 @@ pub async fn accessible(state: &AppState, actor: &Actor, org: Option<&str>) -> R
         } else {
             sqlx::query_scalar::<_,String>("SELECT r.name FROM server_grants g JOIN org_roles r ON r.id=g.role_id WHERE g.server_id=$1 AND g.user_id=$2").bind(id).bind(&actor.id).fetch_optional(&state.db).await?.unwrap_or_default()
         };
-        result.push(json!({"id":id,"orgId":scope.org_id,"orgName":row["org_name"],"name":row["name"],"host":if scope.manager{row["host"].clone()}else{json!("")},"port":if scope.manager{row["port"].clone()}else{json!(0)},"scheme":if scope.manager{row["scheme"].clone()}else{json!("http")},"notes":if scope.manager{row["notes"].clone()}else{json!("")},"roleName":role,"caps":scope.caps,"manager":scope.manager,"sortOrder":row["sort_order"],"demo":row["host"]=="demo"&&std::env::var("ALLOW_DEMO_SERVER").is_ok_and(|v|v!="false"&&v!="0"),"publicStatus":row["public_status"],"publicLeaderboards":row["public_leaderboards"],"publicKills":row["public_kills"],"allowPublicStatus":row["allow_public_status"],"allowPublicLeaderboards":row["allow_public_leaderboards"]}));
+        result.push(json!({"id":id,"orgId":scope.org_id,"orgName":row["org_name"],"name":row["name"],"host":if scope.manager{row["host"].clone()}else{json!("")},"port":if scope.manager{row["port"].clone()}else{json!(0)},"scheme":if scope.manager{row["scheme"].clone()}else{json!("http")},"notes":if scope.manager{row["notes"].clone()}else{json!("")},"roleName":role,"caps":scope.caps,"manager":scope.manager,"sortOrder":row["sort_order"],"demo":crate::mockgame::is_demo(row["host"].as_str().unwrap_or("")),"publicStatus":row["public_status"],"publicLeaderboards":row["public_leaderboards"],"publicKills":row["public_kills"],"allowPublicStatus":row["allow_public_status"],"allowPublicLeaderboards":row["allow_public_leaderboards"]}));
     }
     Ok(result)
 }
@@ -129,17 +129,23 @@ async fn target(actor: &Actor, body: &Value, current: Option<&Value>) -> Result<
                 "Changing the host, port or scheme needs the RCON password again.",
             ));
         }
-        let allowed = tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            rcon::resolve_target(
-                row["host"].as_str().unwrap(),
-                row["port"].as_u64().unwrap() as u16,
-                row["scheme"].as_str().unwrap(),
-                actor.owner,
-            ),
-        )
-        .await;
-        if !allowed.is_ok_and(|r| r.is_ok()) {
+        let demo = crate::mockgame::is_demo(row["host"].as_str().unwrap_or(""));
+        let allowed = if demo {
+            true
+        } else {
+            tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                rcon::resolve_target(
+                    row["host"].as_str().unwrap(),
+                    row["port"].as_u64().unwrap() as u16,
+                    row["scheme"].as_str().unwrap(),
+                    actor.owner,
+                ),
+            )
+            .await
+            .is_ok_and(|r| r.is_ok())
+        };
+        if !allowed {
             return Err(ApiError::new(
                 StatusCode::BAD_REQUEST,
                 "blocked_host",

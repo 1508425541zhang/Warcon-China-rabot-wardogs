@@ -94,7 +94,7 @@ pub async fn app(c: &mut Context) -> Result<Value> {
             .await?;
     let account = c.get("/api/identity/account").await?;
     Ok(
-        json!({"user":session["user"],"orgs":orgs,"scope":scope,"canManage":a.owner||orgs.iter().any(|o|o["role"]=="owner"&&o["suspended"]==false),"canCreateOrg":left.is_null()||left.as_i64().is_some_and(|v|v>0),"servers":servers,"demoAllowed":std::env::var("ALLOW_DEMO_SERVER").is_ok_and(|v|v=="true"||v=="1"),"enrolment":account["status"],"authPolicy":account["policy"],"steamLookup":std::env::var("STEAM_API_KEY").is_ok_and(|v|!v.is_empty())}),
+        json!({"user":session["user"],"orgs":orgs,"scope":scope,"canManage":a.owner||orgs.iter().any(|o|o["role"]=="owner"&&o["suspended"]==false),"canCreateOrg":left.is_null()||left.as_i64().is_some_and(|v|v>0),"servers":servers,"demoAllowed":crate::mockgame::enabled(),"enrolment":account["status"],"authPolicy":account["policy"],"steamLookup":std::env::var("STEAM_API_KEY").is_ok_and(|v|!v.is_empty())}),
     )
 }
 pub async fn load(c: &mut Context) -> Result<Value> {

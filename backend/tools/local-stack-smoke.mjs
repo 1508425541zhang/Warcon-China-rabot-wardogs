@@ -13,7 +13,13 @@ const dbUrl = new URL(url);
 dbUrl.pathname = '/' + database;
 const native = process.env.SMOKE_BIN_DIR || resolve(root, 'backend/target-native/debug');
 const suffix = process.platform === 'win32' ? '.exe' : '';
-const origin = 'http://127.0.0.1:4312';
+const basePort = Number(process.env.SMOKE_BASE_PORT || 4310);
+assert.ok(Number.isInteger(basePort) && basePort > 1024 && basePort < 65532);
+const apiPort = basePort,
+	workerPort = basePort + 1,
+	frontendPort = basePort + 2,
+	modelPort = basePort + 3;
+const origin = `http://127.0.0.1:${frontendPort}`;
 const env = {
 	...process.env,
 	DATABASE_URL: dbUrl.href,
@@ -23,12 +29,12 @@ const env = {
 	RUST_FRONTEND_TOKEN: randomBytes(32).toString('hex'),
 	RELAY_SECRET: randomBytes(32).toString('hex'),
 	METRICS_TOKEN: randomBytes(32).toString('hex'),
-	RUST_BACKEND_BIND: '127.0.0.1:4310',
-	RUST_BACKEND_URL: 'http://127.0.0.1:4310',
-	RUST_WORKER_BIND: '127.0.0.1:4311',
-	RELAY_URL: 'http://127.0.0.1:4311',
+	RUST_BACKEND_BIND: `127.0.0.1:${apiPort}`,
+	RUST_BACKEND_URL: `http://127.0.0.1:${apiPort}`,
+	RUST_WORKER_BIND: `127.0.0.1:${workerPort}`,
+	RELAY_URL: `http://127.0.0.1:${workerPort}`,
 	HOST: '127.0.0.1',
-	PORT: '4312',
+	PORT: String(frontendPort),
 	STEAM_API_KEY: '',
 	WARCON_SHORT_RISK_ENABLED: '0',
 	SHORT_RISK_MODEL_PATH: resolve(root, 'services/short-risk/artifacts-rust/isolation.json')
@@ -99,10 +105,10 @@ try {
 	assert.equal(migration.status, 0, migration.stderr);
 	checks.push('native SQL migrations');
 	start(join(native, 'warcon-worker' + suffix), [], { RELAY_URL: '' });
-	await ready('http://127.0.0.1:4311/health');
+	await ready(`http://127.0.0.1:${workerPort}/health`);
 	checks.push('native Worker lease and relay health');
 	start(join(native, 'warcon-api' + suffix), []);
-	await ready('http://127.0.0.1:4310/api/health');
+	await ready(`http://127.0.0.1:${apiPort}/api/health`);
 	start(process.execPath, ['build/index.js']);
 	await ready(origin + '/sign-in');
 	let response = await fetch(origin + '/sign-in', { redirect: 'manual' });
@@ -173,7 +179,7 @@ try {
 	assert.ok(updated.worker.settingsVersion > health.worker.settingsVersion);
 	response = await fetch(origin + '/metrics');
 	assert.equal(response.status, 401);
-	for (const base of [origin, 'http://127.0.0.1:4311']) {
+	for (const base of [origin, `http://127.0.0.1:${workerPort}`]) {
 		response = await fetch(base + '/metrics', {
 			headers: { authorization: 'Bearer ' + env.METRICS_TOKEN }
 		});
@@ -241,10 +247,10 @@ try {
 		MODEL_DATABASE_URL: dbUrl.href,
 		MODEL_API_TOKEN: modelToken,
 		MODEL_HOST: '127.0.0.1',
-		MODEL_PORT: '4313'
+		MODEL_PORT: String(modelPort)
 	});
-	await ready('http://127.0.0.1:4313/v1/health');
-	response = await fetch('http://127.0.0.1:4313/v1/health', {
+	await ready(`http://127.0.0.1:${modelPort}/v1/health`);
+	response = await fetch(`http://127.0.0.1:${modelPort}/v1/health`, {
 		headers: { authorization: 'Bearer ' + modelToken }
 	});
 	assert.equal(response.status, 200);

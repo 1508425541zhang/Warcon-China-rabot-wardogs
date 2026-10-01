@@ -17,7 +17,7 @@ COPY backend ./backend
 COPY --from=presentation-metadata /app/backend/assets/ ./backend/assets/
 COPY services/integrity-model-bun ./services/integrity-model-bun
 COPY services/short-risk/artifacts-rust ./services/short-risk/artifacts-rust
-RUN cargo build --manifest-path backend/Cargo.toml --locked --release --bins
+RUN cargo build --manifest-path backend/Cargo.toml --locked --release --bins --jobs 2
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libssl3 libgcc-s1 && rm -rf /var/lib/apt/lists/* && useradd --uid 10001 --create-home warcon
